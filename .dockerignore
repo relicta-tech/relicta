@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+bin/
+dist/
+release-pilot
+
+# Test files and coverage
+*.test
+coverage.out
+coverage.html
+*.coverprofile
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# CI/CD configuration
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Development configuration
+.golangci.yaml
+.goreleaser.yaml
+.air.toml
+Makefile
+
+# Release Pilot state
+.release-pilot/
+
+# Test fixtures
+test/
+*_test.go
+
+# Temporary files
+tmp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files (don't include docker config in docker build)
+docker-compose*.yml
+Dockerfile*
+!Dockerfile

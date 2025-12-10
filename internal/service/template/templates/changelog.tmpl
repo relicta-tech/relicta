@@ -1,0 +1,43 @@
+{{- /* Changelog template for ReleasePilot */ -}}
+## [{{ formatVersion .Version }}] - {{ dateISO .Date }}
+{{ if .Changes.HasBreakingChanges }}
+### ⚠ BREAKING CHANGES
+{{ range .Changes.Breaking }}
+* {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if .BreakingDescription }} - {{ .BreakingDescription }}{{ end }} ({{ .Commit.ShortHash }})
+{{- end }}
+{{ end }}
+{{- if .Changes.Features }}
+### Features
+{{ range .Changes.Features }}
+{{- if not .Breaking }}
+* {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if $.RepositoryURL }} ([{{ .Commit.ShortHash }}]({{ $.RepositoryURL }}/commit/{{ .Commit.Hash }})){{ else }} ({{ .Commit.ShortHash }}){{ end }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if .Changes.Fixes }}
+### Bug Fixes
+{{ range .Changes.Fixes }}
+{{- if not .Breaking }}
+* {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if $.RepositoryURL }} ([{{ .Commit.ShortHash }}]({{ $.RepositoryURL }}/commit/{{ .Commit.Hash }})){{ else }} ({{ .Commit.ShortHash }}){{ end }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if .Changes.Performance }}
+### Performance Improvements
+{{ range .Changes.Performance }}
+{{- if not .Breaking }}
+* {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if $.RepositoryURL }} ([{{ .Commit.ShortHash }}]({{ $.RepositoryURL }}/commit/{{ .Commit.Hash }})){{ else }} ({{ .Commit.ShortHash }}){{ end }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if .Changes.Refactoring }}
+### Code Refactoring
+{{ range .Changes.Refactoring }}
+{{- if not .Breaking }}
+* {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if $.RepositoryURL }} ([{{ .Commit.ShortHash }}]({{ $.RepositoryURL }}/commit/{{ .Commit.Hash }})){{ else }} ({{ .Commit.ShortHash }}){{ end }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if and .CompareURL .PreviousVersion }}
+[{{ formatVersion .Version }}]: {{ .CompareURL }}
+{{- end }}

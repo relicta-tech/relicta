@@ -1,0 +1,246 @@
+# GoReleaser configuration for ReleasePilot
+# https://goreleaser.com/customization/
+
+version: 2
+
+project_name: release-pilot
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  # Main CLI binary
+  - id: release-pilot
+    main: ./cmd/release-pilot
+    binary: release-pilot
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+  # GitHub plugin
+  - id: release-pilot-github
+    main: ./plugins/github
+    binary: release-pilot-github
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+  # npm plugin
+  - id: release-pilot-npm
+    main: ./plugins/npm
+    binary: release-pilot-npm
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+  # Slack plugin
+  - id: release-pilot-slack
+    main: ./plugins/slack
+    binary: release-pilot-slack
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: default
+    builds:
+      - release-pilot
+      - release-pilot-github
+      - release-pilot-npm
+      - release-pilot-slack
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "Performance Improvements"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Refactoring"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "Other"
+      order: 999
+
+release:
+  github:
+    owner: felixgeelhaar
+    name: release-pilot
+  draft: false
+  prerelease: auto
+  mode: append
+  header: |
+    ## ReleasePilot {{ .Tag }}
+
+    AI-powered release management for modern software teams.
+  footer: |
+    **Full Changelog**: https://github.com/felixgeelhaar/release-pilot/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ### Installation
+
+    ```bash
+    # macOS (Apple Silicon)
+    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Darwin_arm64.tar.gz | tar xz
+
+    # macOS (Intel)
+    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Darwin_x86_64.tar.gz | tar xz
+
+    # Linux (amd64)
+    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Linux_x86_64.tar.gz | tar xz
+    ```
+
+brews:
+  - name: release-pilot
+    repository:
+      owner: felixgeelhaar
+      name: homebrew-tap
+    folder: Formula
+    homepage: https://github.com/felixgeelhaar/release-pilot
+    description: AI-powered release management CLI
+    license: MIT
+    skip_upload: auto
+    test: |
+      system "#{bin}/release-pilot", "--version"
+    install: |
+      bin.install "release-pilot"
+      bin.install "release-pilot-github"
+      bin.install "release-pilot-npm"
+      bin.install "release-pilot-slack"
+
+nfpms:
+  - id: packages
+    package_name: release-pilot
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Felix Geelhaar
+    homepage: https://github.com/felixgeelhaar/release-pilot
+    maintainer: Felix Geelhaar <felix@geelhaar.dev>
+    description: AI-powered release management CLI
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    contents:
+      - src: ./release-pilot-github
+        dst: /usr/bin/release-pilot-github
+      - src: ./release-pilot-npm
+        dst: /usr/bin/release-pilot-npm
+      - src: ./release-pilot-slack
+        dst: /usr/bin/release-pilot-slack
+
+dockers:
+  - image_templates:
+      - "ghcr.io/felixgeelhaar/release-pilot:{{ .Tag }}"
+      - "ghcr.io/felixgeelhaar/release-pilot:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=AI-powered release management CLI"
+      - "--label=org.opencontainers.image.url=https://github.com/felixgeelhaar/release-pilot"
+      - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/release-pilot"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum

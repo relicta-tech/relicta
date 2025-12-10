@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package plugin;
+
+option go_package = "github.com/felixgeelhaar/release-pilot/internal/plugin/proto";
+
+// Plugin is the main plugin service.
+service Plugin {
+  // GetInfo returns plugin metadata.
+  rpc GetInfo(Empty) returns (PluginInfo);
+
+  // Execute runs the plugin for a given hook.
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+
+  // Validate validates the plugin configuration.
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+}
+
+// Empty is an empty message for requests that don't need input.
+message Empty {}
+
+// PluginInfo contains metadata about the plugin.
+message PluginInfo {
+  // name is the plugin name.
+  string name = 1;
+  // version is the plugin version.
+  string version = 2;
+  // description is a short description of the plugin.
+  string description = 3;
+  // author is the plugin author.
+  string author = 4;
+  // hooks lists the hooks this plugin supports.
+  repeated string hooks = 5;
+  // config_schema is a JSON schema for the plugin configuration.
+  string config_schema = 6;
+}
+
+// Hook represents a hook type in the release workflow.
+enum Hook {
+  HOOK_UNSPECIFIED = 0;
+  HOOK_PRE_INIT = 1;
+  HOOK_POST_INIT = 2;
+  HOOK_PRE_PLAN = 3;
+  HOOK_POST_PLAN = 4;
+  HOOK_PRE_VERSION = 5;
+  HOOK_POST_VERSION = 6;
+  HOOK_PRE_NOTES = 7;
+  HOOK_POST_NOTES = 8;
+  HOOK_PRE_APPROVE = 9;
+  HOOK_POST_APPROVE = 10;
+  HOOK_PRE_PUBLISH = 11;
+  HOOK_POST_PUBLISH = 12;
+  HOOK_ON_SUCCESS = 13;
+  HOOK_ON_ERROR = 14;
+}
+
+// ExecuteRequest is the request for executing a plugin hook.
+message ExecuteRequest {
+  // hook is the hook being executed.
+  Hook hook = 1;
+  // config is the plugin-specific configuration as JSON.
+  string config = 2;
+  // context contains the release context.
+  ReleaseContext context = 3;
+  // dry_run indicates if this is a dry run.
+  bool dry_run = 4;
+}
+
+// ExecuteResponse is the response from plugin execution.
+message ExecuteResponse {
+  // success indicates if the execution was successful.
+  bool success = 1;
+  // message is an optional message about the execution.
+  string message = 2;
+  // error is the error message if execution failed.
+  string error = 3;
+  // outputs contains any outputs from the plugin as JSON.
+  string outputs = 4;
+  // artifacts lists any artifacts created by the plugin.
+  repeated Artifact artifacts = 5;
+}
+
+// ReleaseContext contains information about the current release.
+message ReleaseContext {
+  // version is the release version (e.g., "1.2.3").
+  string version = 1;
+  // previous_version is the previous release version.
+  string previous_version = 2;
+  // tag_name is the full tag name (e.g., "v1.2.3").
+  string tag_name = 3;
+  // release_type is the type of release (major, minor, patch).
+  string release_type = 4;
+  // repository_url is the repository URL.
+  string repository_url = 5;
+  // repository_owner is the repository owner.
+  string repository_owner = 6;
+  // repository_name is the repository name.
+  string repository_name = 7;
+  // branch is the branch being released from.
+  string branch = 8;
+  // commit_sha is the HEAD commit SHA.
+  string commit_sha = 9;
+  // changelog is the generated changelog content.
+  string changelog = 10;
+  // release_notes is the generated release notes.
+  string release_notes = 11;
+  // changes contains the categorized changes.
+  CategorizedChanges changes = 12;
+  // environment contains environment variables (filtered for security).
+  map<string, string> environment = 13;
+}
+
+// CategorizedChanges contains commits grouped by category.
+message CategorizedChanges {
+  // features lists feature commits.
+  repeated ConventionalCommit features = 1;
+  // fixes lists bug fix commits.
+  repeated ConventionalCommit fixes = 2;
+  // breaking lists breaking change commits.
+  repeated ConventionalCommit breaking = 3;
+  // performance lists performance improvement commits.
+  repeated ConventionalCommit performance = 4;
+  // refactor lists refactoring commits.
+  repeated ConventionalCommit refactor = 5;
+  // docs lists documentation commits.
+  repeated ConventionalCommit docs = 6;
+  // other lists other commits.
+  repeated ConventionalCommit other = 7;
+}
+
+// ConventionalCommit represents a parsed conventional commit.
+message ConventionalCommit {
+  // hash is the commit hash.
+  string hash = 1;
+  // type is the commit type (feat, fix, etc.).
+  string type = 2;
+  // scope is the optional scope.
+  string scope = 3;
+  // description is the commit description.
+  string description = 4;
+  // body is the commit body.
+  string body = 5;
+  // breaking indicates if this is a breaking change.
+  bool breaking = 6;
+  // breaking_description is the breaking change description.
+  string breaking_description = 7;
+  // issues lists referenced issues.
+  repeated string issues = 8;
+  // author is the commit author.
+  string author = 9;
+  // date is the commit date.
+  string date = 10;
+}
+
+// Artifact represents a file or resource created by a plugin.
+message Artifact {
+  // name is the artifact name.
+  string name = 1;
+  // path is the artifact path (local file or URL).
+  string path = 2;
+  // type is the artifact type (file, url, etc.).
+  string type = 3;
+  // size is the artifact size in bytes.
+  int64 size = 4;
+  // checksum is the artifact checksum.
+  string checksum = 5;
+}
+
+// ValidateRequest is the request for validating plugin configuration.
+message ValidateRequest {
+  // config is the plugin configuration as JSON.
+  string config = 1;
+}
+
+// ValidateResponse is the response from configuration validation.
+message ValidateResponse {
+  // valid indicates if the configuration is valid.
+  bool valid = 1;
+  // errors lists validation errors.
+  repeated ValidationError errors = 2;
+}
+
+// ValidationError represents a configuration validation error.
+message ValidationError {
+  // field is the field that failed validation.
+  string field = 1;
+  // message is the error message.
+  string message = 2;
+  // code is an optional error code.
+  string code = 3;
+}

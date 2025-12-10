@@ -1,0 +1,64 @@
+{{- /* Release Notes template for ReleasePilot */ -}}
+# Release {{ formatVersion .Version }}
+
+{{ if .Summary }}{{ .Summary }}{{ end }}
+
+{{ if .Highlights }}
+## Highlights
+
+{{ range .Highlights }}
+- {{ . }}
+{{- end }}
+{{ end }}
+
+{{ if .Changes.HasBreakingChanges }}
+## ⚠️ Breaking Changes
+
+{{ range .Changes.Breaking }}
+- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}{{ if .BreakingDescription }}
+
+  {{ .BreakingDescription }}{{ end }}
+{{- end }}
+{{ end }}
+
+{{ if .Changes.Features }}
+## What's New
+
+{{ range .Changes.Features }}
+{{- if not .Breaking }}
+- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}
+{{- end }}
+{{- end }}
+{{ end }}
+
+{{ if .Changes.Fixes }}
+## Bug Fixes
+
+{{ range .Changes.Fixes }}
+- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}
+{{- end }}
+{{ end }}
+
+{{ if .Changes.Performance }}
+## Performance Improvements
+
+{{ range .Changes.Performance }}
+- {{ if .Scope }}**{{ .Scope }}:** {{ end }}{{ .Description }}
+{{- end }}
+{{ end }}
+
+{{ if .Contributors }}
+## Contributors
+
+Thank you to everyone who contributed to this release:
+
+{{ range .Contributors }}
+- {{ . }}
+{{- end }}
+{{ end }}
+
+{{ if .RepositoryURL }}
+---
+
+**Full Changelog**: [{{ if .PreviousVersion }}{{ formatVersion .PreviousVersion }}...{{ end }}{{ formatVersion .Version }}]({{ .RepositoryURL }}/compare/{{ if .PreviousVersion }}v{{ formatVersion .PreviousVersion }}...{{ end }}v{{ formatVersion .Version }})
+{{ end }}

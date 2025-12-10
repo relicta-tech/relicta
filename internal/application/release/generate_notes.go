@@ -1,0 +1,145 @@
+// Package release provides application use cases for release management.
+package release
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+
+	"github.com/felixgeelhaar/release-pilot/internal/domain/communication"
+	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+)
+
+// GenerateNotesInput represents the input for the GenerateNotes use case.
+type GenerateNotesInput struct {
+	ReleaseID        release.ReleaseID
+	UseAI            bool
+	Tone             communication.NoteTone
+	Audience         communication.NoteAudience
+	IncludeChangelog bool
+	RepositoryURL    string
+}
+
+// GenerateNotesOutput represents the output of the GenerateNotes use case.
+type GenerateNotesOutput struct {
+	ReleaseNotes *communication.ReleaseNotes
+	Changelog    *communication.Changelog
+}
+
+// AINotesGenerator defines the interface for AI-based notes generation.
+type AINotesGenerator interface {
+	GenerateReleaseNotes(ctx context.Context, input AIGenerateInput) (*communication.ReleaseNotes, error)
+}
+
+// AIGenerateInput represents input for AI generation.
+type AIGenerateInput struct {
+	ReleaseContext *release.Release
+	Tone           communication.NoteTone
+	Audience       communication.NoteAudience
+}
+
+// GenerateNotesUseCase implements the generate notes use case.
+type GenerateNotesUseCase struct {
+	releaseRepo    release.Repository
+	aiGenerator    AINotesGenerator
+	eventPublisher release.EventPublisher
+	logger         *slog.Logger
+}
+
+// NewGenerateNotesUseCase creates a new GenerateNotesUseCase.
+func NewGenerateNotesUseCase(
+	releaseRepo release.Repository,
+	aiGenerator AINotesGenerator,
+	eventPublisher release.EventPublisher,
+) *GenerateNotesUseCase {
+	return &GenerateNotesUseCase{
+		releaseRepo:    releaseRepo,
+		aiGenerator:    aiGenerator,
+		eventPublisher: eventPublisher,
+		logger:         slog.Default().With("usecase", "generate_notes"),
+	}
+}
+
+// Execute executes the generate notes use case.
+func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotesInput) (*GenerateNotesOutput, error) {
+	// Retrieve release
+	rel, err := uc.releaseRepo.FindByID(ctx, input.ReleaseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find release: %w", err)
+	}
+
+	if rel.Plan() == nil {
+		return nil, release.ErrNilPlan
+	}
+
+	plan := rel.Plan()
+	changeSet := plan.GetChangeSet()
+
+	var notes *communication.ReleaseNotes
+	var changelog *communication.Changelog
+
+	// Generate release notes
+	if input.UseAI && uc.aiGenerator != nil {
+		// Use AI to generate enhanced notes
+		aiInput := AIGenerateInput{
+			ReleaseContext: rel,
+			Tone:           input.Tone,
+			Audience:       input.Audience,
+		}
+		notes, err = uc.aiGenerator.GenerateReleaseNotes(ctx, aiInput)
+		if err != nil {
+			uc.logger.Warn("AI generation failed, falling back to standard generation",
+				"error", err,
+				"release_id", rel.ID())
+			// Fall back to standard generation
+			notes = communication.CreateFromChangeSet(plan.NextVersion, changeSet)
+		}
+	} else {
+		// Standard generation from changeset
+		notes = communication.CreateFromChangeSet(plan.NextVersion, changeSet)
+	}
+
+	// Generate changelog if requested
+	if input.IncludeChangelog {
+		changelog = communication.NewChangelog("Changelog", communication.FormatKeepAChangelog)
+		entry := communication.CreateEntryFromChangeSet(plan.NextVersion, changeSet, input.RepositoryURL)
+		changelog.AddEntry(entry)
+	}
+
+	// Update release with notes
+	var changelogContent string
+	if changelog != nil {
+		changelogContent = changelog.Render()
+	}
+
+	releaseNotes := &release.ReleaseNotes{
+		Changelog:   changelogContent,
+		Summary:     notes.Summary(),
+		AIGenerated: notes.IsAIGenerated(),
+		GeneratedAt: notes.GeneratedAt(),
+	}
+
+	if err := rel.SetNotes(releaseNotes); err != nil {
+		return nil, fmt.Errorf("failed to set release notes: %w", err)
+	}
+
+	// Save release
+	if err := uc.releaseRepo.Save(ctx, rel); err != nil {
+		return nil, fmt.Errorf("failed to save release: %w", err)
+	}
+
+	// Publish domain events
+	if uc.eventPublisher != nil {
+		if err := uc.eventPublisher.Publish(ctx, rel.DomainEvents()...); err != nil {
+			uc.logger.Warn("failed to publish domain events",
+				"error", err,
+				"release_id", rel.ID())
+		}
+		rel.ClearDomainEvents()
+	}
+
+	return &GenerateNotesOutput{
+		ReleaseNotes: notes,
+		Changelog:    changelog,
+	}, nil
+}
