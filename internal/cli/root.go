@@ -273,7 +273,7 @@ func initConfig() error {
 // Cleanup closes any open resources. Should be called before program exit.
 func Cleanup() {
 	if logFile != nil {
-		logFile.Close()
+		_ = logFile.Close() // Error on cleanup is logged but not propagated
 		logFile = nil
 	}
 }

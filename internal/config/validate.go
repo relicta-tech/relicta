@@ -258,8 +258,15 @@ func (v *Validator) validateGitHubPlugin(index int, config map[string]any) {
 		return
 	}
 
-	// Token is required (either in config or env)
-	// Note: GitHub token validation is optional - user might set it via environment
+	// Validate owner and repo if provided
+	if owner, ok := config["owner"].(string); ok && owner == "" {
+		v.errors.Addf("plugins[%d].config.owner: cannot be empty", index)
+	}
+	if repo, ok := config["repo"].(string); ok && repo == "" {
+		v.errors.Addf("plugins[%d].config.repo: cannot be empty", index)
+	}
+
+	// Token validation is optional - user might set it via GITHUB_TOKEN environment variable
 }
 
 // validateNPMPlugin validates npm plugin configuration.
