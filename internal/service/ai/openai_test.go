@@ -363,6 +363,8 @@ func TestNoopService_Methods(t *testing.T) {
 }
 
 func TestOpenAIKeyPattern(t *testing.T) {
+	// Note: These are FAKE test keys used to validate the key pattern matching logic.
+	// They are not real OpenAI API keys and have no authentication value.
 	tests := []struct {
 		name  string
 		key   string
@@ -370,7 +372,7 @@ func TestOpenAIKeyPattern(t *testing.T) {
 	}{
 		{"valid standard key", "sk-1234567890abcdef1234567890abcdef", true},
 		{"valid project key", "sk-proj-1234567890abcdef1234567890abcdef", true},
-		{"valid long key", "sk-abcdefghij1234567890ABCDEFGHIJ1234567890", true},
+		{"valid long key", "sk-abcdefghij1234567890ABCDEFGHIJ1234567890", true}, // pragma: allowlist secret
 		{"valid with dashes", "sk-12345678901234567890-abcdef", true},
 		{"valid with underscores", "sk-12345678901234567890_abcdef", true},
 		{"invalid no prefix", "1234567890abcdef1234567890abcdef", false},
