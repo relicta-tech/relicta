@@ -448,7 +448,7 @@ func TestOllamaService_CheckConnection_Failure(t *testing.T) {
 	}
 }
 
-func TestIsConnectionError(t *testing.T) {
+func TestIsRetryableError(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
@@ -460,13 +460,19 @@ func TestIsConnectionError(t *testing.T) {
 		{"network unreachable", mockError("network is unreachable"), true},
 		{"connection reset", mockError("connection reset"), true},
 		{"i/o timeout", mockError("i/o timeout"), true},
-		{"other error", mockError("some other error"), false},
+		{"rate limit exceeded", mockError("rate limit exceeded"), true},
+		{"too many requests", mockError("too many requests"), true},
+		{"server error 500", mockError("500 internal server error"), true},
+		{"bad gateway 502", mockError("502 bad gateway"), true},
+		{"unauthorized 401", mockError("401 unauthorized"), false},
+		{"bad request 400", mockError("400 bad request"), false},
+		{"other error", mockError("some other error"), true}, // Unknown errors are retried by default
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isConnectionError(tt.err); got != tt.want {
-				t.Errorf("isConnectionError() = %v, want %v", got, tt.want)
+			if got := isRetryableError(tt.err); got != tt.want {
+				t.Errorf("isRetryableError() = %v, want %v", got, tt.want)
 			}
 		})
 	}

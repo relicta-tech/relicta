@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.0
+	github.com/felixgeelhaar/fortify v1.1.1
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/google/go-github/v60 v60.0.0
 	github.com/hashicorp/go-hclog v1.6.3
@@ -20,8 +21,8 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.33.0
-	golang.org/x/sync v0.18.0
-	golang.org/x/text v0.31.0
+	golang.org/x/sync v0.19.0
+	golang.org/x/text v0.32.0
 	google.golang.org/grpc v1.77.0
 	gopkg.in/yaml.v3 v3.0.1
 )

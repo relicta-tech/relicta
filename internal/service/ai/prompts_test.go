@@ -384,7 +384,7 @@ func TestFormatChangesForPrompt(t *testing.T) {
 	}
 }
 
-func TestIsConnectionError_AdditionalCases(t *testing.T) {
+func TestIsRetryableError_AdditionalCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -396,14 +396,20 @@ func TestIsConnectionError_AdditionalCases(t *testing.T) {
 		{"network unreachable", &testError{"network is unreachable"}, true},
 		{"connection reset", &testError{"connection reset"}, true},
 		{"i/o timeout", &testError{"i/o timeout"}, true},
-		{"other error", &testError{"something else failed"}, false},
+		{"rate limit exceeded", &testError{"rate limit exceeded"}, true},
+		{"too many requests", &testError{"too many requests"}, true},
+		{"server error", &testError{"500 internal server error"}, true},
+		{"bad gateway", &testError{"502 bad gateway"}, true},
+		{"unauthorized", &testError{"401 unauthorized"}, false},
+		{"bad request", &testError{"400 bad request"}, false},
+		{"other error", &testError{"something else failed"}, true}, // Unknown errors are retried by default
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isConnectionError(tt.err)
+			result := isRetryableError(tt.err)
 			if result != tt.expected {
-				t.Errorf("isConnectionError(%v) = %v, want %v", tt.err, result, tt.expected)
+				t.Errorf("isRetryableError(%v) = %v, want %v", tt.err, result, tt.expected)
 			}
 		})
 	}

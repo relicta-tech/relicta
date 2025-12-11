@@ -5,6 +5,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/liushuangls/go-anthropic/v2"
 
@@ -24,10 +25,10 @@ var anthropicKeyPattern = regexp.MustCompile(`^sk-ant-[a-zA-Z0-9_-]{20,}$`)
 
 // anthropicService implements the AI Service interface using Anthropic Claude.
 type anthropicService struct {
-	client      *anthropic.Client
-	config      ServiceConfig
-	prompts     promptTemplates
-	rateLimiter *RateLimiter
+	client     *anthropic.Client
+	config     ServiceConfig
+	prompts    promptTemplates
+	resilience *Resilience
 }
 
 // NewAnthropicService creates a new Anthropic-based AI service.
@@ -59,11 +60,20 @@ func NewAnthropicService(cfg ServiceConfig) (Service, error) {
 	prompts := newDefaultPromptTemplates()
 	prompts.applyCustomPrompts(cfg.CustomPrompts)
 
+	// Configure resilience patterns with Fortify
+	resilienceCfg := DefaultResilienceConfig()
+	resilienceCfg.RateLimitRPM = cfg.RateLimitRPM
+	resilienceCfg.RetryAttempts = cfg.RetryAttempts
+	if cfg.Timeout > 0 {
+		resilienceCfg.RetryMaxWait = cfg.Timeout
+	}
+	resilienceCfg.RetryInitialWait = 200 * time.Millisecond
+
 	svc := &anthropicService{
-		client:      client,
-		config:      cfg,
-		rateLimiter: NewRateLimiter(cfg.RateLimitRPM),
-		prompts:     prompts,
+		client:     client,
+		config:     cfg,
+		resilience: NewResilience(resilienceCfg),
+		prompts:    prompts,
 	}
 
 	return svc, nil
@@ -124,23 +134,9 @@ func (s *anthropicService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""
 }
 
-// complete sends a completion request to Anthropic.
+// complete sends a completion request to Anthropic using Fortify resilience patterns.
 func (s *anthropicService) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	var lastErr error
-
-	for attempt := 0; attempt <= s.config.RetryAttempts; attempt++ {
-		// Check for context cancellation before each attempt
-		select {
-		case <-ctx.Done():
-			return "", errors.AIWrap(ctx.Err(), "complete", "context canceled")
-		default:
-		}
-
-		// Wait for rate limit token before making request
-		if err := s.rateLimiter.Wait(ctx); err != nil {
-			return "", errors.AIWrap(err, "complete", "rate limiter wait interrupted")
-		}
-
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
 		resp, err := s.client.CreateMessages(
 			ctx,
 			anthropic.MessagesRequest{
@@ -154,20 +150,21 @@ func (s *anthropicService) complete(ctx context.Context, systemPrompt, userPromp
 			},
 		)
 		if err != nil {
-			lastErr = err
-			continue
+			return "", err
 		}
 
 		if len(resp.Content) == 0 {
-			lastErr = errors.AI("complete", "no response from Anthropic model")
-			continue
+			return "", errors.AI("complete", "no response from Anthropic model")
 		}
 
-		// Extract text from response using the helper method
 		return strings.TrimSpace(resp.GetFirstContentText()), nil
+	})
+
+	if err != nil {
+		return "", errors.AIWrapSafe(err, "complete", "failed to generate content")
 	}
 
-	return "", errors.AIWrapSafe(lastErr, "complete", "failed to generate content after retries")
+	return result, nil
 }
 
 // toFloatPtr converts a float64 to a *float32 for the Anthropic API.

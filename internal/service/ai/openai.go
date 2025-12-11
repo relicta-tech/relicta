@@ -5,6 +5,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 
@@ -19,10 +20,10 @@ var openaiKeyPattern = regexp.MustCompile(`^sk-(?:proj-)?[a-zA-Z0-9_-]{20,}$`)
 
 // openAIService implements the AI Service interface using OpenAI.
 type openAIService struct {
-	client      *openai.Client
-	config      ServiceConfig
-	prompts     promptTemplates
-	rateLimiter *RateLimiter
+	client     *openai.Client
+	config     ServiceConfig
+	prompts    promptTemplates
+	resilience *Resilience
 }
 
 // NewOpenAIService creates a new OpenAI-based AI service.
@@ -46,11 +47,21 @@ func NewOpenAIService(cfg ServiceConfig) (Service, error) {
 	prompts := newDefaultPromptTemplates()
 	prompts.applyCustomPrompts(cfg.CustomPrompts)
 
+	// Configure resilience patterns with Fortify
+	resilienceCfg := DefaultResilienceConfig()
+	resilienceCfg.RateLimitRPM = cfg.RateLimitRPM
+	resilienceCfg.RetryAttempts = cfg.RetryAttempts
+	if cfg.Timeout > 0 {
+		resilienceCfg.RetryMaxWait = cfg.Timeout
+	}
+	// Use shorter initial wait for API calls (500ms is too long for fast APIs)
+	resilienceCfg.RetryInitialWait = 200 * time.Millisecond
+
 	svc := &openAIService{
-		client:      client,
-		config:      cfg,
-		rateLimiter: NewRateLimiter(cfg.RateLimitRPM),
-		prompts:     prompts,
+		client:     client,
+		config:     cfg,
+		resilience: NewResilience(resilienceCfg),
+		prompts:    prompts,
 	}
 
 	return svc, nil
@@ -111,23 +122,9 @@ func (s *openAIService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""
 }
 
-// complete sends a completion request to OpenAI.
+// complete sends a completion request to OpenAI using Fortify resilience patterns.
 func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	var lastErr error
-
-	for attempt := 0; attempt <= s.config.RetryAttempts; attempt++ {
-		// Check for context cancellation before each attempt
-		select {
-		case <-ctx.Done():
-			return "", errors.AIWrap(ctx.Err(), "complete", "context canceled")
-		default:
-		}
-
-		// Wait for rate limit token before making request
-		if err := s.rateLimiter.Wait(ctx); err != nil {
-			return "", errors.AIWrap(err, "complete", "rate limiter wait interrupted")
-		}
-
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
 		resp, err := s.client.CreateChatCompletion(
 			ctx,
 			openai.ChatCompletionRequest{
@@ -147,19 +144,21 @@ func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt s
 			},
 		)
 		if err != nil {
-			lastErr = err
-			continue
+			return "", err
 		}
 
 		if len(resp.Choices) == 0 {
-			lastErr = errors.AI("complete", "no response from AI model")
-			continue
+			return "", errors.AI("complete", "no response from AI model")
 		}
 
 		return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+	})
+
+	if err != nil {
+		return "", errors.AIWrapSafe(err, "complete", "failed to generate content")
 	}
 
-	return "", errors.AIWrapSafe(lastErr, "complete", "failed to generate content after retries")
+	return result, nil
 }
 
 // noopService is a no-op implementation used when AI is not configured.

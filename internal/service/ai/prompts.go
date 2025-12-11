@@ -228,19 +228,6 @@ func formatChangesForPrompt(changes *git.CategorizedChanges) string {
 	return sb.String()
 }
 
-// isConnectionError checks if an error is a connection-related error.
-func isConnectionError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "connection refused") ||
-		strings.Contains(errStr, "no such host") ||
-		strings.Contains(errStr, "network is unreachable") ||
-		strings.Contains(errStr, "connection reset") ||
-		strings.Contains(errStr, "i/o timeout")
-}
-
 // Default prompt templates
 
 const defaultChangelogSystemPrompt = `You are a technical writer specializing in software changelogs.

@@ -25,10 +25,10 @@ const (
 
 // ollamaService implements the AI Service interface using Ollama's OpenAI-compatible API.
 type ollamaService struct {
-	client      *openai.Client
-	config      ServiceConfig
-	prompts     promptTemplates
-	rateLimiter *RateLimiter
+	client     *openai.Client
+	config     ServiceConfig
+	prompts    promptTemplates
+	resilience *Resilience
 }
 
 // NewOllamaService creates a new Ollama-based AI service.
@@ -71,11 +71,23 @@ func NewOllamaService(cfg ServiceConfig) (Service, error) {
 	prompts := newDefaultPromptTemplates()
 	prompts.applyCustomPrompts(cfg.CustomPrompts)
 
+	// Configure resilience patterns with Fortify
+	// Ollama is a local service, so we use different defaults
+	resilienceCfg := DefaultResilienceConfig()
+	resilienceCfg.RateLimitRPM = cfg.RateLimitRPM
+	resilienceCfg.RetryAttempts = cfg.RetryAttempts
+	if cfg.Timeout > 0 {
+		resilienceCfg.RetryMaxWait = cfg.Timeout
+	}
+	// Local services need longer initial wait and more aggressive backoff
+	resilienceCfg.RetryInitialWait = 500 * time.Millisecond
+	resilienceCfg.CircuitBreakerThreshold = 3 // Trip faster for local services
+
 	svc := &ollamaService{
-		client:      client,
-		config:      cfg,
-		rateLimiter: NewRateLimiter(cfg.RateLimitRPM),
-		prompts:     prompts,
+		client:     client,
+		config:     cfg,
+		resilience: NewResilience(resilienceCfg),
+		prompts:    prompts,
 	}
 
 	return svc, nil
@@ -166,23 +178,9 @@ func (s *ollamaService) CheckConnection(ctx context.Context) error {
 	return nil
 }
 
-// complete sends a completion request to Ollama.
+// complete sends a completion request to Ollama using Fortify resilience patterns.
 func (s *ollamaService) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
-	var lastErr error
-
-	for attempt := 0; attempt <= s.config.RetryAttempts; attempt++ {
-		// Check for context cancellation before each attempt
-		select {
-		case <-ctx.Done():
-			return "", errors.AIWrap(ctx.Err(), "complete", "context canceled")
-		default:
-		}
-
-		// Wait for rate limit token before making request
-		if err := s.rateLimiter.Wait(ctx); err != nil {
-			return "", errors.AIWrap(err, "complete", "rate limiter wait interrupted")
-		}
-
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
 		resp, err := s.client.CreateChatCompletion(
 			ctx,
 			openai.ChatCompletionRequest{
@@ -202,29 +200,21 @@ func (s *ollamaService) complete(ctx context.Context, systemPrompt, userPrompt s
 			},
 		)
 		if err != nil {
-			lastErr = err
-			// For Ollama, check if it's a connection error that might be transient
-			if isConnectionError(err) && attempt < s.config.RetryAttempts {
-				// Wait before retry with exponential backoff
-				backoff := time.Duration(1<<uint(attempt)) * time.Second
-				select {
-				case <-ctx.Done():
-					return "", errors.AIWrap(ctx.Err(), "complete", "context canceled during retry backoff")
-				case <-time.After(backoff):
-				}
-			}
-			continue
+			return "", err
 		}
 
 		if len(resp.Choices) == 0 {
-			lastErr = errors.AI("complete", "no response from Ollama model")
-			continue
+			return "", errors.AI("complete", "no response from Ollama model")
 		}
 
 		return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+	})
+
+	if err != nil {
+		return "", errors.AIWrapSafe(err, "complete", "failed to generate content (is Ollama running?)")
 	}
 
-	return "", errors.AIWrapSafe(lastErr, "complete", "failed to generate content after retries (is Ollama running?)")
+	return result, nil
 }
 
 // OllamaConnectionChecker provides methods to check Ollama availability.

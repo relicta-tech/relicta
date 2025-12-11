@@ -295,8 +295,8 @@ func TestAnthropicComplete_EmptyResponse(t *testing.T) {
 	}
 }
 
-// TestIsConnectionError_EdgeCases tests additional error patterns
-func TestIsConnectionError_EdgeCases(t *testing.T) {
+// TestIsRetryableError_EdgeCases tests additional error patterns
+func TestIsRetryableError_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -309,17 +309,26 @@ func TestIsConnectionError_EdgeCases(t *testing.T) {
 		{"connection reset by peer", errors.New("connection reset by peer"), true},
 		{"connection reset", errors.New("read: connection reset"), true},
 		{"i/o timeout", errors.New("i/o timeout"), true},
-		{"context deadline", errors.New("context deadline exceeded"), false},
-		{"EOF", errors.New("EOF"), false},
-		{"invalid response", errors.New("invalid response"), false},
-		{"unknown error", errors.New("something went wrong"), false},
+		{"context deadline", context.DeadlineExceeded, false},
+		{"context canceled", context.Canceled, false},
+		{"rate limit 429", errors.New("429 Too Many Requests"), true},
+		{"server error 500", errors.New("500 Internal Server Error"), true},
+		{"bad gateway 502", errors.New("502 Bad Gateway"), true},
+		{"service unavailable 503", errors.New("503 Service Unavailable"), true},
+		{"gateway timeout 504", errors.New("504 Gateway Timeout"), true},
+		{"bad request 400", errors.New("400 Bad Request"), false},
+		{"unauthorized 401", errors.New("401 Unauthorized"), false},
+		{"forbidden 403", errors.New("403 Forbidden"), false},
+		{"not found 404", errors.New("404 Not Found"), false},
+		{"EOF", errors.New("EOF"), true},               // Unknown error, default retry
+		{"invalid response", errors.New("invalid response"), true}, // Unknown error, default retry
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isConnectionError(tt.err)
+			result := isRetryableError(tt.err)
 			if result != tt.expected {
-				t.Errorf("isConnectionError(%v) = %v, want %v", tt.err, result, tt.expected)
+				t.Errorf("isRetryableError(%v) = %v, want %v", tt.err, result, tt.expected)
 			}
 		})
 	}
