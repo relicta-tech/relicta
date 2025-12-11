@@ -210,8 +210,36 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Update release state if there's an active release
+	if err := updateReleaseVersion(ctx, dddContainer, nextVersion); err != nil {
+		// Not fatal - just means there's no release to update
+		// This can happen when bump is run standalone
+	}
+
 	printBumpNextSteps()
 	return nil
+}
+
+// updateReleaseVersion updates the active release with the bumped version.
+func updateReleaseVersion(ctx context.Context, dddContainer *container.DDDContainer, ver version.SemanticVersion) error {
+	gitAdapter := dddContainer.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return err
+	}
+
+	releaseRepo := dddContainer.ReleaseRepository()
+	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
+	if err != nil {
+		return err
+	}
+
+	tagName := cfg.Versioning.TagPrefix + ver.String()
+	if err := rel.SetVersion(ver, tagName); err != nil {
+		return err
+	}
+
+	return releaseRepo.Save(ctx, rel)
 }
 
 // outputBumpJSON outputs the version bump as JSON.
