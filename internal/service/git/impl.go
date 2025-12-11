@@ -18,6 +18,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 
 	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
 )
@@ -73,10 +74,24 @@ func NewService(opts ...ServiceOption) (*ServiceImpl, error) {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to get worktree")
 	}
 
+	// Initialize authentication if token is provided
+	var auth transport.AuthMethod
+	if cfg.AuthToken != "" {
+		username := cfg.AuthUsername
+		if username == "" {
+			username = "git" // Default for GitHub token auth
+		}
+		auth = &http.BasicAuth{
+			Username: username,
+			Password: cfg.AuthToken,
+		}
+	}
+
 	return &ServiceImpl{
 		cfg:      cfg,
 		repo:     repo,
 		worktree: worktree,
+		auth:     auth,
 	}, nil
 }
 
@@ -557,7 +572,50 @@ func (s *ServiceImpl) PushTag(_ context.Context, name string, opts PushOptions) 
 		Force:      opts.Force,
 	})
 	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-		return rperrors.GitWrap(err, op, fmt.Sprintf("failed to push tag %s", name))
+		// Only try CLI fallback if enabled and git CLI is available
+		if s.cfg.UseCLIFallback && isGitCLIAvailable() {
+			// Fallback to git CLI for authentication compatibility
+			// go-git doesn't support credential helpers (issue #28)
+			// which are commonly used for GitHub authentication
+			if fallbackErr := s.pushTagFallback(name, remote, opts.Force); fallbackErr != nil {
+				// Return the original go-git error if fallback also fails
+				return rperrors.GitWrap(err, op, fmt.Sprintf("failed to push tag %s (CLI fallback also failed: %v)", name, fallbackErr))
+			}
+			return nil
+		}
+		// No fallback available, return the original error with helpful message
+		return rperrors.GitWrap(err, op, fmt.Sprintf("failed to push tag %s. "+
+			"If using GitHub, ensure you have configured authentication via: "+
+			"1) git.auth.token in config, 2) GITHUB_TOKEN env var, or 3) git credential helper", name))
+	}
+
+	return nil
+}
+
+// isGitCLIAvailable checks if the git CLI is available on the system.
+var isGitCLIAvailable = func() bool {
+	_, err := exec.LookPath("git")
+	return err == nil
+}
+
+// pushTagFallback uses git CLI to push a tag when go-git fails.
+// This is needed because go-git doesn't support credential helpers.
+func (s *ServiceImpl) pushTagFallback(name, remote string, force bool) error {
+	repoRoot, err := s.GetRepositoryRoot(context.Background())
+	if err != nil {
+		return err
+	}
+
+	args := []string{"push", remote, fmt.Sprintf("refs/tags/%s", name)}
+	if force {
+		args = append(args, "--force")
+	}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git push failed: %w\noutput: %s", err, string(output))
 	}
 
 	return nil

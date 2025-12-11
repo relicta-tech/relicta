@@ -9,6 +9,8 @@ import (
 type Config struct {
 	// Versioning configures version management.
 	Versioning VersioningConfig `mapstructure:"versioning" json:"versioning"`
+	// Git configures git operations and authentication.
+	Git GitConfig `mapstructure:"git" json:"git"`
 	// Changelog configures changelog generation.
 	Changelog ChangelogConfig `mapstructure:"changelog" json:"changelog"`
 	// AI configures AI integration.
@@ -43,6 +45,46 @@ type VersioningConfig struct {
 	BumpFrom string `mapstructure:"bump_from" json:"bump_from"`
 	// VersionFile is the file to update with the new version (if BumpFrom is "file").
 	VersionFile string `mapstructure:"version_file" json:"version_file,omitempty"`
+}
+
+// GitConfig configures git operations and authentication.
+type GitConfig struct {
+	// DefaultRemote is the default remote name (default: "origin").
+	DefaultRemote string `mapstructure:"default_remote" json:"default_remote,omitempty"`
+	// UseCLIFallback enables falling back to git CLI when go-git fails.
+	// This is useful for authentication with credential helpers (default: true).
+	UseCLIFallback *bool `mapstructure:"use_cli_fallback" json:"use_cli_fallback,omitempty"`
+	// Auth configures git authentication.
+	Auth GitAuthConfig `mapstructure:"auth" json:"auth,omitempty"`
+}
+
+// GitAuthConfig configures git authentication.
+type GitAuthConfig struct {
+	// Type is the authentication type: "auto" (default), "token", "ssh", "basic".
+	// "auto" uses system credential helpers via git CLI fallback.
+	// "token" uses a personal access token for HTTPS authentication.
+	// "ssh" uses SSH key authentication.
+	// "basic" uses username/password authentication.
+	Type string `mapstructure:"type" json:"type,omitempty"`
+	// Token is the personal access token for HTTPS auth (can use env var expansion).
+	// Used when Type is "token" or for GitHub/GitLab APIs.
+	Token string `mapstructure:"token" json:"token,omitempty"`
+	// Username is the username for basic auth.
+	Username string `mapstructure:"username" json:"username,omitempty"`
+	// Password is the password for basic auth (can use env var expansion).
+	Password string `mapstructure:"password" json:"password,omitempty"`
+	// SSHKeyPath is the path to the SSH private key file.
+	SSHKeyPath string `mapstructure:"ssh_key_path" json:"ssh_key_path,omitempty"`
+	// SSHKeyPassword is the password for the SSH key (can use env var expansion).
+	SSHKeyPassword string `mapstructure:"ssh_key_password" json:"ssh_key_password,omitempty"`
+}
+
+// UseCLI returns whether to use CLI fallback (defaults to true).
+func (g *GitConfig) UseCLI() bool {
+	if g.UseCLIFallback == nil {
+		return true
+	}
+	return *g.UseCLIFallback
 }
 
 // ChangelogConfig configures changelog generation.
@@ -228,6 +270,7 @@ type MetricsConfig struct {
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	enabled := true
+	useCLIFallback := true
 	return &Config{
 		Versioning: VersioningConfig{
 			Strategy:  "conventional",
@@ -236,6 +279,13 @@ func DefaultConfig() *Config {
 			GitPush:   true,
 			GitSign:   false,
 			BumpFrom:  "tag",
+		},
+		Git: GitConfig{
+			DefaultRemote:  "origin",
+			UseCLIFallback: &useCLIFallback,
+			Auth: GitAuthConfig{
+				Type: "auto", // Use system credential helpers via git CLI
+			},
 		},
 		Changelog: ChangelogConfig{
 			File:              "CHANGELOG.md",

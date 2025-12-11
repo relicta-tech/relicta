@@ -222,14 +222,24 @@ type ServiceConfig struct {
 	GPGSign bool
 	// GPGKeyID is the GPG key ID to use for signing.
 	GPGKeyID string
+	// UseCLIFallback enables falling back to git CLI when go-git fails.
+	// This is useful for authentication with credential helpers.
+	UseCLIFallback bool
+	// AuthToken is an optional authentication token for HTTPS push.
+	// When set, this is used instead of relying on credential helpers.
+	AuthToken string
+	// AuthUsername is the username for token auth (default: "git" for GitHub).
+	AuthUsername string
 }
 
 // DefaultServiceConfig returns the default service configuration.
 func DefaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
-		RepoPath:      ".",
-		DefaultRemote: "origin",
-		GPGSign:       false,
+		RepoPath:       ".",
+		DefaultRemote:  "origin",
+		GPGSign:        false,
+		UseCLIFallback: true, // Default to using CLI fallback for better compatibility
+		AuthUsername:   "git", // Default for GitHub token auth
 	}
 }
 
@@ -255,5 +265,26 @@ func WithGPGSign(keyID string) ServiceOption {
 	return func(cfg *ServiceConfig) {
 		cfg.GPGSign = true
 		cfg.GPGKeyID = keyID
+	}
+}
+
+// WithCLIFallback sets whether to use CLI fallback.
+func WithCLIFallback(enabled bool) ServiceOption {
+	return func(cfg *ServiceConfig) {
+		cfg.UseCLIFallback = enabled
+	}
+}
+
+// WithAuthToken sets the authentication token for HTTPS push.
+func WithAuthToken(token string) ServiceOption {
+	return func(cfg *ServiceConfig) {
+		cfg.AuthToken = token
+	}
+}
+
+// WithAuthUsername sets the username for token auth.
+func WithAuthUsername(username string) ServiceOption {
+	return func(cfg *ServiceConfig) {
+		cfg.AuthUsername = username
 	}
 }
