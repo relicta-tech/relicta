@@ -55,12 +55,36 @@ type releaseDTO struct {
 }
 
 type planDTO struct {
-	CurrentVersion string `json:"current_version"`
-	NextVersion    string `json:"next_version"`
-	ReleaseType    string `json:"release_type"`
-	CommitCount    int    `json:"commit_count"`
-	ChangeSetID    string `json:"changeset_id,omitempty"`
-	DryRun         bool   `json:"dry_run"`
+	CurrentVersion string        `json:"current_version"`
+	NextVersion    string        `json:"next_version"`
+	ReleaseType    string        `json:"release_type"`
+	CommitCount    int           `json:"commit_count"`
+	ChangeSetID    string        `json:"changeset_id,omitempty"`
+	ChangeSet      *changeSetDTO `json:"changeset,omitempty"`
+	DryRun         bool          `json:"dry_run"`
+}
+
+type changeSetDTO struct {
+	ID        string          `json:"id"`
+	FromRef   string          `json:"from_ref"`
+	ToRef     string          `json:"to_ref"`
+	Commits   []*commitDTO    `json:"commits"`
+	CreatedAt string          `json:"created_at"`
+}
+
+type commitDTO struct {
+	Hash        string `json:"hash"`
+	Type        string `json:"type"`
+	Scope       string `json:"scope,omitempty"`
+	Subject     string `json:"subject"`
+	Body        string `json:"body,omitempty"`
+	Footer      string `json:"footer,omitempty"`
+	Breaking    bool   `json:"breaking,omitempty"`
+	BreakingMsg string `json:"breaking_msg,omitempty"`
+	Author      string `json:"author,omitempty"`
+	AuthorEmail string `json:"author_email,omitempty"`
+	Date        string `json:"date,omitempty"`
+	RawMessage  string `json:"raw_message,omitempty"`
 }
 
 type versionDTO struct {
@@ -425,6 +449,35 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 			ChangeSetID:    string(plan.ChangeSetID),
 			DryRun:         plan.DryRun,
 		}
+
+		// Serialize the changeset if available
+		if cs := plan.GetChangeSet(); cs != nil {
+			commits := cs.Commits()
+			commitDTOs := make([]*commitDTO, 0, len(commits))
+			for _, c := range commits {
+				commitDTOs = append(commitDTOs, &commitDTO{
+					Hash:        c.Hash(),
+					Type:        string(c.Type()),
+					Scope:       c.Scope(),
+					Subject:     c.Subject(),
+					Body:        c.Body(),
+					Footer:      c.Footer(),
+					Breaking:    c.IsBreaking(),
+					BreakingMsg: c.BreakingMessage(),
+					Author:      c.Author(),
+					AuthorEmail: c.AuthorEmail(),
+					Date:        c.Date().Format(time.RFC3339),
+					RawMessage:  c.RawMessage(),
+				})
+			}
+			dto.Plan.ChangeSet = &changeSetDTO{
+				ID:        string(cs.ID()),
+				FromRef:   cs.FromRef(),
+				ToRef:     cs.ToRef(),
+				Commits:   commitDTOs,
+				CreatedAt: cs.CreatedAt().Format(time.RFC3339),
+			}
+		}
 	}
 
 	if rel.Version() != nil {
@@ -504,10 +557,50 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse release type: %w", err)
 		}
-		// Create plan with nil changeset - the ChangeSetID is preserved for reference
-		// The full changeset can be loaded separately if needed via a ChangeSetRepository
-		plan = release.NewReleasePlan(currentVer, nextVer, releaseType, nil, dto.Plan.DryRun)
-		// Restore the original ChangeSetID from persisted data
+
+		// Reconstruct changeset if available
+		var changeSet *changes.ChangeSet
+		if dto.Plan.ChangeSet != nil {
+			csDTO := dto.Plan.ChangeSet
+			changeSet = changes.NewChangeSet(
+				changes.ChangeSetID(csDTO.ID),
+				csDTO.FromRef,
+				csDTO.ToRef,
+			)
+
+			// Reconstruct commits
+			for _, cDTO := range csDTO.Commits {
+				commitType, _ := changes.ParseCommitType(cDTO.Type)
+
+				// Build options for optional fields
+				opts := []changes.ConventionalCommitOption{
+					changes.WithScope(cDTO.Scope),
+					changes.WithBody(cDTO.Body),
+					changes.WithFooter(cDTO.Footer),
+					changes.WithAuthor(cDTO.Author, cDTO.AuthorEmail),
+				}
+
+				if cDTO.Breaking {
+					opts = append(opts, changes.WithBreaking(cDTO.BreakingMsg))
+				}
+
+				if cDTO.Date != "" {
+					if t, err := time.Parse(time.RFC3339, cDTO.Date); err == nil {
+						opts = append(opts, changes.WithDate(t))
+					}
+				}
+
+				if cDTO.RawMessage != "" {
+					opts = append(opts, changes.WithRawMessage(cDTO.RawMessage))
+				}
+
+				commit := changes.NewConventionalCommit(cDTO.Hash, commitType, cDTO.Subject, opts...)
+				changeSet.AddCommit(commit)
+			}
+		}
+
+		plan = release.NewReleasePlan(currentVer, nextVer, releaseType, changeSet, dto.Plan.DryRun)
+		// Restore the original ChangeSetID from persisted data (if different or nil changeset)
 		if dto.Plan.ChangeSetID != "" {
 			plan.ChangeSetID = changes.ChangeSetID(dto.Plan.ChangeSetID)
 		}

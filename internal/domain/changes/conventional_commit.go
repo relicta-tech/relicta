@@ -78,6 +78,13 @@ func WithDate(date time.Time) ConventionalCommitOption {
 	}
 }
 
+// WithRawMessage sets the original raw commit message.
+func WithRawMessage(msg string) ConventionalCommitOption {
+	return func(c *ConventionalCommit) {
+		c.rawMessage = msg
+	}
+}
+
 // NewConventionalCommit creates a new ConventionalCommit entity.
 func NewConventionalCommit(hash string, commitType CommitType, subject string, opts ...ConventionalCommitOption) *ConventionalCommit {
 	c := &ConventionalCommit{
