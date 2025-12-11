@@ -12,6 +12,9 @@ run:
 formatters:
   enable:
     - gofmt
+  settings:
+    gofmt:
+      simplify: true
 
 linters:
   enable:
@@ -46,11 +49,7 @@ linters:
     - nolintlint        # Disabled until other linters are fixed
     - govet             # TODO: Re-enable after fixing shadow issues
 
-formatters.settings:
-  gofmt:
-    simplify: true
-
-linters.settings:
+  settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
