@@ -320,7 +320,7 @@ func TestIsRetryableError_EdgeCases(t *testing.T) {
 		{"unauthorized 401", errors.New("401 Unauthorized"), false},
 		{"forbidden 403", errors.New("403 Forbidden"), false},
 		{"not found 404", errors.New("404 Not Found"), false},
-		{"EOF", errors.New("EOF"), true},               // Unknown error, default retry
+		{"EOF", errors.New("EOF"), true},                           // Unknown error, default retry
 		{"invalid response", errors.New("invalid response"), true}, // Unknown error, default retry
 	}
 

@@ -43,9 +43,6 @@ linters:
     - ireturn           # Interfaces are fine to return
     - nonamedreturns    # Named returns are useful in some cases
     - wsl               # Too opinionated
-    - exportloopref     # Deprecated since Go 1.22
-    - gomnd             # Deprecated, replaced by mnd
-    - tenv              # Deprecated, replaced by usetesting
     - gosec             # TODO: Re-enable and fix security issues
     - errcheck          # TODO: Re-enable and fix unchecked errors
     - errorlint         # TODO: Re-enable and fix error wrapping

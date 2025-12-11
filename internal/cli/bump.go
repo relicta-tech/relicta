@@ -211,10 +211,9 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update release state if there's an active release
-	if err := updateReleaseVersion(ctx, dddContainer, nextVersion); err != nil {
-		// Not fatal - just means there's no release to update
-		// This can happen when bump is run standalone
-	}
+	// Not fatal if it fails - just means there's no release to update
+	// This can happen when bump is run standalone
+	_ = updateReleaseVersion(ctx, dddContainer, nextVersion)
 
 	printBumpNextSteps()
 	return nil

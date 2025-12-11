@@ -238,7 +238,7 @@ func DefaultServiceConfig() ServiceConfig {
 		RepoPath:       ".",
 		DefaultRemote:  "origin",
 		GPGSign:        false,
-		UseCLIFallback: true, // Default to using CLI fallback for better compatibility
+		UseCLIFallback: true,  // Default to using CLI fallback for better compatibility
 		AuthUsername:   "git", // Default for GitHub token auth
 	}
 }

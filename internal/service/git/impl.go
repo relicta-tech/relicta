@@ -197,27 +197,25 @@ func (s *ServiceImpl) fetchRepositoryInfo(ctx context.Context) (*RepositoryInfo,
 }
 
 // IsClean returns true if the working tree has no uncommitted changes.
-func (s *ServiceImpl) IsClean(_ context.Context) (bool, error) {
-	const op = "git.IsClean"
-
+func (s *ServiceImpl) IsClean(ctx context.Context) (bool, error) {
 	status, err := s.worktree.Status()
 	if err != nil {
 		// Fallback to git CLI for compatibility with newer git index formats
 		// (go-git has issues with index version 4 and certain extensions)
-		return s.isCleanFallback()
+		return s.isCleanFallback(ctx)
 	}
 
 	return status.IsClean(), nil
 }
 
 // isCleanFallback uses git CLI to check working tree status when go-git fails.
-func (s *ServiceImpl) isCleanFallback() (bool, error) {
-	repoRoot, err := s.GetRepositoryRoot(context.Background())
+func (s *ServiceImpl) isCleanFallback(ctx context.Context) (bool, error) {
+	repoRoot, err := s.GetRepositoryRoot(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
 	cmd.Dir = repoRoot
 	output, err := cmd.Output()
 	if err != nil {
@@ -551,7 +549,7 @@ func (s *ServiceImpl) DeleteTag(_ context.Context, name string) error {
 }
 
 // PushTag pushes a tag to the remote.
-func (s *ServiceImpl) PushTag(_ context.Context, name string, opts PushOptions) error {
+func (s *ServiceImpl) PushTag(ctx context.Context, name string, opts PushOptions) error {
 	const op = "git.PushTag"
 
 	if opts.DryRun {
@@ -577,7 +575,7 @@ func (s *ServiceImpl) PushTag(_ context.Context, name string, opts PushOptions) 
 			// Fallback to git CLI for authentication compatibility
 			// go-git doesn't support credential helpers (issue #28)
 			// which are commonly used for GitHub authentication
-			if fallbackErr := s.pushTagFallback(name, remote, opts.Force); fallbackErr != nil {
+			if fallbackErr := s.pushTagFallback(ctx, name, remote, opts.Force); fallbackErr != nil {
 				// Return the original go-git error if fallback also fails
 				return rperrors.GitWrap(err, op, fmt.Sprintf("failed to push tag %s (CLI fallback also failed: %v)", name, fallbackErr))
 			}
@@ -600,8 +598,8 @@ var isGitCLIAvailable = func() bool {
 
 // pushTagFallback uses git CLI to push a tag when go-git fails.
 // This is needed because go-git doesn't support credential helpers.
-func (s *ServiceImpl) pushTagFallback(name, remote string, force bool) error {
-	repoRoot, err := s.GetRepositoryRoot(context.Background())
+func (s *ServiceImpl) pushTagFallback(ctx context.Context, name, remote string, force bool) error {
+	repoRoot, err := s.GetRepositoryRoot(ctx)
 	if err != nil {
 		return err
 	}
@@ -611,7 +609,7 @@ func (s *ServiceImpl) pushTagFallback(name, remote string, force bool) error {
 		args = append(args, "--force")
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = repoRoot
 	output, err := cmd.CombinedOutput()
 	if err != nil {

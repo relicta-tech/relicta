@@ -65,11 +65,11 @@ type planDTO struct {
 }
 
 type changeSetDTO struct {
-	ID        string          `json:"id"`
-	FromRef   string          `json:"from_ref"`
-	ToRef     string          `json:"to_ref"`
-	Commits   []*commitDTO    `json:"commits"`
-	CreatedAt string          `json:"created_at"`
+	ID        string       `json:"id"`
+	FromRef   string       `json:"from_ref"`
+	ToRef     string       `json:"to_ref"`
+	Commits   []*commitDTO `json:"commits"`
+	CreatedAt string       `json:"created_at"`
 }
 
 type commitDTO struct {
