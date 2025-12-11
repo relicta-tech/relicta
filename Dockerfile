@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o release-pilot ./cmd/release-pilot
 
 # Final stage - minimal image for production
-FROM alpine:3.19
+FROM alpine:3.23
 
 # Labels for container metadata
 LABEL org.opencontainers.image.title="ReleasePilot"
