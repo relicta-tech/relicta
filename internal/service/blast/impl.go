@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/service/git"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
+
+	"github.com/felixgeelhaar/release-pilot/internal/service/git"
 )
 
 // Package-level file categorization maps for efficient lookups.

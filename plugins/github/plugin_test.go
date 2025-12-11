@@ -12,8 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
 	"github.com/google/go-github/v60/github"
+
+	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
 )
 
 // TestGitHubPlugin_GetInfo tests the plugin info retrieval.

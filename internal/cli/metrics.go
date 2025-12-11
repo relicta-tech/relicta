@@ -11,8 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/observability"
 	"github.com/spf13/cobra"
+
+	"github.com/felixgeelhaar/release-pilot/internal/observability"
 )
 
 var (

@@ -109,22 +109,22 @@ type DebControlData struct {
 
 // RPMSpecData contains data for RPM spec file.
 type RPMSpecData struct {
-	Name         string
-	Version      string
-	Release      string
-	Summary      string
-	License      string
-	URL          string
-	BuildArch    string
-	Requires     string
-	Conflicts    string
-	Description  string
-	InstallPath  string
-	BinaryName   string
-	PreInst      string
-	PostInst     string
-	PreRm        string
-	PostRm       string
+	Name        string
+	Version     string
+	Release     string
+	Summary     string
+	License     string
+	URL         string
+	BuildArch   string
+	Requires    string
+	Conflicts   string
+	Description string
+	InstallPath string
+	BinaryName  string
+	PreInst     string
+	PostInst    string
+	PreRm       string
+	PostRm      string
 }
 
 // Debian control file template.
@@ -560,9 +560,10 @@ func (p *LinuxPkgPlugin) buildRPMPackage(ctx context.Context, cfg *Config, versi
 // generateRPMSpec generates the RPM spec file.
 func (p *LinuxPkgPlugin) generateRPMSpec(cfg *Config, version, path string) error {
 	arch := cfg.Architecture
-	if arch == "" {
+	switch arch {
+	case "":
 		arch = "x86_64"
-	} else if arch == "amd64" {
+	case "amd64":
 		arch = "x86_64"
 	}
 

@@ -322,11 +322,11 @@ func (s *ServiceImpl) resolveDateString(opts ChangelogOptions) string {
 func (s *ServiceImpl) writeChangelogHeader(sb *strings.Builder, version, date, format string) {
 	switch format {
 	case "keep-a-changelog":
-		sb.WriteString(fmt.Sprintf("## [%s] - %s\n\n", version, date))
+		fmt.Fprintf(sb, "## [%s] - %s\n\n", version, date)
 	case "conventional":
-		sb.WriteString(fmt.Sprintf("# %s (%s)\n\n", version, date))
+		fmt.Fprintf(sb, "# %s (%s)\n\n", version, date)
 	default:
-		sb.WriteString(fmt.Sprintf("## %s - %s\n\n", version, date))
+		fmt.Fprintf(sb, "## %s - %s\n\n", version, date)
 	}
 }
 
@@ -376,7 +376,7 @@ func (s *ServiceImpl) writeCategorySection(sb *strings.Builder, cat changelogCat
 	}
 
 	displayName := s.getCategoryDisplayName(cat, opts)
-	sb.WriteString(fmt.Sprintf("### %s\n\n", displayName))
+	fmt.Fprintf(sb, "### %s\n\n", displayName)
 
 	for _, commit := range cat.commits {
 		if commit.Breaking {
@@ -428,7 +428,7 @@ func (s *ServiceImpl) hasNonExcludedOtherChanges(other []git.ConventionalCommit,
 // writeCompareURL writes the compare URL if available.
 func (s *ServiceImpl) writeCompareURL(sb *strings.Builder, version string, opts ChangelogOptions) {
 	if opts.CompareURL != "" && opts.PreviousVersion != nil {
-		sb.WriteString(fmt.Sprintf("[%s]: %s\n", version, opts.CompareURL))
+		fmt.Fprintf(sb, "[%s]: %s\n", version, opts.CompareURL)
 	}
 }
 
@@ -439,7 +439,7 @@ func (s *ServiceImpl) writeChangelogEntry(sb *strings.Builder, commit git.Conven
 
 	// Scope
 	if commit.Scope != "" {
-		sb.WriteString(fmt.Sprintf("**%s:** ", commit.Scope))
+		fmt.Fprintf(sb, "**%s:** ", commit.Scope)
 	}
 
 	// Description
@@ -449,15 +449,15 @@ func (s *ServiceImpl) writeChangelogEntry(sb *strings.Builder, commit git.Conven
 	if opts.IncludeCommitHash {
 		hash := commit.Commit.ShortHash
 		if opts.LinkCommits && opts.RepositoryURL != "" {
-			sb.WriteString(fmt.Sprintf(" ([%s](%s/commit/%s))", hash, opts.RepositoryURL, commit.Commit.Hash))
+			fmt.Fprintf(sb, " ([%s](%s/commit/%s))", hash, opts.RepositoryURL, commit.Commit.Hash)
 		} else {
-			sb.WriteString(fmt.Sprintf(" (%s)", hash))
+			fmt.Fprintf(sb, " (%s)", hash)
 		}
 	}
 
 	// Author
 	if opts.IncludeAuthor {
-		sb.WriteString(fmt.Sprintf(" - %s", commit.Commit.Author.Name))
+		fmt.Fprintf(sb, " - %s", commit.Commit.Author.Name)
 	}
 
 	// Issue references
@@ -465,9 +465,9 @@ func (s *ServiceImpl) writeChangelogEntry(sb *strings.Builder, commit git.Conven
 		for _, ref := range commit.References {
 			if opts.IssueURL != "" {
 				issueURL := strings.ReplaceAll(opts.IssueURL, "{id}", ref.ID)
-				sb.WriteString(fmt.Sprintf(", [#%s](%s)", ref.ID, issueURL))
+				fmt.Fprintf(sb, ", [#%s](%s)", ref.ID, issueURL)
 			} else if opts.RepositoryURL != "" {
-				sb.WriteString(fmt.Sprintf(", [#%s](%s/issues/%s)", ref.ID, opts.RepositoryURL, ref.ID))
+				fmt.Fprintf(sb, ", [#%s](%s/issues/%s)", ref.ID, opts.RepositoryURL, ref.ID)
 			}
 		}
 	}

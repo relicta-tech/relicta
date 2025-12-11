@@ -10,9 +10,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
 )
 
 // Shared HTTP client for connection reuse across requests.
