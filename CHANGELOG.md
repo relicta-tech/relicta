@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-12-11
+
+### Features
+
+- persist changeset with release state for notes generation (28ff8f4)
+
+### Bug Fixes
+
+- update release state after version bump (5ff7ddf)
+- add git CLI fallback for working tree status check (4c1cc12)
+
+
 ## [Unreleased]
 
 ### Added

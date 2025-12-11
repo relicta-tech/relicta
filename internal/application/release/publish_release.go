@@ -200,6 +200,21 @@ func (uc *PublishReleaseUseCase) executeGitTagPhase(
 		return nil
 	}
 
+	// Check if tag already exists (may have been created by bump command)
+	existingTag, _ := uc.gitRepo.GetTag(ctx, tagName)
+	if existingTag != nil {
+		uc.logger.Info("tag already exists, skipping creation",
+			"tag", tagName,
+			"release_id", rel.ID())
+		// Tag exists, just push if needed
+		if input.PushTag {
+			if err := uc.pushTag(ctx, rel, tagName, input.Remote); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	latestCommit, err := uc.gitRepo.GetLatestCommit(ctx, rel.Branch())
 	if err != nil {
 		uc.markReleaseFailed(rel, fmt.Sprintf("failed to get latest commit: %v", err))
