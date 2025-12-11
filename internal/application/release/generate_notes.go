@@ -107,9 +107,11 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	}
 
 	// Update release with notes
+	// Use RenderEntries() to get just the version entry without the "# Changelog" header
+	// This is important because when updating an existing file, we don't want duplicate headers
 	var changelogContent string
 	if changelog != nil {
-		changelogContent = changelog.Render()
+		changelogContent = changelog.RenderEntries()
 	}
 
 	releaseNotes := &release.ReleaseNotes{

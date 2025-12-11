@@ -185,7 +185,7 @@ func CreateEntryFromChangeSet(ver version.SemanticVersion, cs *changes.ChangeSet
 	return entry
 }
 
-// Render renders the changelog to a string.
+// Render renders the changelog to a string including header.
 func (c *Changelog) Render() string {
 	var sb strings.Builder
 	// Pre-allocate estimated size: header + description + entries
@@ -218,6 +218,34 @@ func (c *Changelog) Render() string {
 	}
 
 	return sb.String()
+}
+
+// RenderEntries renders only the changelog entries without the header.
+// Use this when inserting into an existing changelog file.
+func (c *Changelog) RenderEntries() string {
+	var sb strings.Builder
+	// Pre-allocate estimated size for entries only
+	estimatedSize := 0
+	for _, entry := range c.entries {
+		estimatedSize += 100 + len(entry.Version.String())
+		for _, section := range entry.Sections {
+			estimatedSize += 50 + len(section.Title)
+			for _, item := range section.Items {
+				estimatedSize += len(item.Description) + 10
+			}
+		}
+	}
+	sb.Grow(estimatedSize)
+
+	// Entries only, no header
+	for i, entry := range c.entries {
+		c.renderEntry(&sb, entry)
+		if i < len(c.entries)-1 {
+			sb.WriteString("\n")
+		}
+	}
+
+	return strings.TrimSuffix(sb.String(), "\n")
 }
 
 // renderEntry renders a single changelog entry.

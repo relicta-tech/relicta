@@ -406,3 +406,66 @@ func TestChangelog_Render_MultipleEntries(t *testing.T) {
 		t.Error("2.0.0 should appear before 1.0.0 in rendered output")
 	}
 }
+
+func TestChangelog_RenderEntries_NoHeader(t *testing.T) {
+	cl := NewChangelog("Changelog", FormatKeepAChangelog)
+
+	entry := ChangelogEntry{
+		Version: version.MustParse("1.0.0"),
+		Date:    time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		Sections: []ChangelogSection{
+			{
+				Title: "Features",
+				Items: []ChangelogItem{
+					{Description: "New feature", CommitHash: "abc1234"},
+				},
+			},
+		},
+	}
+
+	cl.AddEntry(entry)
+
+	// RenderEntries should NOT include the "# Changelog" header
+	rendered := cl.RenderEntries()
+
+	if strings.Contains(rendered, "# Changelog") {
+		t.Error("RenderEntries should not include '# Changelog' header")
+	}
+
+	if !strings.Contains(rendered, "## [1.0.0]") {
+		t.Error("RenderEntries should include version entry")
+	}
+
+	if !strings.Contains(rendered, "New feature") {
+		t.Error("RenderEntries should include features")
+	}
+}
+
+func TestChangelog_RenderEntries_VsRender(t *testing.T) {
+	cl := NewChangelog("Changelog", FormatSimple)
+
+	entry := ChangelogEntry{
+		Version: version.MustParse("1.0.0"),
+		Date:    time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	cl.AddEntry(entry)
+
+	// Render() should include header
+	full := cl.Render()
+	if !strings.HasPrefix(full, "# Changelog") {
+		t.Error("Render() should start with '# Changelog'")
+	}
+
+	// RenderEntries() should NOT include header (starts with "# " for h1)
+	// but it WILL start with "## " for h2 version entries
+	entries := cl.RenderEntries()
+	if strings.HasPrefix(entries, "# ") && !strings.HasPrefix(entries, "## ") {
+		t.Error("RenderEntries() should not start with '# ' (h1 header)")
+	}
+
+	// Both should contain the version entry
+	if !strings.Contains(full, "## [1.0.0]") || !strings.Contains(entries, "## [1.0.0]") {
+		t.Error("Both should contain the version entry")
+	}
+}

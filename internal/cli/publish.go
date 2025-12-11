@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -205,42 +206,81 @@ func runPublish(cmd *cobra.Command, args []string) error {
 
 // updateChangelogFile updates the changelog file with new content.
 func updateChangelogFile(filename, newContent string) error {
+	// Strip any "# Changelog" header from the new content if present
+	// This handles cases where the content was generated with a header
+	newContent = stripChangelogHeader(newContent)
+
 	// Read existing content
 	existingContent := ""
 	if data, err := os.ReadFile(filename); err == nil {
 		existingContent = string(data)
 	}
 
-	// Find insertion point (after header, before first version)
-	// For keep-a-changelog format, we insert after "## [Unreleased]" or at the beginning
 	var finalContent string
 
 	if existingContent == "" {
-		// New file
-		finalContent = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n" + newContent
+		// New file - create with standard header
+		finalContent = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n" + newContent + "\n"
 	} else {
-		// Insert new content after the header
-		// Simple approach: find "## [" and insert before it
-		insertPoint := 0
-		lines := []byte(existingContent)
-
-		// Skip past header lines
-		for i := 0; i < len(lines); i++ {
-			if i+4 < len(lines) && string(lines[i:i+4]) == "## [" {
-				insertPoint = i
-				break
-			}
-		}
+		// Find the first version entry (## [x.y.z] or ## [Unreleased])
+		// Insert new content before it
+		insertPoint := findVersionEntryPoint(existingContent)
 
 		if insertPoint > 0 {
 			finalContent = existingContent[:insertPoint] + newContent + "\n\n" + existingContent[insertPoint:]
 		} else {
-			// Append at end if no insertion point found
-			finalContent = existingContent + "\n\n" + newContent
+			// No existing version entries found, append after header
+			finalContent = existingContent + "\n\n" + newContent + "\n"
 		}
 	}
 
 	return os.WriteFile(filename, []byte(finalContent), 0o644)
+}
+
+// stripChangelogHeader removes any "# Changelog" header from the content.
+func stripChangelogHeader(content string) string {
+	lines := strings.Split(content, "\n")
+	startIdx := 0
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Skip "# Changelog" or similar headers
+		if strings.HasPrefix(trimmed, "# ") && strings.Contains(strings.ToLower(trimmed), "changelog") {
+			startIdx = i + 1
+			continue
+		}
+		// Skip empty lines after the header
+		if startIdx > 0 && trimmed == "" && i == startIdx {
+			startIdx = i + 1
+			continue
+		}
+		// Found actual content
+		if trimmed != "" {
+			break
+		}
+	}
+
+	if startIdx > 0 && startIdx < len(lines) {
+		return strings.Join(lines[startIdx:], "\n")
+	}
+	return content
+}
+
+// findVersionEntryPoint finds the byte position of the first version entry in the changelog.
+func findVersionEntryPoint(content string) int {
+	lines := strings.Split(content, "\n")
+	pos := 0
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Look for version entries: "## [x.y.z]" or "## [Unreleased]"
+		if strings.HasPrefix(trimmed, "## [") {
+			return pos
+		}
+		pos += len(line) + 1 // +1 for newline
+	}
+
+	return 0
 }
 
 // outputPublishJSON outputs the publish information as JSON.
