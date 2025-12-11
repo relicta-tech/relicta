@@ -32,7 +32,6 @@ linters:
     - errname
     - goprintffuncname
     - misspell
-    - noctx
     - predeclared
     - rowserrcheck
     - sqlclosecheck

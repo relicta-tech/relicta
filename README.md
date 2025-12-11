@@ -1,3 +1,7 @@
+<div align="center">
+  <img src=".github/assets/logo.png" alt="ReleasePilot Logo" width="200"/>
+</div>
+
 # ReleasePilot
 
 AI-powered release management CLI for software projects using conventional commits.
