@@ -180,7 +180,6 @@ brews:
     repository:
       owner: felixgeelhaar
       name: homebrew-tap
-    folder: Formula
     homepage: https://github.com/felixgeelhaar/release-pilot
     description: AI-powered release management CLI
     license: MIT
