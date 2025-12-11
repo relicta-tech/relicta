@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/felixgeelhaar/release-pilot/internal/plugin/manager"
