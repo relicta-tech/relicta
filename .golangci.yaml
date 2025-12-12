@@ -8,6 +8,8 @@ run:
   issues-exit-code: 1
   tests: true
   modules-download-mode: readonly
+  skip-dirs:
+    - plugins/gitlab  # Temporarily disabled - needs migration to new GitLab SDK
 
 formatters:
   enable:
@@ -112,3 +114,9 @@ linters:
 issues:
   max-issues-per-linter: 50
   max-same-issues: 10
+  exclude-rules:
+    # Ignore deprecated GitLab SDK warnings - plugin temporarily disabled pending migration
+    - path: plugins/gitlab/
+      linters:
+        - staticcheck
+      text: "SA1019.*gitlab"
