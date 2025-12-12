@@ -8,7 +8,7 @@ versioning:
 changelog:
   enabled: true
   file: CHANGELOG.md
-  format: markdown
+  format: conventional  # Use conventional commit format
   sections:
     - title: "🚀 New Features"
       types: ["feat"]
@@ -21,7 +21,7 @@ changelog:
 
 plugins:
   # GitHub plugin handles release creation and asset uploads
-  github:
+  - name: github
     enabled: true
     config:
       # owner and repo detected from git remote automatically

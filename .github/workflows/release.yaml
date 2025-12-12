@@ -53,6 +53,9 @@ jobs:
           # Plan the release
           release-pilot plan
 
+          # Bump version
+          release-pilot bump
+
           # Generate release notes
           release-pilot notes
 
