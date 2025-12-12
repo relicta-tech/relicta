@@ -4,30 +4,31 @@ import (
 	"context"
 	"testing"
 
+	"github.com/felixgeelhaar/release-pilot/internal/plugin/proto"
 	"google.golang.org/grpc"
 )
 
 func TestProtoHookToHook(t *testing.T) {
 	tests := []struct {
 		name      string
-		protoHook HookProto
+		protoHook proto.Hook
 		want      Hook
 	}{
-		{"pre_init", HookProto_HOOK_PRE_INIT, HookPreInit},
-		{"post_init", HookProto_HOOK_POST_INIT, HookPostInit},
-		{"pre_plan", HookProto_HOOK_PRE_PLAN, HookPrePlan},
-		{"post_plan", HookProto_HOOK_POST_PLAN, HookPostPlan},
-		{"pre_version", HookProto_HOOK_PRE_VERSION, HookPreVersion},
-		{"post_version", HookProto_HOOK_POST_VERSION, HookPostVersion},
-		{"pre_notes", HookProto_HOOK_PRE_NOTES, HookPreNotes},
-		{"post_notes", HookProto_HOOK_POST_NOTES, HookPostNotes},
-		{"pre_approve", HookProto_HOOK_PRE_APPROVE, HookPreApprove},
-		{"post_approve", HookProto_HOOK_POST_APPROVE, HookPostApprove},
-		{"pre_publish", HookProto_HOOK_PRE_PUBLISH, HookPrePublish},
-		{"post_publish", HookProto_HOOK_POST_PUBLISH, HookPostPublish},
-		{"on_success", HookProto_HOOK_ON_SUCCESS, HookOnSuccess},
-		{"on_error", HookProto_HOOK_ON_ERROR, HookOnError},
-		{"unspecified", HookProto_HOOK_UNSPECIFIED, ""},
+		{"pre_init", proto.Hook_HOOK_PRE_INIT, HookPreInit},
+		{"post_init", proto.Hook_HOOK_POST_INIT, HookPostInit},
+		{"pre_plan", proto.Hook_HOOK_PRE_PLAN, HookPrePlan},
+		{"post_plan", proto.Hook_HOOK_POST_PLAN, HookPostPlan},
+		{"pre_version", proto.Hook_HOOK_PRE_VERSION, HookPreVersion},
+		{"post_version", proto.Hook_HOOK_POST_VERSION, HookPostVersion},
+		{"pre_notes", proto.Hook_HOOK_PRE_NOTES, HookPreNotes},
+		{"post_notes", proto.Hook_HOOK_POST_NOTES, HookPostNotes},
+		{"pre_approve", proto.Hook_HOOK_PRE_APPROVE, HookPreApprove},
+		{"post_approve", proto.Hook_HOOK_POST_APPROVE, HookPostApprove},
+		{"pre_publish", proto.Hook_HOOK_PRE_PUBLISH, HookPrePublish},
+		{"post_publish", proto.Hook_HOOK_POST_PUBLISH, HookPostPublish},
+		{"on_success", proto.Hook_HOOK_ON_SUCCESS, HookOnSuccess},
+		{"on_error", proto.Hook_HOOK_ON_ERROR, HookOnError},
+		{"unspecified", proto.Hook_HOOK_UNSPECIFIED, ""},
 	}
 
 	for _, tt := range tests {
@@ -44,23 +45,23 @@ func TestHookToProtoHook(t *testing.T) {
 	tests := []struct {
 		name string
 		hook Hook
-		want HookProto
+		want proto.Hook
 	}{
-		{"pre_init", HookPreInit, HookProto_HOOK_PRE_INIT},
-		{"post_init", HookPostInit, HookProto_HOOK_POST_INIT},
-		{"pre_plan", HookPrePlan, HookProto_HOOK_PRE_PLAN},
-		{"post_plan", HookPostPlan, HookProto_HOOK_POST_PLAN},
-		{"pre_version", HookPreVersion, HookProto_HOOK_PRE_VERSION},
-		{"post_version", HookPostVersion, HookProto_HOOK_POST_VERSION},
-		{"pre_notes", HookPreNotes, HookProto_HOOK_PRE_NOTES},
-		{"post_notes", HookPostNotes, HookProto_HOOK_POST_NOTES},
-		{"pre_approve", HookPreApprove, HookProto_HOOK_PRE_APPROVE},
-		{"post_approve", HookPostApprove, HookProto_HOOK_POST_APPROVE},
-		{"pre_publish", HookPrePublish, HookProto_HOOK_PRE_PUBLISH},
-		{"post_publish", HookPostPublish, HookProto_HOOK_POST_PUBLISH},
-		{"on_success", HookOnSuccess, HookProto_HOOK_ON_SUCCESS},
-		{"on_error", HookOnError, HookProto_HOOK_ON_ERROR},
-		{"unknown", Hook("unknown"), HookProto_HOOK_UNSPECIFIED},
+		{"pre_init", HookPreInit, proto.Hook_HOOK_PRE_INIT},
+		{"post_init", HookPostInit, proto.Hook_HOOK_POST_INIT},
+		{"pre_plan", HookPrePlan, proto.Hook_HOOK_PRE_PLAN},
+		{"post_plan", HookPostPlan, proto.Hook_HOOK_POST_PLAN},
+		{"pre_version", HookPreVersion, proto.Hook_HOOK_PRE_VERSION},
+		{"post_version", HookPostVersion, proto.Hook_HOOK_POST_VERSION},
+		{"pre_notes", HookPreNotes, proto.Hook_HOOK_PRE_NOTES},
+		{"post_notes", HookPostNotes, proto.Hook_HOOK_POST_NOTES},
+		{"pre_approve", HookPreApprove, proto.Hook_HOOK_PRE_APPROVE},
+		{"post_approve", HookPostApprove, proto.Hook_HOOK_POST_APPROVE},
+		{"pre_publish", HookPrePublish, proto.Hook_HOOK_PRE_PUBLISH},
+		{"post_publish", HookPostPublish, proto.Hook_HOOK_POST_PUBLISH},
+		{"on_success", HookOnSuccess, proto.Hook_HOOK_ON_SUCCESS},
+		{"on_error", HookOnError, proto.Hook_HOOK_ON_ERROR},
+		{"unknown", Hook("unknown"), proto.Hook_HOOK_UNSPECIFIED},
 	}
 
 	for _, tt := range tests {
@@ -74,8 +75,8 @@ func TestHookToProtoHook(t *testing.T) {
 }
 
 func TestConvertProtoChanges(t *testing.T) {
-	protoChanges := &CategorizedChangesProto{
-		Features: []*ConventionalCommitProto{
+	protoChanges := &proto.CategorizedChanges{
+		Features: []*proto.ConventionalCommit{
 			{
 				Hash:        "abc123",
 				Type:        "feat",
@@ -88,14 +89,14 @@ func TestConvertProtoChanges(t *testing.T) {
 				Date:        "2024-01-01",
 			},
 		},
-		Fixes: []*ConventionalCommitProto{
+		Fixes: []*proto.ConventionalCommit{
 			{
 				Hash:        "def456",
 				Type:        "fix",
 				Description: "fix bug",
 			},
 		},
-		Breaking: []*ConventionalCommitProto{
+		Breaking: []*proto.ConventionalCommit{
 			{
 				Hash:                "ghi789",
 				Type:                "feat",
@@ -214,7 +215,7 @@ func TestConvertChangesToProto(t *testing.T) {
 }
 
 func TestConvertProtoCommits(t *testing.T) {
-	protoCommits := []*ConventionalCommitProto{
+	protoCommits := []*proto.ConventionalCommit{
 		{
 			Hash:        "abc123",
 			Type:        "feat",
@@ -301,28 +302,28 @@ func TestGRPCClient_GetInfo_Timeout(t *testing.T) {
 
 // mockPluginClient is a test mock for PluginClient
 type mockPluginClient struct {
-	UnimplementedPluginServer
+	proto.UnimplementedPluginServer
 	hangOnGetInfo bool
 }
 
-func (m *mockPluginClient) GetInfo(ctx context.Context, req *Empty, opts ...grpc.CallOption) (*PluginInfo, error) {
+func (m *mockPluginClient) GetInfo(ctx context.Context, req *proto.Empty, opts ...grpc.CallOption) (*proto.PluginInfo, error) {
 	if m.hangOnGetInfo {
 		// Wait for context cancellation
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	return &PluginInfo{
+	return &proto.PluginInfo{
 		Name:    "test",
 		Version: "1.0.0",
 	}, nil
 }
 
-func (m *mockPluginClient) Execute(ctx context.Context, req *ExecuteRequestProto, opts ...grpc.CallOption) (*ExecuteResponseProto, error) {
-	return &ExecuteResponseProto{Success: true}, nil
+func (m *mockPluginClient) Execute(ctx context.Context, req *proto.ExecuteRequest, opts ...grpc.CallOption) (*proto.ExecuteResponse, error) {
+	return &proto.ExecuteResponse{Success: true}, nil
 }
 
-func (m *mockPluginClient) Validate(ctx context.Context, req *ValidateRequestProto, opts ...grpc.CallOption) (*ValidateResponseProto, error) {
-	return &ValidateResponseProto{Valid: true}, nil
+func (m *mockPluginClient) Validate(ctx context.Context, req *proto.ValidateRequest, opts ...grpc.CallOption) (*proto.ValidateResponse, error) {
+	return &proto.ValidateResponse{Valid: true}, nil
 }
 
 func TestGRPCClient_Execute(t *testing.T) {
@@ -385,7 +386,7 @@ func TestGRPCServer_GetInfo(t *testing.T) {
 	mockPlugin := &mockPlugin{}
 	server := &GRPCServer{Impl: mockPlugin}
 
-	resp, err := server.GetInfo(context.Background(), &Empty{})
+	resp, err := server.GetInfo(context.Background(), &proto.Empty{})
 	if err != nil {
 		t.Fatalf("GetInfo() error = %v", err)
 	}
@@ -403,10 +404,10 @@ func TestGRPCServer_Execute(t *testing.T) {
 	mockPlugin := &mockPlugin{}
 	server := &GRPCServer{Impl: mockPlugin}
 
-	req := &ExecuteRequestProto{
-		Hook:   HookProto_HOOK_PRE_PUBLISH,
+	req := &proto.ExecuteRequest{
+		Hook:   proto.Hook_HOOK_PRE_PUBLISH,
 		Config: `{"key":"value"}`,
-		Context: &ReleaseContextProto{
+		Context: &proto.ReleaseContext{
 			Version: "1.0.0",
 			TagName: "v1.0.0",
 		},
@@ -427,8 +428,8 @@ func TestGRPCServer_Execute_InvalidJSON(t *testing.T) {
 	mockPlugin := &mockPlugin{}
 	server := &GRPCServer{Impl: mockPlugin}
 
-	req := &ExecuteRequestProto{
-		Hook:   HookProto_HOOK_PRE_PUBLISH,
+	req := &proto.ExecuteRequest{
+		Hook:   proto.Hook_HOOK_PRE_PUBLISH,
 		Config: `{invalid json}`,
 	}
 
@@ -450,7 +451,7 @@ func TestGRPCServer_Validate(t *testing.T) {
 	mockPlugin := &mockPlugin{}
 	server := &GRPCServer{Impl: mockPlugin}
 
-	req := &ValidateRequestProto{
+	req := &proto.ValidateRequest{
 		Config: `{"key":"value"}`,
 	}
 
@@ -468,7 +469,7 @@ func TestGRPCServer_Validate_InvalidJSON(t *testing.T) {
 	mockPlugin := &mockPlugin{}
 	server := &GRPCServer{Impl: mockPlugin}
 
-	req := &ValidateRequestProto{
+	req := &proto.ValidateRequest{
 		Config: `{invalid`,
 	}
 
