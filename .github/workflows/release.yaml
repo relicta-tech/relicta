@@ -46,6 +46,19 @@ jobs:
           cp dist/github_linux_x86_64 ~/.release-pilot/plugins/github
           chmod +x ~/.release-pilot/plugins/github
 
+          # Create plugin manifest
+          cat > ~/.release-pilot/plugins/manifest.yaml <<EOF
+          version: "1.0"
+          installed:
+              - name: github
+                version: \${{ github.ref_name }}
+                installed_at: $(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")
+                binary_path: $HOME/.release-pilot/plugins/github
+                checksum: $(sha256sum dist/github_linux_x86_64 | awk '{print \$1}')
+                enabled: true
+          updated_at: $(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")
+          EOF
+
       - name: Release with ReleasePilot Action
         uses: felixgeelhaar/release-pilot-action@v1
         with:
