@@ -64,10 +64,16 @@ jobs:
           updated_at: ${INSTALLED_AT}
           EOF
 
-      - name: Release with ReleasePilot Action
-        uses: felixgeelhaar/release-pilot-action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          command: full
-          auto-approve: true
-          dry-run: ${{ inputs.dry-run }}
+      - name: Release with ReleasePilot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the just-built binary
+          BINARY="./bin/release-pilot"
+
+          # Full release workflow
+          $BINARY plan
+          $BINARY bump
+          $BINARY notes
+          $BINARY approve --yes
+          $BINARY publish
