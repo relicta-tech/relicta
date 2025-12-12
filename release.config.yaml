@@ -24,7 +24,8 @@ plugins:
   - name: github
     enabled: true
     config:
-      # owner and repo detected from git remote automatically
+      owner: felixgeelhaar
+      repo: release-pilot
       draft: false
       prerelease: false
       generate_release_notes: false  # We generate our own
