@@ -1,12 +1,12 @@
 version: "1.0"
-updated_at: 2025-12-11T18:30:00Z
+updated_at: 2025-12-12T08:30:00Z
 
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
     repository: felixgeelhaar/release-pilot
     path: plugins/github
-    version: v1.1.0
+    version: v1.2.4
     category: vcs
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -52,7 +52,7 @@ plugins:
     description: Create GitLab releases
     repository: felixgeelhaar/release-pilot
     path: plugins/gitlab
-    version: v1.1.0
+    version: v1.2.4
     category: vcs
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -79,7 +79,7 @@ plugins:
     description: Send release notifications to Slack
     repository: felixgeelhaar/release-pilot
     path: plugins/slack
-    version: v1.1.0
+    version: v1.2.4
     category: notification
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -116,7 +116,7 @@ plugins:
     description: Publish packages to npm registry
     repository: felixgeelhaar/release-pilot
     path: plugins/npm
-    version: v1.1.0
+    version: v1.2.4
     category: package_manager
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -151,7 +151,7 @@ plugins:
     description: Create and link Jira release versions
     repository: felixgeelhaar/release-pilot
     path: plugins/jira
-    version: v1.1.0
+    version: v1.2.4
     category: project_management
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -192,7 +192,7 @@ plugins:
     description: Send release notifications to Discord
     repository: felixgeelhaar/release-pilot
     path: plugins/discord
-    version: v1.1.0
+    version: v1.2.4
     category: notification
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
@@ -219,7 +219,7 @@ plugins:
     description: Create releases in LaunchNotes
     repository: felixgeelhaar/release-pilot
     path: plugins/launchnotes
-    version: v1.1.0
+    version: v1.2.4
     category: project_management
     author: ReleasePilot Team
     homepage: https://github.com/felixgeelhaar/release-pilot
