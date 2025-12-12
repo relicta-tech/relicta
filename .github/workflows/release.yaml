@@ -1,9 +1,13 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run in dry-run mode (no tag/release created)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   GO_VERSION: '1.24'
@@ -33,11 +37,28 @@ jobs:
       - name: Run tests
         run: go test -v -race ./...
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+      - name: Build main binary
+        run: make build
+
+      - name: Build release artifacts
+        run: make release-build
+
+      - name: Install GitHub plugin for release
+        run: |
+          mkdir -p ~/.release-pilot/plugins
+          cp dist/github_linux_x86_64 ~/.release-pilot/plugins/release-pilot-plugin-github
+          chmod +x ~/.release-pilot/plugins/release-pilot-plugin-github
+
+      - name: Release with ReleasePilot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the just-built binary
+          BINARY="./bin/release-pilot"
+
+          # Full release workflow
+          $BINARY plan
+          $BINARY bump
+          $BINARY notes
+          $BINARY approve --yes
+          $BINARY publish
