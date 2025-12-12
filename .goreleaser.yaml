@@ -154,8 +154,25 @@ builds:
       - -s -w
     no_unique_dist_dir: true
 
-  # Jira plugin temporarily disabled due to build issues
-  # TODO: Fix jira plugin compilation errors
+  # Jira plugin
+  - id: plugin-jira
+    main: ./plugins/jira
+    binary: jira_{{ .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "arm64" }}aarch64{{ else }}{{ .Arch }}{{ end }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+    no_unique_dist_dir: true
 
 archives:
   # Main CLI archive (without plugins)
@@ -223,6 +240,7 @@ release:
   extra_files:
     - glob: dist/github_*
     - glob: dist/gitlab_*
+    - glob: dist/jira_*
     - glob: dist/npm_*
     - glob: dist/slack_*
     - glob: dist/discord_*
