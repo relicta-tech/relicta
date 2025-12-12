@@ -408,8 +408,21 @@ func (p *JiraPlugin) transitionIssue(ctx context.Context, client *jira.Client, i
 
 // addComment adds a comment to an issue.
 func (p *JiraPlugin) addComment(ctx context.Context, client *jira.Client, issueKey, body string) error {
+	// Create ADF (Atlassian Document Format) from plain text
+	adf := &issue.ADF{
+		Version: 1,
+		Type:    "doc",
+		Content: []issue.ADFNode{
+			{
+				Type: "paragraph",
+				Content: []issue.ADFNode{
+					{Type: "text", Text: body},
+				},
+			},
+		},
+	}
 	_, err := client.Issue.AddComment(ctx, issueKey, &issue.AddCommentInput{
-		Body: body,
+		Body: adf,
 	})
 	return err
 }
