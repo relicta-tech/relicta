@@ -36,34 +36,12 @@ jobs:
       - name: Build release artifacts
         run: make release-build
 
-      - name: Install release-pilot (use built binary)
-        run: |
-          # Extract and install the binary for current platform
-          tar -xzf dist/release-pilot_$(uname)_$(uname -m | sed 's/x86_64/x86_64/' | sed 's/aarch64/aarch64/').tar.gz
-          chmod +x release-pilot_*/release-pilot
-          sudo mv release-pilot_*/release-pilot /usr/local/bin/
-
-      - name: Run ReleasePilot release process
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_PILOT_DRY_RUN: "false"
-        run: |
-          echo "🚀 Running ReleasePilot self-release..."
-
-          # Plan the release
-          release-pilot plan
-
-          # Bump version
-          release-pilot bump
-
-          # Generate release notes
-          release-pilot notes
-
-          # Auto-approve (we trust our automation)
-          release-pilot approve --yes
-
-          # Publish release (GitHub plugin creates release and uploads assets)
-          release-pilot publish
+      - name: Release with ReleasePilot Action
+        uses: felixgeelhaar/release-pilot-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          command: full
+          auto-approve: true
 
   docker:
     name: Docker Image
