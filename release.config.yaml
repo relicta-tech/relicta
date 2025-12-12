@@ -1,84 +1,82 @@
-ai:
-    enabled: true
-    provider: openai
-    model: gpt-4o
-    apikey: ${OPENAI_API_KEY}
-    baseurl: ""
-    tone: professional
-    audience: developers
-    includeemoji: false
-    maxtokens: 2048
-    temperature: 0.7
-    timeout: 30s
-    retryattempts: 3
-    customprompts:
-        changelogsystem: ""
-        changeloguser: ""
-        releasenotessystem: ""
-        releasenotesuser: ""
-        marketingsystem: ""
-        marketinguser: ""
-changelog:
-    file: CHANGELOG.md
-    format: keep-a-changelog
-    productname: ""
-    groupby: type
-    template: ""
-    includecommithash: true
-    includeauthor: false
-    includedate: true
-    linkcommits: true
-    linkissues: true
-    repositoryurl: https://github.com/felixgeelhaar/release-pilot
-    issueurl: ""
-    exclude:
-        - chore
-        - ci
-        - docs
-        - style
-        - test
-    categories:
-        build: Build System
-        feat: Features
-        fix: Bug Fixes
-        perf: Performance Improvements
-        refactor: Code Refactoring
-        revert: Reverts
-output:
-    format: text
-    color: true
-    verbose: false
-    quiet: false
-    logfile: ""
-    loglevel: info
-plugins:
-    - name: github
-      enabled: true
-      path: /Users/felixgeelhaar/.release-pilot/plugins/github
-      config:
-        owner: felixgeelhaar
-        repo: release-pilot
-        draft: false
-        prerelease: false
-        generate_release_notes: false
+# ReleasePilot Configuration for Self-Release
+# This config allows ReleasePilot to release itself (dogfooding!)
+
 versioning:
-    strategy: conventional
-    tagprefix: v
-    gittag: true
-    gitpush: true
-    gitsign: false
-    prereleasesuffix: ""
-    buildmetadata: ""
-    bumpfrom: tag
-    versionfile: ""
-workflow:
-    requireapproval: true
-    allowedbranches:
-        - main
-    requirecleanworkingtree: false
-    requireuptodate: false
-    dryrunbydefault: false
-    autocommitchangelog: true
-    changelogcommitmessage: 'chore(release): update changelog for ${version}'
-    prereleasehook: ""
-    postreleasehook: ""
+  strategy: conventional  # Use conventional commits for versioning
+  initial_version: "0.1.0"
+
+changelog:
+  enabled: true
+  file: CHANGELOG.md
+  format: markdown
+  sections:
+    - title: "🚀 New Features"
+      types: ["feat"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "📚 Documentation"
+      types: ["docs"]
+    - title: "🔧 Other Changes"
+      types: ["chore", "refactor", "perf", "style", "test"]
+
+plugins:
+  # GitHub plugin handles release creation and asset uploads
+  github:
+    enabled: true
+    config:
+      # owner and repo detected from git remote automatically
+      draft: false
+      prerelease: false
+      generate_release_notes: false  # We generate our own
+      # Assets to upload - archives + individual plugin binaries
+      assets:
+        # Main binary archives
+        - "dist/release-pilot_Linux_x86_64.tar.gz"
+        - "dist/release-pilot_Linux_aarch64.tar.gz"
+        - "dist/release-pilot_Darwin_x86_64.tar.gz"
+        - "dist/release-pilot_Darwin_aarch64.tar.gz"
+        - "dist/release-pilot_Windows_x86_64.zip"
+        # Plugin binaries - GitHub
+        - "dist/github_linux_x86_64"
+        - "dist/github_linux_aarch64"
+        - "dist/github_darwin_x86_64"
+        - "dist/github_darwin_aarch64"
+        - "dist/github_windows_x86_64.exe"
+        # Plugin binaries - GitLab
+        - "dist/gitlab_linux_x86_64"
+        - "dist/gitlab_linux_aarch64"
+        - "dist/gitlab_darwin_x86_64"
+        - "dist/gitlab_darwin_aarch64"
+        - "dist/gitlab_windows_x86_64.exe"
+        # Plugin binaries - npm
+        - "dist/npm_linux_x86_64"
+        - "dist/npm_linux_aarch64"
+        - "dist/npm_darwin_x86_64"
+        - "dist/npm_darwin_aarch64"
+        - "dist/npm_windows_x86_64.exe"
+        # Plugin binaries - Slack
+        - "dist/slack_linux_x86_64"
+        - "dist/slack_linux_aarch64"
+        - "dist/slack_darwin_x86_64"
+        - "dist/slack_darwin_aarch64"
+        - "dist/slack_windows_x86_64.exe"
+        # Plugin binaries - Discord
+        - "dist/discord_linux_x86_64"
+        - "dist/discord_linux_aarch64"
+        - "dist/discord_darwin_x86_64"
+        - "dist/discord_darwin_aarch64"
+        - "dist/discord_windows_x86_64.exe"
+        # Plugin binaries - Jira
+        - "dist/jira_linux_x86_64"
+        - "dist/jira_linux_aarch64"
+        - "dist/jira_darwin_x86_64"
+        - "dist/jira_darwin_aarch64"
+        - "dist/jira_windows_x86_64.exe"
+        # Plugin binaries - LaunchNotes
+        - "dist/launchnotes_linux_x86_64"
+        - "dist/launchnotes_linux_aarch64"
+        - "dist/launchnotes_darwin_x86_64"
+        - "dist/launchnotes_darwin_aarch64"
+        - "dist/launchnotes_windows_x86_64.exe"
+        # Checksums
+        - "dist/checksums.txt"

@@ -20,15 +20,30 @@ GOLINT := golangci-lint
 
 # Directories
 BIN_DIR := bin
+DIST_DIR := dist
 CMD_DIR := cmd/release-pilot
 PLUGINS_DIR := plugins
 
-# Plugin binaries
-PLUGINS := github npm slack
+# All plugin binaries (matching GoReleaser config)
+ALL_PLUGINS := github gitlab npm slack discord jira launchnotes
 
-.PHONY: all build install clean test test-race test-coverage lint fmt vet \
+# Release platforms (os/arch pairs)
+RELEASE_PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
+
+# Arch mapping for binary naming (amd64 -> x86_64, arm64 -> aarch64)
+define get_arch_name
+$(if $(filter amd64,$(1)),x86_64,$(if $(filter arm64,$(1)),aarch64,$(1)))
+endef
+
+# OS name capitalization for archives (match GoReleaser: Linux, Darwin, Windows)
+define get_os_name
+$(if $(filter linux,$(1)),Linux,$(if $(filter darwin,$(1)),Darwin,$(if $(filter windows,$(1)),Windows,$(1))))
+endef
+
+.PHONY: all build install clean clean-dist test test-race test-coverage lint fmt vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
-        test-integration test-e2e help
+        test-integration test-e2e help release-build release-binaries release-plugins \
+        release-archives release-checksums release-snapshot
 
 # Default target
 all: lint test build
@@ -160,6 +175,92 @@ proto:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		internal/plugin/proto/*.proto
 
+## Release build targets (replacement for GoReleaser)
+
+# Full release build - creates everything GoReleaser would create
+release-build: clean-dist release-binaries release-plugins release-archives release-checksums
+	@echo "✓ Release build complete!"
+	@echo ""
+	@echo "Artifacts in $(DIST_DIR):"
+	@ls -lh $(DIST_DIR)/*.tar.gz $(DIST_DIR)/*.zip 2>/dev/null || true
+	@echo ""
+	@echo "Plugin binaries:"
+	@ls -1 $(DIST_DIR)/*_linux_* $(DIST_DIR)/*_darwin_* $(DIST_DIR)/*_windows_* 2>/dev/null | head -10
+	@echo "... and more"
+
+# Build main binary for all release platforms
+release-binaries:
+	@echo "Building release binaries for all platforms..."
+	@mkdir -p $(DIST_DIR)
+	@$(foreach platform,$(RELEASE_PLATFORMS), \
+		$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
+		$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
+		$(eval OS_CAP := $(call get_os_name,$(OS))) \
+		$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
+		$(eval ARCHIVE_NAME := $(BINARY_NAME)_$(OS_CAP)_$(ARCH_NAME)) \
+		$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
+		echo "  Building $(OS)/$(ARCH)..." && \
+		mkdir -p $(DIST_DIR)/$(ARCHIVE_NAME) && \
+		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 \
+			$(GOBUILD) $(LDFLAGS) \
+			-o $(DIST_DIR)/$(ARCHIVE_NAME)/$(BINARY_NAME)$(EXT) \
+			./$(CMD_DIR) || exit 1; \
+	)
+
+# Build all plugins for all release platforms
+release-plugins:
+	@echo "Building plugins for all platforms..."
+	@mkdir -p $(DIST_DIR)
+	@$(foreach plugin,$(ALL_PLUGINS), \
+		$(foreach platform,$(RELEASE_PLATFORMS), \
+			$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
+			$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
+			$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
+			$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
+			$(eval PLUGIN_BIN := $(plugin)_$(OS)_$(ARCH_NAME)$(EXT)) \
+			echo "  Building $(plugin) for $(OS)/$(ARCH)..." && \
+			GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 \
+				$(GOBUILD) -ldflags "-s -w" \
+				-o $(DIST_DIR)/$(PLUGIN_BIN) \
+				./$(PLUGINS_DIR)/$(plugin) || exit 1; \
+		) \
+	)
+
+# Create archives (tar.gz for linux/darwin, zip for windows)
+release-archives:
+	@echo "Creating release archives..."
+	@$(foreach platform,$(RELEASE_PLATFORMS), \
+		$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
+		$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
+		$(eval OS_CAP := $(call get_os_name,$(OS))) \
+		$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
+		$(eval ARCHIVE_NAME := $(BINARY_NAME)_$(OS_CAP)_$(ARCH_NAME)) \
+		$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
+		echo "  Creating archive for $(OS)/$(ARCH)..." && \
+		cp README.md LICENSE CHANGELOG.md $(DIST_DIR)/$(ARCHIVE_NAME)/ 2>/dev/null || true && \
+		(cd $(DIST_DIR) && \
+			if [ "$(OS)" = "windows" ]; then \
+				zip -q -r $(ARCHIVE_NAME).zip $(ARCHIVE_NAME); \
+			else \
+				tar czf $(ARCHIVE_NAME).tar.gz $(ARCHIVE_NAME); \
+			fi \
+		) && \
+		rm -rf $(DIST_DIR)/$(ARCHIVE_NAME) || exit 1; \
+	)
+
+# Generate checksums file
+release-checksums:
+	@echo "Generating checksums..."
+	@cd $(DIST_DIR) && \
+		sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || \
+		shasum -a 256 *.tar.gz *.zip 2>/dev/null > checksums.txt
+	@echo "✓ Checksums generated: $(DIST_DIR)/checksums.txt"
+
+# Build snapshot release (without version tag)
+release-snapshot: clean-dist
+	@echo "Building snapshot release..."
+	@$(MAKE) VERSION="$(VERSION)-snapshot" release-build
+
 ## Utility targets
 
 # Clean build artifacts
@@ -167,6 +268,11 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BIN_DIR)
 	rm -f coverage.out
+
+# Clean dist directory
+clean-dist:
+	@echo "Cleaning dist directory..."
+	rm -rf $(DIST_DIR)
 
 # Show version info
 version:
@@ -189,6 +295,14 @@ help:
 	@echo "  make install        Install to GOPATH/bin"
 	@echo "  make plugins        Build all plugins"
 	@echo ""
+	@echo "Release Build (replaces GoReleaser):"
+	@echo "  make release-build     Full release build (binaries + plugins + archives + checksums)"
+	@echo "  make release-snapshot  Build snapshot release"
+	@echo "  make release-binaries  Build main binary for all platforms"
+	@echo "  make release-plugins   Build all plugins for all platforms"
+	@echo "  make release-archives  Create release archives"
+	@echo "  make release-checksums Generate checksums"
+	@echo ""
 	@echo "Test:"
 	@echo "  make test           Run unit tests"
 	@echo "  make test-race      Run tests with race detection"
@@ -210,4 +324,5 @@ help:
 	@echo "  make proto          Generate protobuf code"
 	@echo "  make mocks          Generate test mocks"
 	@echo "  make clean          Clean build artifacts"
+	@echo "  make clean-dist     Clean dist directory"
 	@echo "  make version        Show version info"

@@ -33,14 +33,34 @@ jobs:
       - name: Run tests
         run: go test -v -race ./...
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+      - name: Build release artifacts
+        run: make release-build
+
+      - name: Install release-pilot (use built binary)
+        run: |
+          # Extract and install the binary for current platform
+          tar -xzf dist/release-pilot_$(uname)_$(uname -m | sed 's/x86_64/x86_64/' | sed 's/aarch64/aarch64/').tar.gz
+          chmod +x release-pilot_*/release-pilot
+          sudo mv release-pilot_*/release-pilot /usr/local/bin/
+
+      - name: Run ReleasePilot release process
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_PILOT_DRY_RUN: "false"
+        run: |
+          echo "🚀 Running ReleasePilot self-release..."
+
+          # Plan the release
+          release-pilot plan
+
+          # Generate release notes
+          release-pilot notes
+
+          # Auto-approve (we trust our automation)
+          release-pilot approve --yes
+
+          # Publish release (GitHub plugin creates release and uploads assets)
+          release-pilot publish
 
   docker:
     name: Docker Image
