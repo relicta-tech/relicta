@@ -46,26 +46,8 @@ jobs:
       - name: Install GitHub plugin for release
         run: |
           mkdir -p ~/.release-pilot/plugins
-          cp dist/github_linux_x86_64 ~/.release-pilot/plugins/github
-          chmod +x ~/.release-pilot/plugins/github
-
-          # Create plugin manifest
-          PLUGIN_VERSION="main"
-          INSTALLED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000000Z")
-          BINARY_PATH="$HOME/.release-pilot/plugins/github"
-          CHECKSUM=$(sha256sum dist/github_linux_x86_64 | awk '{print $1}')
-
-          cat > ~/.release-pilot/plugins/manifest.yaml <<EOF
-          version: "1.0"
-          installed:
-              - name: github
-                version: ${PLUGIN_VERSION}
-                installed_at: ${INSTALLED_AT}
-                binary_path: ${BINARY_PATH}
-                checksum: ${CHECKSUM}
-                enabled: true
-          updated_at: ${INSTALLED_AT}
-          EOF
+          cp dist/github_linux_x86_64 ~/.release-pilot/plugins/release-pilot-plugin-github
+          chmod +x ~/.release-pilot/plugins/release-pilot-plugin-github
 
       - name: Release with ReleasePilot
         env:
