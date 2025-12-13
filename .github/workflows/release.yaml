@@ -17,11 +17,10 @@ permissions:
   contents: read
 
 jobs:
-  release:
-    name: Release
+  # Build and test before release
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: write  # Needed for creating releases
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -37,28 +36,39 @@ jobs:
       - name: Run tests
         run: go test -v -race ./...
 
-      - name: Build main binary
-        run: make build
-
       - name: Build release artifacts
         run: make release-build
 
-      - name: Install GitHub plugin for release
-        run: |
-          mkdir -p ~/.release-pilot/plugins
-          cp dist/github_linux_x86_64 ~/.release-pilot/plugins/release-pilot-plugin-github
-          chmod +x ~/.release-pilot/plugins/release-pilot-plugin-github
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
 
-      - name: Release with ReleasePilot
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Use the just-built binary
-          BINARY="./bin/release-pilot"
+  # Release using ReleasePilot Action (dogfooding!)
+  release:
+    name: Release with ReleasePilot
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed for creating releases
 
-          # Full release workflow
-          $BINARY plan
-          $BINARY bump
-          $BINARY notes
-          $BINARY approve --yes
-          $BINARY publish
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+
+      # That's it! Use our own action to release ourselves 🎉
+      - name: Release with ReleasePilot Action
+        uses: felixgeelhaar/release-pilot-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-approve: true
+          dry-run: ${{ inputs.dry-run }}
