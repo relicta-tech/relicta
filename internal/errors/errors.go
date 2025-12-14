@@ -459,17 +459,19 @@ func ConflictWrap(err error, op, message string) *Error {
 
 // Sensitive data redaction patterns.
 // These patterns match common API keys and tokens that should never appear in error messages.
+// Word boundaries (\b) are used where applicable to ensure patterns match complete tokens
+// and don't accidentally match substrings in unrelated contexts.
 var sensitivePatterns = []*regexp.Regexp{
 	// OpenAI API keys: sk-..., sk-proj-..., sk-svc-...
-	regexp.MustCompile(`sk-(?:proj-|svc-)?[a-zA-Z0-9_-]{20,}`),
+	regexp.MustCompile(`\bsk-(?:proj-|svc-)?[a-zA-Z0-9_-]{20,}\b`),
 	// Google Gemini API keys: AIza...
-	regexp.MustCompile(`AIza[a-zA-Z0-9_-]{35,}`),
+	regexp.MustCompile(`\bAIza[a-zA-Z0-9_-]{35,}\b`),
 	// GitHub tokens: ghp_..., gho_..., ghs_..., ghr_...
-	regexp.MustCompile(`gh[posh]_[a-zA-Z0-9]{36,}`),
-	// Slack webhook URLs
-	regexp.MustCompile(`https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+`),
+	regexp.MustCompile(`\bgh[posh]_[a-zA-Z0-9]{36,}\b`),
+	// Slack webhook URLs - anchored to start of URL to prevent matching embedded URLs
+	regexp.MustCompile(`\bhttps://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+\b`),
 	// Generic bearer tokens
-	regexp.MustCompile(`Bearer\s+[a-zA-Z0-9_-]{20,}`),
+	regexp.MustCompile(`\bBearer\s+[a-zA-Z0-9_-]{20,}\b`),
 	// Basic auth with password in URL
 	regexp.MustCompile(`://[^:]+:[^@]+@`),
 }
