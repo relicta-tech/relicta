@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
 	github.com/felixgeelhaar/fortify v1.1.1
-	github.com/felixgeelhaar/jirasdk v1.5.1
+	github.com/felixgeelhaar/jirasdk v1.5.2
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/google/go-github/v60 v60.0.0
 	github.com/hashicorp/go-hclog v1.6.3
@@ -29,7 +29,7 @@ require (
 	golang.org/x/text v0.32.0
 	google.golang.org/genai v1.39.0
 	google.golang.org/grpc v1.77.0
-	google.golang.org/protobuf v1.36.10
+	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 )
 
