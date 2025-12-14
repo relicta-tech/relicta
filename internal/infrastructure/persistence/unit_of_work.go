@@ -66,7 +66,6 @@ type unitOfWorkRepository struct {
 	baseRepo *FileReleaseRepository
 }
 
-
 // Commit commits all pending changes.
 // The context is used for cancellation and timeout control during persistence operations.
 func (u *FileUnitOfWork) Commit(ctx context.Context) error {

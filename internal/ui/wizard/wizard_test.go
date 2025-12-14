@@ -824,10 +824,10 @@ func TestSuccessModel_View_Ready(t *testing.T) {
 
 	// Check for basic structure (without exact formatting due to styles)
 	expectedPhrases := []string{
-		"Complete",      // From "Configuration Complete!"
-		configPath,      // Config path should always appear
-		"Next Steps",    // Section header
-		"relicta", // Command references
+		"Complete",   // From "Configuration Complete!"
+		configPath,   // Config path should always appear
+		"Next Steps", // Section header
+		"relicta",    // Command references
 	}
 
 	for _, phrase := range expectedPhrases {
