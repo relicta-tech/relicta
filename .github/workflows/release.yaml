@@ -46,7 +46,7 @@ jobs:
         run: make release-build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-artifacts
           path: dist/
@@ -66,14 +66,14 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: release-artifacts
           path: dist/
 
       # That's it! Use our own action to release ourselves 🎉
       - name: Release with Relicta Action
-        uses: relicta-tech/relicta-action@v1
+        uses: relicta-tech/relicta-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-approve: true
