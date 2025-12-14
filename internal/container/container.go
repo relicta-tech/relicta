@@ -240,16 +240,11 @@ func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
 }
 
 // initApplicationLayer initializes application layer use cases.
-func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
-	// Create UnitOfWork for transactional use cases
-	uow, err := c.unitOfWorkFactory.Begin(ctx)
-	if err != nil {
-		return errors.StateWrap(err, "initApplicationLayer", "failed to create UnitOfWork")
-	}
-
-	// Initialize PlanReleaseUseCase with UnitOfWork support
+func (c *DDDContainer) initApplicationLayer(_ context.Context) error {
+	// Initialize PlanReleaseUseCase with UnitOfWork factory
+	// Each command will create its own transaction via the factory
 	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
-		uow,
+		c.unitOfWorkFactory,
 		c.gitAdapter,
 		c.versionCalc,
 		c.eventPublisher,
@@ -269,9 +264,9 @@ func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
 		c.eventPublisher,
 	)
 
-	// Initialize PublishReleaseUseCase with UnitOfWork support
+	// Initialize PublishReleaseUseCase with UnitOfWork factory
 	c.publishReleaseUC = release.NewPublishReleaseUseCaseWithUoW(
-		uow,
+		c.unitOfWorkFactory,
 		c.gitAdapter,
 		c.pluginExecutor,
 		c.eventPublisher,

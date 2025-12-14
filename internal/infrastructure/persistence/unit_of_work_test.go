@@ -217,9 +217,9 @@ func TestFileUnitOfWork_EventCollection(t *testing.T) {
 	})
 }
 
-func TestFileUnitOfWork_NestedBegin(t *testing.T) {
+func TestFileUnitOfWork_IndependentTransactions(t *testing.T) {
 	// Setup
-	tempDir, err := os.MkdirTemp("", "uow-nested-test-*")
+	tempDir, err := os.MkdirTemp("", "uow-independent-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -234,16 +234,45 @@ func TestFileUnitOfWork_NestedBegin(t *testing.T) {
 	ctx := context.Background()
 
 	// Begin first transaction
-	uow, err := factory.Begin(ctx)
+	uow1, err := factory.Begin(ctx)
 	if err != nil {
-		t.Fatalf("failed to begin: %v", err)
+		t.Fatalf("failed to begin first: %v", err)
 	}
-	defer uow.Rollback()
+	defer uow1.Rollback()
 
-	// Attempting to begin again should return error
-	_, err = uow.Begin(ctx)
-	if err == nil {
-		t.Error("expected error for nested begin")
+	// Begin second independent transaction via factory - this should work
+	uow2, err := factory.Begin(ctx)
+	if err != nil {
+		t.Fatalf("failed to begin second: %v", err)
+	}
+	defer uow2.Rollback()
+
+	// Both transactions should be independent and usable
+	repo1 := uow1.ReleaseRepository()
+	repo2 := uow2.ReleaseRepository()
+
+	rel1 := release.NewRelease("test-rel-1", "main", "/repo1")
+	rel2 := release.NewRelease("test-rel-2", "main", "/repo2")
+
+	if err := repo1.Save(ctx, rel1); err != nil {
+		t.Fatalf("failed to save in uow1: %v", err)
+	}
+	if err := repo2.Save(ctx, rel2); err != nil {
+		t.Fatalf("failed to save in uow2: %v", err)
+	}
+
+	// Commit first, rollback second
+	if err := uow1.Commit(ctx); err != nil {
+		t.Fatalf("failed to commit uow1: %v", err)
+	}
+	_ = uow2.Rollback()
+
+	// Only rel1 should be persisted
+	if _, err := baseRepo.FindByID(ctx, "test-rel-1"); err != nil {
+		t.Error("expected rel1 to be persisted after uow1 commit")
+	}
+	if _, err := baseRepo.FindByID(ctx, "test-rel-2"); err == nil {
+		t.Error("expected rel2 to not be persisted after uow2 rollback")
 	}
 }
 

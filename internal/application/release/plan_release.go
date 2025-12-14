@@ -91,12 +91,12 @@ type PlanReleaseOutput struct {
 
 // PlanReleaseUseCase implements the plan release use case.
 type PlanReleaseUseCase struct {
-	releaseRepo    release.Repository
-	unitOfWork     release.UnitOfWork
-	gitRepo        sourcecontrol.GitRepository
-	versionCalc    version.VersionCalculator
-	eventPublisher release.EventPublisher
-	logger         *slog.Logger
+	releaseRepo       release.Repository
+	unitOfWorkFactory release.UnitOfWorkFactory
+	gitRepo           sourcecontrol.GitRepository
+	versionCalc       version.VersionCalculator
+	eventPublisher    release.EventPublisher
+	logger            *slog.Logger
 }
 
 // NewPlanReleaseUseCase creates a new PlanReleaseUseCase.
@@ -117,17 +117,17 @@ func NewPlanReleaseUseCase(
 
 // NewPlanReleaseUseCaseWithUoW creates a new PlanReleaseUseCase with UnitOfWork support.
 func NewPlanReleaseUseCaseWithUoW(
-	unitOfWork release.UnitOfWork,
+	unitOfWorkFactory release.UnitOfWorkFactory,
 	gitRepo sourcecontrol.GitRepository,
 	versionCalc version.VersionCalculator,
 	eventPublisher release.EventPublisher,
 ) *PlanReleaseUseCase {
 	return &PlanReleaseUseCase{
-		unitOfWork:     unitOfWork,
-		gitRepo:        gitRepo,
-		versionCalc:    versionCalc,
-		eventPublisher: eventPublisher,
-		logger:         slog.Default().With("usecase", "plan_release"),
+		unitOfWorkFactory: unitOfWorkFactory,
+		gitRepo:           gitRepo,
+		versionCalc:       versionCalc,
+		eventPublisher:    eventPublisher,
+		logger:            slog.Default().With("usecase", "plan_release"),
 	}
 }
 
@@ -260,7 +260,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 // saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.
 func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Release) error {
 	// Use UnitOfWork if available
-	if uc.unitOfWork != nil {
+	if uc.unitOfWorkFactory != nil {
 		return uc.saveReleaseWithUoW(ctx, rel)
 	}
 
@@ -284,8 +284,8 @@ func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Rele
 
 // saveReleaseWithUoW saves the release with transactional boundaries.
 func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.Release) error {
-	// Begin transaction
-	uow, err := uc.unitOfWork.Begin(ctx)
+	// Begin transaction via factory
+	uow, err := uc.unitOfWorkFactory.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}

@@ -41,10 +41,6 @@ type EventPublisher interface {
 
 // UnitOfWork defines the interface for transactional operations.
 type UnitOfWork interface {
-	// Begin starts a new unit of work.
-	// Returns an error if called on an already active unit of work.
-	Begin(ctx context.Context) (UnitOfWork, error)
-
 	// Commit commits the unit of work.
 	// The context is used for cancellation and timeout control during commit operations.
 	Commit(ctx context.Context) error
@@ -54,4 +50,10 @@ type UnitOfWork interface {
 
 	// ReleaseRepository returns the release repository within this unit of work.
 	ReleaseRepository() Repository
+}
+
+// UnitOfWorkFactory creates new UnitOfWork instances.
+type UnitOfWorkFactory interface {
+	// Begin starts a new unit of work.
+	Begin(ctx context.Context) (UnitOfWork, error)
 }

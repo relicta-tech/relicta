@@ -71,12 +71,12 @@ type PluginResult struct {
 
 // PublishReleaseUseCase implements the publish release use case.
 type PublishReleaseUseCase struct {
-	releaseRepo    release.Repository
-	unitOfWork     release.UnitOfWork
-	gitRepo        sourcecontrol.GitRepository
-	pluginExecutor integration.PluginExecutor
-	eventPublisher release.EventPublisher
-	logger         *slog.Logger
+	releaseRepo       release.Repository
+	unitOfWorkFactory release.UnitOfWorkFactory
+	gitRepo           sourcecontrol.GitRepository
+	pluginExecutor    integration.PluginExecutor
+	eventPublisher    release.EventPublisher
+	logger            *slog.Logger
 }
 
 // NewPublishReleaseUseCase creates a new PublishReleaseUseCase.
@@ -97,17 +97,17 @@ func NewPublishReleaseUseCase(
 
 // NewPublishReleaseUseCaseWithUoW creates a new PublishReleaseUseCase with UnitOfWork support.
 func NewPublishReleaseUseCaseWithUoW(
-	unitOfWork release.UnitOfWork,
+	unitOfWorkFactory release.UnitOfWorkFactory,
 	gitRepo sourcecontrol.GitRepository,
 	pluginExecutor integration.PluginExecutor,
 	eventPublisher release.EventPublisher,
 ) *PublishReleaseUseCase {
 	return &PublishReleaseUseCase{
-		unitOfWork:     unitOfWork,
-		gitRepo:        gitRepo,
-		pluginExecutor: pluginExecutor,
-		eventPublisher: eventPublisher,
-		logger:         slog.Default().With("usecase", "publish_release"),
+		unitOfWorkFactory: unitOfWorkFactory,
+		gitRepo:           gitRepo,
+		pluginExecutor:    pluginExecutor,
+		eventPublisher:    eventPublisher,
+		logger:            slog.Default().With("usecase", "publish_release"),
 	}
 }
 
@@ -118,7 +118,7 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 	}
 
 	// Use UnitOfWork if available for transactional consistency
-	if uc.unitOfWork != nil {
+	if uc.unitOfWorkFactory != nil {
 		return uc.executeWithUnitOfWork(ctx, input)
 	}
 
@@ -128,8 +128,8 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 
 // executeWithUnitOfWork executes the use case with transactional boundaries.
 func (uc *PublishReleaseUseCase) executeWithUnitOfWork(ctx context.Context, input PublishReleaseInput) (*PublishReleaseOutput, error) {
-	// Begin transaction
-	uow, err := uc.unitOfWork.Begin(ctx)
+	// Begin transaction via factory
+	uow, err := uc.unitOfWorkFactory.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}

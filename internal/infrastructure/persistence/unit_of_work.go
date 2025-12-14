@@ -66,20 +66,6 @@ type unitOfWorkRepository struct {
 	baseRepo *FileReleaseRepository
 }
 
-// Begin starts a new unit of work.
-// Returns an error if called on an already active unit of work to prevent
-// nested transaction confusion and accidental premature commits.
-func (u *FileUnitOfWork) Begin(ctx context.Context) (release.UnitOfWork, error) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	if !u.active {
-		return nil, fmt.Errorf("unit of work is not active")
-	}
-
-	// Prevent nested transactions - return error instead of self
-	return nil, fmt.Errorf("unit of work already active: nested transactions not supported")
-}
 
 // Commit commits all pending changes.
 // The context is used for cancellation and timeout control during persistence operations.
