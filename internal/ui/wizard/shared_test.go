@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (
@@ -35,7 +35,7 @@ func TestWizardWelcome(t *testing.T) {
 	// Verify welcome message contains expected phrases
 	expectedPhrases := []string{
 		"Welcome",
-		"ReleasePilot",
+		"Relicta",
 		"wizard",
 		"2 minutes",
 	}

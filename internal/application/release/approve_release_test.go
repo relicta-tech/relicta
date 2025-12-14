@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // createReleaseWithNotes creates a release in NotesGenerated state ready for approval.

@@ -1,4 +1,4 @@
-// Package plugin provides plugin management for ReleasePilot.
+// Package plugin provides plugin management for Relicta.
 package plugin
 
 import (
@@ -16,9 +16,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/errors"
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // MaxConcurrentPluginExecutions limits the number of plugins that can execute simultaneously.
@@ -188,13 +188,13 @@ func (m *Manager) allowedPluginDirs() []string {
 	}
 
 	return []string{
-		// User's release-pilot plugins directory (primary location)
-		filepath.Join(homeDir, ".release-pilot", "plugins"),
+		// User's relicta plugins directory (primary location)
+		filepath.Join(homeDir, ".relicta", "plugins"),
 		// Project-local plugins directory
-		".release-pilot/plugins",
+		".relicta/plugins",
 		// System-wide installation (for package managers)
-		"/usr/local/lib/release-pilot/plugins",
-		"/usr/lib/release-pilot/plugins",
+		"/usr/local/lib/relicta/plugins",
+		"/usr/lib/relicta/plugins",
 	}
 }
 
@@ -225,7 +225,7 @@ func (m *Manager) isPathInAllowedDir(resolvedPath string) bool {
 		}
 
 		// Use filepath.Rel for robust relative path check
-		// This properly handles edge cases like /usr/local/lib/release-pilot/plugins2
+		// This properly handles edge cases like /usr/local/lib/relicta/plugins2
 		rel, err := filepath.Rel(absAllowed, resolvedPath)
 		if err != nil {
 			continue
@@ -289,7 +289,7 @@ func (m *Manager) findPluginBinary(cfg *config.PluginConfig) (string, error) {
 		return "", fmt.Errorf("invalid plugin name: %w", err)
 	}
 
-	pluginBinaryName := fmt.Sprintf("release-pilot-plugin-%s", cfg.Name)
+	pluginBinaryName := fmt.Sprintf("relicta-plugin-%s", cfg.Name)
 
 	// If path is specified, validate it's in an allowed directory
 	if cfg.Path != "" {

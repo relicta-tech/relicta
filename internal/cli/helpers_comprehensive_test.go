@@ -1,10 +1,10 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 )
 
 // Test validateEditor edge cases

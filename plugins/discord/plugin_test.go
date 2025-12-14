@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func TestURLValidator_DiscordWebhook(t *testing.T) {
@@ -295,7 +295,7 @@ func TestDiscordPlugin_ParseConfig(t *testing.T) {
 		{
 			name:              "defaults",
 			config:            map[string]any{},
-			wantUsername:      "ReleasePilot",
+			wantUsername:      "Relicta",
 			wantNotifySuccess: true,
 			wantNotifyError:   true,
 			wantThreadID:      "",
@@ -315,7 +315,7 @@ func TestDiscordPlugin_ParseConfig(t *testing.T) {
 			config: map[string]any{
 				"notify_on_success": false,
 			},
-			wantUsername:      "ReleasePilot",
+			wantUsername:      "Relicta",
 			wantNotifySuccess: false,
 			wantNotifyError:   true,
 		},
@@ -324,7 +324,7 @@ func TestDiscordPlugin_ParseConfig(t *testing.T) {
 			config: map[string]any{
 				"notify_on_error": false,
 			},
-			wantUsername:      "ReleasePilot",
+			wantUsername:      "Relicta",
 			wantNotifySuccess: true,
 			wantNotifyError:   false,
 		},
@@ -333,7 +333,7 @@ func TestDiscordPlugin_ParseConfig(t *testing.T) {
 			config: map[string]any{
 				"thread_id": "123456789012345678",
 			},
-			wantUsername:      "ReleasePilot",
+			wantUsername:      "Relicta",
 			wantNotifySuccess: true,
 			wantNotifyError:   true,
 			wantThreadID:      "123456789012345678",
@@ -343,7 +343,7 @@ func TestDiscordPlugin_ParseConfig(t *testing.T) {
 			config: map[string]any{
 				"color": float64(16711680), // Red in decimal
 			},
-			wantUsername:      "ReleasePilot",
+			wantUsername:      "Relicta",
 			wantNotifySuccess: true,
 			wantNotifyError:   true,
 			wantColor:         16711680,

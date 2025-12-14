@@ -1,4 +1,4 @@
-// Package main implements the NuGet plugin for ReleasePilot.
+// Package main implements the NuGet plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // NuGetPlugin implements the NuGet publish plugin.
@@ -48,7 +48,7 @@ func (p *NuGetPlugin) GetInfo() plugin.Info {
 		Name:        "nuget",
 		Version:     "1.0.0",
 		Description: "Publish packages to NuGet (.NET)",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

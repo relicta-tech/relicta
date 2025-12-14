@@ -1,4 +1,4 @@
-// Package container provides dependency injection for ReleasePilot services.
+// Package container provides dependency injection for Relicta services.
 package container
 
 import (
@@ -8,18 +8,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/application/versioning"
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/integration"
-	domainrelease "github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	"github.com/felixgeelhaar/release-pilot/internal/errors"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/ai"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/persistence"
-	"github.com/felixgeelhaar/release-pilot/internal/plugin"
+	"github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/domain/integration"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/internal/plugin"
 )
 
 // defaultShutdownTimeout is the default timeout for graceful shutdown of components.
@@ -123,7 +123,7 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 	c.gitAdapter = git.NewAdapter(c.gitService)
 
 	// Initialize release repository
-	repoPath := ".release-pilot/releases"
+	repoPath := ".relicta/releases"
 	c.releaseRepo, err = persistence.NewFileReleaseRepository(repoPath)
 	if err != nil {
 		return errors.StateWrap(err, "initInfrastructure", "failed to initialize release repository")

@@ -9,7 +9,7 @@
 #    - GITHUB_TOKEN
 #    - SLACK_WEBHOOK_URL (from Slack Incoming Webhooks)
 #    - DISCORD_WEBHOOK_URL (from Discord Server Settings > Integrations)
-# 3. Run: release-pilot plan && release-pilot publish
+# 3. Run: relicta plan && relicta publish
 
 versioning:
   strategy: conventional
@@ -42,7 +42,7 @@ plugins:
     enabled: true
     config:
       channel: "#releases"
-      username: "ReleasePilot Bot"
+      username: "Relicta Bot"
       icon_emoji: ":rocket:"
       mention_users:
         - "@channel"
@@ -53,7 +53,7 @@ plugins:
   - name: discord
     enabled: true
     config:
-      username: "ReleasePilot Bot"
+      username: "Relicta Bot"
       avatar_url: "https://example.com/avatar.png"
       color: 3447003  # Blue color for embed
       notify_on_success: true

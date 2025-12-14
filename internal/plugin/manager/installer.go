@@ -36,7 +36,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	downloadURL := i.getDownloadURL(pluginInfo)
 
 	// Create temporary download location
-	tmpFile, err := os.CreateTemp("", fmt.Sprintf("release-pilot-plugin-%s-*", pluginInfo.Name))
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("relicta-plugin-%s-*", pluginInfo.Name))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -104,7 +104,7 @@ func (i *Installer) getBinaryName(pluginName string) string {
 // getDownloadURL constructs the GitHub release download URL for the plugin.
 func (i *Installer) getDownloadURL(pluginInfo PluginInfo) string {
 	// Format: https://github.com/{owner}/{repo}/releases/download/{version}/{plugin}_{os}_{arch}
-	// Example: https://github.com/felixgeelhaar/release-pilot/releases/download/v1.1.0/github_darwin_arm64
+	// Example: https://github.com/relicta-tech/relicta/releases/download/v1.1.0/github_darwin_arm64
 
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH

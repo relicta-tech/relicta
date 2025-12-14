@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // CalculateVersionInput represents input for the CalculateVersion use case.

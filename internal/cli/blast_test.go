@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/blast"
+	"github.com/relicta-tech/relicta/internal/application/blast"
 )
 
 // captureOutput captures stdout during function execution and returns the output.

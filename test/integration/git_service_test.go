@@ -1,4 +1,4 @@
-// Package integration provides integration tests for ReleasePilot.
+// Package integration provides integration tests for Relicta.
 package integration
 
 import (
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 func TestGitService_NewService(t *testing.T) {

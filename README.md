@@ -1,13 +1,13 @@
 <div align="center">
-  <img src=".github/assets/logo.png" alt="ReleasePilot Logo" width="200"/>
+  <img src=".github/assets/logo.png" alt="Relicta Logo" width="200"/>
 </div>
 
-# ReleasePilot
+# Relicta
 
 AI-powered release management CLI for software projects using conventional commits.
 
-[![CI](https://github.com/felixgeelhaar/release-pilot/actions/workflows/ci.yaml/badge.svg)](https://github.com/felixgeelhaar/release-pilot/actions/workflows/ci.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/felixgeelhaar/release-pilot)](https://goreportcard.com/report/github.com/felixgeelhaar/release-pilot)
+[![CI](https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg)](https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/relicta-tech/relicta)](https://goreportcard.com/report/github.com/relicta-tech/relicta)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -24,65 +24,65 @@ AI-powered release management CLI for software projects using conventional commi
 ### Using Go
 
 ```bash
-go install github.com/felixgeelhaar/release-pilot/cmd/release-pilot@latest
+go install github.com/relicta-tech/relicta/cmd/relicta@latest
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/felixgeelhaar/release-pilot.git
-cd release-pilot
-go build -o release-pilot ./cmd/release-pilot
+git clone https://github.com/relicta-tech/relicta.git
+cd relicta
+go build -o relicta ./cmd/relicta
 ```
 
 ### Docker
 
 ```bash
-docker pull ghcr.io/felixgeelhaar/release-pilot:latest
+docker pull ghcr.io/relicta-tech/relicta:latest
 ```
 
 ### GitHub Action (Recommended for CI/CD)
 
-The easiest way to use ReleasePilot in your CI/CD pipeline:
+The easiest way to use Relicta in your CI/CD pipeline:
 
 ```yaml
-- uses: felixgeelhaar/release-pilot-action@v1
+- uses: relicta-tech/relicta-action@v1
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-**No Go, Make, or build tools required!** The action automatically downloads the correct binary, verifies checksums, and handles the entire release workflow. See the [GitHub Action documentation](https://github.com/felixgeelhaar/release-pilot-action) for details.
+**No Go, Make, or build tools required!** The action automatically downloads the correct binary, verifies checksums, and handles the entire release workflow. See the [GitHub Action documentation](https://github.com/relicta-tech/relicta-action) for details.
 
 ## Quick Start
 
-1. Initialize ReleasePilot in your project:
+1. Initialize Relicta in your project:
 
 ```bash
-release-pilot init
+relicta init
 ```
 
 2. Plan a release (analyzes commits since last tag):
 
 ```bash
-release-pilot plan
+relicta plan
 ```
 
 3. Generate release notes (optionally with AI):
 
 ```bash
-release-pilot notes --ai
+relicta notes --ai
 ```
 
 4. Approve the release:
 
 ```bash
-release-pilot approve
+relicta approve
 ```
 
 5. Publish the release:
 
 ```bash
-release-pilot publish
+relicta publish
 ```
 
 ## Configuration
@@ -128,7 +128,7 @@ workflow:
 
 | Command | Description |
 |---------|-------------|
-| `init` | Initialize ReleasePilot with guided setup |
+| `init` | Initialize Relicta with guided setup |
 | `plan` | Analyze commits and plan the next release |
 | `notes` | Generate changelog and release notes |
 | `approve` | Review and approve the release |
@@ -153,7 +153,7 @@ workflow:
 
 ## Conventional Commits
 
-ReleasePilot follows the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+Relicta follows the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 ```
 <type>[optional scope]: <description>
@@ -179,7 +179,7 @@ ReleasePilot follows the [Conventional Commits](https://www.conventionalcommits.
 
 ## Plugins
 
-ReleasePilot supports plugins for extending functionality:
+Relicta supports plugins for extending functionality:
 
 ### GitHub Plugin
 
@@ -220,10 +220,10 @@ plugins:
 
 ## Architecture
 
-ReleasePilot is built with Domain-Driven Design principles:
+Relicta is built with Domain-Driven Design principles:
 
 ```
-├── cmd/release-pilot/     # CLI entry point
+├── cmd/relicta/     # CLI entry point
 ├── internal/
 │   ├── application/       # Use cases
 │   ├── domain/           # Business logic

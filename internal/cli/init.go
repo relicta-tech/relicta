@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
-	"github.com/felixgeelhaar/release-pilot/internal/ui/wizard"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/ui/wizard"
 )
 
 var (
@@ -63,7 +63,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Non-interactive mode: fall back to old behavior
-	printTitle("ReleasePilot Setup")
+	printTitle("Relicta Setup")
 	fmt.Println()
 
 	// Determine config file name
@@ -106,7 +106,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		printSubtle("     export SLACK_WEBHOOK_URL=your-webhook-url")
 	}
 	fmt.Println()
-	fmt.Println("  3. Run 'release-pilot plan' to analyze your commits")
+	fmt.Println("  3. Run 'relicta plan' to analyze your commits")
 	fmt.Println()
 
 	return nil

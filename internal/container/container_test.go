@@ -1,4 +1,4 @@
-// Package container provides dependency injection for ReleasePilot services.
+// Package container provides dependency injection for Relicta services.
 package container
 
 import (
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
+	"github.com/relicta-tech/relicta/internal/config"
 )
 
 // mockCloseable implements Closeable for testing.

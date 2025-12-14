@@ -1,6 +1,6 @@
 # AI Providers Guide
 
-ReleasePilot supports multiple AI providers for generating changelogs, release notes, and other AI-powered features. This guide covers setup, configuration, and best practices for all supported providers.
+Relicta supports multiple AI providers for generating changelogs, release notes, and other AI-powered features. This guide covers setup, configuration, and best practices for all supported providers.
 
 ## Supported Providers
 
@@ -556,13 +556,13 @@ Verify your AI setup:
 
 ```bash
 # Test with dry-run
-release-pilot notes --dry-run
+relicta notes --dry-run
 
 # Check AI provider connectivity
-release-pilot health  # (if implemented)
+relicta health  # (if implemented)
 
 # View AI-generated content
-release-pilot notes --verbose
+relicta notes --verbose
 ```
 
 ---
@@ -653,7 +653,7 @@ To switch from one provider to another:
 
 4. **Test with dry-run:**
    ```bash
-   release-pilot notes --dry-run
+   relicta notes --dry-run
    ```
 
 5. **Verify output quality** matches expectations
@@ -700,7 +700,7 @@ Reduce costs by optimizing token usage:
 
 ### Caching Strategies
 
-ReleasePilot caches AI responses by default:
+Relicta caches AI responses by default:
 
 ```yaml
 ai:
@@ -709,7 +709,7 @@ ai:
   cache_ttl: 24h        # Cache lifetime (default: 24h)
 ```
 
-Cached responses are stored in `.release-pilot/cache/` (gitignored).
+Cached responses are stored in `.relicta/cache/` (gitignored).
 
 ### Batch Processing
 
@@ -730,10 +730,10 @@ Not simultaneously, but you can switch providers per release by changing the con
 
 ```bash
 # Use OpenAI for production
-release-pilot publish -c production.config.yaml
+relicta publish -c production.config.yaml
 
 # Use Gemini for development
-release-pilot publish -c development.config.yaml
+relicta publish -c development.config.yaml
 ```
 
 ### Which provider is most cost-effective?
@@ -762,7 +762,7 @@ release-pilot publish -c development.config.yaml
 
 ### What happens if AI is disabled?
 
-ReleasePilot falls back to template-based changelog generation without AI enhancement. Basic functionality continues to work.
+Relicta falls back to template-based changelog generation without AI enhancement. Basic functionality continues to work.
 
 ### Can I run Ollama on a server?
 
@@ -811,15 +811,15 @@ ai:
 
 ### Support
 
-- **ReleasePilot Issues:** https://github.com/felixgeelhaar/release-pilot/issues
-- **Documentation:** https://github.com/felixgeelhaar/release-pilot
-- **Discussions:** https://github.com/felixgeelhaar/release-pilot/discussions
+- **Relicta Issues:** https://github.com/relicta-tech/relicta/issues
+- **Documentation:** https://github.com/relicta-tech/relicta
+- **Discussions:** https://github.com/relicta-tech/relicta/discussions
 
 ---
 
 ## Summary
 
-ReleasePilot supports 5 AI providers, each with unique strengths:
+Relicta supports 5 AI providers, each with unique strengths:
 
 - **OpenAI** - Best overall, industry standard
 - **Azure OpenAI** - Enterprise compliance and security

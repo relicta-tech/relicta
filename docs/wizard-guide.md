@@ -1,13 +1,13 @@
 # Template Wizard Guide
 
-The ReleasePilot Template Wizard provides an interactive, visual setup experience that reduces configuration time from 30 minutes to under 2 minutes. This guide covers how to use the wizard and customize your configuration.
+The Relicta Template Wizard provides an interactive, visual setup experience that reduces configuration time from 30 minutes to under 2 minutes. This guide covers how to use the wizard and customize your configuration.
 
 ## Quick Start
 
 Run the wizard to create your configuration:
 
 ```bash
-release-pilot init --interactive
+relicta init --interactive
 ```
 
 The wizard will guide you through 8 steps:
@@ -60,7 +60,7 @@ Pre-configured templates for common project types:
 ```
 ┌─────────────────────────────────────────────┐
 │                                             │
-│    🚀 ReleasePilot Setup Wizard            │
+│    🚀 Relicta Setup Wizard            │
 │                                             │
 │    Let's set up your release automation    │
 │    in just a few steps!                     │
@@ -271,12 +271,12 @@ Each template asks specific questions to customize the configuration:
 │                                             │
 │    Project Name:                            │
 │    ┌─────────────────────────────────────┐ │
-│    │ release-pilot                       │ │
+│    │ relicta                       │ │
 │    └─────────────────────────────────────┘ │
 │                                             │
 │    Repository URL:                          │
 │    ┌─────────────────────────────────────┐ │
-│    │ github.com/user/release-pilot       │ │
+│    │ github.com/user/relicta       │ │
 │    └─────────────────────────────────────┘ │
 │                                             │
 │    Default Branch:                          │
@@ -290,7 +290,7 @@ Each template asks specific questions to customize the configuration:
 
 | Question | Description | Example |
 |----------|-------------|---------|
-| **Project Name** | Display name in changelogs | "ReleasePilot" |
+| **Project Name** | Display name in changelogs | "Relicta" |
 | **Repository URL** | Git remote URL | "github.com/user/repo" |
 | **Default Branch** | Main branch name | "main" or "master" |
 | **Tag Prefix** | Git tag prefix | "v" (creates v1.2.3) |
@@ -396,7 +396,7 @@ Each template asks specific questions to customize the configuration:
 │    │                                   │   │
 │    │ changelog:                        │   │
 │    │   file: CHANGELOG.md              │   │
-│    │   product_name: ReleasePilot      │   │
+│    │   product_name: Relicta      │   │
 │    │                                   │   │
 │    │ ai:                               │   │
 │    │   enabled: true                   │   │
@@ -443,10 +443,10 @@ Each template asks specific questions to customize the configuration:
 │       export OPENAI_API_KEY="sk-..."        │
 │                                             │
 │    2. Make your first release:              │
-│       release-pilot publish                 │
+│       relicta publish                 │
 │                                             │
 │    3. Learn more:                           │
-│       release-pilot --help                  │
+│       relicta --help                  │
 │       docs/getting-started.md               │
 │                                             │
 │    Press any key to exit                    │
@@ -578,13 +578,13 @@ For CI/CD or automated setups:
 
 ```bash
 # Generate default configuration
-release-pilot init --non-interactive
+relicta init --non-interactive
 
 # With specific template
-release-pilot init --template go-opensource
+relicta init --template go-opensource
 
 # With custom config path
-release-pilot init --config custom.config.yaml
+relicta init --config custom.config.yaml
 ```
 
 ### Template Override
@@ -592,7 +592,7 @@ release-pilot init --config custom.config.yaml
 Specify template directly:
 
 ```bash
-release-pilot init --interactive --template=python-pypi
+relicta init --interactive --template=python-pypi
 ```
 
 Available template IDs:
@@ -613,7 +613,7 @@ Available template IDs:
 Validate after manual edits:
 
 ```bash
-release-pilot config validate
+relicta config validate
 
 # Output:
 # ✓ Configuration is valid
@@ -634,12 +634,12 @@ release-pilot config validate
 2. Check terminal size (minimum 80x24)
 3. Update to latest version:
    ```bash
-   release-pilot version
-   brew upgrade release-pilot
+   relicta version
+   brew upgrade relicta
    ```
 4. Run with debug logging:
    ```bash
-   RELEASE_PILOT_DEBUG=1 release-pilot init --interactive
+   RELICTA_DEBUG=1 relicta init --interactive
    ```
 
 ### Detection Incorrect
@@ -650,7 +650,7 @@ release-pilot config validate
 1. Manually select correct type in step 3
 2. Choose appropriate template in step 4
 3. Detection is a suggestion - override as needed
-4. File issue if consistently wrong: https://github.com/felixgeelhaar/release-pilot/issues
+4. File issue if consistently wrong: https://github.com/relicta-tech/relicta/issues
 
 ### Configuration Not Created
 
@@ -662,7 +662,7 @@ release-pilot config validate
 3. Check if config already exists (wizard won't overwrite)
 4. Use custom path:
    ```bash
-   release-pilot init --config /path/to/config.yaml
+   relicta init --config /path/to/config.yaml
    ```
 
 ### AI Setup Fails
@@ -682,7 +682,7 @@ release-pilot config validate
 3. Check provider-specific docs: `docs/ai-providers.md`
 4. Try dry-run to test:
    ```bash
-   release-pilot notes --dry-run
+   relicta notes --dry-run
    ```
 
 ### Template Questions Unclear
@@ -856,10 +856,10 @@ ai:
 ✅ **Test immediately:**
 ```bash
 # Dry-run to verify config
-release-pilot notes --dry-run
+relicta notes --dry-run
 
 # Check what would happen
-release-pilot plan
+relicta plan
 ```
 
 ---
@@ -868,7 +868,7 @@ release-pilot plan
 
 ### Can I re-run the wizard?
 
-Yes! Run `release-pilot init --interactive` again. It will:
+Yes! Run `relicta init --interactive` again. It will:
 - Detect existing configuration
 - Offer to backup old config
 - Merge detected values with existing settings
@@ -889,7 +889,7 @@ vim release.config.yaml
 nano release.config.yaml
 
 # Validate changes
-release-pilot config validate
+relicta config validate
 ```
 
 ### What if detection fails?
@@ -904,7 +904,7 @@ Detection is optional:
 
 For CI/CD, use non-interactive mode:
 ```bash
-release-pilot init --non-interactive --template=go-opensource
+relicta init --non-interactive --template=go-opensource
 ```
 
 Then customize programmatically:
@@ -917,7 +917,7 @@ sed -i 's/enabled: false/enabled: true/' release.config.yaml
 After wizard completion:
 1. Edit `release.config.yaml`
 2. Add plugin to `plugins:` array
-3. Validate with `release-pilot config validate`
+3. Validate with `relicta config validate`
 
 Example:
 ```yaml
@@ -930,7 +930,7 @@ plugins:
 
 ### Where are templates stored?
 
-Templates are embedded in the ReleasePilot binary:
+Templates are embedded in the Relicta binary:
 ```
 internal/cli/templates/data/
 ├── go-opensource.yaml.tmpl
@@ -947,7 +947,7 @@ Yes! Templates are Go templates (`.tmpl` files):
 2. Define variables with `{{ .Variable }}`
 3. Use in wizard:
    ```bash
-   release-pilot init --template-file=mytemplate.yaml.tmpl
+   relicta init --template-file=mytemplate.yaml.tmpl
    ```
 
 ---
@@ -965,15 +965,15 @@ Yes! Templates are Go templates (`.tmpl` files):
 - **Template Files:** `internal/cli/templates/data/`
 
 ### Support
-- **GitHub Issues:** https://github.com/felixgeelhaar/release-pilot/issues
-- **Discussions:** https://github.com/felixgeelhaar/release-pilot/discussions
-- **Documentation:** https://github.com/felixgeelhaar/release-pilot
+- **GitHub Issues:** https://github.com/relicta-tech/relicta/issues
+- **Discussions:** https://github.com/relicta-tech/relicta/discussions
+- **Documentation:** https://github.com/relicta-tech/relicta
 
 ---
 
 ## Summary
 
-The ReleasePilot Template Wizard:
+The Relicta Template Wizard:
 
 ✅ **Reduces setup time** from 30 minutes to 2 minutes
 ✅ **Intelligent detection** with 90%+ accuracy
@@ -986,7 +986,7 @@ The ReleasePilot Template Wizard:
 **Get started now:**
 
 ```bash
-release-pilot init --interactive
+relicta init --interactive
 ```
 
 The wizard makes release automation accessible to everyone - no configuration expertise required!

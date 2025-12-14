@@ -1,4 +1,4 @@
-// Package main implements the Discord plugin for ReleasePilot.
+// Package main implements the Discord plugin for Relicta.
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Shared HTTP client for connection reuse across requests.
@@ -128,7 +128,7 @@ func (p *DiscordPlugin) GetInfo() plugin.Info {
 		Name:        "discord",
 		Version:     "1.0.0",
 		Description: "Send Discord notifications for releases",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,
@@ -138,7 +138,7 @@ func (p *DiscordPlugin) GetInfo() plugin.Info {
 			"type": "object",
 			"properties": {
 				"webhook": {"type": "string", "description": "Discord webhook URL (or use DISCORD_WEBHOOK_URL env)"},
-				"username": {"type": "string", "description": "Bot username", "default": "ReleasePilot"},
+				"username": {"type": "string", "description": "Bot username", "default": "Relicta"},
 				"avatar_url": {"type": "string", "description": "Bot avatar URL"},
 				"notify_on_success": {"type": "boolean", "description": "Notify on success", "default": true},
 				"notify_on_error": {"type": "boolean", "description": "Notify on error", "default": true},
@@ -244,7 +244,7 @@ func (p *DiscordPlugin) sendSuccessNotification(ctx context.Context, cfg *Config
 				Color:       color,
 				Fields:      fields,
 				Footer: &EmbedFooter{
-					Text: "ReleasePilot",
+					Text: "Relicta",
 				},
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 			},
@@ -301,7 +301,7 @@ func (p *DiscordPlugin) sendErrorNotification(ctx context.Context, cfg *Config, 
 				Color:  color,
 				Fields: fields,
 				Footer: &EmbedFooter{
-					Text: "ReleasePilot",
+					Text: "Relicta",
 				},
 				Timestamp: time.Now().UTC().Format(time.RFC3339),
 			},
@@ -374,7 +374,7 @@ func (p *DiscordPlugin) parseConfig(raw map[string]any) *Config {
 
 	username := parser.GetString("username")
 	if username == "" {
-		username = "ReleasePilot"
+		username = "Relicta"
 	}
 
 	return &Config{

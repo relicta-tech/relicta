@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/communication"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/communication"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // mockAINotesGenerator implements AINotesGenerator for testing.

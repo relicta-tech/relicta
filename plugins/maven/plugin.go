@@ -1,4 +1,4 @@
-// Package main implements the Maven Central plugin for ReleasePilot.
+// Package main implements the Maven Central plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // MavenPlugin implements the Maven Central publish plugin.
@@ -58,7 +58,7 @@ func (p *MavenPlugin) GetInfo() plugin.Info {
 		Name:        "maven",
 		Version:     "1.0.0",
 		Description: "Publish packages to Maven Central",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

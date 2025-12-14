@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // GetLatestReleaseInput represents the input for the GetLatestRelease use case.

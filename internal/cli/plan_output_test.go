@@ -1,12 +1,12 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
 	"testing"
 
-	apprelease "github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestOutputPlanText_Minimal(t *testing.T) {

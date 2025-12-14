@@ -1,10 +1,10 @@
-// Package manager provides plugin management functionality for ReleasePilot.
+// Package manager provides plugin management functionality for Relicta.
 package manager
 
 import (
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Registry represents the central registry of available plugins.

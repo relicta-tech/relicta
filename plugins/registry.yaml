@@ -4,12 +4,12 @@ updated_at: 2025-12-12T08:30:00Z
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/github
     version: v1.2.4
     category: vcs
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - pre_publish
@@ -50,12 +50,12 @@ plugins:
 
   - name: gitlab
     description: Create GitLab releases
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/gitlab
     version: v1.2.4
     category: vcs
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - post_publish
@@ -77,12 +77,12 @@ plugins:
 
   - name: slack
     description: Send release notifications to Slack
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/slack
     version: v1.2.4
     category: notification
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - post_publish
@@ -99,7 +99,7 @@ plugins:
       username:
         type: string
         required: false
-        default: "ReleasePilot"
+        default: "Relicta"
         description: "Bot username"
       notify_on_success:
         type: boolean
@@ -114,12 +114,12 @@ plugins:
 
   - name: npm
     description: Publish packages to npm registry
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/npm
     version: v1.2.4
     category: package_manager
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - pre_publish
@@ -149,12 +149,12 @@ plugins:
 
   - name: jira
     description: Create and link Jira release versions
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/jira
     version: v1.2.4
     category: project_management
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - post_publish
@@ -190,12 +190,12 @@ plugins:
 
   - name: discord
     description: Send release notifications to Discord
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/discord
     version: v1.2.4
     category: notification
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - post_publish
@@ -208,7 +208,7 @@ plugins:
       username:
         type: string
         required: false
-        default: "ReleasePilot"
+        default: "Relicta"
         description: "Bot username"
       avatar_url:
         type: string
@@ -217,12 +217,12 @@ plugins:
 
   - name: launchnotes
     description: Create releases in LaunchNotes
-    repository: felixgeelhaar/release-pilot
+    repository: relicta-tech/relicta
     path: plugins/launchnotes
     version: v1.2.4
     category: project_management
-    author: ReleasePilot Team
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/relicta
     license: MIT
     hooks:
       - post_publish

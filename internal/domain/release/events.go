@@ -4,7 +4,7 @@ package release
 import (
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // DomainEvent represents an event that occurred in the domain.

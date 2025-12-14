@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 )
 
 // Default timeouts for git operations to prevent hangs on slow/unreachable remotes.

@@ -1,4 +1,4 @@
-// Package ai provides AI-powered content generation for ReleasePilot.
+// Package ai provides AI-powered content generation for Relicta.
 package ai
 
 import (
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // TestOpenAIComplete_ContextCancellation tests context cancellation in complete()

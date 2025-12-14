@@ -1,8 +1,8 @@
-# Technical Design Document: ReleasePilot
+# Technical Design Document: Relicta
 
 ## 1. Executive Summary
 
-ReleasePilot is a CLI tool that automates software release management through AI-powered changelog generation, semantic versioning, and a plugin-based publishing system. Built in Go for security, performance, and single-binary distribution.
+Relicta is a CLI tool that automates software release management through AI-powered changelog generation, semantic versioning, and a plugin-based publishing system. Built in Go for security, performance, and single-binary distribution.
 
 ---
 
@@ -12,7 +12,7 @@ ReleasePilot is a CLI tool that automates software release management through AI
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              ReleasePilot CLI                                │
+│                              Relicta CLI                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
@@ -109,9 +109,9 @@ ReleasePilot is a CLI tool that automates software release management through AI
 ## 4. Project Structure
 
 ```
-release-pilot/
+relicta/
 ├── cmd/
-│   └── release-pilot/
+│   └── relicta/
 │       └── main.go                 # Entry point
 │
 ├── internal/
@@ -685,7 +685,7 @@ syntax = "proto3";
 
 package plugin;
 
-option go_package = "github.com/releasepilot/release-pilot/internal/plugin/proto";
+option go_package = "github.com/releasepilot/relicta/internal/plugin/proto";
 
 service ReleasePlugin {
     rpc Init(InitRequest) returns (InitResponse);
@@ -767,7 +767,7 @@ import (
     "fmt"
 
     "github.com/google/go-github/v60/github"
-    "github.com/releasepilot/release-pilot/pkg/plugin"
+    "github.com/releasepilot/relicta/pkg/plugin"
 )
 
 type GitHubPlugin struct {
@@ -970,10 +970,10 @@ func Load() (*Config, error) {
     v.SetConfigName("release.config")
     v.SetConfigType("yaml")
     v.AddConfigPath(".")
-    v.AddConfigPath("$HOME/.config/release-pilot")
+    v.AddConfigPath("$HOME/.config/relicta")
 
     // Environment variable support
-    v.SetEnvPrefix("RELEASE_PILOT")
+    v.SetEnvPrefix("RELICTA")
     v.AutomaticEnv()
 
     // Allow ${VAR} expansion in config values
@@ -1028,9 +1028,9 @@ var (
 
 func NewRootCmd() *cobra.Command {
     cmd := &cobra.Command{
-        Use:   "release-pilot",
+        Use:   "relicta",
         Short: "AI-powered release management",
-        Long: `ReleasePilot automates software releases with semantic versioning,
+        Long: `Relicta automates software releases with semantic versioning,
 AI-generated changelogs, and plugin-based publishing.`,
         SilenceUsage: true,
     }
@@ -1081,9 +1081,9 @@ func newPlanCmd() *cobra.Command {
         Short: "Analyze changes and suggest version bump",
         Long: `Analyze commits since the last release and suggest a semantic version bump.
 Shows commits grouped by type and highlights breaking changes.`,
-        Example: `  release-pilot plan
-  release-pilot plan --from v1.0.0 --to HEAD
-  release-pilot plan --json`,
+        Example: `  relicta plan
+  relicta plan --from v1.0.0 --to HEAD
+  relicta plan --json`,
         RunE: func(cmd *cobra.Command, args []string) error {
             ctx := cmd.Context()
             return runPlan(ctx, fromRef, toRef, jsonOut)
@@ -1166,9 +1166,9 @@ func newVersionCmd() *cobra.Command {
         Short: "Calculate and apply version bump",
         Long: `Calculate the next version based on conventional commits or set an explicit version.
 Optionally creates a git tag and updates package files.`,
-        Example: `  release-pilot version --bump minor
-  release-pilot version 2.0.0
-  release-pilot version --bump prerelease --preid beta`,
+        Example: `  relicta version --bump minor
+  relicta version 2.0.0
+  relicta version --bump prerelease --preid beta`,
         Args: cobra.MaximumNArgs(1),
         RunE: func(cmd *cobra.Command, args []string) error {
             ctx := cmd.Context()
@@ -1437,7 +1437,7 @@ func E(op string, kind Kind, err error, details ...string) *Error {
 ```makefile
 # Makefile
 
-BINARY_NAME=release-pilot
+BINARY_NAME=relicta
 VERSION=$(shell git describe --tags --always --dirty)
 BUILD_TIME=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
@@ -1447,10 +1447,10 @@ LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 all: lint test build
 
 build:
-	go build ${LDFLAGS} -o bin/${BINARY_NAME} ./cmd/release-pilot
+	go build ${LDFLAGS} -o bin/${BINARY_NAME} ./cmd/relicta
 
 install:
-	go install ${LDFLAGS} ./cmd/release-pilot
+	go install ${LDFLAGS} ./cmd/relicta
 
 test:
 	go test -race -coverprofile=coverage.out ./...
@@ -1483,7 +1483,7 @@ release-snapshot:
 
 version: 2
 
-project_name: release-pilot
+project_name: relicta
 
 before:
   hooks:
@@ -1491,9 +1491,9 @@ before:
     - go generate ./...
 
 builds:
-  - id: release-pilot
-    main: ./cmd/release-pilot
-    binary: release-pilot
+  - id: relicta
+    main: ./cmd/relicta
+    binary: relicta
     env:
       - CGO_ENABLED=0
     goos:
@@ -1531,21 +1531,21 @@ changelog:
       - "^chore:"
 
 brews:
-  - name: release-pilot
+  - name: relicta
     repository:
       owner: releasepilot
       name: homebrew-tap
-    homepage: "https://github.com/releasepilot/release-pilot"
+    homepage: "https://github.com/releasepilot/relicta"
     description: "AI-powered release management CLI"
     install: |
-      bin.install "release-pilot"
+      bin.install "relicta"
 
 nfpms:
   - id: packages
-    package_name: release-pilot
-    vendor: ReleasePilot
-    homepage: "https://github.com/releasepilot/release-pilot"
-    maintainer: "ReleasePilot Team"
+    package_name: relicta
+    vendor: Relicta
+    homepage: "https://github.com/releasepilot/relicta"
+    maintainer: "Relicta Team"
     description: "AI-powered release management CLI"
     formats:
       - deb
@@ -1572,7 +1572,7 @@ package git_test
 import (
     "testing"
 
-    "github.com/releasepilot/release-pilot/internal/service/git"
+    "github.com/releasepilot/relicta/internal/service/git"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 )
@@ -1712,7 +1712,7 @@ func TestPlanCommand(t *testing.T) {
     runGit(t, dir, "commit", "-m", "feat: add new feature")
 
     // Run plan command
-    cmd := exec.Command("release-pilot", "plan", "--json")
+    cmd := exec.Command("relicta", "plan", "--json")
     cmd.Dir = dir
     output, err := cmd.Output()
     require.NoError(t, err)
@@ -1760,9 +1760,9 @@ func writeFile(t *testing.T, dir, name, content string) {
 
 | Operation | Target |
 |-----------|--------|
-| `release-pilot plan` | < 1s for repos with < 1000 commits |
-| `release-pilot notes` (no AI) | < 500ms |
-| `release-pilot notes` (with AI) | < 10s |
+| `relicta plan` | < 1s for repos with < 1000 commits |
+| `relicta notes` (no AI) | < 500ms |
+| `relicta notes` (with AI) | < 10s |
 | Plugin loading | < 200ms total |
 | Binary size | < 20MB |
 | Memory usage | < 50MB typical |

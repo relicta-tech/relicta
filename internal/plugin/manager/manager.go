@@ -12,9 +12,9 @@ import (
 
 const (
 	// DefaultPluginDir is the default directory for plugins
-	DefaultPluginDir = ".release-pilot/plugins"
+	DefaultPluginDir = ".relicta/plugins"
 	// DefaultCacheDir is the default directory for cache
-	DefaultCacheDir = ".release-pilot/cache"
+	DefaultCacheDir = ".relicta/cache"
 	// ManifestFile is the name of the manifest file
 	ManifestFile = "manifest.yaml"
 )

@@ -1,4 +1,4 @@
-// Package ai provides AI-powered content generation for ReleasePilot.
+// Package ai provides AI-powered content generation for Relicta.
 package ai
 
 import (
@@ -11,8 +11,8 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/felixgeelhaar/release-pilot/internal/errors"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // Default Ollama configuration values.

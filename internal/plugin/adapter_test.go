@@ -1,4 +1,4 @@
-// Package plugin provides plugin management for ReleasePilot.
+// Package plugin provides plugin management for Relicta.
 package plugin
 
 import (
@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/integration"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/integration"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func TestNewExecutorAdapter(t *testing.T) {

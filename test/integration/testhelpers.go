@@ -22,7 +22,7 @@ func NewTestRepo(t testing.TB) *TestRepo {
 	t.Helper()
 
 	// Create temporary directory
-	dir, err := os.MkdirTemp("", "release-pilot-test-*")
+	dir, err := os.MkdirTemp("", "relicta-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}

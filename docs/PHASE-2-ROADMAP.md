@@ -112,7 +112,7 @@
 
 ### 🎯 Priority 1: Innovation (Market Differentiation)
 
-**Goal:** Make ReleasePilot uniquely valuable
+**Goal:** Make Relicta uniquely valuable
 
 #### 1.1 AI Release Assistant (Premium)
 **Status:** NEW
@@ -391,7 +391,7 @@ Enterprise Tier:
 
 ### 🎯 Priority 3: High-Value Features (Adoption & Retention)
 
-**Goal:** Make ReleasePilot indispensable
+**Goal:** Make Relicta indispensable
 
 #### 3.1 Web UI Dashboard (Premium)
 **Status:** NEW

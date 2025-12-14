@@ -51,9 +51,9 @@ jobs:
           name: release-artifacts
           path: dist/
 
-  # Release using ReleasePilot Action (dogfooding!)
+  # Release using Relicta Action (dogfooding!)
   release:
-    name: Release with ReleasePilot
+    name: Release with Relicta
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -72,8 +72,8 @@ jobs:
           path: dist/
 
       # That's it! Use our own action to release ourselves 🎉
-      - name: Release with ReleasePilot Action
-        uses: felixgeelhaar/release-pilot-action@v1
+      - name: Release with Relicta Action
+        uses: relicta-tech/relicta-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-approve: true

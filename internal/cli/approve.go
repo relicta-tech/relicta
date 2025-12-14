@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -14,10 +14,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	apprelease "github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/container"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/ui"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/container"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/ui"
 )
 
 var (
@@ -46,7 +46,7 @@ func getLatestRelease(ctx context.Context, dddContainer *container.DDDContainer)
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		printError("No release in progress")
-		printInfo("Run 'release-pilot plan' to start a new release")
+		printInfo("Run 'relicta plan' to start a new release")
 		return nil, fmt.Errorf("no release state found")
 	}
 
@@ -57,7 +57,7 @@ func getLatestRelease(ctx context.Context, dddContainer *container.DDDContainer)
 func isReleaseAlreadyApproved(rel *release.Release) bool {
 	if rel.State() == release.StateApproved || rel.IsApproved() {
 		printInfo("Release already approved")
-		printInfo("Run 'release-pilot publish' to execute the release")
+		printInfo("Run 'relicta publish' to execute the release")
 		return true
 	}
 	return false
@@ -135,7 +135,7 @@ func printApproveNextSteps() {
 
 	printTitle("Next Steps")
 	fmt.Println()
-	fmt.Println("  Run 'release-pilot publish' to execute the release")
+	fmt.Println("  Run 'relicta publish' to execute the release")
 	fmt.Println()
 }
 

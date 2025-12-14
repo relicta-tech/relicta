@@ -1,4 +1,4 @@
-// Package config provides configuration management for ReleasePilot.
+// Package config provides configuration management for Relicta.
 package config
 
 import (
@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
 )
 
 // openAIKeyLength is the standard length of OpenAI API keys (e.g., "sk-..." format).
@@ -218,7 +218,7 @@ func (v *Validator) validateAI(cfg AIConfig) {
 		}
 
 		envVar := providerEnvVars[cfg.Provider]
-		genericEnvVar := "RELEASE_PILOT_AI_API_KEY"
+		genericEnvVar := "RELICTA_AI_API_KEY"
 
 		// Ollama doesn't require an API key
 		if cfg.Provider == "ollama" {

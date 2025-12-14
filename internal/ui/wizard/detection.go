@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/felixgeelhaar/release-pilot/internal/cli/templates"
+	"github.com/relicta-tech/relicta/internal/cli/templates"
 )
 
 // DetectionModel is the Bubble Tea model for the detection screen.

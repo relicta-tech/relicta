@@ -1,4 +1,4 @@
-// Package template provides template rendering for ReleasePilot.
+// Package template provides template rendering for Relicta.
 package template
 
 import (
@@ -18,9 +18,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // bufferPool is used to reuse buffers for template execution to reduce GC pressure.

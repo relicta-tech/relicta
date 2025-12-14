@@ -1,13 +1,13 @@
-// Package plugin provides plugin management for ReleasePilot.
+// Package plugin provides plugin management for Relicta.
 package plugin
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/integration"
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/integration"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // ExecutorAdapter adapts the Manager to the integration.PluginExecutor interface.

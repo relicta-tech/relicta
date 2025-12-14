@@ -97,7 +97,7 @@ ai:
 
 ```bash
 # Interactive wizard
-$ release-pilot init
+$ relicta init
 
 ? What type of project? (Use arrow keys)
   ❯ Open Source Library (Go, Rust, Python, etc.)
@@ -131,7 +131,7 @@ $ release-pilot init
 
 ✓ Created release.config.yaml
 ✓ Created .github/workflows/release.yml
-✓ Ready to release! Run: release-pilot plan
+✓ Ready to release! Run: relicta plan
 ```
 
 **Templates included:**
@@ -523,7 +523,7 @@ Simulation Features:
 Rollback Features:
 
 ⏮️ One-Command Rollback
-$ release-pilot rollback
+$ relicta rollback
   Reverting v1.3.0 → v1.2.3
   ✓ Reverted git tag
   ✓ Updated CHANGELOG.md

@@ -1,4 +1,4 @@
-// Package main implements the Go Modules plugin for ReleasePilot.
+// Package main implements the Go Modules plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // GoModPlugin implements the Go Modules publish plugin.
@@ -42,7 +42,7 @@ func (p *GoModPlugin) GetInfo() plugin.Info {
 		Name:        "gomod",
 		Version:     "1.0.0",
 		Description: "Publish Go modules",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

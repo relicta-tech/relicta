@@ -1,5 +1,5 @@
-# ReleasePilot Configuration for Self-Release
-# This config allows ReleasePilot to release itself (dogfooding!)
+# Relicta Configuration for Self-Release
+# This config allows Relicta to release itself (dogfooding!)
 
 versioning:
   strategy: conventional  # Use conventional commits for versioning
@@ -25,18 +25,18 @@ plugins:
     enabled: true
     config:
       owner: felixgeelhaar
-      repo: release-pilot
+      repo: relicta
       draft: false
       prerelease: false
       generate_release_notes: false  # We generate our own
       # Assets to upload - archives + individual plugin binaries
       assets:
         # Main binary archives
-        - "dist/release-pilot_Linux_x86_64.tar.gz"
-        - "dist/release-pilot_Linux_aarch64.tar.gz"
-        - "dist/release-pilot_Darwin_x86_64.tar.gz"
-        - "dist/release-pilot_Darwin_aarch64.tar.gz"
-        - "dist/release-pilot_Windows_x86_64.zip"
+        - "dist/relicta_Linux_x86_64.tar.gz"
+        - "dist/relicta_Linux_aarch64.tar.gz"
+        - "dist/relicta_Darwin_x86_64.tar.gz"
+        - "dist/relicta_Darwin_aarch64.tar.gz"
+        - "dist/relicta_Windows_x86_64.zip"
         # Plugin binaries - GitHub
         - "dist/github_linux_x86_64"
         - "dist/github_linux_aarch64"

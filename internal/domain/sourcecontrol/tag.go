@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // Tag represents a git tag entity.

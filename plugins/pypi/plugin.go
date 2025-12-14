@@ -1,4 +1,4 @@
-// Package main implements the PyPI plugin for ReleasePilot.
+// Package main implements the PyPI plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Security validation patterns
@@ -56,7 +56,7 @@ func (p *PyPIPlugin) GetInfo() plugin.Info {
 		Name:        "pypi",
 		Version:     "1.0.0",
 		Description: "Publish packages to PyPI (Python Package Index)",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

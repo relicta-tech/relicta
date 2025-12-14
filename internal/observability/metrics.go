@@ -1,4 +1,4 @@
-// Package observability provides metrics and monitoring for ReleasePilot.
+// Package observability provides metrics and monitoring for Relicta.
 package observability
 
 import (
@@ -149,62 +149,62 @@ func (m *Metrics) Handler() http.Handler {
 		var sb strings.Builder
 
 		// Build info
-		sb.WriteString("# HELP release_pilot_info Build information\n")
-		sb.WriteString("# TYPE release_pilot_info gauge\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_info{version=%q} 1\n\n", m.version))
+		sb.WriteString("# HELP relicta_info Build information\n")
+		sb.WriteString("# TYPE relicta_info gauge\n")
+		sb.WriteString(fmt.Sprintf("relicta_info{version=%q} 1\n\n", m.version))
 
 		// Uptime
 		uptime := time.Since(m.startTime).Seconds()
-		sb.WriteString("# HELP release_pilot_uptime_seconds Uptime in seconds\n")
-		sb.WriteString("# TYPE release_pilot_uptime_seconds gauge\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_uptime_seconds %.2f\n\n", uptime))
+		sb.WriteString("# HELP relicta_uptime_seconds Uptime in seconds\n")
+		sb.WriteString("# TYPE relicta_uptime_seconds gauge\n")
+		sb.WriteString(fmt.Sprintf("relicta_uptime_seconds %.2f\n\n", uptime))
 
 		// Release counters
-		sb.WriteString("# HELP release_pilot_releases_total Total number of releases attempted\n")
-		sb.WriteString("# TYPE release_pilot_releases_total counter\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_releases_total %d\n\n", m.releasesTotal.Load()))
+		sb.WriteString("# HELP relicta_releases_total Total number of releases attempted\n")
+		sb.WriteString("# TYPE relicta_releases_total counter\n")
+		sb.WriteString(fmt.Sprintf("relicta_releases_total %d\n\n", m.releasesTotal.Load()))
 
-		sb.WriteString("# HELP release_pilot_releases_successful_total Total number of successful releases\n")
-		sb.WriteString("# TYPE release_pilot_releases_successful_total counter\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_releases_successful_total %d\n\n", m.releasesSuccessful.Load()))
+		sb.WriteString("# HELP relicta_releases_successful_total Total number of successful releases\n")
+		sb.WriteString("# TYPE relicta_releases_successful_total counter\n")
+		sb.WriteString(fmt.Sprintf("relicta_releases_successful_total %d\n\n", m.releasesSuccessful.Load()))
 
-		sb.WriteString("# HELP release_pilot_releases_failed_total Total number of failed releases\n")
-		sb.WriteString("# TYPE release_pilot_releases_failed_total counter\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_releases_failed_total %d\n\n", m.releasesFailed.Load()))
+		sb.WriteString("# HELP relicta_releases_failed_total Total number of failed releases\n")
+		sb.WriteString("# TYPE relicta_releases_failed_total counter\n")
+		sb.WriteString(fmt.Sprintf("relicta_releases_failed_total %d\n\n", m.releasesFailed.Load()))
 
 		// Active releases gauge
-		sb.WriteString("# HELP release_pilot_active_releases Number of releases currently in progress\n")
-		sb.WriteString("# TYPE release_pilot_active_releases gauge\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_active_releases %d\n\n", m.activeReleases.Load()))
+		sb.WriteString("# HELP relicta_active_releases Number of releases currently in progress\n")
+		sb.WriteString("# TYPE relicta_active_releases gauge\n")
+		sb.WriteString(fmt.Sprintf("relicta_active_releases %d\n\n", m.activeReleases.Load()))
 
 		// Release latency
 		count := m.releaseLatencyCount.Load()
 		sum := m.releaseLatencySum.Load()
-		sb.WriteString("# HELP release_pilot_release_duration_milliseconds Release operation duration\n")
-		sb.WriteString("# TYPE release_pilot_release_duration_milliseconds summary\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_release_duration_milliseconds_count %d\n", count))
-		sb.WriteString(fmt.Sprintf("release_pilot_release_duration_milliseconds_sum %d\n\n", sum))
+		sb.WriteString("# HELP relicta_release_duration_milliseconds Release operation duration\n")
+		sb.WriteString("# TYPE relicta_release_duration_milliseconds summary\n")
+		sb.WriteString(fmt.Sprintf("relicta_release_duration_milliseconds_count %d\n", count))
+		sb.WriteString(fmt.Sprintf("relicta_release_duration_milliseconds_sum %d\n\n", sum))
 
 		// Plugin metrics
-		sb.WriteString("# HELP release_pilot_plugin_executions_total Total plugin executions\n")
-		sb.WriteString("# TYPE release_pilot_plugin_executions_total counter\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_plugin_executions_total %d\n\n", m.pluginExecutions.Load()))
+		sb.WriteString("# HELP relicta_plugin_executions_total Total plugin executions\n")
+		sb.WriteString("# TYPE relicta_plugin_executions_total counter\n")
+		sb.WriteString(fmt.Sprintf("relicta_plugin_executions_total %d\n\n", m.pluginExecutions.Load()))
 
-		sb.WriteString("# HELP release_pilot_plugin_errors_total Total plugin errors\n")
-		sb.WriteString("# TYPE release_pilot_plugin_errors_total counter\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_plugin_errors_total %d\n\n", m.pluginErrors.Load()))
+		sb.WriteString("# HELP relicta_plugin_errors_total Total plugin errors\n")
+		sb.WriteString("# TYPE relicta_plugin_errors_total counter\n")
+		sb.WriteString(fmt.Sprintf("relicta_plugin_errors_total %d\n\n", m.pluginErrors.Load()))
 
 		// Plugin latency
 		pluginCount := m.pluginLatencyCount.Load()
 		pluginSum := m.pluginLatencySum.Load()
-		sb.WriteString("# HELP release_pilot_plugin_duration_milliseconds Plugin execution duration\n")
-		sb.WriteString("# TYPE release_pilot_plugin_duration_milliseconds summary\n")
-		sb.WriteString(fmt.Sprintf("release_pilot_plugin_duration_milliseconds_count %d\n", pluginCount))
-		sb.WriteString(fmt.Sprintf("release_pilot_plugin_duration_milliseconds_sum %d\n\n", pluginSum))
+		sb.WriteString("# HELP relicta_plugin_duration_milliseconds Plugin execution duration\n")
+		sb.WriteString("# TYPE relicta_plugin_duration_milliseconds summary\n")
+		sb.WriteString(fmt.Sprintf("relicta_plugin_duration_milliseconds_count %d\n", pluginCount))
+		sb.WriteString(fmt.Sprintf("relicta_plugin_duration_milliseconds_sum %d\n\n", pluginSum))
 
 		// Command invocations
-		sb.WriteString("# HELP release_pilot_command_invocations_total CLI command invocations\n")
-		sb.WriteString("# TYPE release_pilot_command_invocations_total counter\n")
+		sb.WriteString("# HELP relicta_command_invocations_total CLI command invocations\n")
+		sb.WriteString("# TYPE relicta_command_invocations_total counter\n")
 
 		m.mu.RLock()
 		commands := make([]string, 0, len(m.commandInvocations))
@@ -214,7 +214,7 @@ func (m *Metrics) Handler() http.Handler {
 		sort.Strings(commands)
 
 		for _, cmd := range commands {
-			sb.WriteString(fmt.Sprintf("release_pilot_command_invocations_total{command=%q} %d\n",
+			sb.WriteString(fmt.Sprintf("relicta_command_invocations_total{command=%q} %d\n",
 				cmd, m.commandInvocations[cmd].Load()))
 		}
 		m.mu.RUnlock()
@@ -222,15 +222,15 @@ func (m *Metrics) Handler() http.Handler {
 		sb.WriteString("\n")
 
 		// Command latency
-		sb.WriteString("# HELP release_pilot_command_duration_milliseconds CLI command duration\n")
-		sb.WriteString("# TYPE release_pilot_command_duration_milliseconds summary\n")
+		sb.WriteString("# HELP relicta_command_duration_milliseconds CLI command duration\n")
+		sb.WriteString("# TYPE relicta_command_duration_milliseconds summary\n")
 
 		m.mu.RLock()
 		for _, cmd := range commands {
 			if m.commandLatencyCount[cmd] != nil {
-				sb.WriteString(fmt.Sprintf("release_pilot_command_duration_milliseconds_count{command=%q} %d\n",
+				sb.WriteString(fmt.Sprintf("relicta_command_duration_milliseconds_count{command=%q} %d\n",
 					cmd, m.commandLatencyCount[cmd].Load()))
-				sb.WriteString(fmt.Sprintf("release_pilot_command_duration_milliseconds_sum{command=%q} %d\n",
+				sb.WriteString(fmt.Sprintf("relicta_command_duration_milliseconds_sum{command=%q} %d\n",
 					cmd, m.commandLatencySum[cmd].Load()))
 			}
 		}

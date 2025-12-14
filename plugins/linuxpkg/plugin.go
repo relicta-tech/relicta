@@ -1,4 +1,4 @@
-// Package main implements the Linux package repository plugin for ReleasePilot.
+// Package main implements the Linux package repository plugin for Relicta.
 // Supports APT (Debian/Ubuntu) and YUM/DNF (RHEL/CentOS/Fedora) repositories.
 package main
 
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // LinuxPkgPlugin implements the Linux package repository plugin.
@@ -203,7 +203,7 @@ func (p *LinuxPkgPlugin) GetInfo() plugin.Info {
 		Name:        "linuxpkg",
 		Version:     "1.0.0",
 		Description: "Build and publish Linux packages (DEB/RPM) to APT/YUM repositories",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 		},

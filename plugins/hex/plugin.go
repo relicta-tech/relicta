@@ -1,4 +1,4 @@
-// Package main implements the Hex plugin for ReleasePilot.
+// Package main implements the Hex plugin for Relicta.
 package main
 
 import (
@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // HexPlugin implements the Hex publish plugin.
@@ -39,7 +39,7 @@ func (p *HexPlugin) GetInfo() plugin.Info {
 		Name:        "hex",
 		Version:     "1.0.0",
 		Description: "Publish packages to Hex.pm (Elixir/Erlang)",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

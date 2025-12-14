@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 // mockReleaseRepo is a mock implementation of release.Repository for testing.

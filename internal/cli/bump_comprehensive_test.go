@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/versioning"
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestBuildCalculateVersionInputExtended(t *testing.T) {

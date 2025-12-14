@@ -1,4 +1,4 @@
-# ReleasePilot Configuration Examples
+# Relicta Configuration Examples
 
 This directory contains example configurations for common use cases. Each example is a complete `release.config.yaml` file that you can use as a starting point for your project.
 
@@ -8,7 +8,7 @@ This directory contains example configurations for common use cases. Each exampl
 2. Copy it to your project root as `release.config.yaml`
 3. Customize the configuration for your project
 4. Set required environment variables
-5. Run `release-pilot init` to verify configuration
+5. Run `relicta init` to verify configuration
 
 ## Available Examples
 
@@ -203,13 +203,13 @@ monorepo/
 ```bash
 # Release the API package
 cd packages/api
-release-pilot plan
-release-pilot publish
+relicta plan
+relicta publish
 
 # Release the web package
 cd packages/web
-release-pilot plan
-release-pilot publish
+relicta plan
+relicta publish
 ```
 
 **Tag format:** `@scope/package@version` (e.g., `@myorg/api@1.2.0`)
@@ -229,7 +229,7 @@ Select the example that best matches your project type and workflow.
 cp examples/github-release.yaml release.config.yaml
 
 # Or use init command and customize
-release-pilot init
+relicta init
 ```
 
 ### 3. Customize Configuration
@@ -267,27 +267,27 @@ export JIRA_API_TOKEN="your_jira_api_token"
 
 ```bash
 # Validate configuration
-release-pilot validate
+relicta validate
 
 # Test with dry-run
-release-pilot plan --dry-run
-release-pilot publish --dry-run
+relicta plan --dry-run
+relicta publish --dry-run
 ```
 
 ### 6. Create First Release
 
 ```bash
 # Plan the release
-release-pilot plan
+relicta plan
 
 # Generate release notes
-release-pilot notes
+relicta notes
 
 # Review and approve
-release-pilot approve
+relicta approve
 
 # Publish the release
-release-pilot publish
+relicta publish
 ```
 
 ---
@@ -348,7 +348,7 @@ See [PLUGINS.md](../docs/PLUGINS.md) for detailed plugin documentation.
 
 ### GitHub Actions
 
-Use the ReleasePilot GitHub Action for zero-setup CI/CD:
+Use the Relicta GitHub Action for zero-setup CI/CD:
 
 ```yaml
 name: Release
@@ -369,12 +369,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: felixgeelhaar/release-pilot-action@v1
+      - uses: relicta-tech/relicta-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-See [release-pilot-action](https://github.com/felixgeelhaar/release-pilot-action) for details.
+See [relicta-action](https://github.com/relicta-tech/relicta-action) for details.
 
 ### Private npm Registry
 
@@ -431,15 +431,15 @@ git commit -m "feat: add new feature"
 **"Plugin not found"**
 ```bash
 # Download plugin binary
-curl -L https://github.com/felixgeelhaar/release-pilot/releases/latest/download/github_linux_x86_64 \
-  -o ~/.release-pilot/plugins/release-pilot-plugin-github
-chmod +x ~/.release-pilot/plugins/release-pilot-plugin-github
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_linux_x86_64 \
+  -o ~/.relicta/plugins/relicta-plugin-github
+chmod +x ~/.relicta/plugins/relicta-plugin-github
 ```
 
 **"Invalid config"**
 ```bash
 # Validate configuration
-release-pilot validate
+relicta validate
 
 # Check YAML syntax
 yamllint release.config.yaml
@@ -452,7 +452,7 @@ yamllint release.config.yaml
 - [Main README](../README.md) - Project overview and installation
 - [Plugin Guide](../docs/PLUGINS.md) - Detailed plugin documentation
 - [Troubleshooting](../docs/TROUBLESHOOTING.md) - Common issues and solutions
-- [GitHub Action](https://github.com/felixgeelhaar/release-pilot-action) - CI/CD integration
+- [GitHub Action](https://github.com/relicta-tech/relicta-action) - CI/CD integration
 - [Conventional Commits](https://www.conventionalcommits.org/) - Commit message format
 
 ---

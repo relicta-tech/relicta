@@ -1,4 +1,4 @@
-// Package plugin provides the public interface for ReleasePilot plugins.
+// Package plugin provides the public interface for Relicta plugins.
 package plugin
 
 import (
@@ -9,13 +9,13 @@ import (
 
 const (
 	// PluginName is the name used for the plugin map.
-	PluginName = "release-pilot-plugin"
+	PluginName = "relicta-plugin"
 
 	// MagicCookieKey is the key for the plugin handshake.
-	MagicCookieKey = "RELEASE_PILOT_PLUGIN"
+	MagicCookieKey = "RELICTA_PLUGIN"
 
 	// MagicCookieValue is the value for the plugin handshake.
-	MagicCookieValue = "release-pilot-v1"
+	MagicCookieValue = "relicta-v1"
 )
 
 // Handshake is the handshake config for plugins.

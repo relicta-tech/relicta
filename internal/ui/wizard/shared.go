@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (
@@ -144,8 +144,8 @@ func wizardBanner() string {
 
 // wizardWelcome returns the welcome message.
 func wizardWelcome() string {
-	return "Welcome to the ReleasePilot initialization wizard!\n\n" +
-		"This wizard will help you set up ReleasePilot in less than 2 minutes.\n" +
+	return "Welcome to the Relicta initialization wizard!\n\n" +
+		"This wizard will help you set up Relicta in less than 2 minutes.\n" +
 		"We'll auto-detect your project type and generate a customized configuration."
 }
 

@@ -19,9 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Plugin_GetInfo_FullMethodName  = "/releasepilot.Plugin/GetInfo"
-	Plugin_Execute_FullMethodName  = "/releasepilot.Plugin/Execute"
-	Plugin_Validate_FullMethodName = "/releasepilot.Plugin/Validate"
+	Plugin_GetInfo_FullMethodName  = "/relicta.Plugin/GetInfo"
+	Plugin_Execute_FullMethodName  = "/relicta.Plugin/Execute"
+	Plugin_Validate_FullMethodName = "/relicta.Plugin/Validate"
 )
 
 // PluginClient is the client API for Plugin service.
@@ -186,7 +186,7 @@ func _Plugin_Validate_Handler(srv interface{}, ctx context.Context, dec func(int
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Plugin_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "releasepilot.Plugin",
+	ServiceName: "relicta.Plugin",
 	HandlerType: (*PluginServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

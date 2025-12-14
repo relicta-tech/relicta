@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 )
 
 func TestSetVersionInfo(t *testing.T) {
@@ -701,8 +701,8 @@ func TestStyles_Initialization(t *testing.T) {
 }
 
 func TestRootCommand_Use(t *testing.T) {
-	if rootCmd.Use != "release-pilot" {
-		t.Errorf("rootCmd.Use = %v, want release-pilot", rootCmd.Use)
+	if rootCmd.Use != "relicta" {
+		t.Errorf("rootCmd.Use = %v, want relicta", rootCmd.Use)
 	}
 }
 

@@ -1,4 +1,4 @@
-// Package template provides template rendering for ReleasePilot.
+// Package template provides template rendering for Relicta.
 package template
 
 import (
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestDefaultServiceConfig(t *testing.T) {

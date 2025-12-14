@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/integration"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/integration"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 )
 
 // PublishReleaseInput represents the input for the PublishRelease use case.

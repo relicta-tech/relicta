@@ -8,7 +8,7 @@
 # 2. Set GITHUB_TOKEN environment variable
 # 3. Ensure goreleaser is configured (.goreleaser.yaml)
 # 4. Build binaries: goreleaser build --snapshot
-# 5. Run: release-pilot plan && release-pilot publish
+# 5. Run: relicta plan && relicta publish
 #
 # Expected build artifacts in dist/:
 #   - myapp_linux_amd64.tar.gz

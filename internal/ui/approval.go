@@ -1,4 +1,4 @@
-// Package ui provides terminal user interface components for ReleasePilot.
+// Package ui provides terminal user interface components for Relicta.
 package ui
 
 import (

@@ -2,7 +2,7 @@
 package main
 
 import (
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-// Package observability provides metrics and monitoring for ReleasePilot.
+// Package observability provides metrics and monitoring for Relicta.
 package observability
 
 import (
@@ -131,13 +131,13 @@ func TestMetrics_Handler(t *testing.T) {
 
 	// Check for expected metrics
 	expectedMetrics := []string{
-		"release_pilot_info",
-		"release_pilot_uptime_seconds",
-		"release_pilot_releases_total 1",
-		"release_pilot_releases_successful_total 1",
-		"release_pilot_releases_failed_total 0",
-		"release_pilot_plugin_executions_total 1",
-		"release_pilot_command_invocations_total{command=\"plan\"} 1",
+		"relicta_info",
+		"relicta_uptime_seconds",
+		"relicta_releases_total 1",
+		"relicta_releases_successful_total 1",
+		"relicta_releases_failed_total 0",
+		"relicta_plugin_executions_total 1",
+		"relicta_command_invocations_total{command=\"plan\"} 1",
 	}
 
 	for _, expected := range expectedMetrics {
@@ -162,7 +162,7 @@ func TestMetrics_Handler_Empty(t *testing.T) {
 	body := rec.Body.String()
 
 	// Should still have info and zero counters
-	if !strings.Contains(body, "release_pilot_releases_total 0") {
+	if !strings.Contains(body, "relicta_releases_total 0") {
 		t.Error("Expected zero release counter")
 	}
 }

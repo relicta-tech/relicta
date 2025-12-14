@@ -16,7 +16,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // Package-level file categorization maps for efficient lookups.

@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func TestURLValidator_SlackWebhook(t *testing.T) {
@@ -252,8 +252,8 @@ func TestSlackPlugin_ParseConfig(t *testing.T) {
 
 	t.Run("defaults are applied", func(t *testing.T) {
 		cfg := p.parseConfig(map[string]any{})
-		if cfg.Username != "ReleasePilot" {
-			t.Errorf("Username = %q, want %q", cfg.Username, "ReleasePilot")
+		if cfg.Username != "Relicta" {
+			t.Errorf("Username = %q, want %q", cfg.Username, "Relicta")
 		}
 		if cfg.IconEmoji != ":rocket:" {
 			t.Errorf("IconEmoji = %q, want %q", cfg.IconEmoji, ":rocket:")

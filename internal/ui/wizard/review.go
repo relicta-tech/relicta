@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (

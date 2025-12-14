@@ -1,4 +1,4 @@
-// Package main implements the GitLab plugin for ReleasePilot.
+// Package main implements the GitLab plugin for Relicta.
 package main
 
 import (
@@ -10,7 +10,7 @@ import (
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // GitLabPlugin implements the GitLab release plugin.
@@ -54,7 +54,7 @@ func (p *GitLabPlugin) GetInfo() plugin.Info {
 		Name:        "gitlab",
 		Version:     "1.0.0",
 		Description: "Create GitLab releases and upload assets",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,

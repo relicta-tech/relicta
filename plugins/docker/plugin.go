@@ -1,4 +1,4 @@
-// Package main implements the Docker Hub / Container registry plugin for ReleasePilot.
+// Package main implements the Docker Hub / Container registry plugin for Relicta.
 package main
 
 import (
@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // DockerPlugin implements the Docker container registry plugin.
@@ -52,7 +52,7 @@ func (p *DockerPlugin) GetInfo() plugin.Info {
 		Name:        "docker",
 		Version:     "1.0.0",
 		Description: "Build and push Docker images to container registries",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 		},

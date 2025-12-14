@@ -1,4 +1,4 @@
-// Package main implements the Chocolatey package publishing plugin for ReleasePilot.
+// Package main implements the Chocolatey package publishing plugin for Relicta.
 package main
 
 import (
@@ -14,7 +14,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // ChocolateyPlugin implements the Chocolatey package plugin.
@@ -152,7 +152,7 @@ func (p *ChocolateyPlugin) GetInfo() plugin.Info {
 		Name:        "chocolatey",
 		Version:     "1.0.0",
 		Description: "Build and publish Chocolatey packages for Windows",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 		},

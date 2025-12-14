@@ -1,4 +1,4 @@
-// Package main implements the npm plugin for ReleasePilot.
+// Package main implements the npm plugin for Relicta.
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Security validation patterns
@@ -60,7 +60,7 @@ func (p *NpmPlugin) GetInfo() plugin.Info {
 		Name:        "npm",
 		Version:     "1.0.0",
 		Description: "Publish packages to npm registry",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

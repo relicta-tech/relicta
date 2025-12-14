@@ -1,4 +1,4 @@
-// Package plugin provides the public interface for ReleasePilot plugins.
+// Package plugin provides the public interface for Relicta plugins.
 package plugin
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/felixgeelhaar/release-pilot/internal/plugin/proto"
+	"github.com/relicta-tech/relicta/internal/plugin/proto"
 )
 
 // getInfoTimeout is the maximum duration for GetInfo RPC calls.

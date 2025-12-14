@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func TestNewManager(t *testing.T) {
@@ -325,10 +325,10 @@ func TestAllowedPluginDirs(t *testing.T) {
 	foundLocal := false
 	foundSystem := false
 	for _, dir := range dirs {
-		if dir == ".release-pilot/plugins" {
+		if dir == ".relicta/plugins" {
 			foundLocal = true
 		}
-		if dir == "/usr/local/lib/release-pilot/plugins" {
+		if dir == "/usr/local/lib/relicta/plugins" {
 			foundSystem = true
 		}
 	}
@@ -352,7 +352,7 @@ func TestIsPathInAllowedDir(t *testing.T) {
 	}{
 		{
 			name:     "path in local plugins dir",
-			path:     ".release-pilot/plugins/test-plugin",
+			path:     ".relicta/plugins/test-plugin",
 			expected: true,
 		},
 		{
@@ -527,9 +527,9 @@ func TestValidatePluginBinary_Directory(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a subdirectory
 	testDir := filepath.Join(allowedDir, "test-dir")
@@ -558,9 +558,9 @@ func TestValidatePluginBinary_NotExecutable(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a non-executable file
 	pluginPath := filepath.Join(allowedDir, "test-not-executable")
@@ -614,9 +614,9 @@ func TestFindPluginBinary_WithSpecifiedPath(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a mock plugin binary
 	pluginPath := filepath.Join(allowedDir, "test-plugin")
@@ -649,13 +649,13 @@ func TestFindPluginBinary_SearchAllowedDirs(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a mock plugin binary with expected naming
 	pluginName := "searchtest"
-	pluginPath := filepath.Join(allowedDir, "release-pilot-plugin-"+pluginName)
+	pluginPath := filepath.Join(allowedDir, "relicta-plugin-"+pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -736,7 +736,7 @@ func TestIsPathInAllowedDir_EdgeCases(t *testing.T) {
 		{
 			name: "path with .. components",
 			setup: func() string {
-				return ".release-pilot/plugins/../../etc/passwd"
+				return ".relicta/plugins/../../etc/passwd"
 			},
 			expected: false,
 		},
@@ -896,9 +896,9 @@ func TestValidatePluginBinary_SymlinkResolution(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create actual plugin file
 	pluginPath := filepath.Join(allowedDir, "test-plugin-real")
@@ -930,9 +930,9 @@ func TestIsPathInAllowedDir_SymlinkEscape(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Try to create a symlink that points outside allowed dir
 	outsidePath := "/tmp/evil-target"
@@ -1029,9 +1029,9 @@ func TestFindPluginBinary_AbsolutePathError(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a plugin with invalid symlink
 	pluginPath := filepath.Join(allowedDir, "broken-link")
@@ -1119,12 +1119,12 @@ func TestFindPluginBinary_SearchMultipleDirs(t *testing.T) {
 	}
 
 	// Create plugin in the HOME directory allowed location
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	pluginName := "searchtest2"
-	pluginPath := filepath.Join(allowedDir, "release-pilot-plugin-"+pluginName)
+	pluginPath := filepath.Join(allowedDir, "relicta-plugin-"+pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -1157,9 +1157,9 @@ func TestIsPathInAllowedDir_MultipleAllowedDirs(t *testing.T) {
 	}
 
 	// Test with path in user's home directory
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	testPath := filepath.Join(allowedDir, "test-plugin")
 	absPath, err := filepath.Abs(testPath)
@@ -1230,9 +1230,9 @@ func TestValidatePluginBinary_SymlinkCircular(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create circular symlinks (link1 -> link2 -> link1)
 	link1 := filepath.Join(allowedDir, "link1")
@@ -1262,9 +1262,9 @@ func TestIsPathInAllowedDir_LocalPluginDir(t *testing.T) {
 	m := NewManager(cfg)
 
 	// Test with local project plugin directory
-	localDir := ".release-pilot/plugins"
+	localDir := ".relicta/plugins"
 	os.MkdirAll(localDir, 0755)
-	defer os.RemoveAll(".release-pilot")
+	defer os.RemoveAll(".relicta")
 
 	testPath := filepath.Join(localDir, "test-plugin")
 	absPath, err := filepath.Abs(testPath)
@@ -1283,12 +1283,12 @@ func TestFindPluginBinary_LocalProjectDir(t *testing.T) {
 	m := NewManager(cfg)
 
 	// Create plugin in local project directory
-	localDir := ".release-pilot/plugins"
+	localDir := ".relicta/plugins"
 	os.MkdirAll(localDir, 0755)
-	defer os.RemoveAll(".release-pilot")
+	defer os.RemoveAll(".relicta")
 
 	pluginName := "localtest"
-	pluginPath := filepath.Join(localDir, "release-pilot-plugin-"+pluginName)
+	pluginPath := filepath.Join(localDir, "relicta-plugin-"+pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -1316,9 +1316,9 @@ func TestFindPluginBinary_PathWithSymlinkToAllowedDir(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create actual plugin
 	pluginPath := filepath.Join(allowedDir, "test-real-plugin")
@@ -1390,9 +1390,9 @@ func TestValidatePluginBinary_Success(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a valid executable plugin
 	pluginPath := filepath.Join(allowedDir, "valid-plugin")
@@ -1418,13 +1418,13 @@ func TestFindPluginBinary_SkipInvalidDirs(t *testing.T) {
 		t.Skip("HOME not set")
 	}
 
-	allowedDir1 := filepath.Join(homeDir, ".release-pilot", "plugins")
+	allowedDir1 := filepath.Join(homeDir, ".relicta", "plugins")
 	os.MkdirAll(allowedDir1, 0755)
-	defer os.RemoveAll(filepath.Join(homeDir, ".release-pilot"))
+	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	// Create a non-executable plugin in first directory (should be skipped)
 	pluginName := "skiptest"
-	badPluginPath := filepath.Join(allowedDir1, "release-pilot-plugin-"+pluginName)
+	badPluginPath := filepath.Join(allowedDir1, "relicta-plugin-"+pluginName)
 	err := os.WriteFile(badPluginPath, []byte("bad"), 0644) // Not executable
 	if err != nil {
 		t.Fatalf("Failed to create bad plugin: %v", err)

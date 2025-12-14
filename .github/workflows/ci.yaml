@@ -89,13 +89,13 @@ jobs:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
         run: |
-          go build -ldflags="-s -w" -o release-pilot-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/release-pilot
+          go build -ldflags="-s -w" -o relicta-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/relicta
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: release-pilot-${{ matrix.os }}-${{ matrix.arch }}
-          path: release-pilot-*
+          name: relicta-${{ matrix.os }}-${{ matrix.arch }}
+          path: relicta-*
 
   security:
     name: Security Scan

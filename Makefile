@@ -1,9 +1,9 @@
-# ReleasePilot Makefile
-# Build automation for the release-pilot CLI
+# Relicta Makefile
+# Build automation for the relicta CLI
 
 # Variables
-BINARY_NAME := release-pilot
-MODULE := github.com/felixgeelhaar/release-pilot
+BINARY_NAME := relicta
+MODULE := github.com/relicta-tech/relicta
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -21,7 +21,7 @@ GOLINT := golangci-lint
 # Directories
 BIN_DIR := bin
 DIST_DIR := dist
-CMD_DIR := cmd/release-pilot
+CMD_DIR := cmd/relicta
 PLUGINS_DIR := plugins
 
 # All plugin binaries (matching GoReleaser config)
@@ -89,17 +89,17 @@ plugins: plugin-github plugin-npm plugin-slack
 plugin-github:
 	@echo "Building GitHub plugin..."
 	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/release-pilot-github ./$(PLUGINS_DIR)/github
+	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-github ./$(PLUGINS_DIR)/github
 
 plugin-npm:
 	@echo "Building npm plugin..."
 	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/release-pilot-npm ./$(PLUGINS_DIR)/npm
+	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-npm ./$(PLUGINS_DIR)/npm
 
 plugin-slack:
 	@echo "Building Slack plugin..."
 	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/release-pilot-slack ./$(PLUGINS_DIR)/slack
+	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-slack ./$(PLUGINS_DIR)/slack
 
 ## Test targets
 
@@ -287,7 +287,7 @@ mocks:
 
 # Help
 help:
-	@echo "ReleasePilot Build Commands"
+	@echo "Relicta Build Commands"
 	@echo ""
 	@echo "Build:"
 	@echo "  make build          Build the binary"

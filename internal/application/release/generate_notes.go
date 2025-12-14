@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/communication"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/communication"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 // GenerateNotesInput represents the input for the GenerateNotes use case.

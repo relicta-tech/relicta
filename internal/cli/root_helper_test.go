@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
+	"github.com/relicta-tech/relicta/internal/config"
 )
 
 func TestLoadAndValidateConfig(t *testing.T) {
@@ -84,7 +84,7 @@ func TestLoadAndValidateConfig_InvalidConfig(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Create an invalid config file (missing required fields)
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
 	err := os.WriteFile(configPath, []byte(`
 invalid: yaml: structure
 versioning:

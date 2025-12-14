@@ -4,7 +4,7 @@ package sourcecontrol
 import (
 	"context"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // RepositoryInfo represents repository metadata.

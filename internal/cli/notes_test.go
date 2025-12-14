@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/communication"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/domain/communication"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 func TestParseNoteTone(t *testing.T) {

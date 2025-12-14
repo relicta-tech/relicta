@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 // FileUnitOfWork implements release.UnitOfWork for file-based storage.

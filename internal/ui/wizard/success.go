@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (
@@ -88,7 +88,7 @@ func (m SuccessModel) View() string {
 	b.WriteString(m.styles.title.Render("✓ Configuration Complete!"))
 	b.WriteString("\n\n")
 
-	b.WriteString(m.styles.subtitle.Render("ReleasePilot has been successfully initialized"))
+	b.WriteString(m.styles.subtitle.Render("Relicta has been successfully initialized"))
 	b.WriteString("\n\n")
 
 	// File saved
@@ -107,8 +107,8 @@ func (m SuccessModel) View() string {
 	}{
 		{"1️⃣", "Review and customize your configuration if needed"},
 		{"2️⃣", "Set up any required environment variables (API keys, webhooks)"},
-		{"3️⃣", "Test your configuration with: release-pilot plan --dry-run"},
-		{"4️⃣", "Create your first release: release-pilot publish"},
+		{"3️⃣", "Test your configuration with: relicta plan --dry-run"},
+		{"4️⃣", "Create your first release: relicta publish"},
 	}
 
 	for _, step := range steps {
@@ -118,7 +118,7 @@ func (m SuccessModel) View() string {
 	b.WriteString("\n")
 
 	// Documentation link
-	b.WriteString(m.styles.subtle.Render("📚 Documentation: https://github.com/felixgeelhaar/release-pilot"))
+	b.WriteString(m.styles.subtle.Render("📚 Documentation: https://github.com/relicta-tech/relicta"))
 	b.WriteString("\n\n")
 
 	// Environment variables reminder

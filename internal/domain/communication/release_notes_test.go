@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestNoteTone_IsValid(t *testing.T) {

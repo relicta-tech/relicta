@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 func TestFileUnitOfWork_BasicOperations(t *testing.T) {

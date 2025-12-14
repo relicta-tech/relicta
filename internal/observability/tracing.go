@@ -1,4 +1,4 @@
-// Package observability provides metrics, tracing, and monitoring for ReleasePilot.
+// Package observability provides metrics, tracing, and monitoring for Relicta.
 package observability
 
 import (
@@ -33,7 +33,7 @@ type TracerConfig struct {
 func DefaultTracerConfig() TracerConfig {
 	return TracerConfig{
 		Enabled:        false,
-		ServiceName:    "release-pilot",
+		ServiceName:    "relicta",
 		ServiceVersion: "unknown",
 		Environment:    "development",
 		Endpoint:       "localhost:4317",

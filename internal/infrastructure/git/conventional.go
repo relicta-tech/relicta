@@ -1,10 +1,10 @@
-// Package git provides git operations for ReleasePilot.
+// Package git provides git operations for Relicta.
 package git
 
 import (
 	"strings"
 
-	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
 )
 
 // ParseConventionalCommit parses a commit message as a conventional commit.

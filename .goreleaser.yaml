@@ -1,9 +1,9 @@
-# GoReleaser configuration for ReleasePilot
+# GoReleaser configuration for Relicta
 # https://goreleaser.com/customization/
 
 version: 2
 
-project_name: release-pilot
+project_name: relicta
 
 before:
   hooks:
@@ -12,9 +12,9 @@ before:
 
 builds:
   # Main CLI binary
-  - id: release-pilot
-    main: ./cmd/release-pilot
-    binary: release-pilot
+  - id: relicta
+    main: ./cmd/relicta
+    binary: relicta
     env:
       - CGO_ENABLED=0
     goos:
@@ -178,7 +178,7 @@ archives:
   # Main CLI archive (without plugins)
   - id: main
     builds:
-      - release-pilot
+      - relicta
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -232,7 +232,7 @@ changelog:
 release:
   github:
     owner: felixgeelhaar
-    name: release-pilot
+    name: relicta
   draft: false
   prerelease: auto
   mode: append
@@ -246,48 +246,48 @@ release:
     - glob: dist/discord_*
     - glob: dist/launchnotes_*
   header: |
-    ## ReleasePilot {{ .Tag }}
+    ## Relicta {{ .Tag }}
 
     AI-powered release management for modern software teams.
   footer: |
-    **Full Changelog**: https://github.com/felixgeelhaar/release-pilot/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/relicta-tech/relicta/compare/{{ .PreviousTag }}...{{ .Tag }}
 
     ### Installation
 
     ```bash
     # macOS (Apple Silicon)
-    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Darwin_arm64.tar.gz | tar xz
+    curl -L https://github.com/relicta-tech/relicta/releases/download/{{ .Tag }}/relicta_Darwin_arm64.tar.gz | tar xz
 
     # macOS (Intel)
-    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Darwin_x86_64.tar.gz | tar xz
+    curl -L https://github.com/relicta-tech/relicta/releases/download/{{ .Tag }}/relicta_Darwin_x86_64.tar.gz | tar xz
 
     # Linux (amd64)
-    curl -L https://github.com/felixgeelhaar/release-pilot/releases/download/{{ .Tag }}/release-pilot_Linux_x86_64.tar.gz | tar xz
+    curl -L https://github.com/relicta-tech/relicta/releases/download/{{ .Tag }}/relicta_Linux_x86_64.tar.gz | tar xz
     ```
 
 brews:
-  - name: release-pilot
+  - name: relicta
     repository:
       owner: felixgeelhaar
       name: homebrew-tap
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    homepage: https://github.com/relicta-tech/relicta
     description: AI-powered release management CLI
     license: MIT
     skip_upload: auto
     test: |
-      system "#{bin}/release-pilot", "--version"
+      system "#{bin}/relicta", "--version"
     install: |
-      bin.install "release-pilot"
+      bin.install "relicta"
     caveats: |
       Plugins can be installed using:
-        release-pilot plugin install <name>
+        relicta plugin install <name>
 
 nfpms:
   - id: packages
-    package_name: release-pilot
+    package_name: relicta
     file_name_template: "{{ .ConventionalFileName }}"
     vendor: Felix Geelhaar
-    homepage: https://github.com/felixgeelhaar/release-pilot
+    homepage: https://github.com/relicta-tech/relicta
     maintainer: Felix Geelhaar <felix@geelhaar.dev>
     description: AI-powered release management CLI
     license: MIT
@@ -300,14 +300,14 @@ nfpms:
 # Docker builds disabled - build context issues in CI
 # dockers:
 #   - image_templates:
-#       - "ghcr.io/felixgeelhaar/release-pilot:{{ .Tag }}"
-#       - "ghcr.io/felixgeelhaar/release-pilot:latest"
+#       - "ghcr.io/relicta-tech/relicta:{{ .Tag }}"
+#       - "ghcr.io/relicta-tech/relicta:latest"
 #     dockerfile: Dockerfile
 #     build_flag_templates:
 #       - "--label=org.opencontainers.image.title={{ .ProjectName }}"
 #       - "--label=org.opencontainers.image.description=AI-powered release management CLI"
-#       - "--label=org.opencontainers.image.url=https://github.com/felixgeelhaar/release-pilot"
-#       - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/release-pilot"
+#       - "--label=org.opencontainers.image.url=https://github.com/relicta-tech/relicta"
+#       - "--label=org.opencontainers.image.source=https://github.com/relicta-tech/relicta"
 #       - "--label=org.opencontainers.image.version={{ .Version }}"
 #       - "--label=org.opencontainers.image.created={{ .Date }}"
 #       - "--label=org.opencontainers.image.revision={{ .FullCommit }}"

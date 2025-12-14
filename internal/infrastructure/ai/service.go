@@ -1,12 +1,12 @@
-// Package ai provides AI-powered content generation for ReleasePilot.
+// Package ai provides AI-powered content generation for Relicta.
 package ai
 
 import (
 	"context"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // Service defines the interface for AI operations.

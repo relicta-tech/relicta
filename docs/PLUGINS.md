@@ -1,6 +1,6 @@
-# ReleasePilot Plugins
+# Relicta Plugins
 
-Plugins extend ReleasePilot's functionality by integrating with external services. Plugins run at specific lifecycle hooks during the release process.
+Plugins extend Relicta's functionality by integrating with external services. Plugins run at specific lifecycle hooks during the release process.
 
 ## Available Plugins
 
@@ -159,7 +159,7 @@ plugins:
     enabled: true
     config:
       channel: "#releases"   # Channel to post to
-      username: "ReleasePilot Bot"  # Bot username
+      username: "Relicta Bot"  # Bot username
       icon_emoji: ":rocket:" # Bot icon
       mention_users:         # Users to mention
         - "@channel"
@@ -200,7 +200,7 @@ plugins:
   - name: discord
     enabled: true
     config:
-      username: "ReleasePilot Bot"
+      username: "Relicta Bot"
       avatar_url: "https://example.com/avatar.png"
       color: 3447003        # Embed color (integer)
 ```
@@ -283,7 +283,7 @@ plugins:
 
 ## Creating Custom Plugins
 
-Plugins are standalone binaries that communicate with ReleasePilot via gRPC.
+Plugins are standalone binaries that communicate with Relicta via gRPC.
 
 ### Plugin Interface
 
@@ -291,7 +291,7 @@ Plugins are standalone binaries that communicate with ReleasePilot via gRPC.
 package main
 
 import (
-    "github.com/felixgeelhaar/release-pilot/pkg/plugin"
+    "github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 type MyPlugin struct{}
@@ -326,18 +326,18 @@ func main() {
 
 ### Plugin Discovery
 
-ReleasePilot discovers plugins in:
-1. `~/.release-pilot/plugins/` (global)
-2. `.release-pilot/plugins/` (project-local)
+Relicta discovers plugins in:
+1. `~/.relicta/plugins/` (global)
+2. `.relicta/plugins/` (project-local)
 
-Plugin binaries must be named: `release-pilot-plugin-{name}`
+Plugin binaries must be named: `relicta-plugin-{name}`
 
 ### Testing Plugins
 
 ```bash
 # Test plugin locally
-release-pilot plugin list
-release-pilot plugin test my-plugin
+relicta plugin list
+relicta plugin test my-plugin
 ```
 
 ---
@@ -353,9 +353,9 @@ Error: plugin 'github' not found
 **Solution**: Install the plugin binary:
 ```bash
 # Download from releases
-curl -L https://github.com/felixgeelhaar/release-pilot/releases/latest/download/github_linux_x86_64 \
-  -o ~/.release-pilot/plugins/release-pilot-plugin-github
-chmod +x ~/.release-pilot/plugins/release-pilot-plugin-github
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_linux_x86_64 \
+  -o ~/.relicta/plugins/relicta-plugin-github
+chmod +x ~/.relicta/plugins/relicta-plugin-github
 ```
 
 ### Plugin Failed to Execute
@@ -378,7 +378,7 @@ Error: failed to communicate with plugin 'npm'
 **Solution**:
 1. Verify plugin binary is executable
 2. Check plugin version compatibility
-3. Review plugin logs in `.release-pilot/logs/`
+3. Review plugin logs in `.relicta/logs/`
 
 ---
 
@@ -386,12 +386,12 @@ Error: failed to communicate with plugin 'npm'
 
 1. **Use Dry Run** - Test plugin configurations with `--dry-run`
    ```bash
-   release-pilot publish --dry-run
+   relicta publish --dry-run
    ```
 
 2. **Validate Config** - Check plugin configuration before releasing
    ```bash
-   release-pilot validate
+   relicta validate
    ```
 
 3. **Environment Variables** - Use environment variables for secrets, never commit to config
@@ -424,6 +424,6 @@ Error: failed to communicate with plugin 'npm'
 
 ## Plugin Development Resources
 
-- [Plugin SDK Documentation](https://github.com/felixgeelhaar/release-pilot/tree/main/pkg/plugin)
-- [Example Plugins](https://github.com/felixgeelhaar/release-pilot/tree/main/plugins)
-- [gRPC Protocol](https://github.com/felixgeelhaar/release-pilot/tree/main/internal/plugin/proto)
+- [Plugin SDK Documentation](https://github.com/relicta-tech/relicta/tree/main/pkg/plugin)
+- [Example Plugins](https://github.com/relicta-tech/relicta/tree/main/plugins)
+- [gRPC Protocol](https://github.com/relicta-tech/relicta/tree/main/internal/plugin/proto)

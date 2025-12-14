@@ -16,18 +16,18 @@ COPY . .
 # Build the application with optimizations
 # -s: strip symbol table
 # -w: strip DWARF debugging info
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o release-pilot ./cmd/release-pilot
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o relicta ./cmd/relicta
 
 # Final stage - minimal image for production
 FROM alpine:3.23
 
 # Labels for container metadata
-LABEL org.opencontainers.image.title="ReleasePilot"
+LABEL org.opencontainers.image.title="Relicta"
 LABEL org.opencontainers.image.description="AI-powered release management CLI"
-LABEL org.opencontainers.image.vendor="ReleasePilot Team"
-LABEL org.opencontainers.image.source="https://github.com/felixgeelhaar/release-pilot"
+LABEL org.opencontainers.image.vendor="Relicta Team"
+LABEL org.opencontainers.image.source="https://github.com/relicta-tech/relicta"
 
-# Install git (required for release-pilot to work with git repos)
+# Install git (required for relicta to work with git repos)
 RUN apk add --no-cache git ca-certificates tzdata
 
 # Create non-root user with specific UID/GID for better security
@@ -37,7 +37,7 @@ RUN addgroup -g 1000 -S appgroup && \
 WORKDIR /app
 
 # Copy binary from builder
-COPY --from=builder /app/release-pilot .
+COPY --from=builder /app/relicta .
 
 # Change ownership
 RUN chown -R appuser:appgroup /app
@@ -54,13 +54,13 @@ ENV GOMEMLIMIT=256MiB
 
 # Health check - use dedicated health command for comprehensive checks
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD ./release-pilot health --json || exit 1
+  CMD ./relicta health --json || exit 1
 
 # Document recommended resource limits for container orchestrators
 # Example docker run with resource limits:
 #   docker run --cpus=2 --memory=512m --memory-swap=512m \
 #              --pids-limit=100 --read-only --security-opt=no-new-privileges \
-#              release-pilot
+#              relicta
 #
 # Example Kubernetes resource limits (in deployment spec):
 #   resources:
@@ -71,4 +71,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 #       cpu: "2000m"
 #       memory: "512Mi"
 
-ENTRYPOINT ["./release-pilot"]
+ENTRYPOINT ["./relicta"]

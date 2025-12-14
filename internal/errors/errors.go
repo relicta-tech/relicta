@@ -1,4 +1,4 @@
-// Package errors provides structured error types for ReleasePilot.
+// Package errors provides structured error types for Relicta.
 // It implements error classification, wrapping, and recovery detection.
 package errors
 
@@ -89,7 +89,7 @@ func (k Kind) String() string {
 	}
 }
 
-// Error is the standard error type for ReleasePilot.
+// Error is the standard error type for Relicta.
 type Error struct {
 	// Kind is the category of the error.
 	Kind Kind

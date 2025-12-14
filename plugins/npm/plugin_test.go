@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func TestValidatePackageDir(t *testing.T) {
@@ -491,8 +491,8 @@ func TestNpmPlugin_GetInfo(t *testing.T) {
 		t.Errorf("GetInfo().Version = %q, want %q", info.Version, "1.0.0")
 	}
 
-	if info.Author != "ReleasePilot Team" {
-		t.Errorf("GetInfo().Author = %q, want %q", info.Author, "ReleasePilot Team")
+	if info.Author != "Relicta Team" {
+		t.Errorf("GetInfo().Author = %q, want %q", info.Author, "Relicta Team")
 	}
 
 	expectedHooks := []plugin.Hook{plugin.HookPrePublish, plugin.HookPostPublish}

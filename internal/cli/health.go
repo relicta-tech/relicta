@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -46,8 +46,8 @@ type HealthReport struct {
 
 var healthCmd = &cobra.Command{
 	Use:   "health",
-	Short: "Check the health of release-pilot and its dependencies",
-	Long: `Perform health checks on release-pilot and its dependencies.
+	Short: "Check the health of relicta and its dependencies",
+	Long: `Perform health checks on relicta and its dependencies.
 
 This command verifies:
   - Git availability and repository status
@@ -199,7 +199,7 @@ func checkConfig(ctx context.Context) ComponentHealth {
 		"release.config.yml",
 		".release.yaml",
 		".release.yml",
-		"release-pilot.config.yaml",
+		"relicta.config.yaml",
 	}
 
 	found := false
@@ -215,7 +215,7 @@ func checkConfig(ctx context.Context) ComponentHealth {
 
 	if !found {
 		health.Status = HealthStatusDegraded
-		health.Message = "no configuration file found (run 'release-pilot init' to create one)"
+		health.Message = "no configuration file found (run 'relicta init' to create one)"
 		return health
 	}
 
@@ -233,13 +233,13 @@ func checkPluginsDir(ctx context.Context) ComponentHealth {
 
 	// Check standard plugin directories
 	pluginDirs := []string{
-		".release-pilot/plugins",
-		"/usr/local/lib/release-pilot/plugins",
+		".relicta/plugins",
+		"/usr/local/lib/relicta/plugins",
 	}
 
 	// Also check home directory
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		pluginDirs = append(pluginDirs, homeDir+"/.release-pilot/plugins")
+		pluginDirs = append(pluginDirs, homeDir+"/.relicta/plugins")
 	}
 
 	var foundDirs []string

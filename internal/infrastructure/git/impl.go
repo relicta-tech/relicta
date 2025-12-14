@@ -1,4 +1,4 @@
-// Package git provides git operations for ReleasePilot.
+// Package git provides git operations for Relicta.
 package git
 
 import (
@@ -20,7 +20,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 
-	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
 )
 
 // errStopIteration is a sentinel error used to signal early termination of commit iteration.
@@ -523,10 +523,10 @@ func (s *ServiceImpl) CreateTag(_ context.Context, name, message string, opts Ta
 
 		// Use defaults if still not set
 		if taggerName == "" {
-			taggerName = "ReleasePilot"
+			taggerName = "Relicta"
 		}
 		if taggerEmail == "" {
-			taggerEmail = "release-pilot@localhost"
+			taggerEmail = "relicta@localhost"
 		}
 
 		// Create annotated tag

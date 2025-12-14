@@ -1,4 +1,4 @@
-// Package main implements the Slack plugin for ReleasePilot.
+// Package main implements the Slack plugin for Relicta.
 package main
 
 import (
@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Shared HTTP client for connection reuse across requests.
@@ -107,7 +107,7 @@ func (p *SlackPlugin) GetInfo() plugin.Info {
 		Name:        "slack",
 		Version:     "1.0.0",
 		Description: "Send Slack notifications for releases",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,
@@ -118,7 +118,7 @@ func (p *SlackPlugin) GetInfo() plugin.Info {
 			"properties": {
 				"webhook": {"type": "string", "description": "Slack webhook URL (or use SLACK_WEBHOOK_URL env)"},
 				"channel": {"type": "string", "description": "Channel to post to"},
-				"username": {"type": "string", "description": "Bot username", "default": "ReleasePilot"},
+				"username": {"type": "string", "description": "Bot username", "default": "Relicta"},
 				"icon_emoji": {"type": "string", "description": "Bot icon emoji", "default": ":rocket:"},
 				"icon_url": {"type": "string", "description": "Bot icon URL"},
 				"notify_on_success": {"type": "boolean", "description": "Notify on success", "default": true},
@@ -212,7 +212,7 @@ func (p *SlackPlugin) sendSuccessNotification(ctx context.Context, cfg *Config, 
 				Title:  title,
 				Text:   text,
 				Fields: fields,
-				Footer: "ReleasePilot",
+				Footer: "Relicta",
 				Ts:     time.Now().Unix(),
 			},
 		},
@@ -265,7 +265,7 @@ func (p *SlackPlugin) sendErrorNotification(ctx context.Context, cfg *Config, re
 				Color:  "danger",
 				Title:  title,
 				Fields: fields,
-				Footer: "ReleasePilot",
+				Footer: "Relicta",
 				Ts:     time.Now().Unix(),
 			},
 		},
@@ -324,7 +324,7 @@ func (p *SlackPlugin) parseConfig(raw map[string]any) *Config {
 	return &Config{
 		WebhookURL:       parser.GetString("webhook", "SLACK_WEBHOOK_URL"),
 		Channel:          parser.GetString("channel"),
-		Username:         getStringOrDefault(parser.GetString("username"), "ReleasePilot"),
+		Username:         getStringOrDefault(parser.GetString("username"), "Relicta"),
 		IconEmoji:        getStringOrDefault(parser.GetString("icon_emoji"), ":rocket:"),
 		IconURL:          parser.GetString("icon_url"),
 		NotifyOnSuccess:  parser.GetBoolDefault("notify_on_success", true),

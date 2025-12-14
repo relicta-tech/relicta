@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/blast"
+	"github.com/relicta-tech/relicta/internal/application/blast"
 )
 
 // Risk score thresholds for formatting badges
@@ -60,9 +60,9 @@ This command examines changes in a monorepo and identifies:
 - Suggested release types for each package
 
 Example:
-  release-pilot blast --from v1.0.0 --to HEAD
-  release-pilot blast --from HEAD~10 --verbose
-  release-pilot blast --package-paths "packages/*,services/*"`,
+  relicta blast --from v1.0.0 --to HEAD
+  relicta blast --from HEAD~10 --verbose
+  relicta blast --package-paths "packages/*,services/*"`,
 	RunE: runBlast,
 }
 

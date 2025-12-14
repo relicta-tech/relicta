@@ -1,4 +1,4 @@
-// Package plugin provides the public interface for ReleasePilot plugins.
+// Package plugin provides the public interface for Relicta plugins.
 package plugin
 
 import (

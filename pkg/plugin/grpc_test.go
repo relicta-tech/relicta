@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/felixgeelhaar/release-pilot/internal/plugin/proto"
+	"github.com/relicta-tech/relicta/internal/plugin/proto"
 )
 
 func TestProtoHookToHook(t *testing.T) {

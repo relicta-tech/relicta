@@ -2,7 +2,7 @@
 
 ## Overview
 
-Replace GoReleaser dependency with native ReleasePilot capabilities for self-releasing. This ensures strategic independence and demonstrates that ReleasePilot can fully manage its own releases.
+Replace GoReleaser dependency with native Relicta capabilities for self-releasing. This ensures strategic independence and demonstrates that Relicta can fully manage its own releases.
 
 ## Current State (with GoReleaser)
 
@@ -18,7 +18,7 @@ GoReleaser handles:
 
 ## Target State (Native)
 
-ReleasePilot will handle all release artifact creation and distribution through:
+Relicta will handle all release artifact creation and distribution through:
 
 ### 1. Build Service
 **Purpose:** Cross-platform binary compilation
@@ -211,8 +211,8 @@ versioning:
   gitpush: true
 
 build:
-  binary: release-pilot
-  main: ./cmd/release-pilot
+  binary: relicta
+  main: ./cmd/relicta
   platforms:
     - os: linux
       arch: [amd64, arm64]
@@ -226,9 +226,9 @@ build:
     - "-X main.commit={{.Commit}}"
     - "-X main.date={{.Date}}"
   additional_binaries:
-    - binary: release-pilot-github
+    - binary: relicta-github
       main: ./plugins/github
-    - binary: release-pilot-npm
+    - binary: relicta-npm
       main: ./plugins/npm
 
 archives:
@@ -249,7 +249,7 @@ plugins:
     enabled: true
     config:
       owner: felixgeelhaar
-      repo: release-pilot
+      repo: relicta
       assets:
         - "dist/*.tar.gz"
         - "dist/*.zip"
@@ -259,18 +259,18 @@ plugins:
     enabled: true
     config:
       tap_repo: felixgeelhaar/homebrew-tap
-      formula: release-pilot
+      formula: relicta
       binaries:
-        - release-pilot
-        - release-pilot-github
-        - release-pilot-npm
+        - relicta
+        - relicta-github
+        - relicta-npm
 
   - name: docker
     enabled: true
     config:
       images:
-        - "ghcr.io/felixgeelhaar/release-pilot:{{.Version}}"
-        - "ghcr.io/felixgeelhaar/release-pilot:latest"
+        - "ghcr.io/relicta-tech/relicta:{{.Version}}"
+        - "ghcr.io/relicta-tech/relicta:latest"
       platforms:
         - linux/amd64
         - linux/arm64
@@ -282,7 +282,7 @@ plugins:
 - [ ] Implement Build Service with cross-compilation
 - [ ] Implement Archive Service (tar.gz, zip)
 - [ ] Implement Checksum Service
-- [ ] Add `release-pilot build` command
+- [ ] Add `relicta build` command
 
 ### Phase 2: Asset Distribution (Week 3-4)
 - [ ] Enhance GitHub plugin with asset upload
@@ -303,14 +303,14 @@ plugins:
 ### Phase 5: Migration (Week 9)
 - [ ] Remove GoReleaser from CI/CD
 - [ ] Update documentation
-- [ ] Release v2.0.0 using ReleasePilot to build itself
+- [ ] Release v2.0.0 using Relicta to build itself
 
 ## Benefits
 
 1. **Strategic Independence:** No dependency on competitor tools
-2. **Self-Sufficient:** ReleasePilot releases itself
+2. **Self-Sufficient:** Relicta releases itself
 3. **Customization:** Full control over build and release process
-4. **Integration:** Native integration with ReleasePilot workflow
+4. **Integration:** Native integration with Relicta workflow
 5. **Dogfooding:** Demonstrates confidence in our own tool
 6. **No License Concerns:** Complete control over licensing
 
@@ -320,11 +320,11 @@ plugins:
 2. **Integration Tests:** End-to-end release workflow
 3. **Compatibility Tests:** All platform combinations
 4. **Regression Tests:** Compare outputs with GoReleaser
-5. **Dogfooding:** Use for ReleasePilot's own releases
+5. **Dogfooding:** Use for Relicta's own releases
 
 ## Success Metrics
 
-- [ ] ReleasePilot v2.0.0 released using itself
+- [ ] Relicta v2.0.0 released using itself
 - [ ] No GoReleaser dependency
 - [ ] All artifacts match GoReleaser quality
 - [ ] Release time < 10 minutes

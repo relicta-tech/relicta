@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions when using ReleasePilot.
+Common issues and solutions when using Relicta.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Common issues and solutions when using ReleasePilot.
 
 ## Installation Issues
 
-### "command not found: release-pilot"
+### "command not found: relicta"
 
 **Cause**: Binary not in PATH or not installed.
 
@@ -27,11 +27,11 @@ Common issues and solutions when using ReleasePilot.
 export PATH="$PATH:$(go env GOPATH)/bin"
 
 # Or install to /usr/local/bin
-sudo cp release-pilot /usr/local/bin/
+sudo cp relicta /usr/local/bin/
 
 # Verify installation
-which release-pilot
-release-pilot version
+which relicta
+relicta version
 ```
 
 ### "permission denied"
@@ -41,9 +41,9 @@ release-pilot version
 **Solution**:
 
 ```bash
-chmod +x release-pilot
+chmod +x relicta
 # Or if installed via go install
-chmod +x $(go env GOPATH)/bin/release-pilot
+chmod +x $(go env GOPATH)/bin/relicta
 ```
 
 ---
@@ -52,16 +52,16 @@ chmod +x $(go env GOPATH)/bin/release-pilot
 
 ### "config file not found"
 
-**Cause**: No `release.config.yaml` in current directory or `~/.config/release-pilot/`.
+**Cause**: No `release.config.yaml` in current directory or `~/.config/relicta/`.
 
 **Solution**:
 
 ```bash
 # Initialize config
-release-pilot init
+relicta init
 
 # Or specify config path
-release-pilot --config /path/to/config.yaml plan
+relicta --config /path/to/config.yaml plan
 ```
 
 ### "invalid config: ..."
@@ -72,7 +72,7 @@ release-pilot --config /path/to/config.yaml plan
 
 ```bash
 # Validate config
-release-pilot validate
+relicta validate
 
 # Common issues:
 # - Incorrect indentation (use 2 spaces, not tabs)
@@ -199,24 +199,24 @@ git commit -m "feat!: redesign API"
 For GitHub Actions:
 ```yaml
 # The action handles this automatically
-- uses: felixgeelhaar/release-pilot-action@v1
+- uses: relicta-tech/relicta-action@v1
 ```
 
 For local/manual use:
 ```bash
 # Download plugin binary
-mkdir -p ~/.release-pilot/plugins
-cd ~/.release-pilot/plugins
+mkdir -p ~/.relicta/plugins
+cd ~/.relicta/plugins
 
 # Linux x86_64
-curl -L https://github.com/felixgeelhaar/release-pilot/releases/latest/download/github_linux_x86_64 \
-  -o release-pilot-plugin-github
-chmod +x release-pilot-plugin-github
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_linux_x86_64 \
+  -o relicta-plugin-github
+chmod +x relicta-plugin-github
 
 # macOS arm64
-curl -L https://github.com/felixgeelhaar/release-pilot/releases/latest/download/github_darwin_aarch64 \
-  -o release-pilot-plugin-github
-chmod +x release-pilot-plugin-github
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_darwin_aarch64 \
+  -o relicta-plugin-github
+chmod +x relicta-plugin-github
 ```
 
 ### "plugin failed: missing GITHUB_TOKEN"
@@ -256,16 +256,16 @@ echo $SLACK_WEBHOOK_URL
 
 ```bash
 # Check plugin binary
-ls -lh ~/.release-pilot/plugins/release-pilot-plugin-github
+ls -lh ~/.relicta/plugins/relicta-plugin-github
 
 # Test plugin directly
-~/.release-pilot/plugins/release-pilot-plugin-github --version
+~/.relicta/plugins/relicta-plugin-github --version
 
 # Check logs
-cat .release-pilot/logs/plugin-github.log
+cat .relicta/logs/plugin-github.log
 
 # Reinstall plugin
-rm ~/.release-pilot/plugins/release-pilot-plugin-github
+rm ~/.relicta/plugins/relicta-plugin-github
 # Download fresh copy (see "plugin not found" solution)
 ```
 
@@ -275,13 +275,13 @@ rm ~/.release-pilot/plugins/release-pilot-plugin-github
 
 ### "Action failed: binary not found"
 
-**Cause**: Action failed to download ReleasePilot binary.
+**Cause**: Action failed to download Relicta binary.
 
 **Solution**: Check GitHub Actions logs:
 
 ```yaml
 # Enable debug logging
-- uses: felixgeelhaar/release-pilot-action@v1
+- uses: relicta-tech/relicta-action@v1
   env:
     ACTIONS_STEP_DEBUG: true
 ```
@@ -307,7 +307,7 @@ jobs:
     permissions:
       contents: write  # ✅ Add this
     steps:
-      - uses: felixgeelhaar/release-pilot-action@v1
+      - uses: relicta-tech/relicta-action@v1
 ```
 
 ### "No commits found"
@@ -341,10 +341,10 @@ env:
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 
-**Note**: AI features are optional. ReleasePilot works without AI:
+**Note**: AI features are optional. Relicta works without AI:
 ```bash
 # Generate notes without AI
-release-pilot notes  # Uses conventional commit format only
+relicta notes  # Uses conventional commit format only
 ```
 
 ### "OpenAI rate limit exceeded"
@@ -364,7 +364,7 @@ release-pilot notes  # Uses conventional commit format only
 
 ```bash
 # Disable AI and use basic changelog
-release-pilot notes --ai=false
+relicta notes --ai=false
 
 # Or set in config
 changelog:
@@ -376,14 +376,14 @@ changelog:
 
 ## Performance Issues
 
-### "release-pilot is slow"
+### "relicta is slow"
 
 **Possible causes and solutions**:
 
 1. **Large git history**
    ```bash
    # Limit commit analysis depth
-   release-pilot plan --max-commits 100
+   relicta plan --max-commits 100
    ```
 
 2. **Many files to process**
@@ -424,27 +424,27 @@ curl -H "Authorization: token $GITHUB_TOKEN" \
 
 ```bash
 # Set debug log level
-export RELEASE_PILOT_LOG_LEVEL=debug
+export RELICTA_LOG_LEVEL=debug
 
 # Run command
-release-pilot plan
+relicta plan
 ```
 
 ### Check Logs
 
 ```bash
 # View logs
-cat .release-pilot/logs/release-pilot.log
+cat .relicta/logs/relicta.log
 
 # View plugin logs
-cat .release-pilot/logs/plugin-*.log
+cat .relicta/logs/plugin-*.log
 ```
 
 ### Verbose Output
 
 ```bash
 # Use verbose flag
-release-pilot --verbose plan
+relicta --verbose plan
 ```
 
 ### Dry Run Mode
@@ -453,7 +453,7 @@ Always test with dry run first:
 
 ```bash
 # Test without making changes
-release-pilot publish --dry-run
+relicta publish --dry-run
 ```
 
 ---
@@ -469,7 +469,7 @@ release-pilot publish --dry-run
 ### Search Issues
 
 Check if your issue is already reported:
-- [GitHub Issues](https://github.com/felixgeelhaar/release-pilot/issues)
+- [GitHub Issues](https://github.com/relicta-tech/relicta/issues)
 
 ### Report a Bug
 
@@ -477,7 +477,7 @@ If you found a bug, please report it with:
 
 1. **Environment info**:
    ```bash
-   release-pilot version
+   relicta version
    go version  # If relevant
    git --version
    uname -a  # Linux/macOS
@@ -490,7 +490,7 @@ If you found a bug, please report it with:
 
 3. **Commands run**:
    ```bash
-   release-pilot plan --verbose
+   relicta plan --verbose
    ```
 
 4. **Error messages**:
@@ -500,13 +500,13 @@ If you found a bug, please report it with:
 
 5. **Logs**:
    ```bash
-   cat .release-pilot/logs/release-pilot.log
+   cat .relicta/logs/relicta.log
    ```
 
 ### Ask Questions
 
-- [GitHub Discussions](https://github.com/felixgeelhaar/release-pilot/discussions)
-- [Issues](https://github.com/felixgeelhaar/release-pilot/issues/new)
+- [GitHub Discussions](https://github.com/relicta-tech/relicta/discussions)
+- [Issues](https://github.com/relicta-tech/relicta/issues/new)
 
 ---
 
@@ -518,10 +518,10 @@ If you need to start over:
 
 ```bash
 # Remove release state
-rm -rf .release-pilot/state/
+rm -rf .relicta/state/
 
 # Start fresh
-release-pilot plan
+relicta plan
 ```
 
 ### Skip Plugin Temporarily
@@ -533,14 +533,14 @@ plugins:
     enabled: false
 
 # Or use environment variable
-RELEASE_PILOT_PLUGINS="" release-pilot publish
+RELICTA_PLUGINS="" relicta publish
 ```
 
 ### Manual Version Override
 
 ```bash
 # Set specific version
-release-pilot bump --version 2.0.0
+relicta bump --version 2.0.0
 
 # Or in config
 versioning:
@@ -552,7 +552,7 @@ versioning:
 
 ```yaml
 # Dry run in CI
-- uses: felixgeelhaar/release-pilot-action@v1
+- uses: relicta-tech/relicta-action@v1
   with:
     dry-run: true  # Test without creating release
 ```
@@ -563,18 +563,18 @@ versioning:
 
 1. **Always use `--dry-run` first**
    ```bash
-   release-pilot publish --dry-run
+   relicta publish --dry-run
    ```
 
 2. **Validate config before committing**
    ```bash
-   release-pilot validate
+   relicta validate
    ```
 
 3. **Keep plugins up to date**
    ```bash
    # Check for updates
-   release-pilot plugin list
+   relicta plugin list
    ```
 
 4. **Use conventional commits consistently**
@@ -586,10 +586,10 @@ versioning:
 5. **Test in a branch first**
    ```bash
    git checkout -b test-release
-   release-pilot publish --dry-run
+   relicta publish --dry-run
    ```
 
 6. **Monitor logs in production**
    ```bash
-   tail -f .release-pilot/logs/release-pilot.log
+   tail -f .relicta/logs/relicta.log
    ```

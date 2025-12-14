@@ -1,4 +1,4 @@
-// Package main implements the crates.io plugin for ReleasePilot.
+// Package main implements the crates.io plugin for Relicta.
 package main
 
 import (
@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Security validation patterns
@@ -55,7 +55,7 @@ func (p *CratesPlugin) GetInfo() plugin.Info {
 		Name:        "crates",
 		Version:     "1.0.0",
 		Description: "Publish packages to crates.io (Rust)",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

@@ -1,4 +1,4 @@
-// Package main implements the Jira plugin for ReleasePilot.
+// Package main implements the Jira plugin for Relicta.
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"github.com/felixgeelhaar/jirasdk/core/issue"
 	"github.com/felixgeelhaar/jirasdk/core/project"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // JiraPlugin implements the Jira integration plugin.
@@ -59,7 +59,7 @@ func (p *JiraPlugin) GetInfo() plugin.Info {
 		Name:        "jira",
 		Version:     "1.0.0",
 		Description: "Integrate with Jira for version management and issue tracking",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPlan,
 			plugin.HookPostPublish,

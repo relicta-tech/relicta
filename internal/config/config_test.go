@@ -1,4 +1,4 @@
-// Package config provides configuration management for ReleasePilot.
+// Package config provides configuration management for Relicta.
 package config
 
 import (
@@ -263,15 +263,15 @@ func TestValidator_Validate_QuietAndVerbose(t *testing.T) {
 func TestValidator_Validate_AIEnabled_RequiresAPIKey(t *testing.T) {
 	// Clear any existing API key env vars
 	origOpenAI := os.Getenv("OPENAI_API_KEY")
-	origRP := os.Getenv("RELEASE_PILOT_AI_API_KEY")
+	origRP := os.Getenv("RELICTA_AI_API_KEY")
 	os.Unsetenv("OPENAI_API_KEY")
-	os.Unsetenv("RELEASE_PILOT_AI_API_KEY")
+	os.Unsetenv("RELICTA_AI_API_KEY")
 	defer func() {
 		if origOpenAI != "" {
 			os.Setenv("OPENAI_API_KEY", origOpenAI)
 		}
 		if origRP != "" {
-			os.Setenv("RELEASE_PILOT_AI_API_KEY", origRP)
+			os.Setenv("RELICTA_AI_API_KEY", origRP)
 		}
 	}()
 
@@ -559,7 +559,7 @@ versioning:
 changelog:
   file: HISTORY.md
 `
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
 	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -586,7 +586,7 @@ func TestFindConfigFile_Found(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a config file
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
 	err := os.WriteFile(configPath, []byte("versioning:\n  strategy: conventional"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -619,7 +619,7 @@ func TestConfigExists(t *testing.T) {
 	}
 
 	// Create a config file
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
 	err := os.WriteFile(configPath, []byte("versioning:\n  strategy: conventional"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -662,7 +662,7 @@ func TestLoadFromDirectory(t *testing.T) {
 versioning:
   strategy: manual
 `
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
 	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -723,7 +723,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 }
 
 func TestConfigFileNames(t *testing.T) {
-	expectedNames := []string{"release.config", ".release", "release-pilot.config", ".release-pilot"}
+	expectedNames := []string{"relicta.config", ".relicta"}
 
 	if len(ConfigFileNames) != len(expectedNames) {
 		t.Errorf("ConfigFileNames length = %d, want %d", len(ConfigFileNames), len(expectedNames))

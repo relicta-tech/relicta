@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package releasepilot;
+package relicta;
 
-option go_package = "github.com/felixgeelhaar/release-pilot/internal/plugin/proto";
+option go_package = "github.com/relicta-tech/relicta/internal/plugin/proto";
 
 // Plugin is the main plugin service.
 service Plugin {

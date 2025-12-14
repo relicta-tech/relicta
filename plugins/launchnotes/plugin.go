@@ -1,4 +1,4 @@
-// Package main implements the LaunchNotes plugin for ReleasePilot.
+// Package main implements the LaunchNotes plugin for Relicta.
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // LaunchNotes GraphQL API endpoint.
@@ -125,7 +125,7 @@ func (p *LaunchNotesPlugin) GetInfo() plugin.Info {
 		Name:        "launchnotes",
 		Version:     "1.0.0",
 		Description: "Create and publish announcements to LaunchNotes",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,

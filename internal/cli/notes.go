@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -8,10 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	apprelease "github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/container"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/communication"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/container"
+	"github.com/relicta-tech/relicta/internal/domain/communication"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 var (
@@ -106,8 +106,8 @@ func printNotesNextSteps() {
 	printTitle("Next Steps")
 	fmt.Println()
 	fmt.Println("  1. Review the generated notes above")
-	fmt.Println("  2. Run 'release-pilot approve' to review and approve")
-	fmt.Println("  3. Run 'release-pilot publish' to execute the release")
+	fmt.Println("  2. Run 'relicta approve' to review and approve")
+	fmt.Println("  3. Run 'relicta publish' to execute the release")
 	fmt.Println()
 }
 
@@ -137,7 +137,7 @@ func runNotes(cmd *cobra.Command, args []string) error {
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		printError("No release in progress")
-		printInfo("Run 'release-pilot plan' to start a new release")
+		printInfo("Run 'relicta plan' to start a new release")
 		return fmt.Errorf("no release state found")
 	}
 

@@ -1,8 +1,8 @@
-// Package main implements the Microsoft Teams plugin for ReleasePilot.
+// Package main implements the Microsoft Teams plugin for Relicta.
 package main
 
 import (
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 func main() {

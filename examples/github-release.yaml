@@ -6,7 +6,7 @@
 # Setup:
 # 1. Copy to release.config.yaml
 # 2. Set GITHUB_TOKEN environment variable
-# 3. Run: release-pilot plan && release-pilot publish
+# 3. Run: relicta plan && relicta publish
 
 versioning:
   strategy: conventional

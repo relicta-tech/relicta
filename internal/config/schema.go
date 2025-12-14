@@ -1,11 +1,11 @@
-// Package config provides configuration management for ReleasePilot.
+// Package config provides configuration management for Relicta.
 package config
 
 import (
 	"time"
 )
 
-// Config is the root configuration for ReleasePilot.
+// Config is the root configuration for Relicta.
 type Config struct {
 	// Versioning configures version management.
 	Versioning VersioningConfig `mapstructure:"versioning" json:"versioning"`
@@ -536,10 +536,8 @@ type JiraPluginConfig struct {
 
 // ConfigFile names to search for.
 var ConfigFileNames = []string{
-	"release.config",
-	".release",
-	"release-pilot.config",
-	".release-pilot",
+	"relicta.config",
+	".relicta",
 }
 
 // ConfigFileExtensions supported by Viper.

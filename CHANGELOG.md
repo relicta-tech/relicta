@@ -133,10 +133,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-12-08
 
 ### Added
-- Initial release of ReleasePilot
+- Initial release of Relicta
 - Core release management functionality
 - Basic plugin architecture
 - CLI interface with Cobra
 
-[Unreleased]: https://github.com/felixgeelhaar/release-pilot/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/felixgeelhaar/release-pilot/releases/tag/v0.1.0
+[Unreleased]: https://github.com/relicta-tech/relicta/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/relicta-tech/relicta/releases/tag/v0.1.0

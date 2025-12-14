@@ -8,32 +8,32 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/felixgeelhaar/release-pilot/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/internal/plugin/manager"
 )
 
 var pluginCmd = &cobra.Command{
 	Use:   "plugin",
-	Short: "Manage ReleasePilot plugins",
-	Long: `Manage plugins for ReleasePilot.
+	Short: "Manage Relicta plugins",
+	Long: `Manage plugins for Relicta.
 
-Plugins extend ReleasePilot's functionality for version control systems,
+Plugins extend Relicta's functionality for version control systems,
 package managers, notification services, and more.
 
 Examples:
   # List available plugins
-  release-pilot plugin list --available
+  relicta plugin list --available
 
   # Install a plugin
-  release-pilot plugin install github
+  relicta plugin install github
 
   # Configure a plugin interactively
-  release-pilot plugin configure github
+  relicta plugin configure github
 
   # Update a plugin
-  release-pilot plugin update github
+  relicta plugin update github
 
   # Get plugin information
-  release-pilot plugin info github`,
+  relicta plugin info github`,
 }
 
 var pluginListCmd = &cobra.Command{
@@ -170,8 +170,8 @@ func runPluginList(cmd *cobra.Command, args []string) error {
 		} else {
 			fmt.Println("No plugins installed.")
 			fmt.Println()
-			fmt.Println("Use 'release-pilot plugin list --available' to see available plugins.")
-			fmt.Println("Use 'release-pilot plugin install <name>' to install a plugin.")
+			fmt.Println("Use 'relicta plugin list --available' to see available plugins.")
+			fmt.Println("Use 'relicta plugin install <name>' to install a plugin.")
 		}
 		return nil
 	}
@@ -222,7 +222,7 @@ func displayInstalledPlugins(entries []manager.PluginListEntry) {
 	}
 
 	fmt.Println()
-	fmt.Println("Use 'release-pilot plugin info <name>' for more details.")
+	fmt.Println("Use 'relicta plugin info <name>' for more details.")
 }
 
 func displayAvailablePlugins(entries []manager.PluginListEntry) {
@@ -281,8 +281,8 @@ func displayAvailablePlugins(entries []manager.PluginListEntry) {
 		fmt.Println()
 	}
 
-	fmt.Println("Use 'release-pilot plugin install <name>' to install a plugin.")
-	fmt.Println("Use 'release-pilot plugin info <name>' for more details.")
+	fmt.Println("Use 'relicta plugin install <name>' to install a plugin.")
+	fmt.Println("Use 'relicta plugin info <name>' for more details.")
 }
 
 func formatStatus(status string) string {
@@ -334,7 +334,7 @@ func runPluginInstall(cmd *cobra.Command, args []string) error {
 	printSuccess(fmt.Sprintf("Plugin %q installed successfully", pluginName))
 	fmt.Println()
 	fmt.Println("To use this plugin:")
-	fmt.Printf("  1. Enable it: release-pilot plugin enable %s\n", pluginName)
+	fmt.Printf("  1. Enable it: relicta plugin enable %s\n", pluginName)
 	fmt.Printf("  2. Configure it in release.config.yaml\n")
 
 	return nil
@@ -377,7 +377,7 @@ func runPluginEnable(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Println("  1. Configure the plugin in release.config.yaml")
-	fmt.Println("  2. Run release-pilot commands to use the plugin")
+	fmt.Println("  2. Run relicta commands to use the plugin")
 
 	return nil
 }
@@ -484,13 +484,13 @@ func runPluginInfo(cmd *cobra.Command, args []string) error {
 	// Next steps
 	if entry.Installed == nil {
 		fmt.Println("Next steps:")
-		fmt.Printf("  release-pilot plugin install %s\n", pluginName)
+		fmt.Printf("  relicta plugin install %s\n", pluginName)
 	} else if !entry.Installed.Enabled {
 		fmt.Println("Next steps:")
-		fmt.Printf("  release-pilot plugin enable %s\n", pluginName)
+		fmt.Printf("  relicta plugin enable %s\n", pluginName)
 	} else if entry.Status == manager.StatusUpdateAvailable {
 		fmt.Println("Next steps:")
-		fmt.Printf("  release-pilot plugin update %s\n", pluginName)
+		fmt.Printf("  relicta plugin update %s\n", pluginName)
 	}
 
 	return nil
@@ -563,14 +563,14 @@ func runPluginConfigure(cmd *cobra.Command, args []string) error {
 	// Check if plugin is installed
 	if entry.Installed == nil {
 		fmt.Printf("Plugin %q is not installed.\n", pluginName)
-		fmt.Printf("Install it first with: release-pilot plugin install %s\n", pluginName)
+		fmt.Printf("Install it first with: relicta plugin install %s\n", pluginName)
 		return nil
 	}
 
 	// Check if plugin is enabled
 	if !entry.Installed.Enabled {
 		fmt.Printf("Plugin %q is not enabled.\n", pluginName)
-		fmt.Printf("Enable it first with: release-pilot plugin enable %s\n", pluginName)
+		fmt.Printf("Enable it first with: relicta plugin enable %s\n", pluginName)
 		return nil
 	}
 
@@ -659,7 +659,7 @@ func runPluginConfigure(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println("For more detailed information, run:")
-	fmt.Printf("  release-pilot plugin info %s\n", pluginName)
+	fmt.Printf("  relicta plugin info %s\n", pluginName)
 
 	return nil
 }

@@ -1,4 +1,4 @@
-// Package main implements the Homebrew formula publishing plugin for ReleasePilot.
+// Package main implements the Homebrew formula publishing plugin for Relicta.
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // HomebrewPlugin implements the Homebrew formula publishing plugin.
@@ -115,7 +115,7 @@ func (p *HomebrewPlugin) GetInfo() plugin.Info {
 		Name:        "homebrew",
 		Version:     "1.0.0",
 		Description: "Publish Homebrew formula for releases",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 		},

@@ -1,4 +1,4 @@
-// Package ai provides AI-powered content generation for ReleasePilot.
+// Package ai provides AI-powered content generation for Relicta.
 package ai
 
 import (

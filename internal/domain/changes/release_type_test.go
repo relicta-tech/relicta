@@ -4,7 +4,7 @@ package changes
 import (
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestReleaseType_String(t *testing.T) {

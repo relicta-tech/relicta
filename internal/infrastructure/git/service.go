@@ -1,4 +1,4 @@
-// Package git provides git operations for ReleasePilot.
+// Package git provides git operations for Relicta.
 package git
 
 import (
@@ -119,9 +119,9 @@ type TagOptions struct {
 	Force bool
 	// Ref is the reference to tag (default: HEAD).
 	Ref string
-	// TaggerName is the name of the tagger (default: from git config or "ReleasePilot").
+	// TaggerName is the name of the tagger (default: from git config or "Relicta").
 	TaggerName string
-	// TaggerEmail is the email of the tagger (default: from git config or "release-pilot@localhost").
+	// TaggerEmail is the email of the tagger (default: from git config or "relicta@localhost").
 	TaggerEmail string
 }
 

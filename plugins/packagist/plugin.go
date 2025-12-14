@@ -1,4 +1,4 @@
-// Package main implements the Packagist plugin for ReleasePilot.
+// Package main implements the Packagist plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // PackagistPlugin implements the Packagist publish plugin.
@@ -48,7 +48,7 @@ func (p *PackagistPlugin) GetInfo() plugin.Info {
 		Name:        "packagist",
 		Version:     "1.0.0",
 		Description: "Publish packages to Packagist (PHP)",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

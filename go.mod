@@ -1,4 +1,4 @@
-module github.com/felixgeelhaar/release-pilot
+module github.com/relicta-tech/relicta
 
 go 1.24.6
 

@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/felixgeelhaar/release-pilot/internal/observability"
+	"github.com/relicta-tech/relicta/internal/observability"
 )
 
 var (
@@ -34,13 +34,13 @@ The metrics server provides visibility into:
 
 Example:
   # Start metrics server on default port 9090
-  release-pilot metrics
+  relicta metrics
 
   # Start on custom port
-  release-pilot metrics --port 8080
+  relicta metrics --port 8080
 
   # Bind to specific interface
-  release-pilot metrics --host 127.0.0.1 --port 9090
+  relicta metrics --host 127.0.0.1 --port 9090
 
 Metrics can be scraped by Prometheus or any compatible monitoring system.`,
 	RunE: runMetrics,
@@ -67,9 +67,9 @@ func runMetrics(cmd *cobra.Command, args []string) error {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(`<!DOCTYPE html>
 <html>
-<head><title>ReleasePilot Metrics</title></head>
+<head><title>Relicta Metrics</title></head>
 <body>
-<h1>ReleasePilot Metrics Server</h1>
+<h1>Relicta Metrics Server</h1>
 <p><a href="/metrics">Metrics</a> - Prometheus-compatible metrics endpoint</p>
 <p><a href="/health">Health</a> - Health check endpoint</p>
 </body>

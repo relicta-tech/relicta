@@ -7,7 +7,7 @@
 # 1. Copy to release.config.yaml
 # 2. Set NPM_TOKEN and GITHUB_TOKEN environment variables
 # 3. Ensure package.json exists with correct name and metadata
-# 4. Run: release-pilot plan && release-pilot publish
+# 4. Run: relicta plan && relicta publish
 
 versioning:
   strategy: conventional

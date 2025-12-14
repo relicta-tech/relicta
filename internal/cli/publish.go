@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	apprelease "github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/container"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/container"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 var (
@@ -34,14 +34,14 @@ func validateReleaseForPublish(rel *release.Release) error {
 	// Check approval
 	if cfg.Workflow.RequireApproval && !rel.IsApproved() && !publishSkipApproval {
 		printError("Release not approved")
-		printInfo("Run 'release-pilot approve' to approve the release")
+		printInfo("Run 'relicta approve' to approve the release")
 		return fmt.Errorf("release not approved")
 	}
 
 	// Check plan exists
 	if rel.Plan() == nil {
 		printError("Release has no plan")
-		printInfo("Run 'release-pilot plan' to create a release plan")
+		printInfo("Run 'relicta plan' to create a release plan")
 		return fmt.Errorf("no release plan found")
 	}
 
@@ -142,7 +142,7 @@ func printPublishSummary(nextVersion, tagName string) {
 
 	printSuccess("Release completed successfully!")
 	fmt.Println()
-	printInfo("Run 'release-pilot plan' to start a new release.")
+	printInfo("Run 'relicta plan' to start a new release.")
 	fmt.Println()
 }
 

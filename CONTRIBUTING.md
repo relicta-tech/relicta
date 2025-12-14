@@ -1,6 +1,6 @@
-# Contributing to ReleasePilot
+# Contributing to Relicta
 
-Thank you for your interest in contributing to ReleasePilot! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Relicta! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -19,12 +19,12 @@ By participating in this project, you agree to maintain a respectful and inclusi
 1. Fork the repository on GitHub
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/release-pilot.git
-   cd release-pilot
+   git clone https://github.com/YOUR_USERNAME/relicta.git
+   cd relicta
    ```
 3. Add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/felixgeelhaar/release-pilot.git
+   git remote add upstream https://github.com/relicta-tech/relicta.git
    ```
 4. Install dependencies:
    ```bash
@@ -38,7 +38,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 make build
 
 # Or directly with Go
-go build -o release-pilot ./cmd/release-pilot
+go build -o relicta ./cmd/relicta
 ```
 
 ### Running Tests
@@ -173,7 +173,7 @@ leading to incorrect version bumps.
 ### Project Structure
 
 ```
-├── cmd/release-pilot/     # CLI entry point
+├── cmd/relicta/     # CLI entry point
 ├── internal/
 │   ├── application/       # Use cases (application layer)
 │   ├── domain/           # Business logic (domain layer)
@@ -256,7 +256,7 @@ func TestCalculateNextVersion(t *testing.T) {
 ### Bug Reports
 
 Include:
-- ReleasePilot version
+- Relicta version
 - Go version
 - Operating system
 - Steps to reproduce
@@ -282,4 +282,4 @@ Feel free to open an issue for questions or join the discussions on GitHub.
 
 ## License
 
-By contributing to ReleasePilot, you agree that your contributions will be licensed under the MIT License.
+By contributing to Relicta, you agree that your contributions will be licensed under the MIT License.

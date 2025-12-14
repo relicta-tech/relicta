@@ -10,7 +10,7 @@
 #    - JIRA_EMAIL (your Jira account email)
 #    - JIRA_API_TOKEN (from Jira API tokens)
 # 3. Include Jira ticket IDs in commit messages (e.g., "feat(API-123): add auth")
-# 4. Run: release-pilot plan && release-pilot publish
+# 4. Run: relicta plan && relicta publish
 
 versioning:
   strategy: conventional

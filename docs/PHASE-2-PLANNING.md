@@ -130,7 +130,7 @@ Features:
 **Value:** Safety net for production issues
 
 Features:
-- **One-command rollback** - `release-pilot rollback`
+- **One-command rollback** - `relicta rollback`
 - **Partial rollback** - Rollback specific components
 - **Rollback planning** - Pre-plan rollback strategy
 - **Automated health checks** - Detect issues post-release
@@ -479,4 +479,4 @@ Features:
 - Which features are most valuable to you?
 - What problems should we solve first?
 - Any features missing from this list?
-- What would make ReleasePilot indispensable?
+- What would make Relicta indispensable?

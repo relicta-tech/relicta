@@ -1,4 +1,4 @@
-// Package git provides git operations for ReleasePilot.
+// Package git provides git operations for Relicta.
 package git
 
 import (
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 )
 
 // CommitType is an alias to the domain CommitType for backward compatibility.

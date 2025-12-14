@@ -1,4 +1,4 @@
-// Package main implements the RubyGems plugin for ReleasePilot.
+// Package main implements the RubyGems plugin for Relicta.
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // RubyGemsPlugin implements the RubyGems publish plugin.
@@ -42,7 +42,7 @@ func (p *RubyGemsPlugin) GetInfo() plugin.Info {
 		Name:        "rubygems",
 		Version:     "1.0.0",
 		Description: "Publish gems to RubyGems.org",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPrePublish,
 			plugin.HookPostPublish,

@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/container"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/container"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 )
 
 var (
@@ -175,10 +175,10 @@ func outputPlanText(output *release.PlanReleaseOutput, showAll, minimal bool) er
 	// Next steps
 	printTitle("Next Steps")
 	fmt.Println()
-	fmt.Printf("  1. Run 'release-pilot bump' to bump to %s\n", output.NextVersion.String())
-	fmt.Println("  2. Run 'release-pilot notes' to generate release notes")
-	fmt.Println("  3. Run 'release-pilot approve' to review and approve")
-	fmt.Println("  4. Run 'release-pilot publish' to execute the release")
+	fmt.Printf("  1. Run 'relicta bump' to bump to %s\n", output.NextVersion.String())
+	fmt.Println("  2. Run 'relicta notes' to generate release notes")
+	fmt.Println("  3. Run 'relicta approve' to review and approve")
+	fmt.Println("  4. Run 'relicta publish' to execute the release")
 	fmt.Println()
 
 	if !dryRun {

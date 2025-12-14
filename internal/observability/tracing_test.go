@@ -16,8 +16,8 @@ func TestDefaultTracerConfig(t *testing.T) {
 	if cfg.Enabled {
 		t.Error("Expected Enabled to be false by default")
 	}
-	if cfg.ServiceName != "release-pilot" {
-		t.Errorf("ServiceName = %q, want \"release-pilot\"", cfg.ServiceName)
+	if cfg.ServiceName != "relicta" {
+		t.Errorf("ServiceName = %q, want \"relicta\"", cfg.ServiceName)
 	}
 	if cfg.Environment != "development" {
 		t.Errorf("Environment = %q, want \"development\"", cfg.Environment)

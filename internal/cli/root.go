@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
+	"github.com/relicta-tech/relicta/internal/config"
 )
 
 var (
@@ -72,9 +72,9 @@ func SetVersionInfo(version, commit, date string) {
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "release-pilot",
+	Use:   "relicta",
 	Short: "AI-powered release management for modern software teams",
-	Long: `ReleasePilot is a CLI tool that streamlines software release management.
+	Long: `Relicta is a CLI tool that streamlines software release management.
 
 It automates versioning, changelog generation, and release communication
 using AI and a plugin-based integration system.
@@ -86,7 +86,7 @@ Key features:
   • Interactive approval workflows
   • Dry-run support for safe operation
 
-Get started with 'release-pilot init' to set up your project.`,
+Get started with 'relicta init' to set up your project.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't need it
 		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "plugin" || cmd.Parent() != nil && cmd.Parent().Name() == "plugin" {
@@ -283,7 +283,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("release-pilot %s\n", versionInfo.Version)
+		fmt.Printf("relicta %s\n", versionInfo.Version)
 		if verbose {
 			fmt.Printf("  commit: %s\n", versionInfo.Commit)
 			fmt.Printf("  built:  %s\n", versionInfo.Date)
@@ -295,8 +295,8 @@ var versionCmd = &cobra.Command{
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize a new release-pilot configuration",
-	Long: `Initialize a new release-pilot configuration in the current directory.
+	Short: "Initialize a new relicta configuration",
+	Long: `Initialize a new relicta configuration in the current directory.
 
 This command creates a release.config.yaml file with sensible defaults
 and guides you through the initial setup.`,

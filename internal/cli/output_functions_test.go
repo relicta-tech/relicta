@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -7,12 +7,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/application/versioning"
-	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	domainrelease "github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	domainversion "github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	domainversion "github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestOutputPlanJSON_Coverage(t *testing.T) {

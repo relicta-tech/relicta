@@ -1,4 +1,4 @@
-// Package wizard provides terminal user interface components for the ReleasePilot init wizard.
+// Package wizard provides terminal user interface components for the Relicta init wizard.
 package wizard
 
 import (
@@ -9,7 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/felixgeelhaar/release-pilot/internal/cli/templates"
+	"github.com/relicta-tech/relicta/internal/cli/templates"
 )
 
 func TestNewWizard(t *testing.T) {
@@ -827,7 +827,7 @@ func TestSuccessModel_View_Ready(t *testing.T) {
 		"Complete",      // From "Configuration Complete!"
 		configPath,      // Config path should always appear
 		"Next Steps",    // Section header
-		"release-pilot", // Command references
+		"relicta", // Command references
 	}
 
 	for _, phrase := range expectedPhrases {

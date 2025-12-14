@@ -1,4 +1,4 @@
-// Package fileutil provides shared file utilities for ReleasePilot.
+// Package fileutil provides shared file utilities for Relicta.
 package fileutil
 
 import (

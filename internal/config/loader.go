@@ -1,4 +1,4 @@
-// Package config provides configuration management for ReleasePilot.
+// Package config provides configuration management for Relicta.
 package config
 
 import (
@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
 )
 
 // Pre-compiled regex patterns for environment variable expansion.
@@ -32,7 +32,7 @@ type Loader struct {
 // NewLoader creates a new configuration loader.
 func NewLoader() *Loader {
 	v := viper.New()
-	v.SetEnvPrefix("RELEASE_PILOT")
+	v.SetEnvPrefix("RELICTA")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	v.AutomaticEnv()
 

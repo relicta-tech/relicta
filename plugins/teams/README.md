@@ -15,7 +15,7 @@ Send rich notifications to Microsoft Teams channels when releases are published.
 
 ## Installation
 
-The Teams plugin is included with ReleasePilot. No separate installation required.
+The Teams plugin is included with Relicta. No separate installation required.
 
 ## Configuration
 
@@ -53,7 +53,7 @@ plugins:
 2. **Click the three dots** (⋯) next to the channel name
 3. **Select "Connectors"** or "Workflows" (depending on Teams version)
 4. **Configure "Incoming Webhook"**:
-   - Name: `ReleasePilot`
+   - Name: `Relicta`
    - Icon: Upload your project logo (optional)
    - Click "Create"
 5. **Copy the webhook URL** - it will look like:
@@ -224,7 +224,7 @@ The Teams plugin implements multiple security measures:
 Test your configuration without sending actual notifications:
 
 ```bash
-release-pilot publish --dry-run
+relicta publish --dry-run
 ```
 
 The plugin will validate configuration and show what would be sent:
@@ -246,7 +246,7 @@ curl -H "Content-Type: application/json" -d '{
   "themeColor": "28a745",
   "sections": [{
     "activityTitle": "Test Notification",
-    "text": "This is a test from ReleasePilot"
+    "text": "This is a test from Relicta"
   }]
 }' https://outlook.office.com/webhook/YOUR_WEBHOOK_HERE
 ```
@@ -425,10 +425,10 @@ plugins:
 
 ## License
 
-MIT License - Part of ReleasePilot
+MIT License - Part of Relicta
 
 ## Support
 
-- 🐛 [Report Issues](https://github.com/felixgeelhaar/release-pilot/issues)
-- 📖 [Documentation](https://github.com/felixgeelhaar/release-pilot)
-- 💬 [Discussions](https://github.com/felixgeelhaar/release-pilot/discussions)
+- 🐛 [Report Issues](https://github.com/relicta-tech/relicta/issues)
+- 📖 [Documentation](https://github.com/relicta-tech/relicta)
+- 💬 [Discussions](https://github.com/relicta-tech/relicta/discussions)

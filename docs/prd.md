@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-**Product Name:** ReleasePilot (Working Title)
+**Product Name:** Relicta (Working Title)
 
-**Summary:** ReleasePilot is a CLI tool designed to streamline software release management for developers and product teams. It automates versioning, changelog generation, and public-facing release communication using an AI engine and a plugin-based integration system. The tool improves developer experience (DX) by supporting structured workflows, offering both cloud and local AI generation, and integrating with CI/CD and common platforms via plugins.
+**Summary:** Relicta is a CLI tool designed to streamline software release management for developers and product teams. It automates versioning, changelog generation, and public-facing release communication using an AI engine and a plugin-based integration system. The tool improves developer experience (DX) by supporting structured workflows, offering both cloud and local AI generation, and integrating with CI/CD and common platforms via plugins.
 
 ---
 
@@ -268,60 +268,60 @@ Modern software teams face significant friction in the release process:
 
 ## 11. Strategic Moat: Model Context Protocol (MCP) Integration
 
-The Model Context Protocol (MCP) is a foundational pillar of ReleasePilot's long-term defensibility and a key differentiator compared to legacy release automation tools. MCP enables ReleasePilot to become the **semantic intelligence layer** of modern DevOps workflows by allowing AI models to access structured, authoritative system context—securely, consistently, and without brittle custom integrations.
+The Model Context Protocol (MCP) is a foundational pillar of Relicta's long-term defensibility and a key differentiator compared to legacy release automation tools. MCP enables Relicta to become the **semantic intelligence layer** of modern DevOps workflows by allowing AI models to access structured, authoritative system context—securely, consistently, and without brittle custom integrations.
 
 ### 1. Contextual Intelligence Beyond Deterministic Tools
 
-While existing tools rely exclusively on commit heuristics or strict formatting rules, ReleasePilot uses MCP to retrieve real system context from providers such as Jira, Linear, GitHub, Nx/Turborepo, and CI pipelines. This context allows ReleasePilot's AI engine to **understand the intent behind changes**, not just the diff, resulting in:
+While existing tools rely exclusively on commit heuristics or strict formatting rules, Relicta uses MCP to retrieve real system context from providers such as Jira, Linear, GitHub, Nx/Turborepo, and CI pipelines. This context allows Relicta's AI engine to **understand the intent behind changes**, not just the diff, resulting in:
 
 - More accurate version inference (understanding semantic impact vs. textual diff)
 - High-quality changelogs that capture business value, not just technical changes
 - Reliable risk modeling based on deployment history, test coverage, and issue context
 
-**Example:** Instead of simply parsing "fix: button color," MCP allows ReleasePilot to query Jira and understand this fix resolves a P0 accessibility issue affecting 10,000+ users, adjusting changelog tone and priority accordingly.
+**Example:** Instead of simply parsing "fix: button color," MCP allows Relicta to query Jira and understand this fix resolves a P0 accessibility issue affecting 10,000+ users, adjusting changelog tone and priority accordingly.
 
 ### 2. Secure, Enterprise-Ready Architecture
 
-MCP provides a **zero-trust, capability-scoped interface** between ReleasePilot and external systems:
+MCP provides a **zero-trust, capability-scoped interface** between Relicta and external systems:
 
-- **Credentials never pass through ReleasePilot or the LLM** - Authentication happens via MCP servers
+- **Credentials never pass through Relicta or the LLM** - Authentication happens via MCP servers
 - **Sanitized, structured data exposure** - Only release-relevant data flows to AI models
 - **Granular permission control** - Enterprises can scope MCP access to specific repos, issues, or CI jobs
 - **Audit trail compliance** - MCP interactions are logged for SOC2/ISO compliance
 
-This security posture makes ReleasePilot uniquely suitable for regulated industries (finance, healthcare, defense) and privacy-sensitive environments where traditional API integrations require excessive privileged access.
+This security posture makes Relicta uniquely suitable for regulated industries (finance, healthcare, defense) and privacy-sensitive environments where traditional API integrations require excessive privileged access.
 
 ### 3. Future-Proof Integration Layer
 
-By relying on **MCP providers instead of bespoke API clients**, ReleasePilot becomes vendor-agnostic:
+By relying on **MCP providers instead of bespoke API clients**, Relicta becomes vendor-agnostic:
 
-- **No custom integration maintenance** - As tools adopt MCP, ReleasePilot gains compatibility automatically
-- **Ecosystem network effects** - MCP adoption by Jira, GitHub, Linear, etc. directly benefits ReleasePilot
+- **No custom integration maintenance** - As tools adopt MCP, Relicta gains compatibility automatically
+- **Ecosystem network effects** - MCP adoption by Jira, GitHub, Linear, etc. directly benefits Relicta
 - **Plugin obsolescence prevention** - MCP standardization reduces plugin maintenance burden
 - **Cost efficiency** - Single MCP integration replaces dozens of custom API clients
 
-**Timeline advantage:** While competitors maintain brittle REST/GraphQL integrations, ReleasePilot leverages the growing MCP ecosystem with zero marginal integration cost.
+**Timeline advantage:** While competitors maintain brittle REST/GraphQL integrations, Relicta leverages the growing MCP ecosystem with zero marginal integration cost.
 
 ### 4. Foundation for Multi-Agent DevOps Automation
 
-MCP enables ReleasePilot to act not only as a **client** but eventually as an **MCP Provider**—exposing its own tools such as:
+MCP enables Relicta to act not only as a **client** but eventually as an **MCP Provider**—exposing its own tools such as:
 
 - `getBlastRadius(changeId)` - Analyze deployment risk and affected components
 - `inferVersion(commits, context)` - Semantic versioning with business context
 - `summarizeDiff(before, after, audience)` - Generate audience-tailored summaries
 - `validateRelease(releaseId)` - Pre-flight checks across systems
 
-This allows **external AI agents** (IDE copilots, CI agents, terminal assistants, PR reviewers) to query ReleasePilot for semantic reasoning:
+This allows **external AI agents** (IDE copilots, CI agents, terminal assistants, PR reviewers) to query Relicta for semantic reasoning:
 
-- **IDE Copilot:** "What's the blast radius of this change?" → Queries ReleasePilot MCP server
-- **CI Agent:** "Should I block this release?" → Consults ReleasePilot's risk model
-- **PR Reviewer:** "Generate release notes preview" → Streams from ReleasePilot
+- **IDE Copilot:** "What's the blast radius of this change?" → Queries Relicta MCP server
+- **CI Agent:** "Should I block this release?" → Consults Relicta's risk model
+- **PR Reviewer:** "Generate release notes preview" → Streams from Relicta
 
-As agentic development environments grow (GitHub Copilot Workspace, Cursor Composer, Replit Agent), ReleasePilot becomes the **"release brain"** these agents rely on, creating:
+As agentic development environments grow (GitHub Copilot Workspace, Cursor Composer, Replit Agent), Relicta becomes the **"release brain"** these agents rely on, creating:
 
-- **Strong network effect** - More agents = more ReleasePilot queries = more value
+- **Strong network effect** - More agents = more Relicta queries = more value
 - **Lock-in via ecosystem position** - Switching costs increase as agents integrate
-- **Platform moat** - ReleasePilot becomes infrastructure, not just a tool
+- **Platform moat** - Relicta becomes infrastructure, not just a tool
 
 ### 5. Defensible Competitive Advantage
 
@@ -329,20 +329,20 @@ No existing release automation tool offers MCP integration or agent-aware capabi
 
 | Tool | MCP Support | AI Context | Agent Interop | Secure Multi-Tenant |
 |------|-------------|------------|---------------|---------------------|
-| **ReleasePilot** | ✅ Full | ✅ Rich | ✅ Provider + Client | ✅ Enterprise-ready |
+| **Relicta** | ✅ Full | ✅ Rich | ✅ Provider + Client | ✅ Enterprise-ready |
 | semantic-release | ❌ | ❌ | ❌ | ❌ |
 | release-it | ❌ | ❌ | ❌ | ❌ |
 | GoReleaser | ❌ | ❌ | ❌ | ❌ |
 | Changesets | ❌ | ❌ | ❌ | ❌ |
 
-**MCP gives ReleasePilot a durable moat by combining:**
+**MCP gives Relicta a durable moat by combining:**
 
 1. **High-fidelity semantic context** - Understands *why* changes matter, not just *what* changed
 2. **AI-grounded reasoning** - LLMs make better decisions with real system context
 3. **Secure, standardized integrations** - Enterprise-grade without custom API sprawl
 4. **Future agent compatibility** - Positioned as infrastructure for AI-native DevOps
 
-**Strategic Positioning:** ReleasePilot is not merely a release tool but a **core intelligence node** in the emerging AI-driven DevOps stack, uniquely positioned at the intersection of:
+**Strategic Positioning:** Relicta is not merely a release tool but a **core intelligence node** in the emerging AI-driven DevOps stack, uniquely positioned at the intersection of:
 
 - **Developer workflows** (commits, PRs, CI/CD)
 - **Product workflows** (issues, roadmaps, changelog communication)
@@ -361,16 +361,16 @@ No existing release automation tool offers MCP integration or agent-aware capabi
 - Error tracking MCP servers (Sentry release annotations)
 
 **Phase 3 (12-18 months):** MCP Provider Development
-- Expose ReleasePilot tools to external AI agents
+- Expose Relicta tools to external AI agents
 - SDK for third-party MCP client integration
 - Agent orchestration layer for multi-step release workflows
 
 **Phase 4 (18-24 months):** Agent Ecosystem Platform
 - Marketplace for release automation agents
-- Agent-to-agent workflows (e.g., CI agent → ReleasePilot → Slack agent)
+- Agent-to-agent workflows (e.g., CI agent → Relicta → Slack agent)
 - Enterprise agent deployment and monitoring
 
-This positions ReleasePilot to evolve from **a CLI tool** → **a release intelligence platform** → **the semantic layer for DevOps agents**, creating compounding competitive advantages as the agent ecosystem matures.
+This positions Relicta to evolve from **a CLI tool** → **a release intelligence platform** → **the semantic layer for DevOps agents**, creating compounding competitive advantages as the agent ecosystem matures.
 
 ---
 
@@ -412,7 +412,7 @@ This positions ReleasePilot to evolve from **a CLI tool** → **a release intell
 
 ### Freemium Model Overview
 
-ReleasePilot will adopt a freemium model to drive adoption while monetizing advanced capabilities and enterprise integrations.
+Relicta will adopt a freemium model to drive adoption while monetizing advanced capabilities and enterprise integrations.
 
 ### Free Tier (Developer Tier)
 

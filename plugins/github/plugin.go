@@ -1,4 +1,4 @@
-// Package main implements the GitHub plugin for ReleasePilot.
+// Package main implements the GitHub plugin for Relicta.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-github/v60/github"
 	"golang.org/x/oauth2"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // GitHubPlugin implements the GitHub release plugin.
@@ -41,7 +41,7 @@ func (p *GitHubPlugin) GetInfo() plugin.Info {
 		Name:        "github",
 		Version:     "1.0.0",
 		Description: "Create GitHub releases and upload assets",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,

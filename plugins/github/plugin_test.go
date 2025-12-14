@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/go-github/v60/github"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // TestGitHubPlugin_GetInfo tests the plugin info retrieval.
@@ -29,7 +29,7 @@ func TestGitHubPlugin_GetInfo(t *testing.T) {
 	}{
 		{"Name", info.Name, "github"},
 		{"Version", info.Version, "1.0.0"},
-		{"Author", info.Author, "ReleasePilot Team"},
+		{"Author", info.Author, "Relicta Team"},
 	}
 
 	for _, tt := range tests {

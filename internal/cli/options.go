@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 package cli
 
 import (
@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 
-	"github.com/felixgeelhaar/release-pilot/internal/config"
+	"github.com/relicta-tech/relicta/internal/config"
 )
 
 // Options holds the CLI runtime options and dependencies.

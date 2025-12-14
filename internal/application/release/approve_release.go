@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 // ApproveReleaseInput represents the input for the ApproveRelease use case.

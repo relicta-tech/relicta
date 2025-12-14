@@ -1,4 +1,4 @@
-// Package main implements the Microsoft Teams plugin for ReleasePilot.
+// Package main implements the Microsoft Teams plugin for Relicta.
 package main
 
 import (
@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/felixgeelhaar/release-pilot/pkg/plugin"
+	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
 // Shared HTTP client for connection reuse across requests.
@@ -161,7 +161,7 @@ func (p *TeamsPlugin) GetInfo() plugin.Info {
 		Name:        "teams",
 		Version:     "1.0.0",
 		Description: "Send Microsoft Teams notifications for releases",
-		Author:      "ReleasePilot Team",
+		Author:      "Relicta Team",
 		Hooks: []plugin.Hook{
 			plugin.HookPostPublish,
 			plugin.HookOnSuccess,

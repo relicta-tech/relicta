@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	"github.com/felixgeelhaar/release-pilot/internal/fileutil"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/fileutil"
 )
 
 // MaxReleaseFileSize is the maximum allowed size for release files (2MB).

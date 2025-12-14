@@ -1,12 +1,12 @@
-// Package ai provides AI-powered content generation for ReleasePilot.
+// Package ai provides AI-powered content generation for Relicta.
 package ai
 
 import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
-	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 func TestBuildSystemPrompt_AdditionalCases(t *testing.T) {

@@ -1,4 +1,4 @@
-// Package cli provides the command-line interface for ReleasePilot.
+// Package cli provides the command-line interface for Relicta.
 // This file contains comprehensive tests to increase coverage.
 package cli
 
@@ -9,10 +9,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/application/release"
-	"github.com/felixgeelhaar/release-pilot/internal/domain/changes"
-	domainrelease "github.com/felixgeelhaar/release-pilot/internal/domain/release"
-	domainversion "github.com/felixgeelhaar/release-pilot/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	domainversion "github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // Test initConfig function
