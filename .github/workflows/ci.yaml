@@ -92,7 +92,7 @@ jobs:
           go build -ldflags="-s -w" -o relicta-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/relicta
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: relicta-${{ matrix.os }}-${{ matrix.arch }}
           path: relicta-*
