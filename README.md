@@ -6,15 +6,13 @@
   </picture>
 
   <p><strong>AI-powered release management for modern software teams</strong></p>
+
+  <p>
+    <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
+    <a href="https://goreportcard.com/report/github.com/relicta-tech/relicta"><img src="https://goreportcard.com/badge/github.com/relicta-tech/relicta" alt="Go Report Card"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  </p>
 </div>
-
-# Relicta
-
-AI-powered release management CLI for software projects using conventional commits.
-
-[![CI](https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg)](https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/relicta-tech/relicta)](https://goreportcard.com/report/github.com/relicta-tech/relicta)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
 
