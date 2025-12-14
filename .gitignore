@@ -1,6 +1,6 @@
 # Binaries
-release-pilot
-release-pilot-*
+relicta
+relicta-*
 *.exe
 *.exe~
 *.dll
@@ -8,7 +8,7 @@ release-pilot-*
 *.dylib
 
 # Plugins
-release-pilot-plugin-*
+relicta-plugin-*
 # Individual plugin binaries (without prefix)
 /github
 /npm
@@ -42,8 +42,11 @@ go.work.sum
 .env.local
 .env.*.local
 
-# Release pilot state directory
-.release-pilot/
+# Private docs (IP content)
+docs/private/
+
+# Relicta state directory
+.relicta/
 
 # Build output
 dist/
