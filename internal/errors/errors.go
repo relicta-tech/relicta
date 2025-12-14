@@ -468,8 +468,11 @@ var sensitivePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\bAIza[a-zA-Z0-9_-]{35,}\b`),
 	// GitHub tokens: ghp_..., gho_..., ghs_..., ghr_...
 	regexp.MustCompile(`\bgh[posh]_[a-zA-Z0-9]{36,}\b`),
-	// Slack webhook URLs - anchored to start of URL to prevent matching embedded URLs
-	regexp.MustCompile(`\bhttps://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+\b`),
+	// Slack webhook URLs
+	// Note: This pattern intentionally matches anywhere in a string for redaction purposes.
+	// CodeQL may flag this as missing anchors, but that's a false positive - we WANT to
+	// catch Slack webhooks wherever they appear, including in query strings.
+	regexp.MustCompile(`https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+`),
 	// Generic bearer tokens
 	regexp.MustCompile(`\bBearer\s+[a-zA-Z0-9_-]{20,}\b`),
 	// Basic auth with password in URL
