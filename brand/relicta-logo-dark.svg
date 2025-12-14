@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="128" viewBox="0 0 560 128" fill="none">
+  <g transform="translate(0,0)">
+<g stroke="#EDEFF5" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 29.359 44.000 A 40.000 40.000 0 0 1 98.641 44.000"/>
+    <path d="M 101.588 77.681 A 40.000 40.000 0 0 1 44.000 98.641"/>
+    <path d="M 55.107 39.568 A 26.000 26.000 0 0 1 83.917 47.288"/>
+    <path d="M 72.893 88.432 A 26.000 26.000 0 0 1 44.083 80.712"/>
+  </g>
+  <circle cx="64" cy="64" r="6" fill="#EDEFF5"/>
+  </g>
+  <text x="152" y="82" fill="#EDEFF5" font-size="72" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" letter-spacing="1">relicta</text>
+</svg>

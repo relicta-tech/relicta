@@ -1,5 +1,11 @@
 <div align="center">
-  <img src=".github/assets/logo.png" alt="Relicta Logo" width="200"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/relicta-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="brand/relicta-logo-light.svg">
+    <img alt="Relicta" src="brand/relicta-logo-light.svg" width="280">
+  </picture>
+
+  <p><strong>AI-powered release management for modern software teams</strong></p>
 </div>
 
 # Relicta
