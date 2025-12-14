@@ -231,7 +231,7 @@ changelog:
 
 release:
   github:
-    owner: felixgeelhaar
+    owner: relicta-tech
     name: relicta
   draft: false
   prerelease: auto
@@ -268,7 +268,7 @@ release:
 brews:
   - name: relicta
     repository:
-      owner: felixgeelhaar
+      owner: relicta-tech
       name: homebrew-tap
     homepage: https://github.com/relicta-tech/relicta
     description: AI-powered release management CLI
