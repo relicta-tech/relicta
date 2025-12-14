@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/release-pilot/internal/service/git"
+	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
 )
 
 func TestGitService_NewService(t *testing.T) {

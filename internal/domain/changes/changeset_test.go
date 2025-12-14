@@ -157,21 +157,47 @@ func TestChangeSet_CategoriesCaching(t *testing.T) {
 		t.Error("Categories() should return cached result")
 	}
 
-	// Adding commit after Categories() is called will NOT update the categorization
-	// (as documented in AddCommit). This is by design for thread-safety with sync.Once.
+	// Adding commit after Categories() was called now correctly invalidates the cache
+	// and includes the new commit in categorization
 	cs.AddCommit(NewConventionalCommit("2", CommitTypeFeat, "feature 2"))
 	cats3 := cs.Categories()
-	// Categories remain the same - only the original commit is categorized
-	if cats3 != cats1 {
-		t.Error("Categories() should return the same cached result")
-	}
-	if len(cats3.Features) != 1 {
-		t.Errorf("Features length = %d, want 1 (commit added after categorization)", len(cats3.Features))
+
+	// Cache was invalidated, so cats3 should be a new instance
+	if cats3 == cats1 {
+		t.Error("Categories() should return new result after AddCommit invalidated cache")
 	}
 
-	// Commits() still returns all commits including the one added later
+	// Should now have 2 features
+	if len(cats3.Features) != 2 {
+		t.Errorf("Features length = %d, want 2 (new commit should be included)", len(cats3.Features))
+	}
+
+	// Commits() returns all commits
 	if cs.CommitCount() != 2 {
 		t.Errorf("CommitCount = %d, want 2", cs.CommitCount())
+	}
+}
+
+func TestChangeSet_InvalidateCategories(t *testing.T) {
+	cs := NewChangeSet("cs-invalidate", "v1.0.0", "HEAD")
+	cs.AddCommit(NewConventionalCommit("1", CommitTypeFeat, "feature 1"))
+
+	// Get categories (caches result)
+	cats1 := cs.Categories()
+	if len(cats1.Features) != 1 {
+		t.Errorf("Features length = %d, want 1", len(cats1.Features))
+	}
+
+	// Explicitly invalidate
+	cs.InvalidateCategories()
+
+	// Get categories again (should recategorize)
+	cats2 := cs.Categories()
+	if cats2 == cats1 {
+		t.Error("Categories() should return new result after InvalidateCategories")
+	}
+	if len(cats2.Features) != 1 {
+		t.Errorf("Features length = %d, want 1", len(cats2.Features))
 	}
 }
 

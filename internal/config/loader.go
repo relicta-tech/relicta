@@ -61,6 +61,12 @@ func (l *Loader) Load() (*Config, error) {
 	// Set defaults
 	l.setDefaults()
 
+	// Auto-detect AI provider from environment if no config file exists
+	configFileFound := l.configFileExists()
+	if !configFileFound {
+		l.autoDetectAI()
+	}
+
 	// Load config file
 	if err := l.loadConfigFile(); err != nil {
 		return nil, rperrors.ConfigWrap(err, op, "failed to load config file")
@@ -128,6 +134,119 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("output.verbose", defaults.Output.Verbose)
 	l.v.SetDefault("output.quiet", defaults.Output.Quiet)
 	l.v.SetDefault("output.log_level", defaults.Output.LogLevel)
+}
+
+// configFileExists checks if a config file exists in search paths.
+func (l *Loader) configFileExists() bool {
+	// Check explicit path first
+	if l.configPath != "" {
+		_, err := os.Stat(l.configPath)
+		return err == nil
+	}
+
+	// Search for config file in paths
+	for _, searchPath := range l.searchPaths {
+		for _, name := range ConfigFileNames {
+			for _, ext := range ConfigFileExtensions {
+				configFile := filepath.Join(searchPath, name+"."+ext)
+				if _, err := os.Stat(configFile); err == nil {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// autoDetectAI detects AI provider from environment variables and sets sensible defaults.
+// This enables zero-config AI usage when users have API keys in their environment.
+func (l *Loader) autoDetectAI() {
+	// Detect all available AI providers
+	detectedProviders := []string{}
+
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "openai (OPENAI_API_KEY)")
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "anthropic (ANTHROPIC_API_KEY)")
+	}
+	if os.Getenv("GEMINI_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "gemini (GEMINI_API_KEY)")
+	}
+	if os.Getenv("AZURE_OPENAI_KEY") != "" && os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {
+		detectedProviders = append(detectedProviders, "azure-openai (AZURE_OPENAI_KEY + AZURE_OPENAI_ENDPOINT)")
+	}
+	if os.Getenv("OLLAMA_HOST") != "" {
+		detectedProviders = append(detectedProviders, "ollama (OLLAMA_HOST)")
+	}
+
+	// No providers detected
+	if len(detectedProviders) == 0 {
+		return
+	}
+
+	// Check for AI provider API keys in order of preference
+	// If an API key is found, auto-enable AI with sensible defaults
+	selectedProvider := ""
+
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "openai")
+		l.v.SetDefault("ai.api_key", "${OPENAI_API_KEY}")
+		// Use fast model by default for quick responses
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "gpt-4o-mini")
+		}
+		selectedProvider = "openai"
+	} else if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "anthropic")
+		l.v.SetDefault("ai.api_key", "${ANTHROPIC_API_KEY}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "claude-sonnet-4")
+		}
+		selectedProvider = "anthropic"
+	} else if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "gemini")
+		l.v.SetDefault("ai.api_key", "${GEMINI_API_KEY}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "gemini-2.0-flash-exp")
+		}
+		selectedProvider = "gemini"
+	} else if apiKey := os.Getenv("AZURE_OPENAI_KEY"); apiKey != "" {
+		baseURL := os.Getenv("AZURE_OPENAI_ENDPOINT")
+		if baseURL != "" {
+			l.v.SetDefault("ai.enabled", true)
+			l.v.SetDefault("ai.provider", "azure-openai")
+			l.v.SetDefault("ai.api_key", "${AZURE_OPENAI_KEY}")
+			l.v.SetDefault("ai.base_url", "${AZURE_OPENAI_ENDPOINT}")
+			if l.v.GetString("ai.model") == "" {
+				// User needs to specify deployment name
+				l.v.SetDefault("ai.model", "gpt-4")
+			}
+			selectedProvider = "azure-openai"
+		}
+	} else if os.Getenv("OLLAMA_HOST") != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "ollama")
+		l.v.SetDefault("ai.base_url", "${OLLAMA_HOST}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "llama3.2")
+		}
+		selectedProvider = "ollama"
+	}
+
+	// Warn if multiple AI providers detected.
+	// Note: Using stderr directly instead of structured logging is intentional here.
+	// These are user-facing CLI warnings that must be visible regardless of log level.
+	if len(detectedProviders) > 1 && selectedProvider != "" {
+		fmt.Fprintf(os.Stderr, `⚠️  Multiple AI provider API keys detected: %s
+   Auto-selected '%s' based on priority order.
+   To use a different provider, configure ai.provider in your config file.
+`, strings.Join(detectedProviders, ", "), selectedProvider)
+	}
 }
 
 // loadConfigFile loads the configuration file.

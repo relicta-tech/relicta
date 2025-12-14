@@ -125,6 +125,15 @@ func (p *PyPIPlugin) preparePackage(ctx context.Context, cfg *Config, releaseCtx
 
 	// Build distributions if build command provided
 	if cfg.BuildCommand != "" {
+		// Validate build command for dangerous patterns (defense in depth)
+		// Note: BuildCommand comes from config file, which is trusted, but validate defensively
+		if err := p.validateBuildCommand(cfg.BuildCommand); err != nil {
+			return &plugin.ExecuteResponse{
+				Success: false,
+				Error:   fmt.Sprintf("invalid build command: %v", err),
+			}, nil
+		}
+
 		if dryRun {
 			outputs["build_command"] = cfg.BuildCommand
 			return &plugin.ExecuteResponse{
@@ -462,6 +471,72 @@ func (p *PyPIPlugin) validatePackageDir(dir string) (string, error) {
 	}
 
 	return absPath, nil
+}
+
+// validateBuildCommand validates build command for dangerous patterns (defense in depth).
+// Note: BuildCommand comes from config file, which is trusted, but validate defensively.
+func (p *PyPIPlugin) validateBuildCommand(cmd string) error {
+	if cmd == "" {
+		return nil
+	}
+
+	// Check for dangerous shell metacharacters that could enable command injection
+	// Even though config is trusted, defense in depth is important
+	dangerousChars := []string{";", "&", "|", "`", "$", "(", ")", "<", ">", "\n", "\r"}
+	for _, char := range dangerousChars {
+		if strings.Contains(cmd, char) {
+			return fmt.Errorf("build command contains dangerous character: %q", char)
+		}
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(cmd, "..") {
+		return fmt.Errorf("build command contains path traversal pattern")
+	}
+
+	// Check for suspicious commands that shouldn't be in a build command
+	suspiciousPatterns := []string{
+		"rm ", "rmdir", "del ",
+		"curl ", "wget ",
+		"nc ", "netcat",
+		"eval ", "exec ",
+		"/dev/", "/proc/",
+	}
+	lowerCmd := strings.ToLower(cmd)
+	for _, pattern := range suspiciousPatterns {
+		if strings.Contains(lowerCmd, pattern) {
+			return fmt.Errorf("build command contains suspicious pattern: %q", pattern)
+		}
+	}
+
+	// Validate that command starts with a reasonable build tool
+	// This is a whitelist approach - only allow known-safe build commands
+	allowedPrefixes := []string{
+		"python -m build",
+		"python3 -m build",
+		"poetry build",
+		"pip install",
+		"pip3 install",
+		"python setup.py",
+		"python3 setup.py",
+		"flit build",
+		"hatch build",
+		"pdm build",
+	}
+
+	hasValidPrefix := false
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(cmd, prefix) {
+			hasValidPrefix = true
+			break
+		}
+	}
+
+	if !hasValidPrefix {
+		return fmt.Errorf("build command must start with a known build tool (python -m build, poetry build, etc.)")
+	}
+
+	return nil
 }
 
 // parseConfig parses the plugin configuration.

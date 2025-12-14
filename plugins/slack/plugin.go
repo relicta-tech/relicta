@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"time"
 
@@ -17,7 +18,7 @@ import (
 )
 
 // Shared HTTP client for connection reuse across requests.
-// Includes security hardening: TLS 1.2+, redirect protection, SSRF prevention.
+// Includes security hardening: TLS 1.3+, redirect protection, SSRF prevention.
 var defaultHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -40,7 +41,7 @@ var defaultHTTPClient = &http.Client{
 		MaxIdleConnsPerHost: 5,
 		IdleConnTimeout:     90 * time.Second,
 		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
+			MinVersion: tls.VersionTLS13,
 		},
 	},
 }
@@ -192,7 +193,8 @@ func (p *SlackPlugin) sendSuccessNotification(ctx context.Context, cfg *Config, 
 		if len(notes) > 2000 {
 			notes = notes[:2000] + "..."
 		}
-		text = notes
+		// Escape HTML to prevent XSS attacks in release notes
+		text = html.EscapeString(notes)
 	}
 
 	// Add mentions using shared mention builder

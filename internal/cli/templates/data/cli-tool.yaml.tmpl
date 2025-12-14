@@ -1,0 +1,87 @@
+# ReleasePilot Configuration for CLI Tools
+# Optimized for cross-platform command-line applications
+
+versioning:
+  strategy: "conventional"
+  tag_prefix: "v"
+  git_sign: {{ .GitSign }}
+  auto_bump: true
+
+changelog:
+  file: "CHANGELOG.md"
+  product_name: "{{ .ProjectName }}"
+  {{- if .RepositoryURL }}
+  repository_url: "{{ .RepositoryURL }}"
+  {{- end }}
+  sections:
+    - title: "✨ Features"
+      types: ["feat"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "📚 Documentation"
+      types: ["docs"]
+    - title: "🛠️ CLI Changes"
+      types: ["cli"]
+
+{{- if .AIEnabled }}
+ai:
+  enabled: true
+  provider: "{{ .AIProvider }}"
+  {{- if .AIModel }}
+  model: "{{ .AIModel }}"
+  {{- end }}
+  max_tokens: 2048
+  temperature: 0.7
+{{- end }}
+
+plugins:
+  {{- if .EnableGitHub }}
+  - name: "github"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      create_release: true
+      draft: false
+      prerelease: false
+      generate_release_notes: true
+      assets:
+        - "dist/**/*"
+        - "checksums.txt"
+  {{- end }}
+
+  {{- if .EnableHomebrew }}
+  - name: "homebrew"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .HomebrewTap }}
+      tap: "{{ .HomebrewTap }}"
+      {{- else }}
+      tap: "{{ extractOwner .RepositoryURL }}/homebrew-tap"
+      {{- end }}
+      formula_name: "{{ .ProjectName }}"
+      description: "{{ .ProjectName }} CLI tool"
+      homepage: "{{ .RepositoryURL }}"
+      install:
+        bin: "{{ .ProjectName }}"
+  {{- end }}
+
+  {{- if .EnableSlack }}
+  - name: "slack"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      notify_on_success: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableDiscord }}
+  - name: "discord"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      webhook_url: "${DISCORD_WEBHOOK_URL}"
+      notify_on_success: true
+      include_changelog: true
+  {{- end }}

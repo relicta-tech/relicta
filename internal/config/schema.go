@@ -123,20 +123,27 @@ type ChangelogConfig struct {
 type AIConfig struct {
 	// Enabled indicates whether AI features are enabled.
 	Enabled bool `mapstructure:"enabled" json:"enabled"`
-	// Provider is the AI provider (openai, ollama, anthropic).
+	// Provider is the AI provider (openai, ollama, anthropic, gemini, azure-openai).
 	// Use "ollama" for local/offline LLM support.
 	// Use "anthropic" or "claude" for Anthropic Claude API.
+	// Use "gemini" for Google Gemini API.
+	// Use "azure-openai" for Azure OpenAI Service.
 	Provider string `mapstructure:"provider" json:"provider"`
 	// Model is the model to use.
 	// For OpenAI: "gpt-4", "gpt-3.5-turbo", "gpt-4o", etc.
 	// For Ollama: "llama3.2", "mistral", "codellama", etc.
 	// For Anthropic: "claude-sonnet-4-20250514", "claude-3-opus-20240229", etc.
+	// For Gemini: "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", etc.
+	// For Azure OpenAI: Use your deployment name.
 	Model string `mapstructure:"model" json:"model"`
 	// APIKey is the API key (can use environment variable expansion).
 	APIKey string `mapstructure:"api_key" json:"api_key,omitempty"`
 	// BaseURL is the API base URL (for custom endpoints).
 	// For Ollama, defaults to "http://localhost:11434/v1".
+	// For Azure OpenAI, use https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT.
 	BaseURL string `mapstructure:"base_url" json:"base_url,omitempty"`
+	// APIVersion is the API version (required for Azure OpenAI, e.g., "2024-02-15-preview").
+	APIVersion string `mapstructure:"api_version" json:"api_version,omitempty"`
 	// Tone is the tone for generated content (technical, friendly, professional, excited).
 	Tone string `mapstructure:"tone" json:"tone"`
 	// Audience is the target audience (developers, users, public, marketing).

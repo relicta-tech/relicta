@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
-	gitservice "github.com/felixgeelhaar/release-pilot/internal/service/git"
 )
 
 // Default timeouts for git operations to prevent hangs on slow/unreachable remotes.
@@ -43,11 +42,11 @@ func withRemoteTimeout(ctx context.Context) (context.Context, context.CancelFunc
 
 // Adapter adapts the existing git service to the domain interface.
 type Adapter struct {
-	svc gitservice.Service
+	svc Service
 }
 
 // NewAdapter creates a new git adapter.
-func NewAdapter(svc gitservice.Service) *Adapter {
+func NewAdapter(svc Service) *Adapter {
 	return &Adapter{svc: svc}
 }
 
@@ -152,7 +151,7 @@ func (a *Adapter) GetCommitsSince(ctx context.Context, ref string) ([]*sourcecon
 
 // GetLatestCommit retrieves the latest commit on a branch.
 func (a *Adapter) GetLatestCommit(ctx context.Context, branch string) (*sourcecontrol.Commit, error) {
-	var commit *gitservice.Commit
+	var commit *Commit
 	var err error
 
 	// If branch is empty or "HEAD", get the HEAD commit
@@ -211,7 +210,7 @@ func (a *Adapter) GetLatestVersionTag(ctx context.Context, prefix string) (*sour
 
 // CreateTag creates a new tag.
 func (a *Adapter) CreateTag(ctx context.Context, name string, hash sourcecontrol.CommitHash, message string) (*sourcecontrol.Tag, error) {
-	opts := gitservice.TagOptions{
+	opts := TagOptions{
 		Annotated: message != "",
 		Ref:       string(hash),
 	}
@@ -235,7 +234,7 @@ func (a *Adapter) PushTag(ctx context.Context, name string, remote string) error
 	ctx, cancel := withRemoteTimeout(ctx)
 	defer cancel()
 
-	opts := gitservice.PushOptions{
+	opts := PushOptions{
 		Remote:  remote,
 		Tags:    true,
 		RefSpec: "refs/tags/" + name,
@@ -268,7 +267,7 @@ func (a *Adapter) Fetch(ctx context.Context, remote string) error {
 	ctx, cancel := withRemoteTimeout(ctx)
 	defer cancel()
 
-	opts := gitservice.FetchOptions{
+	opts := FetchOptions{
 		Remote: remote,
 		Tags:   true,
 	}
@@ -280,7 +279,7 @@ func (a *Adapter) Pull(ctx context.Context, remote, branch string) error {
 	ctx, cancel := withRemoteTimeout(ctx)
 	defer cancel()
 
-	opts := gitservice.PullOptions{
+	opts := PullOptions{
 		Remote: remote,
 		Branch: branch,
 	}
@@ -292,7 +291,7 @@ func (a *Adapter) Push(ctx context.Context, remote, branch string) error {
 	ctx, cancel := withRemoteTimeout(ctx)
 	defer cancel()
 
-	opts := gitservice.PushOptions{
+	opts := PushOptions{
 		Remote: remote,
 	}
 	return a.svc.Push(ctx, opts)
@@ -300,7 +299,7 @@ func (a *Adapter) Push(ctx context.Context, remote, branch string) error {
 
 // Helper functions
 
-func convertCommit(c *gitservice.Commit) *sourcecontrol.Commit {
+func convertCommit(c *Commit) *sourcecontrol.Commit {
 	if c == nil {
 		return nil
 	}
@@ -314,7 +313,7 @@ func convertCommit(c *gitservice.Commit) *sourcecontrol.Commit {
 	return commit
 }
 
-func convertCommits(commits []gitservice.Commit) []*sourcecontrol.Commit {
+func convertCommits(commits []Commit) []*sourcecontrol.Commit {
 	result := make([]*sourcecontrol.Commit, len(commits))
 	for i := range commits {
 		result[i] = convertCommit(&commits[i])

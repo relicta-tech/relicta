@@ -53,9 +53,10 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
 
-	// Verify release can be approved (must have notes generated)
-	if rel.State() != release.StateNotesGenerated {
-		return nil, fmt.Errorf("release is not ready for approval: current state is %s", rel.State())
+	// Verify release can be approved using domain logic
+	approvalStatus := rel.ApprovalStatus()
+	if !approvalStatus.CanApprove {
+		return nil, fmt.Errorf("cannot approve release: %s", approvalStatus.Reason)
 	}
 
 	// Update release notes if edited notes were provided
@@ -125,22 +126,13 @@ func (uc *GetReleaseForApprovalUseCase) Execute(ctx context.Context, input GetRe
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
 
-	output := &GetReleaseForApprovalOutput{
-		Release: rel,
-		Summary: rel.Summary(),
-	}
+	// Use domain logic to determine approval status
+	approvalStatus := rel.ApprovalStatus()
 
-	// Determine if release can be approved
-	if rel.State() == release.StateNotesGenerated {
-		output.CanApprove = true
-		output.ApprovalMsg = "Release is ready for approval"
-	} else if rel.State() == release.StateApproved {
-		output.CanApprove = false
-		output.ApprovalMsg = "Release is already approved"
-	} else {
-		output.CanApprove = false
-		output.ApprovalMsg = fmt.Sprintf("Release cannot be approved in state: %s", rel.State())
-	}
-
-	return output, nil
+	return &GetReleaseForApprovalOutput{
+		Release:     rel,
+		Summary:     rel.Summary(),
+		CanApprove:  approvalStatus.CanApprove,
+		ApprovalMsg: approvalStatus.Reason,
+	}, nil
 }

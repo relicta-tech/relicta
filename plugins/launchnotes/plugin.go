@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -19,7 +20,7 @@ import (
 const launchNotesGraphQLEndpoint = "https://app.launchnotes.io/graphql"
 
 // Shared HTTP client for connection reuse across requests.
-// Includes security hardening: TLS 1.2+, redirect protection.
+// Includes security hardening: TLS 1.3+, redirect protection.
 var defaultHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -40,7 +41,7 @@ var defaultHTTPClient = &http.Client{
 		MaxIdleConnsPerHost: 5,
 		IdleConnTimeout:     90 * time.Second,
 		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
+			MinVersion: tls.VersionTLS13,
 		},
 	},
 }
@@ -176,9 +177,11 @@ func (p *LaunchNotesPlugin) createAnnouncement(ctx context.Context, cfg *Config,
 	content.WriteString(fmt.Sprintf("# %s\n\n", title))
 
 	if releaseCtx.ReleaseNotes != "" {
-		content.WriteString(releaseCtx.ReleaseNotes)
+		// Escape HTML to prevent XSS attacks in release notes
+		content.WriteString(html.EscapeString(releaseCtx.ReleaseNotes))
 	} else if cfg.IncludeChangelog && releaseCtx.Changelog != "" {
-		content.WriteString(releaseCtx.Changelog)
+		// Escape HTML to prevent XSS attacks in changelog
+		content.WriteString(html.EscapeString(releaseCtx.Changelog))
 	} else if releaseCtx.Changes != nil {
 		// Build content from changes
 		if len(releaseCtx.Changes.Breaking) > 0 {

@@ -29,6 +29,8 @@ func TestNewSemanticVersion(t *testing.T) {
 }
 
 func TestParse(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		input   string
@@ -50,6 +52,7 @@ func TestParse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := Parse(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
@@ -63,6 +66,8 @@ func TestParse(t *testing.T) {
 }
 
 func TestSemanticVersion_Compare(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		v1   string
@@ -83,6 +88,7 @@ func TestSemanticVersion_Compare(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			v1 := MustParse(tt.v1)
 			v2 := MustParse(tt.v2)
 			if got := v1.Compare(v2); got != tt.want {

@@ -2,11 +2,38 @@
 package cli
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/release-pilot/internal/service/blast"
+	"github.com/felixgeelhaar/release-pilot/internal/application/blast"
 )
+
+// captureOutput captures stdout during function execution and returns the output.
+func captureOutput(t *testing.T, fn func()) string {
+	t.Helper()
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	fn()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to copy output: %v", err)
+	}
+
+	return buf.String()
+}
 
 func TestFormatRiskLevel(t *testing.T) {
 	tests := []struct {
@@ -305,8 +332,9 @@ func TestOutputBlastText(t *testing.T) {
 
 func TestOutputBlastSummary(t *testing.T) {
 	tests := []struct {
-		name string
-		br   *blast.BlastRadius
+		name         string
+		br           *blast.BlastRadius
+		wantContains []string
 	}{
 		{
 			name: "basic summary",
@@ -323,6 +351,17 @@ func TestOutputBlastSummary(t *testing.T) {
 					PackagesRequiringRelease: 3,
 					RiskLevel:                blast.RiskLevelMedium,
 				},
+			},
+			wantContains: []string{
+				"v1.0.0", "HEAD",
+				"5",   // Total packages
+				"10",  // Files changed
+				"100", // Insertions
+				"50",  // Deletions
+				"2",   // Directly affected
+				"1",   // Transitively affected
+				"3",   // Packages needing release
+				"MEDIUM",
 			},
 		},
 		{
@@ -341,54 +380,95 @@ func TestOutputBlastSummary(t *testing.T) {
 					RiskLevel:                blast.RiskLevelHigh,
 				},
 			},
+			wantContains: []string{
+				"v2.0.0", "main",
+				"10",  // Total packages
+				"50",  // Files changed
+				"500", // Insertions
+				"200", // Deletions
+				"5",   // Directly affected
+				"3",   // Transitively affected
+				"8",   // Packages needing release
+				"HIGH",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastSummary(tt.br)
+			output := captureOutput(t, func() {
+				outputBlastSummary(tt.br)
+			})
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastSummary() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastRiskFactors(t *testing.T) {
 	tests := []struct {
-		name    string
-		factors []string
+		name         string
+		factors      []string
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
-			name:    "no factors",
-			factors: []string{},
+			name:      "no factors",
+			factors:   []string{},
+			wantEmpty: true,
 		},
 		{
-			name:    "single factor",
-			factors: []string{"Large changeset"},
+			name:         "single factor",
+			factors:      []string{"Large changeset"},
+			wantContains: []string{"Risk Factors", "Large changeset"},
 		},
 		{
-			name:    "multiple factors",
-			factors: []string{"Large changeset", "Critical files modified", "Many affected packages"},
+			name:         "multiple factors",
+			factors:      []string{"Large changeset", "Critical files modified", "Many affected packages"},
+			wantContains: []string{"Risk Factors", "Large changeset", "Critical files modified", "Many affected packages"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastRiskFactors(tt.factors)
+			output := captureOutput(t, func() {
+				outputBlastRiskFactors(tt.factors)
+			})
+
+			if tt.wantEmpty {
+				// Should output nothing for empty factors
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastRiskFactors() with empty factors should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastRiskFactors() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastImpacts(t *testing.T) {
 	tests := []struct {
-		name    string
-		impacts []*blast.Impact
-		verbose bool
+		name         string
+		impacts      []*blast.Impact
+		verbose      bool
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
-			name:    "no impacts",
-			impacts: []*blast.Impact{},
-			verbose: false,
+			name:         "no impacts",
+			impacts:      []*blast.Impact{},
+			verbose:      false,
+			wantContains: []string{"No packages affected"},
 		},
 		{
 			name: "single impact non-verbose",
@@ -405,7 +485,8 @@ func TestOutputBlastImpacts(t *testing.T) {
 					ReleaseType:     "patch",
 				},
 			},
-			verbose: false,
+			verbose:      false,
+			wantContains: []string{"pkg-a", "library", "risk: 50", "patch"},
 		},
 		{
 			name: "multiple impacts verbose",
@@ -445,21 +526,42 @@ func TestOutputBlastImpacts(t *testing.T) {
 				},
 			},
 			verbose: true,
+			wantContains: []string{
+				"pkg-a", "library", "risk: 75", "minor",
+				"main.go", // Changed file in verbose mode
+				"pkg-b",   // Affected dependency
+				"Run tests",
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastImpacts(tt.impacts, tt.verbose)
+			output := captureOutput(t, func() {
+				outputBlastImpacts(tt.impacts, tt.verbose)
+			})
+
+			if tt.wantEmpty {
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastImpacts() with empty impacts should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastImpacts() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastImpactHeader(t *testing.T) {
 	tests := []struct {
-		name   string
-		impact *blast.Impact
+		name         string
+		impact       *blast.Impact
+		wantContains []string
 	}{
 		{
 			name: "direct impact with release",
@@ -474,6 +576,7 @@ func TestOutputBlastImpactHeader(t *testing.T) {
 				RequiresRelease: true,
 				ReleaseType:     "minor",
 			},
+			wantContains: []string{"pkg-a", "library", "risk: 75", "/path/to/pkg-a", "direct", "minor"},
 		},
 		{
 			name: "transitive impact no release",
@@ -488,13 +591,21 @@ func TestOutputBlastImpactHeader(t *testing.T) {
 				TransitiveDepth: 2,
 				RequiresRelease: false,
 			},
+			wantContains: []string{"pkg-b", "service", "risk: 30", "/path/to/pkg-b", "transitive"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastImpactHeader(tt.impact)
+			output := captureOutput(t, func() {
+				outputBlastImpactHeader(tt.impact)
+			})
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastImpactHeader() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
@@ -513,18 +624,36 @@ func TestOutputBlastImpactDetails(t *testing.T) {
 		SuggestedActions:     []string{"Run tests", "Update docs"},
 	}
 
-	// Just verify it doesn't panic
-	outputBlastImpactDetails(impact)
+	output := captureOutput(t, func() {
+		outputBlastImpactDetails(impact)
+	})
+
+	wantContains := []string{
+		"main.go",     // Changed file
+		"pkg-b",       // Affected dep
+		"pkg-c",       // Affected dep
+		"Run tests",   // Suggested action
+		"Update docs", // Suggested action
+	}
+
+	for _, want := range wantContains {
+		if !strings.Contains(output, want) {
+			t.Errorf("outputBlastImpactDetails() output should contain %q, got:\n%s", want, output)
+		}
+	}
 }
 
 func TestOutputBlastChangedFiles(t *testing.T) {
 	tests := []struct {
-		name    string
-		changes []blast.ChangedFile
+		name         string
+		changes      []blast.ChangedFile
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
-			name:    "no changes",
-			changes: []blast.ChangedFile{},
+			name:      "no changes",
+			changes:   []blast.ChangedFile{},
+			wantEmpty: true,
 		},
 		{
 			name: "single change",
@@ -536,6 +665,7 @@ func TestOutputBlastChangedFiles(t *testing.T) {
 					Deletions:  25,
 				},
 			},
+			wantContains: []string{"Changed Files", "main.go", "+50", "-25"},
 		},
 		{
 			name: "multiple changes",
@@ -559,86 +689,143 @@ func TestOutputBlastChangedFiles(t *testing.T) {
 					Deletions:  15,
 				},
 			},
+			wantContains: []string{"Changed Files", "main.go", "config.yaml", "main_test.go"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastChangedFiles(tt.changes)
+			output := captureOutput(t, func() {
+				outputBlastChangedFiles(tt.changes)
+			})
+
+			if tt.wantEmpty {
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastChangedFiles() with no changes should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastChangedFiles() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastAffectedDeps(t *testing.T) {
 	tests := []struct {
-		name string
-		deps []string
+		name         string
+		deps         []string
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
-			name: "no deps",
-			deps: []string{},
+			name:      "no deps",
+			deps:      []string{},
+			wantEmpty: true,
 		},
 		{
-			name: "single dep",
-			deps: []string{"pkg-a"},
+			name:         "single dep",
+			deps:         []string{"pkg-a"},
+			wantContains: []string{"Affected Dependencies", "pkg-a"},
 		},
 		{
-			name: "multiple deps",
-			deps: []string{"pkg-a", "pkg-b", "pkg-c"},
+			name:         "multiple deps",
+			deps:         []string{"pkg-a", "pkg-b", "pkg-c"},
+			wantContains: []string{"Affected Dependencies", "pkg-a", "pkg-b", "pkg-c"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastAffectedDeps(tt.deps)
+			output := captureOutput(t, func() {
+				outputBlastAffectedDeps(tt.deps)
+			})
+
+			if tt.wantEmpty {
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastAffectedDeps() with no deps should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastAffectedDeps() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastSuggestedActions(t *testing.T) {
 	tests := []struct {
-		name    string
-		actions []string
+		name         string
+		actions      []string
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
-			name:    "no actions",
-			actions: []string{},
+			name:      "no actions",
+			actions:   []string{},
+			wantEmpty: true,
 		},
 		{
-			name:    "single action",
-			actions: []string{"Run integration tests"},
+			name:         "single action",
+			actions:      []string{"Run integration tests"},
+			wantContains: []string{"Suggested Actions", "Run integration tests"},
 		},
 		{
-			name:    "multiple actions",
-			actions: []string{"Run integration tests", "Update documentation", "Notify stakeholders"},
+			name:         "multiple actions",
+			actions:      []string{"Run integration tests", "Update documentation", "Notify stakeholders"},
+			wantContains: []string{"Suggested Actions", "Run integration tests", "Update documentation", "Notify stakeholders"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastSuggestedActions(tt.actions)
+			output := captureOutput(t, func() {
+				outputBlastSuggestedActions(tt.actions)
+			})
+
+			if tt.wantEmpty {
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastSuggestedActions() with no actions should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastSuggestedActions() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastChangesByCategory(t *testing.T) {
 	tests := []struct {
-		name       string
-		categories map[blast.FileCategory]int
-		verbose    bool
+		name         string
+		categories   map[blast.FileCategory]int
+		verbose      bool
+		wantEmpty    bool
+		wantContains []string
 	}{
 		{
 			name:       "not verbose",
 			categories: map[blast.FileCategory]int{blast.FileCategorySource: 5},
 			verbose:    false,
+			wantEmpty:  true, // Non-verbose doesn't output categories
 		},
 		{
 			name:       "verbose empty",
 			categories: map[blast.FileCategory]int{},
 			verbose:    true,
+			wantEmpty:  true,
 		},
 		{
 			name: "verbose with categories",
@@ -647,19 +834,42 @@ func TestOutputBlastChangesByCategory(t *testing.T) {
 				blast.FileCategoryTest:   2,
 				blast.FileCategoryConfig: 1,
 			},
-			verbose: true,
+			verbose:      true,
+			wantContains: []string{"Changes by Category", "source", "8", "test", "2", "config", "1"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Just verify it doesn't panic
-			outputBlastChangesByCategory(tt.categories, tt.verbose)
+			output := captureOutput(t, func() {
+				outputBlastChangesByCategory(tt.categories, tt.verbose)
+			})
+
+			if tt.wantEmpty {
+				if strings.TrimSpace(output) != "" {
+					t.Errorf("outputBlastChangesByCategory() should produce no output, got: %q", output)
+				}
+				return
+			}
+
+			for _, want := range tt.wantContains {
+				if !strings.Contains(output, want) {
+					t.Errorf("outputBlastChangesByCategory() output should contain %q, got:\n%s", want, output)
+				}
+			}
 		})
 	}
 }
 
 func TestOutputBlastLegend(t *testing.T) {
-	// Just verify it doesn't panic
-	outputBlastLegend()
+	output := captureOutput(t, func() {
+		outputBlastLegend()
+	})
+
+	wantContains := []string{"Legend", "Direct impact", "Transitive impact"}
+	for _, want := range wantContains {
+		if !strings.Contains(output, want) {
+			t.Errorf("outputBlastLegend() output should contain %q, got:\n%s", want, output)
+		}
+	}
 }

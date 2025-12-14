@@ -1,0 +1,58 @@
+# Advanced Teams Plugin Configuration
+# Full-featured setup with changelog, mentions, and custom theming
+
+versioning:
+  strategy: conventional
+  tag_prefix: v
+  git_sign: true
+
+changelog:
+  file: CHANGELOG.md
+  product_name: MyAwesomeProject
+  repository_url: https://github.com/myorg/myproject
+
+ai:
+  enabled: true
+  provider: openai
+  model: gpt-4
+  tone: professional
+
+plugins:
+  - name: teams
+    enabled: true
+    config:
+      # Webhook URL from Teams channel
+      webhook_url: ${TEAMS_WEBHOOK_URL}
+
+      # Notification settings
+      notify_on_success: true
+      notify_on_error: true
+
+      # Include full changelog in success notifications
+      # Note: Truncated at 2000 characters due to Teams message size limits
+      include_changelog: true
+
+      # Custom brand color (hex format, with or without #)
+      # Success notifications will use this color
+      theme_color: "0078d4"  # Microsoft blue
+
+      # @Mention users/groups to notify them
+      # Format: @username or @team-name
+      mentions:
+        - "@release-team"
+        - "@engineering-leads"
+        - "@product-managers"
+
+  # Also send to GitHub releases
+  - name: github
+    enabled: true
+    config:
+      draft: false
+      prerelease: false
+
+  # Notify Slack as well
+  - name: slack
+    enabled: true
+    config:
+      webhook: ${SLACK_WEBHOOK_URL}
+      notify_on_success: true

@@ -18,10 +18,16 @@ type Repository interface {
 	FindLatest(ctx context.Context, repoPath string) (*Release, error)
 
 	// FindByState retrieves releases in a specific state.
+	// Deprecated: Use FindBySpecification with ByState() instead.
 	FindByState(ctx context.Context, state ReleaseState) ([]*Release, error)
 
 	// FindActive retrieves all active (non-final) releases.
+	// Deprecated: Use FindBySpecification with Active() instead.
 	FindActive(ctx context.Context) ([]*Release, error)
+
+	// FindBySpecification retrieves releases matching the given specification.
+	// This is the preferred method for complex queries as it allows composition.
+	FindBySpecification(ctx context.Context, spec Specification) ([]*Release, error)
 
 	// Delete removes a release.
 	Delete(ctx context.Context, id ReleaseID) error
@@ -36,10 +42,12 @@ type EventPublisher interface {
 // UnitOfWork defines the interface for transactional operations.
 type UnitOfWork interface {
 	// Begin starts a new unit of work.
+	// Returns an error if called on an already active unit of work.
 	Begin(ctx context.Context) (UnitOfWork, error)
 
 	// Commit commits the unit of work.
-	Commit() error
+	// The context is used for cancellation and timeout control during commit operations.
+	Commit(ctx context.Context) error
 
 	// Rollback rolls back the unit of work.
 	Rollback() error

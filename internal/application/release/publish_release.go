@@ -72,6 +72,7 @@ type PluginResult struct {
 // PublishReleaseUseCase implements the publish release use case.
 type PublishReleaseUseCase struct {
 	releaseRepo    release.Repository
+	unitOfWork     release.UnitOfWork
 	gitRepo        sourcecontrol.GitRepository
 	pluginExecutor integration.PluginExecutor
 	eventPublisher release.EventPublisher
@@ -94,12 +95,93 @@ func NewPublishReleaseUseCase(
 	}
 }
 
+// NewPublishReleaseUseCaseWithUoW creates a new PublishReleaseUseCase with UnitOfWork support.
+func NewPublishReleaseUseCaseWithUoW(
+	unitOfWork release.UnitOfWork,
+	gitRepo sourcecontrol.GitRepository,
+	pluginExecutor integration.PluginExecutor,
+	eventPublisher release.EventPublisher,
+) *PublishReleaseUseCase {
+	return &PublishReleaseUseCase{
+		unitOfWork:     unitOfWork,
+		gitRepo:        gitRepo,
+		pluginExecutor: pluginExecutor,
+		eventPublisher: eventPublisher,
+		logger:         slog.Default().With("usecase", "publish_release"),
+	}
+}
+
 // Execute executes the publish release use case.
 func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishReleaseInput) (*PublishReleaseOutput, error) {
 	if err := input.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
 
+	// Use UnitOfWork if available for transactional consistency
+	if uc.unitOfWork != nil {
+		return uc.executeWithUnitOfWork(ctx, input)
+	}
+
+	// Legacy path without UnitOfWork
+	return uc.executeWithoutUnitOfWork(ctx, input)
+}
+
+// executeWithUnitOfWork executes the use case with transactional boundaries.
+func (uc *PublishReleaseUseCase) executeWithUnitOfWork(ctx context.Context, input PublishReleaseInput) (*PublishReleaseOutput, error) {
+	// Begin transaction
+	uow, err := uc.unitOfWork.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		// Rollback if not committed (no-op if already committed)
+		_ = uow.Rollback()
+	}()
+
+	// Get repository from UnitOfWork
+	repo := uow.ReleaseRepository()
+
+	rel, err := repo.FindByID(ctx, input.ReleaseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find release: %w", err)
+	}
+
+	if !rel.CanProceedToPublish() {
+		return nil, fmt.Errorf("release is not ready for publishing: current state is %s", rel.State())
+	}
+
+	tagName := uc.buildTagName(input.TagPrefix, rel.Plan().NextVersion.String())
+	output := &PublishReleaseOutput{
+		TagName:       tagName,
+		PluginResults: make([]PluginResult, 0),
+	}
+
+	releaseCtx := uc.buildReleaseContext(rel, tagName, input.DryRun)
+
+	if err := uc.executePrePublishPhase(ctx, rel, releaseCtx, output); err != nil {
+		return nil, err
+	}
+
+	if err := uc.executeGitTagPhase(ctx, rel, tagName, input); err != nil {
+		return nil, err
+	}
+
+	uc.executePostPublishPhase(ctx, rel, releaseCtx, tagName, output)
+
+	if err := uc.finalizePublishWithUoW(ctx, rel, repo, releaseCtx, tagName, input.DryRun, output); err != nil {
+		return nil, err
+	}
+
+	// Commit transaction
+	if err := uow.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return output, nil
+}
+
+// executeWithoutUnitOfWork executes the use case without transactional boundaries (legacy).
+func (uc *PublishReleaseUseCase) executeWithoutUnitOfWork(ctx context.Context, input PublishReleaseInput) (*PublishReleaseOutput, error) {
 	rel, err := uc.releaseRepo.FindByID(ctx, input.ReleaseID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find release: %w", err)
@@ -312,6 +394,35 @@ func (uc *PublishReleaseUseCase) finalizePublish(
 	}
 
 	uc.publishDomainEvents(ctx, rel)
+
+	return nil
+}
+
+// finalizePublishWithUoW marks release as published using UnitOfWork repository.
+// Events are collected by the UoW and published on commit.
+func (uc *PublishReleaseUseCase) finalizePublishWithUoW(
+	ctx context.Context,
+	rel *release.Release,
+	repo release.Repository,
+	releaseCtx integration.ReleaseContext,
+	tagName string,
+	dryRun bool,
+	output *PublishReleaseOutput,
+) error {
+	if dryRun {
+		return nil
+	}
+
+	if err := rel.MarkPublished(output.ReleaseURL); err != nil {
+		return fmt.Errorf("failed to mark release as published: %w", err)
+	}
+
+	uc.executeSuccessHooks(ctx, rel, releaseCtx, tagName, output)
+
+	// Save through UoW repository - events will be collected and published on commit
+	if err := repo.Save(ctx, rel); err != nil {
+		return fmt.Errorf("failed to save release: %w", err)
+	}
 
 	return nil
 }

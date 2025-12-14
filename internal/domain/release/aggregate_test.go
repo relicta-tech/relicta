@@ -1023,3 +1023,88 @@ func TestRelease_FullWorkflow(t *testing.T) {
 		}
 	}
 }
+
+func TestRelease_ValidateInvariants(t *testing.T) {
+	t.Run("new release is valid", func(t *testing.T) {
+		r := NewRelease("test-1", "main", "/repo")
+		if !r.IsValid() {
+			violations := r.InvariantViolations()
+			t.Errorf("expected new release to be valid, got violations: %v", violations)
+		}
+	})
+
+	t.Run("empty ID is invalid", func(t *testing.T) {
+		r := NewRelease("", "main", "/repo")
+		violations := r.InvariantViolations()
+		found := false
+		for _, v := range violations {
+			if v.Name == "NonEmptyID" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("expected NonEmptyID violation")
+		}
+	})
+
+	t.Run("empty branch is invalid", func(t *testing.T) {
+		r := NewRelease("test-1", "", "/repo")
+		violations := r.InvariantViolations()
+		found := false
+		for _, v := range violations {
+			if v.Name == "NonEmptyBranch" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("expected NonEmptyBranch violation")
+		}
+	})
+
+	t.Run("release through full workflow is valid", func(t *testing.T) {
+		r := NewRelease("test-1", "main", "/repo")
+
+		changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
+		changeSet.AddCommit(changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "feature"))
+
+		plan := NewReleasePlan(version.Initial, version.MustParse("1.0.0"), changes.ReleaseTypeMinor, changeSet, false)
+		_ = r.SetPlan(plan)
+		_ = r.SetVersion(version.MustParse("1.0.0"), "v1.0.0")
+		_ = r.SetNotes(&ReleaseNotes{Changelog: "test", Summary: "test"})
+		_ = r.Approve("tester", false)
+		_ = r.StartPublishing([]string{"github"})
+		_ = r.MarkPublished("http://example.com")
+
+		if !r.IsValid() {
+			violations := r.InvariantViolations()
+			t.Errorf("expected published release to be valid, got violations: %v", violations)
+		}
+	})
+
+	t.Run("ValidateInvariants returns all invariants", func(t *testing.T) {
+		r := NewRelease("test-1", "main", "/repo")
+		invariants := r.ValidateInvariants()
+
+		// Should have 8 invariants checked
+		if len(invariants) != 8 {
+			t.Errorf("expected 8 invariants, got %d", len(invariants))
+		}
+
+		// All should be valid for a new release
+		for _, inv := range invariants {
+			if !inv.Valid {
+				t.Errorf("invariant %s should be valid for new release", inv.Name)
+			}
+		}
+	})
+
+	t.Run("InvariantViolations returns empty for valid release", func(t *testing.T) {
+		r := NewRelease("test-1", "main", "/repo")
+		violations := r.InvariantViolations()
+		if len(violations) != 0 {
+			t.Errorf("expected no violations for valid release, got %d", len(violations))
+		}
+	})
+}

@@ -466,14 +466,19 @@ func (p *ChocolateyPlugin) buildPackage(ctx context.Context, dir, packageID, ver
 }
 
 // pushPackage pushes the package to Chocolatey.
+// Uses environment variable for API key to prevent exposure in process listings.
 func (p *ChocolateyPlugin) pushPackage(ctx context.Context, nupkgPath, apiKey, source string) error {
 	if source == "" {
 		source = "https://push.chocolatey.org/"
 	}
 
+	// Use --apikey with environment variable reference to avoid exposing key in process list.
+	// Chocolatey CLI reads from CHOCO_API_KEY environment variable when --apikey is not provided.
 	cmd := exec.CommandContext(ctx, "choco", "push", nupkgPath,
-		"--source", source,
-		"--apikey", apiKey)
+		"--source", source)
+
+	// Pass API key via environment variable (safer than command-line args)
+	cmd.Env = append(os.Environ(), "CHOCO_API_KEY="+apiKey)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

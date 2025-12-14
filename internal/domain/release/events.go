@@ -304,3 +304,27 @@ func NewPluginExecutedEvent(id ReleaseID, pluginName, hook string, success bool,
 		Duration:   duration,
 	}
 }
+
+// ReleaseRetriedEvent is raised when a release is retried after failure or cancellation.
+type ReleaseRetriedEvent struct {
+	BaseEvent
+	PreviousState ReleaseState
+	NewState      ReleaseState
+}
+
+// EventName returns the event name.
+func (e ReleaseRetriedEvent) EventName() string {
+	return "release.retried"
+}
+
+// NewReleaseRetriedEvent creates a new ReleaseRetriedEvent.
+func NewReleaseRetriedEvent(id ReleaseID, previousState, newState ReleaseState) ReleaseRetriedEvent {
+	return ReleaseRetriedEvent{
+		BaseEvent: BaseEvent{
+			occurredAt:  time.Now(),
+			aggregateID: id,
+		},
+		PreviousState: previousState,
+		NewState:      newState,
+	}
+}

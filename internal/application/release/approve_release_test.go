@@ -148,7 +148,7 @@ func TestApproveReleaseUseCase_Execute(t *testing.T) {
 			},
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        true,
-			errMsg:         "not ready for approval",
+			errMsg:         "already approved",
 		},
 		{
 			name: "repository save fails",
@@ -293,7 +293,7 @@ func TestGetReleaseForApprovalUseCase_Execute(t *testing.T) {
 			},
 			wantErr:         false,
 			wantCanApprove:  false,
-			wantApprovalMsg: "cannot be approved in state",
+			wantApprovalMsg: "not ready for approval",
 		},
 		{
 			name: "release not found",

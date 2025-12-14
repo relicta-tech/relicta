@@ -160,6 +160,16 @@ func (m *mockReleaseRepository) Delete(ctx context.Context, id release.ReleaseID
 	return nil
 }
 
+func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+	result := make([]*release.Release, 0)
+	for _, r := range m.releases {
+		if spec.IsSatisfiedBy(r) {
+			result = append(result, r)
+		}
+	}
+	return result, nil
+}
+
 // mockVersionCalculator implements version.VersionCalculator for testing.
 type mockVersionCalculator struct{}
 

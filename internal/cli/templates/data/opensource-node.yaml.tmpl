@@ -1,0 +1,106 @@
+# ReleasePilot Configuration for Open Source Node.js Projects
+# Optimized for npm publishing and JavaScript ecosystem
+
+versioning:
+  strategy: "conventional"
+  tag_prefix: "v"
+  git_sign: {{ .GitSign }}
+  auto_bump: true
+
+changelog:
+  file: "CHANGELOG.md"
+  product_name: "{{ .ProjectName }}"
+  {{- if .RepositoryURL }}
+  repository_url: "{{ .RepositoryURL }}"
+  {{- end }}
+  sections:
+    - title: "✨ Features"
+      types: ["feat"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "⚡️ Performance"
+      types: ["perf"]
+    - title: "📖 Documentation"
+      types: ["docs"]
+    - title: "🔨 Build & CI"
+      types: ["build", "ci"]
+
+{{- if .AIEnabled }}
+ai:
+  enabled: true
+  provider: "{{ .AIProvider }}"
+  {{- if .AIModel }}
+  model: "{{ .AIModel }}"
+  {{- end }}
+  max_tokens: 2048
+  temperature: 0.7
+{{- end }}
+
+plugins:
+  {{- if .EnableGitHub }}
+  - name: "github"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      create_release: true
+      draft: false
+      prerelease: false
+      generate_release_notes: true
+      assets:
+        - "dist/**/*.tgz"
+  {{- end }}
+
+  {{- if .EnableNPM }}
+  - name: "npm"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .NPMRegistry }}
+      registry: "{{ .NPMRegistry }}"
+      {{- else }}
+      registry: "https://registry.npmjs.org"
+      {{- end }}
+      access: "public"
+      tag: "latest"
+      provenance: true
+  {{- end }}
+
+  {{- if .EnableSlack }}
+  - name: "slack"
+    enabled: true
+    hooks: ["post_publish", "on_error"]
+    config:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableDiscord }}
+  - name: "discord"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      webhook_url: "${DISCORD_WEBHOOK_URL}"
+      notify_on_success: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableDocker }}
+  - name: "docker"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .DockerRegistry }}
+      registry: "{{ .DockerRegistry }}"
+      {{- else }}
+      registry: "ghcr.io"
+      {{- end }}
+      image_name: "{{ .ProjectName }}"
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+      tags:
+        - "latest"
+        - "{{ `{{ .Version }}` }}"
+  {{- end }}

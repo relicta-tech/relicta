@@ -75,21 +75,39 @@ func (cs *ChangeSet) CreatedAt() time.Time {
 }
 
 // AddCommit adds a commit to the changeset.
-// Note: Adding commits after Categories() has been called will not update the categorization.
-// Create a new ChangeSet if you need to add commits after categorization.
+// This invalidates any cached categorization to ensure consistency.
 func (cs *ChangeSet) AddCommit(commit *ConventionalCommit) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 	cs.commits = append(cs.commits, commit)
+	cs.invalidateCategoriesLocked()
 }
 
 // AddCommits adds multiple commits to the changeset.
-// Note: Adding commits after Categories() has been called will not update the categorization.
-// Create a new ChangeSet if you need to add commits after categorization.
+// This invalidates any cached categorization to ensure consistency.
 func (cs *ChangeSet) AddCommits(commits []*ConventionalCommit) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 	cs.commits = append(cs.commits, commits...)
+	cs.invalidateCategoriesLocked()
+}
+
+// InvalidateCategories resets the cached categorization.
+// This allows re-categorization on the next call to Categories().
+func (cs *ChangeSet) InvalidateCategories() {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	cs.invalidateCategoriesLocked()
+}
+
+// invalidateCategoriesLocked resets categorization cache.
+// Thread-safety: Caller MUST hold cs.mu lock before calling (indicated by _Locked suffix).
+// Note: Resetting sync.Once by assigning a zero value is an intentional pattern
+// for cache invalidation. This allows Categories() to re-run categorize() on the
+// next call after commits are added.
+func (cs *ChangeSet) invalidateCategoriesLocked() {
+	cs.categorizeOnce = sync.Once{} // Reset to allow re-categorization
+	cs.categories = nil             // Clear cached categories
 }
 
 // Commits returns all commits in the changeset.
@@ -266,8 +284,7 @@ func (cs *ChangeSet) ChangelogCommits() []*ConventionalCommit {
 }
 
 // SortByDate sorts commits by date (newest first).
-// Note: Sorting after Categories() has been called will not update the categorization.
-// The order of categories is based on commit properties, not commit order.
+// Note: Categorization is based on commit properties, not order, so sorting is safe after Categories().
 func (cs *ChangeSet) SortByDate() {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
@@ -277,8 +294,7 @@ func (cs *ChangeSet) SortByDate() {
 }
 
 // SortByType sorts commits by type priority (breaking first, then features, etc.).
-// Note: Sorting after Categories() has been called will not update the categorization.
-// The order of categories is based on commit properties, not commit order.
+// Note: Categorization is based on commit properties, not order, so sorting is safe after Categories().
 func (cs *ChangeSet) SortByType() {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()

@@ -60,14 +60,17 @@ func (i *PlanReleaseInput) Validate() error {
 	}
 
 	// Git ref validation
+	// Allow ~ and ^ for git revision navigation (e.g., HEAD~1, main^)
+	// Reject other special characters that could cause issues
+	invalidRefChars := ":?*[\\ "
 	if i.FromRef != "" {
-		if strings.ContainsAny(i.FromRef, "~^:?*[\\ ") && !strings.Contains(i.FromRef, "~") && !strings.Contains(i.FromRef, "^") {
+		if strings.ContainsAny(i.FromRef, invalidRefChars) {
 			return fmt.Errorf("invalid from reference: %s", i.FromRef)
 		}
 	}
 
 	if i.ToRef != "" {
-		if strings.ContainsAny(i.ToRef, ":?*[\\ ") {
+		if strings.ContainsAny(i.ToRef, invalidRefChars) {
 			return fmt.Errorf("invalid to reference: %s", i.ToRef)
 		}
 	}
@@ -89,6 +92,7 @@ type PlanReleaseOutput struct {
 // PlanReleaseUseCase implements the plan release use case.
 type PlanReleaseUseCase struct {
 	releaseRepo    release.Repository
+	unitOfWork     release.UnitOfWork
 	gitRepo        sourcecontrol.GitRepository
 	versionCalc    version.VersionCalculator
 	eventPublisher release.EventPublisher
@@ -104,6 +108,22 @@ func NewPlanReleaseUseCase(
 ) *PlanReleaseUseCase {
 	return &PlanReleaseUseCase{
 		releaseRepo:    releaseRepo,
+		gitRepo:        gitRepo,
+		versionCalc:    versionCalc,
+		eventPublisher: eventPublisher,
+		logger:         slog.Default().With("usecase", "plan_release"),
+	}
+}
+
+// NewPlanReleaseUseCaseWithUoW creates a new PlanReleaseUseCase with UnitOfWork support.
+func NewPlanReleaseUseCaseWithUoW(
+	unitOfWork release.UnitOfWork,
+	gitRepo sourcecontrol.GitRepository,
+	versionCalc version.VersionCalculator,
+	eventPublisher release.EventPublisher,
+) *PlanReleaseUseCase {
+	return &PlanReleaseUseCase{
+		unitOfWork:     unitOfWork,
 		gitRepo:        gitRepo,
 		versionCalc:    versionCalc,
 		eventPublisher: eventPublisher,
@@ -219,20 +239,10 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, fmt.Errorf("failed to set release plan: %w", err)
 	}
 
-	// Save release
+	// Save release using UnitOfWork if available
 	if !input.DryRun {
-		if err := uc.releaseRepo.Save(ctx, rel); err != nil {
-			return nil, fmt.Errorf("failed to save release: %w", err)
-		}
-
-		// Publish domain events
-		if uc.eventPublisher != nil {
-			if err := uc.eventPublisher.Publish(ctx, rel.DomainEvents()...); err != nil {
-				uc.logger.Warn("failed to publish domain events",
-					"error", err,
-					"release_id", rel.ID())
-			}
-			rel.ClearDomainEvents()
+		if err := uc.saveRelease(ctx, rel); err != nil {
+			return nil, err
 		}
 	}
 
@@ -245,4 +255,56 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		RepositoryName: repoInfo.Name,
 		Branch:         branch,
 	}, nil
+}
+
+// saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.
+func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Release) error {
+	// Use UnitOfWork if available
+	if uc.unitOfWork != nil {
+		return uc.saveReleaseWithUoW(ctx, rel)
+	}
+
+	// Legacy path without UnitOfWork
+	if err := uc.releaseRepo.Save(ctx, rel); err != nil {
+		return fmt.Errorf("failed to save release: %w", err)
+	}
+
+	// Publish domain events
+	if uc.eventPublisher != nil {
+		if err := uc.eventPublisher.Publish(ctx, rel.DomainEvents()...); err != nil {
+			uc.logger.Warn("failed to publish domain events",
+				"error", err,
+				"release_id", rel.ID())
+		}
+		rel.ClearDomainEvents()
+	}
+
+	return nil
+}
+
+// saveReleaseWithUoW saves the release with transactional boundaries.
+func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.Release) error {
+	// Begin transaction
+	uow, err := uc.unitOfWork.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		_ = uow.Rollback()
+	}()
+
+	// Get repository from UnitOfWork
+	repo := uow.ReleaseRepository()
+
+	// Save release - events are collected by UoW
+	if err := repo.Save(ctx, rel); err != nil {
+		return fmt.Errorf("failed to save release: %w", err)
+	}
+
+	// Commit transaction - events are published on commit
+	if err := uow.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }

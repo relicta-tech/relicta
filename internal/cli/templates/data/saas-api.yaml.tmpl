@@ -1,0 +1,113 @@
+# ReleasePilot Configuration for SaaS API Services
+# Optimized for microservices and API-first applications
+
+versioning:
+  strategy: "conventional"
+  tag_prefix: "v"
+  git_sign: {{ .GitSign }}
+  auto_bump: true
+
+changelog:
+  file: "CHANGELOG.md"
+  product_name: "{{ .ProjectName }}"
+  {{- if .RepositoryURL }}
+  repository_url: "{{ .RepositoryURL }}"
+  {{- end }}
+  sections:
+    - title: "🚀 API Changes"
+      types: ["feat", "api"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "⚡️ Performance"
+      types: ["perf"]
+    - title: "🔒 Security"
+      types: ["security"]
+    - title: "📖 API Documentation"
+      types: ["docs"]
+
+{{- if .AIEnabled }}
+ai:
+  enabled: true
+  provider: "{{ .AIProvider }}"
+  {{- if .AIModel }}
+  model: "{{ .AIModel }}"
+  {{- end }}
+  max_tokens: 2048
+  temperature: 0.7
+{{- end }}
+
+plugins:
+  {{- if .EnableGitHub }}
+  - name: "github"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      create_release: true
+      draft: false
+      prerelease: false
+      generate_release_notes: true
+      assets:
+        - "openapi.yaml"
+        - "openapi.json"
+  {{- end }}
+
+  {{- if .EnableDocker }}
+  - name: "docker"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .DockerRegistry }}
+      registry: "{{ .DockerRegistry }}"
+      {{- else }}
+      registry: "ghcr.io"
+      {{- end }}
+      image_name: "{{ .ProjectName }}"
+      dockerfile: "Dockerfile"
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+      tags:
+        - "latest"
+        - "{{ `{{ .Version }}` }}"
+        - "{{ `{{ .Major }}.{{ .Minor }}` }}"
+  {{- end }}
+
+  {{- if .EnableSlack }}
+  - name: "slack"
+    enabled: true
+    hooks: ["post_publish", "on_error"]
+    config:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: true
+      channel: "#api-releases"
+  {{- end }}
+
+  {{- if .EnableTeams }}
+  - name: "teams"
+    enabled: true
+    hooks: ["post_publish", "on_error"]
+    config:
+      webhook_url: "${TEAMS_WEBHOOK_URL}"
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableJira }}
+  - name: "jira"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .JiraProject }}
+      project: "{{ .JiraProject }}"
+      {{- else }}
+      project: "API"
+      {{- end }}
+      base_url: "${JIRA_BASE_URL}"
+      username: "${JIRA_USERNAME}"
+      api_token: "${JIRA_API_TOKEN}"
+      create_release: true
+      update_issues: true
+  {{- end }}

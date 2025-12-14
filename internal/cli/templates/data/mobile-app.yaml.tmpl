@@ -1,0 +1,92 @@
+# ReleasePilot Configuration for Mobile Applications
+# Optimized for iOS and Android app releases
+
+versioning:
+  strategy: "conventional"
+  tag_prefix: "v"
+  git_sign: {{ .GitSign }}
+  auto_bump: true
+
+changelog:
+  file: "CHANGELOG.md"
+  product_name: "{{ .ProjectName }}"
+  {{- if .RepositoryURL }}
+  repository_url: "{{ .RepositoryURL }}"
+  {{- end }}
+  sections:
+    - title: "✨ New Features"
+      types: ["feat"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "🎨 UI/UX"
+      types: ["ui", "ux"]
+    - title: "⚡️ Performance"
+      types: ["perf"]
+    - title: "🔒 Security"
+      types: ["security"]
+
+{{- if .AIEnabled }}
+ai:
+  enabled: true
+  provider: "{{ .AIProvider }}"
+  {{- if .AIModel }}
+  model: "{{ .AIModel }}"
+  {{- end }}
+  max_tokens: 2048
+  temperature: 0.7
+{{- end }}
+
+plugins:
+  {{- if .EnableGitHub }}
+  - name: "github"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      create_release: true
+      draft: false
+      prerelease: false
+      generate_release_notes: true
+      assets:
+        - "build/**/*.apk"
+        - "build/**/*.aab"
+        - "build/**/*.ipa"
+  {{- end }}
+
+  {{- if .EnableSlack }}
+  - name: "slack"
+    enabled: true
+    hooks: ["post_publish", "on_error"]
+    config:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: true
+      channel: "#mobile-releases"
+  {{- end }}
+
+  {{- if .EnableTeams }}
+  - name: "teams"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      webhook_url: "${TEAMS_WEBHOOK_URL}"
+      notify_on_success: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableJira }}
+  - name: "jira"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .JiraProject }}
+      project: "{{ .JiraProject }}"
+      {{- else }}
+      project: "MOBILE"
+      {{- end }}
+      base_url: "${JIRA_BASE_URL}"
+      username: "${JIRA_USERNAME}"
+      api_token: "${JIRA_API_TOKEN}"
+      create_release: true
+      update_issues: true
+  {{- end }}

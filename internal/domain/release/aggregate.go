@@ -413,16 +413,31 @@ func (r *Release) Retry() error {
 		return fmt.Errorf("%w: can only retry from failed or canceled state", ErrInvalidStateTransition)
 	}
 
-	// Reset to last safe state based on what we have
-	if r.plan != nil {
-		r.state = StatePlanned
-	} else {
-		r.state = StateInitialized
-	}
-	r.lastError = ""
-	r.updatedAt = time.Now()
+	previousState := r.state
+	newState := r.determineRetryState()
+
+	r.resetToState(newState)
+	r.addEvent(NewReleaseRetriedEvent(r.id, previousState, newState))
 
 	return nil
+}
+
+// determineRetryState determines the appropriate state to reset to when retrying.
+// Returns StatePlanned if a plan exists, otherwise StateInitialized.
+func (r *Release) determineRetryState() ReleaseState {
+	if r.plan != nil {
+		return StatePlanned
+	}
+	return StateInitialized
+}
+
+// resetToState resets the release to the given state, clearing errors.
+// This is a helper method that does not generate domain events; the caller
+// (e.g., Retry) is responsible for generating the appropriate event.
+func (r *Release) resetToState(state ReleaseState) {
+	r.state = state
+	r.lastError = ""
+	r.updatedAt = time.Now()
 }
 
 // RecordPluginExecution records a plugin execution result.
@@ -465,6 +480,165 @@ func (r *Release) CanProceedToPublish() bool {
 		r.version != nil &&
 		r.notes != nil &&
 		r.plan != nil
+}
+
+// CanApprove returns true if the release can be approved.
+func (r *Release) CanApprove() bool {
+	return r.state.CanTransitionTo(StateApproved)
+}
+
+// ApprovalStatus represents the approval readiness of a release.
+type ApprovalStatus struct {
+	CanApprove bool
+	Reason     string
+}
+
+// ApprovalStatus returns the approval readiness status for the release.
+// This encapsulates the domain logic for determining if a release can be approved.
+func (r *Release) ApprovalStatus() ApprovalStatus {
+	switch r.state {
+	case StateNotesGenerated:
+		return ApprovalStatus{
+			CanApprove: true,
+			Reason:     "Release is ready for approval",
+		}
+	case StateApproved:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is already approved",
+		}
+	case StatePublishing, StatePublished:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release has already progressed past approval",
+		}
+	case StateFailed, StateCanceled:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is in a terminal state: " + string(r.state),
+		}
+	default:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is not ready for approval, current state: " + string(r.state),
+		}
+	}
+}
+
+// Invariant provides information about aggregate invariant validation.
+type Invariant struct {
+	Name        string
+	Description string
+	Valid       bool
+	Message     string
+}
+
+// ValidateInvariants checks all aggregate invariants and returns any violations.
+// This is useful for debugging and ensuring aggregate consistency.
+func (r *Release) ValidateInvariants() []Invariant {
+	invariants := make([]Invariant, 0, 8)
+
+	// Invariant 1: ID must be non-empty
+	invariants = append(invariants, Invariant{
+		Name:        "NonEmptyID",
+		Description: "Release must have a non-empty ID",
+		Valid:       r.id != "",
+		Message:     conditionalMessage(r.id == "", "Release ID is empty"),
+	})
+
+	// Invariant 2: State must be valid
+	invariants = append(invariants, Invariant{
+		Name:        "ValidState",
+		Description: "Release state must be a valid state",
+		Valid:       r.state.IsValid(),
+		Message:     conditionalMessage(!r.state.IsValid(), "State is invalid: "+string(r.state)),
+	})
+
+	// Invariant 3: If state is beyond Planned, must have plan
+	hasPlanIfRequired := r.state == StateInitialized || r.plan != nil
+	invariants = append(invariants, Invariant{
+		Name:        "PlanRequired",
+		Description: "Release must have plan if state is beyond initialized",
+		Valid:       hasPlanIfRequired,
+		Message:     conditionalMessage(!hasPlanIfRequired, "Plan is nil but state is "+string(r.state)),
+	})
+
+	// Invariant 4: If state is beyond NotesGenerated, must have notes
+	hasNotesIfRequired := r.state == StateInitialized || r.state == StatePlanned ||
+		r.state == StateVersioned || r.notes != nil
+	invariants = append(invariants, Invariant{
+		Name:        "NotesRequired",
+		Description: "Release must have notes if state is beyond notes_generated",
+		Valid:       hasNotesIfRequired,
+		Message:     conditionalMessage(!hasNotesIfRequired, "Notes are nil but state is "+string(r.state)),
+	})
+
+	// Invariant 5: If state is Approved or beyond, must have approval
+	hasApprovalIfRequired := r.state == StateInitialized || r.state == StatePlanned ||
+		r.state == StateVersioned || r.state == StateNotesGenerated || r.approval != nil
+	invariants = append(invariants, Invariant{
+		Name:        "ApprovalRequired",
+		Description: "Release must have approval if state is approved or beyond",
+		Valid:       hasApprovalIfRequired,
+		Message:     conditionalMessage(!hasApprovalIfRequired, "Approval is nil but state is "+string(r.state)),
+	})
+
+	// Invariant 6: If published, must have publishedAt timestamp
+	hasPublishedAtIfRequired := r.state != StatePublished || r.publishedAt != nil
+	invariants = append(invariants, Invariant{
+		Name:        "PublishedAtRequired",
+		Description: "Published release must have publishedAt timestamp",
+		Valid:       hasPublishedAtIfRequired,
+		Message:     conditionalMessage(!hasPublishedAtIfRequired, "publishedAt is nil but state is published"),
+	})
+
+	// Invariant 7: CreatedAt must be before or equal to UpdatedAt
+	createdBeforeUpdated := !r.createdAt.After(r.updatedAt)
+	invariants = append(invariants, Invariant{
+		Name:        "CreatedBeforeUpdated",
+		Description: "createdAt must not be after updatedAt",
+		Valid:       createdBeforeUpdated,
+		Message:     conditionalMessage(!createdBeforeUpdated, "createdAt is after updatedAt"),
+	})
+
+	// Invariant 8: Branch must be non-empty
+	invariants = append(invariants, Invariant{
+		Name:        "NonEmptyBranch",
+		Description: "Release must have a non-empty branch",
+		Valid:       r.branch != "",
+		Message:     conditionalMessage(r.branch == "", "Branch is empty"),
+	})
+
+	return invariants
+}
+
+// IsValid checks if all aggregate invariants are satisfied.
+func (r *Release) IsValid() bool {
+	for _, inv := range r.ValidateInvariants() {
+		if !inv.Valid {
+			return false
+		}
+	}
+	return true
+}
+
+// InvariantViolations returns only the violated invariants.
+func (r *Release) InvariantViolations() []Invariant {
+	violations := make([]Invariant, 0)
+	for _, inv := range r.ValidateInvariants() {
+		if !inv.Valid {
+			violations = append(violations, inv)
+		}
+	}
+	return violations
+}
+
+// conditionalMessage returns msg if condition is true, empty string otherwise.
+func conditionalMessage(condition bool, msg string) string {
+	if condition {
+		return msg
+	}
+	return ""
 }
 
 // Summary returns a summary of the release.

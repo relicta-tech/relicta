@@ -12,14 +12,38 @@ import (
 	rperrors "github.com/felixgeelhaar/release-pilot/internal/errors"
 )
 
-// ValidationError contains all validation errors.
+// openAIKeyLength is the standard length of OpenAI API keys (e.g., "sk-..." format).
+const openAIKeyLength = 51
+
+// isOpenAIKeyFormat checks if a string appears to be an OpenAI API key format.
+// OpenAI keys are 51 characters long and start with "sk-".
+// Returns false for environment variable references (${...}).
+func isOpenAIKeyFormat(key string) bool {
+	return key != "" &&
+		!strings.HasPrefix(key, "${") &&
+		len(key) == openAIKeyLength &&
+		strings.HasPrefix(key, "sk-")
+}
+
+// ValidationError contains all validation errors and warnings.
 type ValidationError struct {
-	Errors []string
+	Errors   []string
+	Warnings []string
 }
 
 // Error implements the error interface.
 func (e *ValidationError) Error() string {
-	return fmt.Sprintf("configuration validation failed:\n  - %s", strings.Join(e.Errors, "\n  - "))
+	var parts []string
+
+	if len(e.Errors) > 0 {
+		parts = append(parts, fmt.Sprintf("Errors:\n  - %s", strings.Join(e.Errors, "\n  - ")))
+	}
+
+	if len(e.Warnings) > 0 {
+		parts = append(parts, fmt.Sprintf("Warnings:\n  - %s", strings.Join(e.Warnings, "\n  - ")))
+	}
+
+	return fmt.Sprintf("configuration validation failed:\n%s", strings.Join(parts, "\n"))
 }
 
 // HasErrors returns true if there are validation errors.
@@ -27,9 +51,19 @@ func (e *ValidationError) HasErrors() bool {
 	return len(e.Errors) > 0
 }
 
+// HasWarnings returns true if there are validation warnings.
+func (e *ValidationError) HasWarnings() bool {
+	return len(e.Warnings) > 0
+}
+
 // Addf adds a formatted error to the validation error.
 func (e *ValidationError) Addf(format string, args ...any) {
 	e.Errors = append(e.Errors, fmt.Sprintf(format, args...))
+}
+
+// Warnf adds a formatted warning to the validation error.
+func (e *ValidationError) Warnf(format string, args ...any) {
+	e.Warnings = append(e.Warnings, fmt.Sprintf(format, args...))
 }
 
 // Validator validates configuration.
@@ -52,6 +86,15 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validatePlugins(cfg.Plugins)
 	v.validateWorkflow(cfg.Workflow)
 	v.validateOutput(cfg.Output)
+
+	// Print warnings to stderr even if there are no errors
+	if v.errors.HasWarnings() {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Configuration Warnings:\n")
+		for _, warning := range v.errors.Warnings {
+			fmt.Fprintf(os.Stderr, "  - %s\n", warning)
+		}
+		fmt.Fprintf(os.Stderr, "\n")
+	}
 
 	if v.errors.HasErrors() {
 		return rperrors.Validation("config.Validate", v.errors.Error())
@@ -109,14 +152,18 @@ func (v *Validator) validateChangelog(cfg ChangelogConfig) {
 	}
 
 	// Validate URLs if link options are enabled
-	if cfg.LinkCommits && cfg.RepositoryURL != "" {
-		if _, err := url.Parse(cfg.RepositoryURL); err != nil {
+	if cfg.LinkCommits {
+		if cfg.RepositoryURL == "" {
+			v.errors.Warnf("changelog.link_commits: enabled but repository_url is not set")
+		} else if _, err := url.Parse(cfg.RepositoryURL); err != nil {
 			v.errors.Addf("changelog.repository_url: invalid URL: %s", cfg.RepositoryURL)
 		}
 	}
 
-	if cfg.LinkIssues && cfg.IssueURL != "" {
-		if _, err := url.Parse(cfg.IssueURL); err != nil {
+	if cfg.LinkIssues {
+		if cfg.IssueURL == "" {
+			v.errors.Warnf("changelog.link_issues: enabled but issue_url is not set")
+		} else if _, err := url.Parse(cfg.IssueURL); err != nil {
 			v.errors.Addf("changelog.issue_url: invalid URL: %s", cfg.IssueURL)
 		}
 	}
@@ -132,9 +179,25 @@ func (v *Validator) validateAI(cfg AIConfig) {
 	}
 
 	// Validate provider
-	validProviders := []string{"openai"}
+	validProviders := []string{"openai", "anthropic", "claude", "ollama", "gemini", "azure-openai"}
 	if !slices.Contains(validProviders, cfg.Provider) {
 		v.errors.Addf("ai.provider: must be one of %v, got %q", validProviders, cfg.Provider)
+	}
+
+	// Warn about deprecated "claude" provider
+	if cfg.Provider == "claude" {
+		v.errors.Warnf("ai.provider: 'claude' is deprecated, use 'anthropic' instead")
+	}
+
+	// Azure OpenAI specific validation
+	if cfg.Provider == "azure-openai" {
+		if cfg.BaseURL == "" && os.Getenv("AZURE_OPENAI_ENDPOINT") == "" {
+			v.errors.Addf("ai.base_url: required for Azure OpenAI (set via config or AZURE_OPENAI_ENDPOINT env var)")
+		}
+		// Warn if using generic OpenAI key format with Azure
+		if isOpenAIKeyFormat(cfg.APIKey) {
+			v.errors.Warnf("ai.api_key: appears to be an OpenAI key but provider is 'azure-openai' (Azure keys are 32 hex characters)")
+		}
 	}
 
 	// Validate model
@@ -144,9 +207,26 @@ func (v *Validator) validateAI(cfg AIConfig) {
 
 	// Validate API key is provided (after env expansion)
 	if cfg.APIKey == "" {
-		// Check if it's provided via environment variable
-		if os.Getenv("OPENAI_API_KEY") == "" && os.Getenv("RELEASE_PILOT_AI_API_KEY") == "" {
-			v.errors.Addf("ai.api_key: required when AI is enabled (set via config or OPENAI_API_KEY env var)")
+		// Check if it's provided via environment variable (provider-specific or generic)
+		providerEnvVars := map[string]string{
+			"openai":       "OPENAI_API_KEY",
+			"anthropic":    "ANTHROPIC_API_KEY",
+			"claude":       "ANTHROPIC_API_KEY",
+			"gemini":       "GEMINI_API_KEY",
+			"azure-openai": "AZURE_OPENAI_KEY",
+			"ollama":       "", // Ollama doesn't require an API key
+		}
+
+		envVar := providerEnvVars[cfg.Provider]
+		genericEnvVar := "RELEASE_PILOT_AI_API_KEY"
+
+		// Ollama doesn't require an API key
+		if cfg.Provider == "ollama" {
+			return
+		}
+
+		if os.Getenv(envVar) == "" && os.Getenv(genericEnvVar) == "" {
+			v.errors.Addf("ai.api_key: required when AI is enabled (set via config or %s env var)", envVar)
 		}
 	}
 
@@ -165,6 +245,10 @@ func (v *Validator) validateAI(cfg AIConfig) {
 	// Validate temperature
 	if cfg.Temperature < 0 || cfg.Temperature > 2 {
 		v.errors.Addf("ai.temperature: must be between 0 and 2, got %f", cfg.Temperature)
+	}
+	// Warn about high temperature values
+	if cfg.Temperature > 1.0 {
+		v.errors.Warnf("ai.temperature: value %.1f is unusually high (typical range is 0.0-1.0)", cfg.Temperature)
 	}
 
 	// Validate max_tokens

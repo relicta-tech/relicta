@@ -16,11 +16,10 @@ import (
 	"github.com/felixgeelhaar/release-pilot/internal/domain/sourcecontrol"
 	"github.com/felixgeelhaar/release-pilot/internal/domain/version"
 	"github.com/felixgeelhaar/release-pilot/internal/errors"
-	gitadapter "github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/ai"
+	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
 	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/persistence"
 	"github.com/felixgeelhaar/release-pilot/internal/plugin"
-	"github.com/felixgeelhaar/release-pilot/internal/service/ai"
-	"github.com/felixgeelhaar/release-pilot/internal/service/git"
 )
 
 // defaultShutdownTimeout is the default timeout for graceful shutdown of components.
@@ -39,13 +38,14 @@ type DDDContainer struct {
 	closed bool
 
 	// Infrastructure layer
-	gitAdapter     *gitadapter.Adapter
-	releaseRepo    *persistence.FileReleaseRepository
-	eventPublisher *persistence.InMemoryEventPublisher
-	versionCalc    version.VersionCalculator
-	pluginRegistry integration.PluginRegistry
-	pluginExecutor integration.PluginExecutor
-	pluginManager  *plugin.Manager
+	gitAdapter        *git.Adapter
+	releaseRepo       *persistence.FileReleaseRepository
+	eventPublisher    *persistence.InMemoryEventPublisher
+	unitOfWorkFactory *persistence.FileUnitOfWorkFactory
+	versionCalc       version.VersionCalculator
+	pluginRegistry    integration.PluginRegistry
+	pluginExecutor    integration.PluginExecutor
+	pluginManager     *plugin.Manager
 
 	// Services (existing infrastructure)
 	gitService git.Service
@@ -106,11 +106,7 @@ func (c *DDDContainer) Initialize(ctx context.Context) error {
 	}
 
 	// Initialize application layer
-	if err := c.initApplicationLayer(); err != nil {
-		return err
-	}
-
-	return nil
+	return c.initApplicationLayer(ctx)
 }
 
 // initInfrastructure initializes infrastructure layer components.
@@ -124,7 +120,7 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 	}
 
 	// Create git adapter that implements domain interface
-	c.gitAdapter = gitadapter.NewAdapter(c.gitService)
+	c.gitAdapter = git.NewAdapter(c.gitService)
 
 	// Initialize release repository
 	repoPath := ".release-pilot/releases"
@@ -135,6 +131,9 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 
 	// Initialize event publisher
 	c.eventPublisher = persistence.NewInMemoryEventPublisher()
+
+	// Initialize UnitOfWork factory for transactional operations
+	c.unitOfWorkFactory = persistence.NewFileUnitOfWorkFactory(c.releaseRepo, c.eventPublisher)
 
 	// Initialize version calculator
 	c.versionCalc = version.NewDefaultVersionCalculator()
@@ -149,7 +148,7 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 
 	// Initialize AI service (optional)
 	if c.config.AI.Enabled {
-		c.aiService, err = c.initAIService()
+		c.aiService, err = c.initAIService(ctx)
 		if err != nil {
 			// AI service failure is non-fatal
 			c.aiService = nil
@@ -160,7 +159,12 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 }
 
 // initAIService initializes the AI service based on configuration.
-func (c *DDDContainer) initAIService() (ai.Service, error) {
+func (c *DDDContainer) initAIService(ctx context.Context) (ai.Service, error) {
+	// Check for early cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	apiKey := c.config.AI.APIKey
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
@@ -180,6 +184,10 @@ func (c *DDDContainer) initAIService() (ai.Service, error) {
 		opts = append(opts, ai.WithBaseURL(c.config.AI.BaseURL))
 	}
 
+	if c.config.AI.APIVersion != "" {
+		opts = append(opts, ai.WithAPIVersion(c.config.AI.APIVersion))
+	}
+
 	if c.config.AI.MaxTokens > 0 {
 		opts = append(opts, ai.WithMaxTokens(c.config.AI.MaxTokens))
 	}
@@ -192,6 +200,11 @@ func (c *DDDContainer) initAIService() (ai.Service, error) {
 		opts = append(opts, ai.WithTimeout(time.Duration(c.config.AI.Timeout)*time.Second))
 	}
 
+	// Note: ai.NewService is a pure constructor that only configures the service.
+	// No network calls occur during construction; actual API calls happen in Generate()
+	// which accepts context for cancellation. Lazy initialization was considered but
+	// adds complexity; eager init is acceptable since this only runs when AI is enabled.
+	//nolint:contextcheck // Constructor is pure configuration; context used in method calls
 	return ai.NewService(opts...)
 }
 
@@ -227,10 +240,16 @@ func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
 }
 
 // initApplicationLayer initializes application layer use cases.
-func (c *DDDContainer) initApplicationLayer() error {
-	// Initialize PlanReleaseUseCase
-	c.planReleaseUC = release.NewPlanReleaseUseCase(
-		c.releaseRepo,
+func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
+	// Create UnitOfWork for transactional use cases
+	uow, err := c.unitOfWorkFactory.Begin(ctx)
+	if err != nil {
+		return errors.StateWrap(err, "initApplicationLayer", "failed to create UnitOfWork")
+	}
+
+	// Initialize PlanReleaseUseCase with UnitOfWork support
+	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
+		uow,
 		c.gitAdapter,
 		c.versionCalc,
 		c.eventPublisher,
@@ -250,9 +269,9 @@ func (c *DDDContainer) initApplicationLayer() error {
 		c.eventPublisher,
 	)
 
-	// Initialize PublishReleaseUseCase
-	c.publishReleaseUC = release.NewPublishReleaseUseCase(
-		c.releaseRepo,
+	// Initialize PublishReleaseUseCase with UnitOfWork support
+	c.publishReleaseUC = release.NewPublishReleaseUseCaseWithUoW(
+		uow,
 		c.gitAdapter,
 		c.pluginExecutor,
 		c.eventPublisher,
@@ -335,6 +354,14 @@ func (c *DDDContainer) EventPublisher() domainrelease.EventPublisher {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.eventPublisher
+}
+
+// UnitOfWork returns a new UnitOfWork for transactional operations.
+// It returns an error if the UnitOfWork could not be initialized.
+func (c *DDDContainer) UnitOfWork() (domainrelease.UnitOfWork, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.unitOfWorkFactory.Begin(context.Background())
 }
 
 // PluginRegistry returns the plugin registry.

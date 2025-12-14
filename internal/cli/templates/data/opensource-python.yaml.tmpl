@@ -1,0 +1,102 @@
+# ReleasePilot Configuration for Open Source Python Projects
+# Optimized for PyPI publishing and Python ecosystem
+
+versioning:
+  strategy: "conventional"
+  tag_prefix: "v"
+  git_sign: {{ .GitSign }}
+  auto_bump: true
+
+changelog:
+  file: "CHANGELOG.md"
+  product_name: "{{ .ProjectName }}"
+  {{- if .RepositoryURL }}
+  repository_url: "{{ .RepositoryURL }}"
+  {{- end }}
+  sections:
+    - title: "🎉 Features"
+      types: ["feat"]
+    - title: "🐛 Bug Fixes"
+      types: ["fix"]
+    - title: "🔒 Security"
+      types: ["security"]
+    - title: "📚 Documentation"
+      types: ["docs"]
+    - title: "🧪 Tests"
+      types: ["test"]
+
+{{- if .AIEnabled }}
+ai:
+  enabled: true
+  provider: "{{ .AIProvider }}"
+  {{- if .AIModel }}
+  model: "{{ .AIModel }}"
+  {{- end }}
+  max_tokens: 2048
+  temperature: 0.7
+{{- end }}
+
+plugins:
+  {{- if .EnableGitHub }}
+  - name: "github"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      create_release: true
+      draft: false
+      prerelease: false
+      generate_release_notes: true
+      assets:
+        - "dist/*.whl"
+        - "dist/*.tar.gz"
+  {{- end }}
+
+  {{- if .EnablePyPI }}
+  - name: "pypi"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      repository: "https://upload.pypi.org/legacy/"
+      username: "__token__"
+      password: "${PYPI_API_TOKEN}"
+  {{- end }}
+
+  {{- if .EnableSlack }}
+  - name: "slack"
+    enabled: true
+    hooks: ["post_publish", "on_error"]
+    config:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableDiscord }}
+  - name: "discord"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      webhook_url: "${DISCORD_WEBHOOK_URL}"
+      notify_on_success: true
+      include_changelog: true
+  {{- end }}
+
+  {{- if .EnableDocker }}
+  - name: "docker"
+    enabled: true
+    hooks: ["post_publish"]
+    config:
+      {{- if .DockerRegistry }}
+      registry: "{{ .DockerRegistry }}"
+      {{- else }}
+      registry: "ghcr.io"
+      {{- end }}
+      image_name: "{{ .ProjectName }}"
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+      tags:
+        - "latest"
+        - "{{ `{{ .Version }}` }}"
+  {{- end }}

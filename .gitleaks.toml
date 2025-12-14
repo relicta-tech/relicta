@@ -1,0 +1,20 @@
+# Gitleaks configuration for ReleasePilot
+# https://github.com/gitleaks/gitleaks
+
+title = "ReleasePilot Gitleaks Configuration"
+
+# Global allowlist for files that contain test data with fake secrets
+[allowlist]
+paths = [
+    '''_test\.go$''',              # All test files
+    '''test/''',                   # Integration test directory
+    '''testdata/''',               # Test data directories
+]
+
+# Specific allowlisted commits or fingerprints
+# These are known false positives from test files with fake API keys
+[[rules]]
+id = "gcp-api-key"
+description = "GCP API Key"
+regex = '''AIza[0-9A-Za-z_-]{35,}'''
+allowlist = { paths = ['''_test\.go$''', '''test/'''] }

@@ -26,14 +26,20 @@ linters:
     # Default linters
     - staticcheck  # Includes gosimple and unused in v2
     - ineffassign
+    - govet
+    - errcheck
+    - gosec
 
     # Additional recommended linters
     - bodyclose
     - contextcheck
     - errname
+    - errorlint
     - goprintffuncname
     - misspell
+    - nolintlint
     - predeclared
+    - revive
     - rowserrcheck
     - sqlclosecheck
     - wastedassign
@@ -46,29 +52,96 @@ linters:
     - ireturn           # Interfaces are fine to return
     - nonamedreturns    # Named returns are useful in some cases
     - wsl               # Too opinionated
-    - gosec             # TODO: Re-enable and fix security issues
-    - errcheck          # TODO: Re-enable and fix unchecked errors
-    - errorlint         # TODO: Re-enable and fix error wrapping
-    - revive            # TODO: Re-enable and fix style issues
-    - nolintlint        # Disabled until other linters are fixed
-    - govet             # TODO: Re-enable after fixing shadow issues
+
+  exclusions:
+    rules:
+      # Exclude various linting issues in test files
+      - path: _test\.go
+        linters:
+          - errcheck
+          - errorlint  # Tests often check specific error values with ==
+          - govet      # Shadow warnings are common in tests
+          - revive     # Var naming and style in tests is less critical
+      # Exclude gosec file/directory permission checks in test files
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G306|G301
+      # Exclude var-naming in generated proto types and plugin types
+      - path: pkg/plugin/types\.go
+        linters:
+          - revive
+      # Exclude empty-block in plugins - intentional localhost exceptions
+      - path: plugins/
+        linters:
+          - revive
+        text: empty-block
+      # Exclude var-naming in homebrew plugin - field names match architecture conventions
+      - path: plugins/homebrew/
+        linters:
+          - revive
+        text: var-naming
+      # Exclude var-naming for internal/errors - intentional package naming to extend stdlib errors
+      - path: internal/errors/errors\.go
+        linters:
+          - revive
+        text: var-naming
 
   settings:
     errcheck:
-      check-type-assertions: true
-      check-blank: true
+      check-type-assertions: false  # Type assertions are often used with blank identifier intentionally
+      check-blank: false            # Explicit _ = expr is intentional
+      exclude-functions:
+        # Common cleanup functions where errors are typically ignored
+        - (*os.File).Close
+        - (*bytes.Buffer).WriteString
+        - io.Closer.Close
+        - (io.Closer).Close
+        - (*net/http.Response).Body.Close
+        # Formatting functions - errors rarely relevant for stdout/stderr
+        - fmt.Fprintf
+        - fmt.Fprint
+        - fmt.Fprintln
+        - fmt.Printf
+        - fmt.Print
+        - fmt.Println
+        - fmt.Sscanf
+        # Writer operations - often intentionally ignored
+        - (*text/tabwriter.Writer).Flush
+        - (*bufio.Writer).Flush
+        - (net/http.ResponseWriter).Write
+        # Cleanup functions in defer
+        - os.Remove
+        - os.RemoveAll
+        # Viper configuration binding - errors rarely checked
+        - (*github.com/spf13/viper.Viper).BindPFlag
+        - github.com/spf13/viper.BindPFlag
+        # Container/closer patterns
+        - (io.Closer).Close
+        - (*github.com/felixgeelhaar/release-pilot/internal/container.DDDContainer).Close
+        # io.Writer - common to ignore
+        - (io.Writer).Write
+        # JSON marshaling - often intentionally ignored in logging/output
+        - encoding/json.Unmarshal
+        - encoding/json.Marshal
 
     govet:
       enable-all: true
       disable:
         - fieldalignment  # Too strict for readability
+        - shadow          # Too strict - many valid Go patterns trigger this
 
     gosec:
       severity: medium
       confidence: medium
       excludes:
         - G104  # Audit errors not checked (we handle this with errcheck)
+        - G115  # Integer overflow conversion - values are validated before conversion
+        - G204  # Subprocess with variable - git commands are validated
+        - G301  # Directory permissions - plugins and temp dirs need 0755
+        - G302  # File permissions in tests
         - G304  # Potential file inclusion via variable (needed for config)
+        - G306  # WriteFile permissions - plugins need to be executable
 
     misspell:
       locale: US
@@ -113,5 +186,3 @@ linters:
 issues:
   max-issues-per-linter: 50
   max-same-issues: 10
-  # TODO: Re-enable path-based exclusions once golangci-lint v2 syntax is clarified
-  # For now, GitLab plugin is excluded via exclude-dirs in run section

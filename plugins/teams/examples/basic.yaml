@@ -1,0 +1,24 @@
+# Basic Teams Plugin Configuration
+# Minimal setup with default settings
+
+versioning:
+  strategy: conventional
+  tag_prefix: v
+
+changelog:
+  file: CHANGELOG.md
+  product_name: MyProject
+  repository_url: https://github.com/myorg/myproject
+
+plugins:
+  - name: teams
+    enabled: true
+    config:
+      # Webhook URL from Teams channel
+      # Set environment variable: export TEAMS_WEBHOOK_URL="https://outlook.office.com/webhook/..."
+      webhook_url: ${TEAMS_WEBHOOK_URL}
+
+      # Defaults (these are optional, shown for clarity)
+      notify_on_success: true
+      notify_on_error: true
+      include_changelog: false

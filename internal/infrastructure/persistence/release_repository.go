@@ -20,6 +20,17 @@ import (
 // This prevents denial of service from maliciously crafted large files.
 const MaxReleaseFileSize = 2 << 20 // 2MB
 
+// checkContext checks if the context is canceled and returns the error if so.
+// This helper eliminates repeated select/case patterns throughout the repository.
+func checkContext(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
+}
+
 // FileReleaseRepository implements release.Repository using file-based storage.
 type FileReleaseRepository struct {
 	basePath string
@@ -110,11 +121,8 @@ type approvalDTO struct {
 
 // Save persists a release.
 func (r *FileReleaseRepository) Save(ctx context.Context, rel *release.Release) error {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return err
 	}
 
 	r.mu.Lock()
@@ -138,11 +146,8 @@ func (r *FileReleaseRepository) Save(ctx context.Context, rel *release.Release) 
 
 // FindByID retrieves a release by its ID.
 func (r *FileReleaseRepository) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return nil, err
 	}
 
 	r.mu.RLock()
@@ -207,11 +212,8 @@ func (r *FileReleaseRepository) scanReleasesSequential(ctx context.Context, file
 	releases := make([]*release.Release, 0, len(files)/2)
 
 	for _, filePath := range files {
-		// Check context cancellation during iteration
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
+		if err := checkContext(ctx); err != nil {
+			return nil, err
 		}
 
 		rel, err := r.scanSingleFile(filePath, filter)
@@ -291,11 +293,8 @@ func (r *FileReleaseRepository) scanReleasesConcurrent(ctx context.Context, file
 		}
 	}
 
-	// Check if context was canceled
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return nil, err
 	}
 
 	return releases, nil
@@ -330,11 +329,8 @@ func (r *FileReleaseRepository) scanSingleFile(filePath string, filter func(*rel
 
 // FindLatest retrieves the latest release for a repository.
 func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return nil, err
 	}
 
 	r.mu.RLock()
@@ -364,11 +360,8 @@ func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string)
 
 // FindByState retrieves releases in a specific state.
 func (r *FileReleaseRepository) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return nil, err
 	}
 
 	r.mu.RLock()
@@ -381,11 +374,8 @@ func (r *FileReleaseRepository) FindByState(ctx context.Context, state release.R
 
 // FindActive retrieves all active (non-final) releases.
 func (r *FileReleaseRepository) FindActive(ctx context.Context) ([]*release.Release, error) {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return nil, err
 	}
 
 	r.mu.RLock()
@@ -397,13 +387,40 @@ func (r *FileReleaseRepository) FindActive(ctx context.Context) ([]*release.Rele
 	})
 }
 
+// FindBySpecification retrieves releases matching the given specification.
+// This method scans all releases and applies the specification filter.
+func (r *FileReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+	if err := checkContext(ctx); err != nil {
+		return nil, err
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// Get all releases first, then filter by specification
+	// This is necessary because specifications operate on domain objects, not DTOs
+	allReleases, err := r.scanReleases(ctx, func(dto *releaseDTO) bool {
+		return true // Accept all at DTO level
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply specification filter
+	result := make([]*release.Release, 0, len(allReleases))
+	for _, rel := range allReleases {
+		if spec.IsSatisfiedBy(rel) {
+			result = append(result, rel)
+		}
+	}
+
+	return result, nil
+}
+
 // Delete removes a release.
 func (r *FileReleaseRepository) Delete(ctx context.Context, id release.ReleaseID) error {
-	// Check context cancellation before acquiring lock
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	if err := checkContext(ctx); err != nil {
+		return err
 	}
 
 	r.mu.Lock()

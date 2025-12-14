@@ -10,7 +10,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/felixgeelhaar/release-pilot/internal/service/blast"
+	"github.com/felixgeelhaar/release-pilot/internal/application/blast"
+)
+
+// Risk score thresholds for formatting badges
+const (
+	// RiskThresholdHigh is the score above which a risk is considered high (error).
+	RiskThresholdHigh = 70
+	// RiskThresholdMedium is the score above which a risk is considered medium (warning).
+	RiskThresholdMedium = 40
 )
 
 var (
@@ -239,9 +247,9 @@ func formatImpactIcon(level blast.ImpactLevel) string {
 func formatRiskBadge(score int) string {
 	badge := fmt.Sprintf("[risk: %d]", score)
 	switch {
-	case score >= 70:
+	case score >= RiskThresholdHigh:
 		return styles.Error.Render(badge)
-	case score >= 40:
+	case score >= RiskThresholdMedium:
 		return styles.Warning.Render(badge)
 	default:
 		return styles.Success.Render(badge)

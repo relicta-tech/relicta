@@ -2,16 +2,15 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/felixgeelhaar/release-pilot/internal/config"
-	"github.com/felixgeelhaar/release-pilot/internal/service/git"
+	"github.com/felixgeelhaar/release-pilot/internal/infrastructure/git"
+	"github.com/felixgeelhaar/release-pilot/internal/ui/wizard"
 )
 
 var (
@@ -28,9 +27,6 @@ func init() {
 
 // runInit implements the init command.
 func runInit(cmd *cobra.Command, args []string) error {
-	printTitle("ReleasePilot Setup")
-	fmt.Println()
-
 	// Check for existing config
 	existingConfig, _ := config.FindConfigFile(".")
 	if existingConfig != "" && !initForce {
@@ -38,6 +34,37 @@ func runInit(cmd *cobra.Command, args []string) error {
 		printInfo("Use --force to overwrite")
 		return nil
 	}
+
+	// Interactive wizard mode
+	if initInteractive {
+		result, err := wizard.RunWizard(".")
+		if err != nil {
+			return fmt.Errorf("wizard failed: %w", err)
+		}
+
+		// Handle wizard result
+		switch result.State {
+		case wizard.StateSuccess:
+			// Wizard completed successfully, config already saved
+			return nil
+
+		case wizard.StateQuit:
+			// User quit the wizard
+			printInfo("Setup canceled")
+			return nil
+
+		case wizard.StateError:
+			// Wizard encountered an error
+			return fmt.Errorf("wizard error: %w", result.Error)
+
+		default:
+			return fmt.Errorf("unexpected wizard state: %v", result.State)
+		}
+	}
+
+	// Non-interactive mode: fall back to old behavior
+	printTitle("ReleasePilot Setup")
+	fmt.Println()
 
 	// Determine config file name
 	configFile := "release.config.yaml"
@@ -52,13 +79,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err := detectRepoSettings(cfg); err != nil {
 		if verbose {
 			printWarning(fmt.Sprintf("Could not detect repository settings: %v", err))
-		}
-	}
-
-	// Interactive setup
-	if initInteractive {
-		if err := runInteractiveSetup(cfg); err != nil {
-			return err
 		}
 	}
 
@@ -141,103 +161,6 @@ func parseGitHubURL(remoteURL string) string {
 	}
 
 	return ""
-}
-
-// promptYesNo prompts the user for a yes/no response with a default value.
-// defaultYes indicates whether the default is yes (true) or no (false).
-func promptYesNo(reader *bufio.Reader, prompt string, defaultYes bool) bool {
-	fmt.Print(prompt)
-	response, _ := reader.ReadString('\n')
-	response = strings.TrimSpace(strings.ToLower(response))
-
-	if defaultYes {
-		// Default is yes, only return false for explicit "n" or "no"
-		return response != "n" && response != "no"
-	}
-	// Default is no, only return true for explicit "y" or "yes"
-	return response == "y" || response == "yes"
-}
-
-// promptString prompts the user for a string value with an optional default.
-func promptString(reader *bufio.Reader, prompt string) string {
-	fmt.Print(prompt)
-	response, _ := reader.ReadString('\n')
-	return strings.TrimSpace(response)
-}
-
-// promptVersioningStrategy prompts for versioning strategy configuration.
-func promptVersioningStrategy(reader *bufio.Reader, cfg *config.Config) {
-	if !promptYesNo(reader, "Use conventional commits for versioning? [Y/n]: ", true) {
-		cfg.Versioning.Strategy = "manual"
-	}
-
-	if response := promptString(reader, "Tag prefix (default: v): "); response != "" {
-		cfg.Versioning.TagPrefix = response
-	}
-}
-
-// promptAIConfiguration prompts for AI configuration.
-func promptAIConfiguration(reader *bufio.Reader, cfg *config.Config) {
-	cfg.AI.Enabled = promptYesNo(reader, "Enable AI-powered release notes? [y/N]: ", false)
-
-	if !cfg.AI.Enabled {
-		return
-	}
-
-	if response := promptString(reader, "OpenAI model (default: gpt-4): "); response != "" {
-		cfg.AI.Model = response
-	}
-
-	response := promptString(reader, "AI tone [technical/friendly/professional]: ")
-	response = strings.ToLower(response)
-	if response == "technical" || response == "friendly" || response == "professional" {
-		cfg.AI.Tone = response
-	}
-}
-
-// promptPluginConfiguration prompts for plugin configuration.
-func promptPluginConfiguration(reader *bufio.Reader, cfg *config.Config) {
-	fmt.Println()
-	fmt.Println("Enable plugins:")
-
-	// GitHub
-	if promptYesNo(reader, "  GitHub releases? [Y/n]: ", true) {
-		ensurePlugin(cfg, "github")
-	} else {
-		removePlugin(cfg, "github")
-	}
-
-	// npm
-	if promptYesNo(reader, "  npm publish? [y/N]: ", false) {
-		ensurePlugin(cfg, "npm")
-	}
-
-	// Slack
-	if promptYesNo(reader, "  Slack notifications? [y/N]: ", false) {
-		ensurePlugin(cfg, "slack")
-	}
-}
-
-// promptWorkflowConfiguration prompts for workflow configuration.
-func promptWorkflowConfiguration(reader *bufio.Reader, cfg *config.Config) {
-	fmt.Println()
-	cfg.Workflow.RequireApproval = promptYesNo(reader, "Require approval before publishing? [Y/n]: ", true)
-	fmt.Println()
-}
-
-// runInteractiveSetup runs the interactive setup wizard.
-func runInteractiveSetup(cfg *config.Config) error {
-	reader := bufio.NewReader(os.Stdin)
-
-	printInfo("Answer the following questions to configure ReleasePilot")
-	fmt.Println()
-
-	promptVersioningStrategy(reader, cfg)
-	promptAIConfiguration(reader, cfg)
-	promptPluginConfiguration(reader, cfg)
-	promptWorkflowConfiguration(reader, cfg)
-
-	return nil
 }
 
 // hasPlugin checks if a plugin is configured.

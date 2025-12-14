@@ -11,6 +11,12 @@ on:
 
 env:
   GO_VERSION: '1.24'
+  GOTOOLCHAIN: local
+
+# Prevent concurrent releases
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 # Default minimal permissions
 permissions:
@@ -40,7 +46,7 @@ jobs:
         run: make release-build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: release-artifacts
           path: dist/
