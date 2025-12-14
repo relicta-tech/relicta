@@ -24,7 +24,7 @@ plugins:
   - name: github
     enabled: true
     config:
-      owner: felixgeelhaar
+      owner: relicta-tech
       repo: relicta
       draft: false
       prerelease: false
