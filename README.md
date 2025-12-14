@@ -21,6 +21,34 @@ AI-powered release management CLI for software projects using conventional commi
 
 ## Installation
 
+### Homebrew (Recommended)
+
+```bash
+brew install relicta-tech/tap/relicta
+```
+
+### Download Binary
+
+Download the latest release for your platform:
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_Darwin_aarch64.tar.gz | tar xz
+sudo mv relicta_Darwin_aarch64/relicta /usr/local/bin/
+
+# macOS (Intel)
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_Darwin_x86_64.tar.gz | tar xz
+sudo mv relicta_Darwin_x86_64/relicta /usr/local/bin/
+
+# Linux (x86_64)
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_Linux_x86_64.tar.gz | tar xz
+sudo mv relicta_Linux_x86_64/relicta /usr/local/bin/
+
+# Linux (ARM64)
+curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_Linux_aarch64.tar.gz | tar xz
+sudo mv relicta_Linux_aarch64/relicta /usr/local/bin/
+```
+
 ### Using Go
 
 ```bash
@@ -32,13 +60,8 @@ go install github.com/relicta-tech/relicta/cmd/relicta@latest
 ```bash
 git clone https://github.com/relicta-tech/relicta.git
 cd relicta
-go build -o relicta ./cmd/relicta
-```
-
-### Docker
-
-```bash
-docker pull ghcr.io/relicta-tech/relicta:latest
+make build
+sudo mv bin/relicta /usr/local/bin/
 ```
 
 ### GitHub Action (Recommended for CI/CD)
@@ -46,7 +69,7 @@ docker pull ghcr.io/relicta-tech/relicta:latest
 The easiest way to use Relicta in your CI/CD pipeline:
 
 ```yaml
-- uses: relicta-tech/relicta-action@v1
+- uses: relicta-tech/relicta-action@v2
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -87,7 +110,7 @@ relicta publish
 
 ## Configuration
 
-Create a `release.config.yaml` in your project root:
+Create a `relicta.config.yaml` in your project root:
 
 ```yaml
 versioning:
@@ -138,7 +161,7 @@ workflow:
 
 | Flag | Description |
 |------|-------------|
-| `--config` | Path to config file (default: `release.config.yaml`) |
+| `--config` | Path to config file (default: `relicta.config.yaml`) |
 | `--dry-run` | Preview changes without making modifications |
 | `--verbose` | Enable verbose output |
 | `--json` | Output in JSON format |
