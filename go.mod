@@ -16,7 +16,7 @@ require (
 	github.com/google/go-github/v60 v60.0.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.7.0
-	github.com/liushuangls/go-anthropic/v2 v2.16.3
+	github.com/liushuangls/go-anthropic/v2 v2.17.0
 	github.com/muesli/termenv v0.16.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/sashabaranov/go-openai v1.41.2
