@@ -152,18 +152,23 @@ func (v *Validator) validateChangelog(cfg ChangelogConfig) {
 	}
 
 	// Validate URLs if link options are enabled
-	if cfg.LinkCommits {
-		if cfg.RepositoryURL == "" {
-			v.errors.Warnf("changelog.link_commits: enabled but repository_url is not set")
-		} else if _, err := url.Parse(cfg.RepositoryURL); err != nil {
+	// Note: link_commits defaults to false and is auto-enabled when repository_url
+	// is detected from git remote, so we treat missing URL as an error if explicitly enabled.
+	if cfg.LinkCommits && cfg.RepositoryURL == "" {
+		v.errors.Addf("changelog.link_commits: enabled but repository_url is not set (auto-detection may have failed)")
+	}
+	if cfg.RepositoryURL != "" {
+		if _, err := url.Parse(cfg.RepositoryURL); err != nil {
 			v.errors.Addf("changelog.repository_url: invalid URL: %s", cfg.RepositoryURL)
 		}
 	}
 
-	if cfg.LinkIssues {
-		if cfg.IssueURL == "" {
-			v.errors.Warnf("changelog.link_issues: enabled but issue_url is not set")
-		} else if _, err := url.Parse(cfg.IssueURL); err != nil {
+	// link_issues must be explicitly configured with issue_url
+	if cfg.LinkIssues && cfg.IssueURL == "" {
+		v.errors.Addf("changelog.link_issues: enabled but issue_url is not set")
+	}
+	if cfg.IssueURL != "" {
+		if _, err := url.Parse(cfg.IssueURL); err != nil {
 			v.errors.Addf("changelog.issue_url: invalid URL: %s", cfg.IssueURL)
 		}
 	}

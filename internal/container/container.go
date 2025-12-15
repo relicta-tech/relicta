@@ -165,19 +165,44 @@ func (c *DDDContainer) initAIService(ctx context.Context) (ai.Service, error) {
 		return nil, err
 	}
 
+	provider := c.config.AI.Provider
+
+	// Determine if this provider requires an API key
+	// Ollama runs locally and doesn't need authentication
+	requiresAPIKey := provider != "ollama"
+
 	apiKey := c.config.AI.APIKey
 	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
+		// Try provider-specific environment variables first, then fall back to OPENAI_API_KEY
+		switch provider {
+		case "anthropic", "claude":
+			apiKey = os.Getenv("ANTHROPIC_API_KEY")
+		case "gemini":
+			apiKey = os.Getenv("GEMINI_API_KEY")
+		case "azure-openai":
+			apiKey = os.Getenv("AZURE_OPENAI_KEY")
+			if apiKey == "" {
+				apiKey = os.Getenv("AZURE_OPENAI_API_KEY")
+			}
+		}
+		// Fall back to OPENAI_API_KEY for OpenAI or if provider-specific not set
+		if apiKey == "" {
+			apiKey = os.Getenv("OPENAI_API_KEY")
+		}
 	}
 
-	if apiKey == "" {
-		return nil, errors.AI("initAIService", "OpenAI API key not configured")
+	if requiresAPIKey && apiKey == "" {
+		return nil, errors.AI("initAIService", "API key not configured for provider: "+provider)
 	}
 
 	opts := []ai.ServiceOption{
-		ai.WithAPIKey(apiKey),
-		ai.WithProvider(c.config.AI.Provider),
+		ai.WithProvider(provider),
 		ai.WithModel(c.config.AI.Model),
+	}
+
+	// Only add API key option if we have one
+	if apiKey != "" {
+		opts = append(opts, ai.WithAPIKey(apiKey))
 	}
 
 	if c.config.AI.BaseURL != "" {

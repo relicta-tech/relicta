@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -20,6 +21,10 @@ var (
 	envVarPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
 	// simpleEnvVarPattern matches $VAR syntax
 	simpleEnvVarPattern = regexp.MustCompile(`\$([A-Za-z_][A-Za-z0-9_]*)`)
+	// gitSSHURLPattern matches git@host:owner/repo.git format
+	gitSSHURLPattern = regexp.MustCompile(`^git@([^:]+):(.+?)(?:\.git)?$`)
+	// gitHTTPURLPattern matches https://host/owner/repo.git format
+	gitHTTPURLPattern = regexp.MustCompile(`^https?://([^/]+)/(.+?)(?:\.git)?$`)
 )
 
 // Loader handles configuration loading and merging.
@@ -80,6 +85,9 @@ func (l *Loader) Load() (*Config, error) {
 
 	// Expand environment variables in sensitive fields
 	l.expandEnvVars(cfg)
+
+	// Auto-detect repository URL from git remote if not configured
+	l.autoDetectRepositoryURL(cfg)
 
 	return cfg, nil
 }
@@ -247,6 +255,71 @@ func (l *Loader) autoDetectAI() {
    To use a different provider, configure ai.provider in your config file.
 `, strings.Join(detectedProviders, ", "), selectedProvider)
 	}
+}
+
+// autoDetectRepositoryURL detects the repository URL from git remote.
+// If repository_url is not configured and we can detect it from git,
+// we set it and enable link_commits automatically.
+func (l *Loader) autoDetectRepositoryURL(cfg *Config) {
+	// Skip if repository_url is already configured
+	if cfg.Changelog.RepositoryURL != "" {
+		return
+	}
+
+	// Try to detect from git remote
+	repoURL := detectGitRemoteURL()
+	if repoURL == "" {
+		return
+	}
+
+	// Set the detected repository URL
+	cfg.Changelog.RepositoryURL = repoURL
+
+	// Auto-enable link_commits since we have a valid repository URL
+	// Only if it wasn't explicitly set to false in the config file
+	if !l.v.IsSet("changelog.link_commits") {
+		cfg.Changelog.LinkCommits = true
+	}
+}
+
+// detectGitRemoteURL attempts to get the repository URL from git remote.
+// Returns an empty string if not in a git repository or no remote is configured.
+func detectGitRemoteURL() string {
+	// Run git remote get-url origin
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+	if remoteURL == "" {
+		return ""
+	}
+
+	// Convert to HTTPS URL for linking
+	return convertToHTTPSURL(remoteURL)
+}
+
+// convertToHTTPSURL converts a git remote URL to an HTTPS URL suitable for linking.
+// Supports both SSH (git@host:owner/repo.git) and HTTPS formats.
+func convertToHTTPSURL(remoteURL string) string {
+	// Check if it's an SSH URL (git@host:owner/repo.git)
+	if matches := gitSSHURLPattern.FindStringSubmatch(remoteURL); len(matches) == 3 {
+		host := matches[1]
+		path := matches[2]
+		return fmt.Sprintf("https://%s/%s", host, path)
+	}
+
+	// Check if it's already an HTTPS URL
+	if matches := gitHTTPURLPattern.FindStringSubmatch(remoteURL); len(matches) == 3 {
+		host := matches[1]
+		path := matches[2]
+		return fmt.Sprintf("https://%s/%s", host, path)
+	}
+
+	// Return as-is if we can't parse it
+	return remoteURL
 }
 
 // loadConfigFile loads the configuration file.

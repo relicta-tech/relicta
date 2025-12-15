@@ -850,3 +850,90 @@ func TestValidator_Validate_SlackPluginWithoutWebhook(t *testing.T) {
 		t.Errorf("Error should mention webhook, got: %v", err)
 	}
 }
+
+func TestConvertToHTTPSURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "SSH URL with .git suffix",
+			input:    "git@github.com:owner/repo.git",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "SSH URL without .git suffix",
+			input:    "git@github.com:owner/repo",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "SSH URL with nested path",
+			input:    "git@gitlab.com:group/subgroup/repo.git",
+			expected: "https://gitlab.com/group/subgroup/repo",
+		},
+		{
+			name:     "HTTPS URL with .git suffix",
+			input:    "https://github.com/owner/repo.git",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "HTTPS URL without .git suffix",
+			input:    "https://github.com/owner/repo",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "HTTP URL",
+			input:    "http://github.com/owner/repo.git",
+			expected: "https://github.com/owner/repo",
+		},
+		{
+			name:     "Unknown format returned as-is",
+			input:    "file:///path/to/repo",
+			expected: "file:///path/to/repo",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertToHTTPSURL(tt.input)
+			if result != tt.expected {
+				t.Errorf("convertToHTTPSURL(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestDefaultConfig_LinkingDisabledByDefault(t *testing.T) {
+	cfg := DefaultConfig()
+
+	if cfg.Changelog.LinkCommits {
+		t.Error("Changelog.LinkCommits should be false by default")
+	}
+	if cfg.Changelog.LinkIssues {
+		t.Error("Changelog.LinkIssues should be false by default")
+	}
+}
+
+func TestAutoDetectRepositoryURL(t *testing.T) {
+	// Test that auto-detection doesn't override explicit config
+	loader := NewLoader()
+	cfg := &Config{
+		Changelog: ChangelogConfig{
+			RepositoryURL: "https://example.com/explicit/repo",
+			LinkCommits:   false,
+		},
+	}
+
+	loader.autoDetectRepositoryURL(cfg)
+
+	// Should not change explicitly set URL
+	if cfg.Changelog.RepositoryURL != "https://example.com/explicit/repo" {
+		t.Errorf("RepositoryURL = %q, should not change when explicitly set", cfg.Changelog.RepositoryURL)
+	}
+}

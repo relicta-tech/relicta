@@ -9,6 +9,8 @@ changelog:
   enabled: true
   file: CHANGELOG.md
   format: conventional  # Use conventional commit format
+  # repository_url is auto-detected from git remote
+  # issue_url must be explicitly set if link_issues is desired
   sections:
     - title: "🚀 New Features"
       types: ["feat"]

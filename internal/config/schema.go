@@ -301,8 +301,8 @@ func DefaultConfig() *Config {
 			IncludeCommitHash: true,
 			IncludeAuthor:     false,
 			IncludeDate:       true,
-			LinkCommits:       true,
-			LinkIssues:        true,
+			LinkCommits:       false, // Auto-enabled if repository_url is detected from git
+			LinkIssues:        false, // Must be explicitly enabled with issue_url
 			Exclude:           []string{"chore", "ci", "docs", "style", "test"},
 			Categories: map[string]string{
 				"feat":     "Features",
