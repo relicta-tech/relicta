@@ -73,8 +73,9 @@ jobs:
 
       # That's it! Use our own action to release ourselves 🎉
       - name: Release with Relicta Action
-        uses: relicta-tech/relicta-action@v2
+        uses: relicta-tech/relicta-action@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          plugins: 'github'
           auto-approve: true
           dry-run: ${{ inputs.dry-run }}
