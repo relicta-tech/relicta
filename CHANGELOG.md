@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+- **ai:** make API key optional for Ollama and auto-detect repository URL (7866844)
+
+
+## [2.1.0] - 2025-12-15
+
+### Features
+
+- add brand assets and update README with logo (700f062)
+
+### Bug Fixes
+
 - **ai:** make API key optional for Ollama provider (cc8d2f1)
 
 
