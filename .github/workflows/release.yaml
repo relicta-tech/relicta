@@ -73,7 +73,7 @@ jobs:
 
       # That's it! Use our own action to release ourselves 🎉
       - name: Release with Relicta Action
-        uses: relicta-tech/relicta-action@main
+        uses: relicta-tech/relicta-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           plugins: 'github'
