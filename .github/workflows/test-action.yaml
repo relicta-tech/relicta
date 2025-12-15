@@ -8,12 +8,16 @@ on:
         required: false
         default: 'v2.0.0'
 
+# Default permissions - least privilege
+permissions:
+  contents: read
+
 jobs:
   test-action:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
