@@ -2,12 +2,14 @@ name: CodeQL Security Analysis
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   schedule:
     # Run weekly on Monday at 00:00 UTC
     - cron: '0 0 * * 1'
+  workflow_dispatch:
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
