@@ -1,6 +1,9 @@
 package manager
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -43,30 +46,55 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	defer os.Remove(tmpFile.Name())
 	defer tmpFile.Close()
 
-	// Download the plugin binary
+	// Download the plugin archive
 	if err := i.downloadFile(ctx, downloadURL, tmpFile); err != nil {
 		return nil, fmt.Errorf("failed to download plugin: %w", err)
 	}
 
-	// Reset file pointer to beginning for checksum calculation
-	if _, err := tmpFile.Seek(0, 0); err != nil {
-		return nil, fmt.Errorf("failed to seek to beginning of file: %w", err)
-	}
-
-	// Calculate checksum
-	checksum, err := i.calculateChecksum(tmpFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
-	}
-
-	// Close temp file before moving
+	// Close temp file before extraction
 	if err := tmpFile.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
+	// Create temp directory for extraction
+	extractDir, err := os.MkdirTemp("", fmt.Sprintf("relicta-plugin-%s-extract-*", pluginInfo.Name))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create extraction directory: %w", err)
+	}
+	defer os.RemoveAll(extractDir)
+
+	// Extract the archive
+	archiveName := i.getArchiveName(pluginInfo)
+	if strings.HasSuffix(archiveName, ".zip") {
+		if err := i.extractZip(tmpFile.Name(), extractDir); err != nil {
+			return nil, fmt.Errorf("failed to extract zip archive: %w", err)
+		}
+	} else {
+		if err := i.extractTarGz(tmpFile.Name(), extractDir); err != nil {
+			return nil, fmt.Errorf("failed to extract tar.gz archive: %w", err)
+		}
+	}
+
+	// Find the binary in the extracted directory
+	extractedBinary := i.findBinary(extractDir, pluginInfo.Name)
+	if extractedBinary == "" {
+		return nil, fmt.Errorf("binary not found in archive")
+	}
+
+	// Calculate checksum of the binary
+	binaryFile, err := os.Open(extractedBinary)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open extracted binary: %w", err)
+	}
+	checksum, err := i.calculateChecksum(binaryFile)
+	binaryFile.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
+	}
+
 	// Install the binary to the plugin directory
 	destPath := filepath.Join(i.pluginDir, binaryName)
-	if err := i.installBinary(tmpFile.Name(), destPath); err != nil {
+	if err := i.installBinary(extractedBinary, destPath); err != nil {
 		return nil, fmt.Errorf("failed to install binary: %w", err)
 	}
 
@@ -101,11 +129,8 @@ func (i *Installer) getBinaryName(pluginName string) string {
 	return pluginName
 }
 
-// getDownloadURL constructs the GitHub release download URL for the plugin.
-func (i *Installer) getDownloadURL(pluginInfo PluginInfo) string {
-	// Format: https://github.com/{owner}/{repo}/releases/download/{version}/{plugin}_{os}_{arch}
-	// Example: https://github.com/relicta-tech/relicta/releases/download/v1.1.0/github_darwin_arm64
-
+// getArchiveName returns the platform-specific archive name.
+func (i *Installer) getArchiveName(pluginInfo PluginInfo) string {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
@@ -117,16 +142,24 @@ func (i *Installer) getDownloadURL(pluginInfo PluginInfo) string {
 		goarch = "aarch64"
 	}
 
-	binary := fmt.Sprintf("%s_%s_%s", pluginInfo.Name, goos, goarch)
-	if runtime.GOOS == "windows" {
-		binary += ".exe"
+	if goos == "windows" {
+		return fmt.Sprintf("%s_%s_%s.zip", pluginInfo.Name, goos, goarch)
 	}
+	return fmt.Sprintf("%s_%s_%s.tar.gz", pluginInfo.Name, goos, goarch)
+}
+
+// getDownloadURL constructs the GitHub release download URL for the plugin.
+func (i *Installer) getDownloadURL(pluginInfo PluginInfo) string {
+	// Format: https://github.com/{owner}/{repo}/releases/download/{version}/{plugin}_{os}_{arch}.tar.gz
+	// Example: https://github.com/relicta-tech/relicta/releases/download/v2.2.0/github_darwin_aarch64.tar.gz
+
+	archiveName := i.getArchiveName(pluginInfo)
 
 	return fmt.Sprintf(
 		"https://github.com/%s/releases/download/%s/%s",
 		pluginInfo.Repository,
 		pluginInfo.Version,
-		binary,
+		archiveName,
 	)
 }
 
@@ -153,6 +186,137 @@ func (i *Installer) downloadFile(ctx context.Context, url string, dest io.Writer
 	}
 
 	return nil
+}
+
+// extractTarGz extracts a .tar.gz archive to the destination directory.
+func (i *Installer) extractTarGz(archivePath, destDir string) error {
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open archive: %w", err)
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		// Sanitize the path to prevent path traversal
+		target := filepath.Join(destDir, filepath.Clean(header.Name))
+		if !strings.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid file path in archive: %s", header.Name)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return fmt.Errorf("failed to create parent directory: %w", err)
+			}
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file: %w", err)
+			}
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				return fmt.Errorf("failed to write file: %w", err)
+			}
+			outFile.Close()
+		}
+	}
+
+	return nil
+}
+
+// extractZip extracts a .zip archive to the destination directory.
+func (i *Installer) extractZip(archivePath, destDir string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip archive: %w", err)
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		// Sanitize the path to prevent path traversal
+		target := filepath.Join(destDir, filepath.Clean(f.Name))
+		if !strings.HasPrefix(target, filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid file path in archive: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory: %w", err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return fmt.Errorf("failed to create parent directory: %w", err)
+		}
+
+		outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return fmt.Errorf("failed to create file: %w", err)
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return fmt.Errorf("failed to open file in archive: %w", err)
+		}
+
+		if _, err := io.Copy(outFile, rc); err != nil {
+			rc.Close()
+			outFile.Close()
+			return fmt.Errorf("failed to write file: %w", err)
+		}
+
+		rc.Close()
+		outFile.Close()
+	}
+
+	return nil
+}
+
+// findBinary searches for the plugin binary in the extracted directory.
+func (i *Installer) findBinary(extractDir, pluginName string) string {
+	binaryName := pluginName
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+
+	var foundPath string
+	_ = filepath.Walk(extractDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		// Check if filename matches the binary name
+		if info.Name() == binaryName {
+			foundPath = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	return foundPath
 }
 
 // calculateChecksum computes SHA256 checksum of the file.

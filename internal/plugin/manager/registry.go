@@ -14,7 +14,7 @@ import (
 
 const (
 	// DefaultRegistryURL is the default location of the plugin registry
-	DefaultRegistryURL = "https://raw.githubusercontent.com/felixgeelhaar/relicta/main/plugins/registry.yaml"
+	DefaultRegistryURL = "https://raw.githubusercontent.com/relicta-tech/relicta/main/plugins/registry.yaml"
 	// RegistryCacheFile is the name of the cached registry file
 	RegistryCacheFile = "registry.yaml"
 	// RegistryCacheDuration is how long to cache the registry

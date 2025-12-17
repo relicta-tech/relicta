@@ -1,12 +1,12 @@
 version: "1.0"
-updated_at: 2025-12-12T08:30:00Z
+updated_at: 2025-12-17T15:30:00Z
 
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
     repository: relicta-tech/relicta
     path: plugins/github
-    version: v1.2.4
+    version: v2.2.0
     category: vcs
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -52,7 +52,7 @@ plugins:
     description: Create GitLab releases
     repository: relicta-tech/relicta
     path: plugins/gitlab
-    version: v1.2.4
+    version: v2.2.0
     category: vcs
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -79,7 +79,7 @@ plugins:
     description: Send release notifications to Slack
     repository: relicta-tech/relicta
     path: plugins/slack
-    version: v1.2.4
+    version: v2.2.0
     category: notification
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -116,7 +116,7 @@ plugins:
     description: Publish packages to npm registry
     repository: relicta-tech/relicta
     path: plugins/npm
-    version: v1.2.4
+    version: v2.2.0
     category: package_manager
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -151,7 +151,7 @@ plugins:
     description: Create and link Jira release versions
     repository: relicta-tech/relicta
     path: plugins/jira
-    version: v1.2.4
+    version: v2.2.0
     category: project_management
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -192,7 +192,7 @@ plugins:
     description: Send release notifications to Discord
     repository: relicta-tech/relicta
     path: plugins/discord
-    version: v1.2.4
+    version: v2.2.0
     category: notification
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
@@ -219,7 +219,7 @@ plugins:
     description: Create releases in LaunchNotes
     repository: relicta-tech/relicta
     path: plugins/launchnotes
-    version: v1.2.4
+    version: v2.2.0
     category: project_management
     author: Relicta Team
     homepage: https://github.com/relicta-tech/relicta
