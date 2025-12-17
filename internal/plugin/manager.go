@@ -289,7 +289,8 @@ func (m *Manager) findPluginBinary(cfg *config.PluginConfig) (string, error) {
 		return "", fmt.Errorf("invalid plugin name: %w", err)
 	}
 
-	pluginBinaryName := fmt.Sprintf("relicta-plugin-%s", cfg.Name)
+	// Try both naming conventions: just the name (new) and relicta-plugin-{name} (legacy)
+	pluginBinaryNames := []string{cfg.Name, fmt.Sprintf("relicta-plugin-%s", cfg.Name)}
 
 	// If path is specified, validate it's in an allowed directory
 	if cfg.Path != "" {
@@ -307,25 +308,27 @@ func (m *Manager) findPluginBinary(cfg *config.PluginConfig) (string, error) {
 		return realPath, nil
 	}
 
-	// Search only in allowed directories
+	// Search only in allowed directories, trying both naming conventions
 	for _, allowedDir := range m.allowedPluginDirs() {
-		pluginPath := filepath.Join(allowedDir, pluginBinaryName)
+		for _, pluginBinaryName := range pluginBinaryNames {
+			pluginPath := filepath.Join(allowedDir, pluginBinaryName)
 
-		// Validate the plugin binary
-		if err := m.validatePluginBinary(pluginPath); err == nil {
-			absPath, err := filepath.Abs(pluginPath)
-			if err != nil {
-				// Log but continue searching other directories
-				m.logger.Debug("failed to resolve absolute path", "path", pluginPath, "error", err)
-				continue
+			// Validate the plugin binary
+			if err := m.validatePluginBinary(pluginPath); err == nil {
+				absPath, err := filepath.Abs(pluginPath)
+				if err != nil {
+					// Log but continue searching other names/directories
+					m.logger.Debug("failed to resolve absolute path", "path", pluginPath, "error", err)
+					continue
+				}
+				realPath, err := filepath.EvalSymlinks(absPath)
+				if err != nil {
+					// Log but continue searching other names/directories
+					m.logger.Debug("failed to evaluate symlinks", "path", absPath, "error", err)
+					continue
+				}
+				return realPath, nil
 			}
-			realPath, err := filepath.EvalSymlinks(absPath)
-			if err != nil {
-				// Log but continue searching other directories
-				m.logger.Debug("failed to evaluate symlinks", "path", absPath, "error", err)
-				continue
-			}
-			return realPath, nil
 		}
 	}
 
