@@ -39,6 +39,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	printTitle("Release Plan")
 	fmt.Println()
 
+	if dryRun {
+		printDryRunBanner()
+	}
+
 	// Initialize container
 	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
 	if err != nil {

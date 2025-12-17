@@ -156,6 +156,10 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	printTitle("Release Publish")
 	fmt.Println()
 
+	if dryRun {
+		printDryRunBanner()
+	}
+
 	// Initialize container
 	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
 	if err != nil {
@@ -198,9 +202,8 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	// Display planned actions
 	displayPublishActions(nextVersion.String())
 
-	// Dry run check
+	// Dry run - skip actual changes
 	if dryRun {
-		printWarning("Dry run - no changes will be made")
 		return nil
 	}
 

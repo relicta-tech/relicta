@@ -374,6 +374,11 @@ func printInfo(msg string) {
 	fmt.Println(styles.Info.Render("ℹ " + msg))
 }
 
+func printDryRunBanner() {
+	fmt.Println(styles.Warning.Render("⚠ DRY RUN MODE - no changes will be made"))
+	fmt.Println()
+}
+
 func printTitle(msg string) {
 	fmt.Println(styles.Title.Render(msg))
 }
