@@ -1,5 +1,5 @@
 version: "1.0"
-updated_at: 2025-12-17T19:40:00Z
+updated_at: 2025-12-17T21:40:00Z
 
 plugins:
   - name: github
@@ -61,20 +61,19 @@ plugins:
 
   - name: gitlab
     description: Create GitLab releases
-    repository: relicta-tech/relicta
-    path: plugins/gitlab
-    version: v2.2.0
+    repository: relicta-tech/plugin-gitlab
+    version: v2.0.0
     category: vcs
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-gitlab
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: bf63097003e0852a541400321c6bcfac5127ccaaf456bbfafe9200d9d53f231a
-      darwin_x86_64: 647d38ea889d2a743c207490c6c8e40560d9a1246c1ff58ccd5acf1e70b6de77
-      linux_aarch64: df827aea11a64785a8c30f45155187fd6cdc93acd10555ad908714497b038560
-      linux_x86_64: 93bc8195d3794b647e47131361e6f5c3b031063a8e2f1ff86f4c91d4141475ad
-      windows_x86_64: b6964dcc86dd96fb50e9265743ccaf2691327d5f959eeb912b354e26863fe02e
+      darwin_aarch64: 9171acee8f610089cac9ebadf52e9d1b0f396c1e944746595fa594ce3bb3c8b8
+      darwin_x86_64: d783cd4267c5bec7a098aa63f122dde3055faed2ffd18dccb2038220890bb5c0
+      linux_aarch64: f9e1e530b502ad1993675fb62adbc2b97b717e0475ec7b261cf509c19f2e56a4
+      linux_x86_64: 6520f60bb834ecd3591f7f2835a1be7e2aeb7bbea1064b3eda89e9c1a1320c6a
+      windows_x86_64: e0328f657e14f0ace349f3074e4236f9399d7cc866cce42c0e7a5ab852c83bfa
     hooks:
       - post_publish
     config_schema:
@@ -95,20 +94,19 @@ plugins:
 
   - name: slack
     description: Send release notifications to Slack
-    repository: relicta-tech/relicta
-    path: plugins/slack
-    version: v2.2.0
+    repository: relicta-tech/plugin-slack
+    version: v2.0.0
     category: notification
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-slack
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 156e05e4a065064743b942954608ae5a5538e7537919cf499a6f7cd6d04c8530
-      darwin_x86_64: 2339f8ba9c6fdfac956e140aa3e324ee7b2aa86200b794ba838df89a2a9cad9d
-      linux_aarch64: 0fc8bfa158547d69d23227f5dc4250aad7f1e0a4ea5c3db7e1c2373d3540a767
-      linux_x86_64: b9cdd08e31e184be720d94b29eb2d91cd675d664800dd1a9637b3f8ba27a79cc
-      windows_x86_64: 11b2d1d79a3d5c41673ba7c3638e9894c25bffe663805f3ca38793831fa58017
+      darwin_aarch64: 3701ce07bca8796d9d6704bbe74295cf734625a67ec42829c0395072e3ccf475
+      darwin_x86_64: 67086aadca15f3e8e38f04c2ce617b455f97d85bb85cd6e750bee2edfeadd693
+      linux_aarch64: f8572598dd478d46217cd43557a2ffc53abdd665befadf911ade11d24348bccf
+      linux_x86_64: e59755beac950eeae995661c160448ff98d030278a279ef3415f7cbc3ab0fc7b
+      windows_x86_64: d82bf83604745515b76757cc9a0488b3709f96f737cce059a802b2884b27623d
     hooks:
       - post_publish
     config_schema:
@@ -137,64 +135,54 @@ plugins:
         default: true
         description: "Send notification on release failure"
 
-  - name: npm
-    description: Publish packages to npm registry
-    repository: relicta-tech/relicta
-    path: plugins/npm
-    version: v2.2.0
-    category: package_manager
+  - name: discord
+    description: Send release notifications to Discord
+    repository: relicta-tech/plugin-discord
+    version: v2.0.0
+    category: notification
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-discord
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 3a81659538669c048ddd4cfb66403522f90fd195d976ee37953f799e9f68b490
-      darwin_x86_64: 920c78f8b1f2903bd3fbd54c4542b1db4103b2c30cb00ca904e4c6d49925e46e
-      linux_aarch64: ca9a9b6d558241ae51d2a843ef454eb09e12a1fd2312659424fac4a69fc1de16
-      linux_x86_64: fdce8fcaf50510fc6f3d0087f50153ba02671b1e920e906eca38381f835107ff
-      windows_x86_64: a4b83661f529f56c060ad6b61f2bb239b9bd1bae3d234501b42d96a4ee18b97e
+      darwin_aarch64: e4fdd095c2b0843dcffd4e0749cedff71f8c1f62360b3232171950007dd18e76
+      darwin_x86_64: 3d2ef978e0927352e5001095671587f7ed712a6fd5135bee9d38dbd1e6299767
+      linux_aarch64: cd09f160ebb0eb06af31f0c1d285b81798208513795e11e1a480ba9600afafeb
+      linux_x86_64: a253ca1f3d5b5fc11d2a2b92cdcba86926cdeed70c93b44aaea2155efb60a3d5
+      windows_x86_64: 4a6690660cf1c5208ac95af9b408cb7f5328b274f64de91cd59010f322399495
     hooks:
-      - pre_publish
       - post_publish
     config_schema:
-      registry:
+      webhook:
+        type: string
+        required: true
+        env: DISCORD_WEBHOOK_URL
+        description: "Discord webhook URL"
+      username:
         type: string
         required: false
-        default: "https://registry.npmjs.org"
-        description: "npm registry URL"
-      access:
+        default: "Relicta"
+        description: "Bot username"
+      avatar_url:
         type: string
         required: false
-        default: "public"
-        options: ["public", "restricted"]
-        description: "Package access level"
-      token:
-        type: string
-        required: false
-        env: NPM_TOKEN
-        description: "npm authentication token"
-      otp:
-        type: string
-        required: false
-        env: NPM_OTP
-        description: "One-time password for 2FA"
+        description: "Bot avatar URL"
 
   - name: jira
     description: Create and link Jira release versions
-    repository: relicta-tech/relicta
-    path: plugins/jira
-    version: v2.2.0
+    repository: relicta-tech/plugin-jira
+    version: v2.0.0
     category: project_management
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-jira
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: b1332bdd8723254876111b966b19e011bfc91986066b20922ddb1faf79cef5a7
-      darwin_x86_64: 3358bf779122e8a657e07bba60a234feee158cf636dcf24d9bad0816a330315a
-      linux_aarch64: 157c3cd9624925a8870d1f2c7a4e669756d11d8ab67921c00918cdcbad5f1db8
-      linux_x86_64: 471189f72581c9bcd20a8b42d23d6c9ce061dde32459c999706267a78cae644a
-      windows_x86_64: 52c35d7746f7e30a8f418724cbd58b4b401a635011f7ba7ca0fe968de4104a4f
+      darwin_aarch64: ed7420afc52e9bf9816512eae6f7192b83606b350f8bf0a069b07d09f98a3917
+      darwin_x86_64: 1ee308143a18877d178baf4de23448bad21e2eadaf5bb884bd3b3c1ef3fd6ea5
+      linux_aarch64: 205d9dc00bd73001450bd93792ba81cbc5ce1c6afd080b52a076aaba2a79764d
+      linux_x86_64: dd269411ac22dab97e096ec7e05da14aeb3bd78db0046eb1f14b1bf0e0ed663a
+      windows_x86_64: f27ac5777a3230680dcbced6e00fc8b34bd1b95269b65917866ff88b4f3a10b9
     hooks:
       - post_publish
     config_schema:
@@ -227,56 +215,62 @@ plugins:
         default: true
         description: "Mark the Jira version as released"
 
-  - name: discord
-    description: Send release notifications to Discord
-    repository: relicta-tech/relicta
-    path: plugins/discord
-    version: v2.2.0
-    category: notification
+  - name: npm
+    description: Publish packages to npm registry
+    repository: relicta-tech/plugin-npm
+    version: v2.0.0
+    category: package_manager
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-npm
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 81c7dfe421c9a930713fcc8cc498f0bab559632ee9e1e67fb75185b3a6fda3aa
-      darwin_x86_64: 52d1d7fbda9cf838fe1b3f35e7601ebbf60a7c99579ae6faaa6ed5b2468837dc
-      linux_aarch64: 223a362bb680cfbeebd5dd20c2ac3d1a5c5d30f4330348ecd8ffec9750e0bd92
-      linux_x86_64: 2ce64b2ebb6895ed888c1d053106385081f376194aaac799d51220c83ef7f6b3
-      windows_x86_64: 6a709ebe7fea8bd0cb93949be80e557d4a7d37c3cf291fc2123577af14482e87
+      darwin_aarch64: 334fd0c52dc47f6b6ff032d8dadacad8a4e0dc02ef2e41d458e028b42f7c3dd3
+      darwin_x86_64: 0354b7c4826b932d162833632873df19da615626d0b8baaf016d70867be57e98
+      linux_aarch64: 41cf2a8ad370d8a30384f0a1809b7e4808eca4e467dd2dfb16eac17c3efc3f0f
+      linux_x86_64: 08f7fbd5bafe448b2e7189ac2a0ebb117d54eb822405aea79dd3137cf34d9a72
+      windows_x86_64: f824fedf601229466c70dfa72b5d934c819f2d04f927dd9613145399570f6f98
     hooks:
+      - pre_publish
       - post_publish
     config_schema:
-      webhook:
-        type: string
-        required: true
-        env: DISCORD_WEBHOOK_URL
-        description: "Discord webhook URL"
-      username:
+      registry:
         type: string
         required: false
-        default: "Relicta"
-        description: "Bot username"
-      avatar_url:
+        default: "https://registry.npmjs.org"
+        description: "npm registry URL"
+      access:
         type: string
         required: false
-        description: "Bot avatar URL"
+        default: "public"
+        options: ["public", "restricted"]
+        description: "Package access level"
+      token:
+        type: string
+        required: false
+        env: NPM_TOKEN
+        description: "npm authentication token"
+      otp:
+        type: string
+        required: false
+        env: NPM_OTP
+        description: "One-time password for 2FA"
 
   - name: launchnotes
     description: Create releases in LaunchNotes
-    repository: relicta-tech/relicta
-    path: plugins/launchnotes
-    version: v2.2.0
+    repository: relicta-tech/plugin-launchnotes
+    version: v2.0.0
     category: project_management
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-launchnotes
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 78ff7029a16f4ec2d0418a081bcb632e390d43c3d83ebb9bf9a5e0aa18a10234
-      darwin_x86_64: d7be5b5dbde03afd3af2ed9470577e5b23304d75f311d0e6013e155448f6a078
-      linux_aarch64: b777fe9f50ddd7f1a96c45bb21ddf031e87e20e9289ea055570a268e0c605f37
-      linux_x86_64: 060d0532934bd9432f1056fd34f5d8d670b28295813f6a4fe35921d731c0544a
-      windows_x86_64: 52c47d4f691c004d7f857d2103312c51a38aeb137406e869e17a194211589c89
+      darwin_aarch64: b7579934be7770c190744ed59a0e9ee3e226c7ca085232f2375ed7f42a3ca849
+      darwin_x86_64: 76f24fe5d60796bd209adbb93d2bd7eb62ea86982a835443cd4a1c7707354e5f
+      linux_aarch64: d77e2855eeac74018b1ae06296cd70b69d272d290d90c17097df150576a43b56
+      linux_x86_64: 1212ed125bd255dd8059809bf56f87283e2db6869f95eae6cbb1610be800b5a6
+      windows_x86_64: e76871a1763db5d0126ff8364c686451e17e8bc48b1f9b23d1d610a86609d63f
     hooks:
       - post_publish
     config_schema:
