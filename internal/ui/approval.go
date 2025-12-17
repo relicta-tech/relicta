@@ -40,6 +40,25 @@ type ReleaseSummary struct {
 	OtherCount     int
 	ReleaseNotes   string
 	Plugins        []string
+	// Governance fields (optional, nil if governance disabled)
+	Governance *GovernanceSummary
+}
+
+// GovernanceSummary contains governance evaluation results for the TUI.
+type GovernanceSummary struct {
+	RiskScore      float64
+	Severity       string
+	Decision       string
+	CanAutoApprove bool
+	RiskFactors    []RiskFactor
+	RequiredActions []string
+}
+
+// RiskFactor represents a single risk factor in the governance evaluation.
+type RiskFactor struct {
+	Category    string
+	Description string
+	Score       float64
 }
 
 // ApprovalModel is the Bubble Tea model for the approval TUI.
@@ -285,6 +304,12 @@ func (m ApprovalModel) View() string {
 	b.WriteString(m.renderChangesOverview())
 	b.WriteString("\n")
 
+	// Governance (if enabled)
+	if m.summary.Governance != nil {
+		b.WriteString(m.renderGovernance())
+		b.WriteString("\n")
+	}
+
 	// Plugins
 	if len(m.summary.Plugins) > 0 {
 		b.WriteString(m.renderPlugins())
@@ -386,6 +411,87 @@ func (m ApprovalModel) renderChangesOverview() string {
 	if m.summary.OtherCount > 0 {
 		b.WriteString(m.styles.subtle.Render(fmt.Sprintf("    Other: %d", m.summary.OtherCount)))
 		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+func (m ApprovalModel) renderGovernance() string {
+	var b strings.Builder
+	gov := m.summary.Governance
+
+	b.WriteString(m.styles.bold.Render("Governance"))
+	b.WriteString("\n")
+
+	// Risk score with severity-based coloring
+	riskPercent := fmt.Sprintf("%.1f%%", gov.RiskScore*100)
+	var riskStyle lipgloss.Style
+	switch gov.Severity {
+	case "critical", "high":
+		riskStyle = m.styles.error
+	case "medium":
+		riskStyle = m.styles.warning
+	default:
+		riskStyle = m.styles.success
+	}
+	b.WriteString(fmt.Sprintf("  %s %s",
+		m.styles.stat.Render("Risk:"),
+		riskStyle.Render(fmt.Sprintf("%s (%s)", riskPercent, gov.Severity))))
+	b.WriteString("\n")
+
+	// Decision
+	var decisionStyle lipgloss.Style
+	decisionText := gov.Decision
+	switch gov.Decision {
+	case "approved":
+		decisionStyle = m.styles.success
+	case "approval_required":
+		decisionStyle = m.styles.warning
+		decisionText = "requires approval"
+	case "rejected":
+		decisionStyle = m.styles.error
+	default:
+		decisionStyle = m.styles.subtle
+	}
+	b.WriteString(fmt.Sprintf("  %s %s",
+		m.styles.stat.Render("Decision:"),
+		decisionStyle.Render(decisionText)))
+	b.WriteString("\n")
+
+	// Auto-approve status
+	autoApproveText := "no"
+	autoApproveStyle := m.styles.warning
+	if gov.CanAutoApprove {
+		autoApproveText = "yes"
+		autoApproveStyle = m.styles.success
+	}
+	b.WriteString(fmt.Sprintf("  %s %s",
+		m.styles.stat.Render("Auto-Approve:"),
+		autoApproveStyle.Render(autoApproveText)))
+	b.WriteString("\n")
+
+	// Risk factors (if any)
+	if len(gov.RiskFactors) > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.styles.subtle.Render("  Risk Factors:"))
+		b.WriteString("\n")
+		for _, factor := range gov.RiskFactors {
+			factorText := fmt.Sprintf("    [%s] %s (%.0f%%)",
+				factor.Category, factor.Description, factor.Score*100)
+			b.WriteString(m.styles.subtle.Render(factorText))
+			b.WriteString("\n")
+		}
+	}
+
+	// Required actions (if any)
+	if len(gov.RequiredActions) > 0 {
+		b.WriteString("\n")
+		b.WriteString(m.styles.warning.Render("  Required Actions:"))
+		b.WriteString("\n")
+		for _, action := range gov.RequiredActions {
+			b.WriteString(m.styles.warning.Render(fmt.Sprintf("    ! %s", action)))
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String()

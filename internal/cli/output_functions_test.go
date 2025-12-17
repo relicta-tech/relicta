@@ -36,7 +36,7 @@ func TestOutputPlanJSON_Coverage(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputPlanJSON(output)
+	err := outputPlanJSON(output, nil)
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -89,19 +89,19 @@ func TestOutputPlanText_Coverage(t *testing.T) {
 	dryRun = false
 
 	// Test minimal output
-	err := outputPlanText(output, false, true)
+	err := outputPlanText(output, false, true, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() minimal error = %v", err)
 	}
 
 	// Test full output
-	err = outputPlanText(output, false, false)
+	err = outputPlanText(output, false, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() full error = %v", err)
 	}
 
 	// Test show all
-	err = outputPlanText(output, true, false)
+	err = outputPlanText(output, true, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() show all error = %v", err)
 	}

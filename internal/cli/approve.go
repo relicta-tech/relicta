@@ -673,6 +673,61 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 	return tuiSummary
 }
 
+// buildGovernanceSummaryForTUI builds governance summary for TUI display.
+func buildGovernanceSummaryForTUI(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) *ui.GovernanceSummary {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return nil
+	}
+
+	// Get repo info
+	repoURL := ""
+	if gitAdapter := dddContainer.GitAdapter(); gitAdapter != nil {
+		if info, err := gitAdapter.GetInfo(ctx); err == nil {
+			repoURL = info.RemoteURL
+		}
+	}
+
+	// Create actor
+	actor := createCGPActor()
+
+	// Evaluate
+	input := governance.EvaluateReleaseInput{
+		Release:    rel,
+		Actor:      actor,
+		Repository: repoURL,
+	}
+
+	result, err := govService.EvaluateRelease(ctx, input)
+	if err != nil {
+		return nil
+	}
+
+	// Build TUI summary
+	govSummary := &ui.GovernanceSummary{
+		RiskScore:      result.RiskScore,
+		Severity:       string(result.Severity),
+		Decision:       string(result.Decision),
+		CanAutoApprove: result.CanAutoApprove,
+	}
+
+	// Add risk factors
+	for _, factor := range result.RiskFactors {
+		govSummary.RiskFactors = append(govSummary.RiskFactors, ui.RiskFactor{
+			Category:    factor.Category,
+			Description: factor.Description,
+			Score:       factor.Score,
+		})
+	}
+
+	// Add required actions
+	for _, action := range result.RequiredActions {
+		govSummary.RequiredActions = append(govSummary.RequiredActions, action.Description)
+	}
+
+	return govSummary
+}
+
 // handleEditApprovalResult handles the edit result from TUI approval.
 // Returns the edited notes and whether approval should proceed.
 func handleEditApprovalResult(rel *release.Release) (*string, bool, error) {
@@ -722,8 +777,18 @@ func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*
 
 // runInteractiveApproval runs the interactive TUI for approval.
 func runInteractiveApproval(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) error {
-	// Build and run TUI
+	// Build TUI summary
 	tuiSummary := buildTUISummary(rel)
+
+	// Add governance info if enabled
+	if dddContainer.HasGovernance() {
+		govSummary := buildGovernanceSummaryForTUI(ctx, dddContainer, rel)
+		if govSummary != nil {
+			tuiSummary.Governance = govSummary
+		}
+	}
+
+	// Run TUI
 	result, err := ui.RunApprovalTUI(tuiSummary)
 	if err != nil {
 		return fmt.Errorf("interactive approval failed: %w", err)

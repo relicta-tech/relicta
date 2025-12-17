@@ -36,7 +36,7 @@ func TestOutputPlanText_Minimal(t *testing.T) {
 	}
 
 	// Test with minimal=true
-	err := outputPlanText(output, false, true)
+	err := outputPlanText(output, false, true, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() with minimal=true error = %v", err)
 	}
@@ -104,7 +104,7 @@ func TestOutputPlanText_WithShowAll(t *testing.T) {
 	}
 
 	// Test with showAll=true to cover all paths
-	err := outputPlanText(output, true, false)
+	err := outputPlanText(output, true, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() with showAll=true error = %v", err)
 	}
@@ -137,7 +137,7 @@ func TestOutputPlanText_DryRun(t *testing.T) {
 	}
 
 	// Test with dryRun=true
-	err := outputPlanText(output, false, false)
+	err := outputPlanText(output, false, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() with dryRun=true error = %v", err)
 	}
@@ -205,7 +205,7 @@ func TestOutputPlanText_AllCommitTypes(t *testing.T) {
 	}
 
 	// Test with all commit types to ensure all sections are printed
-	err := outputPlanText(output, false, false)
+	err := outputPlanText(output, false, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() with all commit types error = %v", err)
 	}
