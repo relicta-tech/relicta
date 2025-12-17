@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -374,4 +375,125 @@ func (m *Manager) RemoveRegistry(name string) error {
 // EnableRegistry enables or disables a registry.
 func (m *Manager) EnableRegistry(name string, enabled bool) error {
 	return m.registry.EnableRegistry(name, enabled)
+}
+
+// Update updates an installed plugin to the latest version.
+func (m *Manager) Update(ctx context.Context, name string) (*UpdateResult, error) {
+	// Load manifest to check if plugin is installed
+	manifest, err := m.loadManifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
+	}
+
+	// Find installed plugin
+	var installedPlugin *InstalledPlugin
+	var installedIndex int
+	for i, p := range manifest.Installed {
+		if p.Name == name {
+			installedPlugin = &manifest.Installed[i]
+			installedIndex = i
+			break
+		}
+	}
+
+	if installedPlugin == nil {
+		return nil, fmt.Errorf("plugin %q is not installed", name)
+	}
+
+	// Get latest version from registry
+	registry, err := m.registry.Fetch(ctx, true) // Force refresh
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch registry: %w", err)
+	}
+
+	pluginInfo, err := registry.GetPlugin(name)
+	if err != nil {
+		return nil, fmt.Errorf("plugin %q not found in registry", name)
+	}
+
+	// Check if update is available
+	if pluginInfo.Version == installedPlugin.Version {
+		return &UpdateResult{
+			Name:           name,
+			CurrentVersion: installedPlugin.Version,
+			LatestVersion:  pluginInfo.Version,
+			Updated:        false,
+		}, nil
+	}
+
+	// Preserve enabled state
+	wasEnabled := installedPlugin.Enabled
+
+	// Uninstall old version
+	if err := m.installer.Uninstall(*installedPlugin); err != nil {
+		return nil, fmt.Errorf("failed to uninstall old version: %w", err)
+	}
+
+	// Install new version
+	newInstalled, err := m.installer.Install(ctx, *pluginInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to install new version: %w", err)
+	}
+
+	// Restore enabled state
+	newInstalled.Enabled = wasEnabled
+
+	// Update manifest
+	manifest.Installed[installedIndex] = *newInstalled
+	if err := m.saveManifest(manifest); err != nil {
+		return nil, fmt.Errorf("failed to update manifest: %w", err)
+	}
+
+	return &UpdateResult{
+		Name:           name,
+		CurrentVersion: installedPlugin.Version,
+		LatestVersion:  pluginInfo.Version,
+		Updated:        true,
+	}, nil
+}
+
+// UpdateAll updates all installed plugins to their latest versions.
+func (m *Manager) UpdateAll(ctx context.Context) ([]UpdateResult, error) {
+	manifest, err := m.loadManifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
+	}
+
+	var results []UpdateResult
+	for _, installed := range manifest.Installed {
+		result, err := m.Update(ctx, installed.Name)
+		if err != nil {
+			results = append(results, UpdateResult{
+				Name:           installed.Name,
+				CurrentVersion: installed.Version,
+				Error:          err.Error(),
+			})
+			continue
+		}
+		results = append(results, *result)
+	}
+
+	return results, nil
+}
+
+// Search searches for plugins matching the query.
+func (m *Manager) Search(ctx context.Context, query string) ([]PluginInfo, error) {
+	registry, err := m.registry.Fetch(ctx, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch registry: %w", err)
+	}
+
+	query = strings.ToLower(query)
+	var matches []PluginInfo
+
+	for _, plugin := range registry.Plugins {
+		// Search in name, description, and category
+		if strings.Contains(strings.ToLower(plugin.Name), query) ||
+			strings.Contains(strings.ToLower(plugin.Description), query) ||
+			strings.Contains(strings.ToLower(plugin.Category), query) {
+			matches = append(matches, plugin)
+		}
+	}
+
+	return matches, nil
 }
