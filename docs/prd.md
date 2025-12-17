@@ -249,7 +249,286 @@ Modern software teams face significant friction in the release process:
 
 ---
 
-## 11. Risks & Mitigation
+## 11. Relicta in Agentic Systems (Strategic Positioning)
+
+### 11.1 Context: The Rise of Agentic Software Development
+
+Modern software development is rapidly transitioning from human-driven workflows to agentic systems — AI agents that autonomously analyze code, open pull requests, modify infrastructure, and initiate releases.
+
+While these agents dramatically increase velocity, they introduce a new class of risk:
+
+- Autonomous actions without clear accountability
+- Implicit decision-making hidden in prompts or logs
+- Lack of organizational context (business criticality, timing, policy)
+- Fragmented automation across multiple independent agents
+
+Existing release tooling was not designed for this paradigm. Deterministic tools (e.g., semantic-release) and CI pipelines assume either:
+
+- Perfectly structured inputs, or
+- Direct human oversight
+
+Neither assumption holds in agentic environments.
+
+### 11.2 Problem: No Trusted Boundary Between AI and Production
+
+In agentic systems, the release process becomes the highest-risk surface:
+
+- Agents can generate, modify, and merge code faster than humans can review it
+- Release decisions (versioning, timing, communication) are often implicit
+- There is no shared authority enforcing when and how AI-driven changes may ship
+
+This results in:
+
+- Silent breaking changes
+- Unexplainable releases
+- Policy violations
+- Erosion of trust in automation
+
+### 11.3 Relicta's Role: The Agentic Release Authority
+
+Relicta is designed to act as the authoritative control plane between agentic systems and production releases.
+
+Rather than replacing agents, Relicta:
+
+- Constrains them with explicit policy
+- Interprets their intent into human-meaningful decisions
+- Records rationale, context, and outcomes
+- Enforces organizational standards consistently
+
+In an agentic environment, all release actions must pass through Relicta.
+
+Relicta becomes:
+
+- The final decision boundary before production
+- A shared source of truth for release intent and risk
+- The long-term memory of how changes impacted systems over time
+
+### 11.4 Key Capabilities for Agentic Systems
+
+**Agent-Aware Semantic Analysis**
+
+Relicta evaluates changes based on code semantics and dependency impact, not commit conventions, enabling safe releases even when changes are authored by autonomous agents.
+
+**Policy Enforcement for AI-Initiated Changes**
+
+Relicta enforces release policies such as:
+
+- Approval requirements based on risk level
+- Restrictions on autonomous major releases
+- Time-based or context-based deployment rules
+- Organization-wide release governance
+
+**Human-in-the-Loop by Design**
+
+Relicta introduces a deliberate, inspectable checkpoint where humans can:
+
+- Review agent-proposed releases
+- Override versioning decisions
+- Modify release narratives
+- Block unsafe releases
+
+**Release Memory & Learning**
+
+Relicta maintains historical context across releases:
+
+- Past incidents and rollbacks
+- Patterns of risky changes
+- Agent behavior over time
+
+This enables Relicta to continuously improve risk assessment beyond what stateless agents can achieve.
+
+### 11.5 Strategic Differentiation
+
+Relicta is uniquely positioned as a neutral coordination layer across heterogeneous AI agents and tools.
+
+Because Relicta integrates via the Model Context Protocol (MCP):
+
+- It is model-agnostic
+- It supports multi-agent environments
+- It avoids vendor lock-in
+- It remains future-proof as agent ecosystems evolve
+
+Relicta is not a tool agents replace — it is the system agents must respect.
+
+---
+
+## 12. Change Governance Protocol (CGP)
+
+### 12.1 Overview
+
+The Change Governance Protocol (CGP) is a neutral, open protocol that defines how autonomous systems, CI pipelines, and human operators propose, evaluate, approve, and execute production changes in a controlled, auditable manner.
+
+CGP exists to solve a fundamental problem in modern software development:
+**AI agents can create change faster than organizations can safely govern it.**
+
+Relicta implements CGP as its core interaction model and serves as the reference implementation for CGP-compliant release governance.
+
+### 12.2 Motivation: Governance in an Agentic World
+
+As software delivery becomes increasingly agent-driven, traditional release tooling fails to address:
+
+- Autonomous actions without explicit approval boundaries
+- Implicit decisions hidden inside agent prompts
+- Inconsistent application of organizational policy
+- Lack of explainability and accountability for AI-initiated changes
+
+CGP introduces a standardized decision boundary between agents and production systems.
+
+Under CGP:
+
+- Agents may propose changes
+- Governance systems decide
+- Execution systems act
+
+This separation is foundational to safe, scalable agentic workflows.
+
+### 12.3 Core Principles
+
+**Intent ≠ Execution**
+Proposing a change does not imply permission to execute it.
+
+**Governance Is Explicit**
+All decisions are structured, inspectable, and auditable.
+
+**Policy Over Prompting**
+Organizational rules are enforced by protocol, not AI instructions.
+
+**Human Override Is First-Class**
+Autonomous behavior must always be interruptible.
+
+**Model & Vendor Neutrality**
+CGP is compatible with any AI system via MCP.
+
+### 12.4 CGP Interaction Model
+
+#### Actors
+
+CGP defines three actor types:
+
+| Actor | Description |
+|-------|-------------|
+| **Proposers** | AI agents, CI systems, or humans proposing a change |
+| **Governors** | Systems implementing CGP (e.g., Relicta) that evaluate proposals |
+| **Executors** | Systems that carry out approved actions (CI/CD, registries, infra tools) |
+
+Actors may be combined but responsibilities remain distinct.
+
+#### Canonical Flow
+
+```
+Proposer → CGP Governor → Decision → (Human Review?) → Executor
+```
+
+CGP standardizes this flow regardless of tooling or agent implementation.
+
+### 12.5 CGP Message Types (Protocol Specification)
+
+#### Change Proposal
+
+A proposer submits a structured change intent.
+
+```json
+{
+  "cgpVersion": "0.1",
+  "type": "change.proposal",
+  "actor": {
+    "kind": "agent",
+    "id": "ai-refactor-agent"
+  },
+  "scope": {
+    "repository": "relicta-tech/relicta-core",
+    "commitRange": "abc123..def456"
+  },
+  "intent": {
+    "summary": "Refactor authentication middleware",
+    "confidence": 0.74
+  }
+}
+```
+
+#### Governance Evaluation
+
+The governor evaluates the proposal against:
+
+- Code semantics and API changes
+- Dependency and blast radius analysis
+- Organizational policy
+- Historical outcomes (optional)
+
+#### Governance Decision
+
+```json
+{
+  "cgpVersion": "0.1",
+  "type": "change.decision",
+  "decision": "approval_required",
+  "recommendedVersion": "major",
+  "riskScore": 0.82,
+  "rationale": [
+    "Public authentication interface modified",
+    "Three downstream services affected",
+    "Component classified as security-critical"
+  ],
+  "requiredActions": [
+    "human_approval",
+    "release_note_review"
+  ]
+}
+```
+
+#### Execution Authorization
+
+Only after governance approval may execution occur.
+
+```json
+{
+  "type": "change.execution_authorized",
+  "approvedBy": "release-manager",
+  "timestamp": "2025-12-15T17:45:00Z"
+}
+```
+
+### 12.6 Relicta as CGP Reference Implementation
+
+Relicta implements CGP as its foundational architecture and provides:
+
+- A CGP-compliant CLI and TUI
+- Policy enforcement for agent-initiated changes
+- Semantic version inference and blast-radius analysis
+- Human-in-the-loop governance workflows
+- Immutable audit trails for all decisions
+
+**Relicta does not replace agents — it governs them.**
+
+### 12.7 Strategic Advantage
+
+By separating CGP from the Relicta product:
+
+- CGP can become an industry standard
+- Other tools may adopt the protocol
+- Relicta becomes the default governance layer
+- Lock-in occurs at the decision layer, not the execution layer
+
+This positions Relicta as a long-term control plane for agentic systems.
+
+### 12.8 Future Evolution
+
+CGP is intentionally extensible and may later govern:
+
+- Infrastructure changes
+- Data migrations
+- Configuration rollouts
+- AI model updates
+
+Releases are the first and most critical use case.
+
+### 12.9 Positioning Statement
+
+> **Relicta is the reference implementation of the Change Governance Protocol (CGP) for agentic software delivery.**
+
+---
+
+## 13. Risks & Mitigation
 
 | Risk                                      | Mitigation                                     |
 | ----------------------------------------- | ---------------------------------------------- |
@@ -260,7 +539,7 @@ Modern software teams face significant friction in the release process:
 
 ---
 
-## 12. Timeline (Post-Approval)
+## 14. Timeline (Post-Approval)
 
 **Week 1–2:** Design CLI structure, command syntax, scaffolding.
 
@@ -274,7 +553,7 @@ Modern software teams face significant friction in the release process:
 
 ---
 
-## 13. Stakeholders
+## 15. Stakeholders
 
 - Product Engineering
 - DevOps / Platform Team
@@ -283,7 +562,7 @@ Modern software teams face significant friction in the release process:
 
 ---
 
-## 14. Appendix
+## 16. Appendix
 
 - Inspired by Changesets, semantic-release, Auto, LaunchNotes.
 - Plugin architecture modeled after semantic-release and kubectl.
