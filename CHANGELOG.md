@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-12-17
+
+### Features
+
+- **plugin:** add development mode with file watching (f96b38d)
+- **plugin:** add search and update commands (4407043)
+- **plugin:** add checksum verification and SDK compatibility (cee6565)
+- **plugin:** add plugin template generator command (6139b20)
+- **plugin:** add support for multiple plugin registries (2d58822)
+
+### Bug Fixes
+
+- **plugin:** support both plugin naming conventions (23356b6)
+- **plugin:** find platform-specific binary names in archives (e652a12)
+- **plugin:** support compressed archives for plugin installation (c027e79)
+
+
 ## [2.2.0] - 2025-12-17
 
 ### Features
