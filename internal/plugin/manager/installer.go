@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+// MaxPluginFileSize is the maximum allowed size for a single file in a plugin archive (100MB).
+// This prevents decompression bomb attacks.
+const MaxPluginFileSize = 100 * 1024 * 1024
+
 // Installer handles plugin installation operations.
 type Installer struct {
 	httpClient *http.Client
@@ -34,6 +38,12 @@ func NewInstaller(pluginDir string) *Installer {
 
 // Install downloads and installs a plugin binary.
 func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*InstalledPlugin, error) {
+	// Check SDK compatibility first
+	if !pluginInfo.IsSDKCompatible() {
+		return nil, fmt.Errorf("plugin %s requires SDK version %d, but host supports version %d",
+			pluginInfo.Name, pluginInfo.MinSDKVersion, CurrentSDKVersion)
+	}
+
 	// Determine platform-specific binary name
 	binaryName := i.getBinaryName(pluginInfo.Name)
 	downloadURL := i.getDownloadURL(pluginInfo)
@@ -90,6 +100,15 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	binaryFile.Close()
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
+	}
+
+	// Verify checksum against registry if available
+	expectedChecksum := pluginInfo.GetChecksum()
+	if expectedChecksum != "" {
+		if !strings.EqualFold(checksum, expectedChecksum) {
+			return nil, fmt.Errorf("checksum verification failed for %s: expected %s, got %s",
+				pluginInfo.Name, expectedChecksum, checksum)
+		}
 	}
 
 	// Install the binary to the plugin directory
@@ -204,7 +223,7 @@ func (i *Installer) extractTarGz(archivePath, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tr := tar.NewReader(gzr)
 
@@ -236,11 +255,16 @@ func (i *Installer) extractTarGz(archivePath, destDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
-			if _, err := io.Copy(outFile, tr); err != nil {
-				outFile.Close()
+			// Use LimitReader to prevent decompression bomb attacks (G110)
+			limitedReader := io.LimitReader(tr, MaxPluginFileSize)
+			written, err := io.Copy(outFile, limitedReader)
+			outFile.Close()
+			if err != nil {
 				return fmt.Errorf("failed to write file: %w", err)
 			}
-			outFile.Close()
+			if written == MaxPluginFileSize {
+				return fmt.Errorf("file %s exceeds maximum allowed size", header.Name)
+			}
 		}
 	}
 
@@ -253,7 +277,7 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open zip archive: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	for _, f := range r.File {
 		// Sanitize the path to prevent path traversal
@@ -284,14 +308,17 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 			return fmt.Errorf("failed to open file in archive: %w", err)
 		}
 
-		if _, err := io.Copy(outFile, rc); err != nil {
-			rc.Close()
-			outFile.Close()
-			return fmt.Errorf("failed to write file: %w", err)
-		}
-
+		// Use LimitReader to prevent decompression bomb attacks (G110)
+		limitedReader := io.LimitReader(rc, MaxPluginFileSize)
+		written, err := io.Copy(outFile, limitedReader)
 		rc.Close()
 		outFile.Close()
+		if err != nil {
+			return fmt.Errorf("failed to write file: %w", err)
+		}
+		if written == MaxPluginFileSize {
+			return fmt.Errorf("file %s exceeds maximum allowed size", f.Name)
+		}
 	}
 
 	return nil

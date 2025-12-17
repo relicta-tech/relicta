@@ -2,10 +2,14 @@
 package manager
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/relicta-tech/relicta/pkg/plugin"
 )
+
+// CurrentSDKVersion is the protocol version supported by this host.
+const CurrentSDKVersion = 1
 
 // Registry represents the central registry of available plugins.
 type Registry struct {
@@ -35,6 +39,11 @@ type PluginInfo struct {
 	Hooks []plugin.Hook `yaml:"hooks"`
 	// ConfigSchema defines the configuration options for the plugin
 	ConfigSchema map[string]ConfigField `yaml:"config_schema"`
+	// Checksums contains SHA256 checksums for each platform binary
+	// Keys are platform identifiers like "darwin_aarch64", "linux_x86_64", etc.
+	Checksums map[string]string `yaml:"checksums,omitempty"`
+	// MinSDKVersion is the minimum SDK version required to run this plugin
+	MinSDKVersion int `yaml:"min_sdk_version,omitempty"`
 	// Author of the plugin
 	Author string `yaml:"author,omitempty"`
 	// Homepage URL for the plugin
@@ -43,6 +52,40 @@ type PluginInfo struct {
 	License string `yaml:"license,omitempty"`
 	// Source is the registry URL this plugin came from (set at runtime)
 	Source string `yaml:"-"`
+}
+
+// GetChecksum returns the expected checksum for the current platform.
+func (p *PluginInfo) GetChecksum() string {
+	platform := GetCurrentPlatform()
+	if p.Checksums == nil {
+		return ""
+	}
+	return p.Checksums[platform]
+}
+
+// GetCurrentPlatform returns the current platform identifier (e.g., "darwin_aarch64").
+func GetCurrentPlatform() string {
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+
+	// Normalize architecture names to match release binaries
+	switch goarch {
+	case "amd64":
+		goarch = "x86_64"
+	case "arm64":
+		goarch = "aarch64"
+	}
+
+	return goos + "_" + goarch
+}
+
+// IsSDKCompatible checks if the plugin's SDK version is compatible with the host.
+func (p *PluginInfo) IsSDKCompatible() bool {
+	// If no SDK version specified, assume compatible (legacy plugins)
+	if p.MinSDKVersion == 0 {
+		return true
+	}
+	return p.MinSDKVersion <= CurrentSDKVersion
 }
 
 // RegistryEntry represents a configured plugin registry.
@@ -130,4 +173,18 @@ type PluginListEntry struct {
 	Info      PluginInfo
 	Installed *InstalledPlugin
 	Status    PluginStatus
+}
+
+// UpdateResult represents the result of a plugin update operation.
+type UpdateResult struct {
+	// Name of the plugin
+	Name string
+	// CurrentVersion is the version before update
+	CurrentVersion string
+	// LatestVersion is the new version after update
+	LatestVersion string
+	// Updated indicates if the plugin was actually updated
+	Updated bool
+	// Error message if update failed
+	Error string
 }
