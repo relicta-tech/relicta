@@ -23,6 +23,8 @@ type Config struct {
 	Output OutputConfig `mapstructure:"output" json:"output"`
 	// Telemetry configures observability and tracing.
 	Telemetry TelemetryConfig `mapstructure:"telemetry" json:"telemetry"`
+	// Governance configures Change Governance Protocol (CGP) settings.
+	Governance GovernanceConfig `mapstructure:"governance" json:"governance"`
 }
 
 // VersioningConfig configures version management.
@@ -274,6 +276,73 @@ type MetricsConfig struct {
 	Port int `mapstructure:"port" json:"port"`
 }
 
+// GovernanceConfig configures Change Governance Protocol (CGP) settings.
+// CGP enables policy-based governance for release decisions, especially
+// in agentic systems where AI agents propose changes.
+type GovernanceConfig struct {
+	// Enabled indicates whether CGP governance is enabled.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// StrictMode enforces governance decisions (blocks releases that don't pass).
+	// When false, governance operates in advisory mode (logs warnings but doesn't block).
+	StrictMode bool `mapstructure:"strict_mode" json:"strict_mode"`
+	// AutoApproveThreshold is the risk score (0.0-1.0) below which changes
+	// may be auto-approved without human review.
+	AutoApproveThreshold float64 `mapstructure:"auto_approve_threshold" json:"auto_approve_threshold"`
+	// MaxAutoApproveRisk is the maximum risk score (0.0-1.0) for auto-approval.
+	// Changes above this threshold always require human review.
+	MaxAutoApproveRisk float64 `mapstructure:"max_auto_approve_risk" json:"max_auto_approve_risk"`
+	// RequireHumanForBreaking forces human review for breaking changes (major bumps).
+	RequireHumanForBreaking bool `mapstructure:"require_human_for_breaking" json:"require_human_for_breaking"`
+	// RequireHumanForSecurity forces human review for security-related changes.
+	RequireHumanForSecurity bool `mapstructure:"require_human_for_security" json:"require_human_for_security"`
+	// TrustedActors is a list of actor IDs that are trusted for auto-approval.
+	// These actors can auto-approve low-risk changes without additional review.
+	TrustedActors []string `mapstructure:"trusted_actors" json:"trusted_actors,omitempty"`
+	// MemoryEnabled indicates whether Release Memory (historical tracking) is enabled.
+	MemoryEnabled bool `mapstructure:"memory_enabled" json:"memory_enabled"`
+	// MemoryPath is the path to the Release Memory storage file.
+	// Defaults to ".relicta/governance/memory.json" in the repository root.
+	MemoryPath string `mapstructure:"memory_path" json:"memory_path,omitempty"`
+	// Policies is a list of custom policy rules.
+	Policies []GovernancePolicyConfig `mapstructure:"policies" json:"policies,omitempty"`
+}
+
+// GovernancePolicyConfig configures a custom governance policy rule.
+type GovernancePolicyConfig struct {
+	// Name is the unique policy name.
+	Name string `mapstructure:"name" json:"name"`
+	// Description describes what this policy enforces.
+	Description string `mapstructure:"description" json:"description,omitempty"`
+	// Enabled indicates whether this policy is active.
+	Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
+	// Priority determines evaluation order (higher = evaluated first).
+	Priority int `mapstructure:"priority" json:"priority"`
+	// Conditions are the conditions that trigger this policy.
+	Conditions []PolicyConditionConfig `mapstructure:"conditions" json:"conditions,omitempty"`
+	// Action is the action to take when conditions are met.
+	Action string `mapstructure:"action" json:"action"` // approve, deny, require_review
+	// Message is an optional message to include with the decision.
+	Message string `mapstructure:"message" json:"message,omitempty"`
+}
+
+// PolicyConditionConfig configures a single policy condition.
+type PolicyConditionConfig struct {
+	// Field is the field to evaluate (e.g., "risk_score", "bump_type", "actor_kind").
+	Field string `mapstructure:"field" json:"field"`
+	// Operator is the comparison operator (eq, ne, gt, gte, lt, lte, in, contains).
+	Operator string `mapstructure:"operator" json:"operator"`
+	// Value is the value to compare against.
+	Value any `mapstructure:"value" json:"value"`
+}
+
+// IsPolicyEnabled returns whether the policy is enabled.
+func (p *GovernancePolicyConfig) IsPolicyEnabled() bool {
+	if p.Enabled == nil {
+		return true
+	}
+	return *p.Enabled
+}
+
 // DefaultConfig returns the default configuration.
 func DefaultConfig() *Config {
 	enabled := true
@@ -360,6 +429,18 @@ func DefaultConfig() *Config {
 				Enabled: false,
 				Port:    9090,
 			},
+		},
+		Governance: GovernanceConfig{
+			Enabled:                 false, // Disabled by default, opt-in for CGP
+			StrictMode:              false, // Advisory mode by default
+			AutoApproveThreshold:    0.3,   // Auto-approve changes with risk < 30%
+			MaxAutoApproveRisk:      0.5,   // Never auto-approve risk > 50%
+			RequireHumanForBreaking: true,  // Always require human for major bumps
+			RequireHumanForSecurity: true,  // Always require human for security changes
+			TrustedActors:           []string{},
+			MemoryEnabled:           true,                              // Track historical data when governance is enabled
+			MemoryPath:              ".relicta/governance/memory.json", // Default storage path
+			Policies:                []GovernancePolicyConfig{},
 		},
 	}
 }
