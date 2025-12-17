@@ -48,7 +48,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 
 	// Download the plugin archive
 	if err := i.downloadFile(ctx, downloadURL, tmpFile); err != nil {
-		return nil, fmt.Errorf("failed to download plugin: %w", err)
+		return nil, fmt.Errorf("failed to download plugin from %s: %w", downloadURL, err)
 	}
 
 	// Close temp file before extraction
@@ -170,14 +170,18 @@ func (i *Installer) downloadFile(ctx context.Context, url string, dest io.Writer
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Set user agent to avoid GitHub blocking
+	req.Header.Set("User-Agent", "relicta-plugin-installer")
+	req.Header.Set("Accept", "application/octet-stream")
+
 	resp, err := i.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to download: %w", err)
+		return fmt.Errorf("failed to download from %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return fmt.Errorf("unexpected status code: %d for URL: %s", resp.StatusCode, url)
 	}
 
 	_, err = io.Copy(dest, resp.Body)
@@ -295,9 +299,27 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 
 // findBinary searches for the plugin binary in the extracted directory.
 func (i *Installer) findBinary(extractDir, pluginName string) string {
-	binaryName := pluginName
+	// Build list of possible binary names
+	possibleNames := []string{pluginName}
+
+	// Add platform-specific name (e.g., github_darwin_aarch64)
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+	switch goarch {
+	case "amd64":
+		goarch = "x86_64"
+	case "arm64":
+		goarch = "aarch64"
+	}
+	platformName := fmt.Sprintf("%s_%s_%s", pluginName, goos, goarch)
+	possibleNames = append(possibleNames, platformName)
+
+	// Add .exe suffix for Windows
 	if runtime.GOOS == "windows" {
-		binaryName += ".exe"
+		possibleNames = []string{
+			pluginName + ".exe",
+			platformName + ".exe",
+		}
 	}
 
 	var foundPath string
@@ -308,10 +330,12 @@ func (i *Installer) findBinary(extractDir, pluginName string) string {
 		if info.IsDir() {
 			return nil
 		}
-		// Check if filename matches the binary name
-		if info.Name() == binaryName {
-			foundPath = path
-			return filepath.SkipAll
+		// Check if filename matches any possible binary name
+		for _, name := range possibleNames {
+			if info.Name() == name {
+				foundPath = path
+				return filepath.SkipAll
+			}
 		}
 		return nil
 	})
