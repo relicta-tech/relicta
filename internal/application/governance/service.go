@@ -14,6 +14,17 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
+// Re-export ReleaseOutcome type and constants for CLI convenience.
+// This allows CLI code to use governance.OutcomeSuccess without importing memory directly.
+type ReleaseOutcome = memory.ReleaseOutcome
+
+const (
+	OutcomeSuccess  = memory.OutcomeSuccess
+	OutcomeRollback = memory.OutcomeRollback
+	OutcomeFailure  = memory.OutcomeFailed
+	OutcomePartial  = memory.OutcomePartial
+)
+
 // Service provides CGP governance evaluation for release workflows.
 type Service struct {
 	evaluator   *evaluator.Evaluator
