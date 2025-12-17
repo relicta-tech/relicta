@@ -51,7 +51,7 @@ jobs:
           name: release-artifacts
           path: dist/
 
-  # Release using Relicta Action (dogfooding!)
+  # Release using the built binary
   release:
     name: Release with Relicta
     needs: build
@@ -71,11 +71,66 @@ jobs:
           name: release-artifacts
           path: dist/
 
-      # That's it! Use our own action to release ourselves 🎉
-      - name: Release with Relicta Action
-        uses: relicta-tech/relicta-action@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          plugins: 'github'
-          auto-approve: true
-          dry-run: ${{ inputs.dry-run }}
+      - name: Extract and setup relicta binary
+        run: |
+          mkdir -p bin
+          tar -xzf dist/relicta_Linux_x86_64.tar.gz -C bin --strip-components=1
+          chmod +x bin/relicta
+          echo "$PWD/bin" >> $GITHUB_PATH
+          bin/relicta version
+
+      - name: Build GitHub plugin
+        run: |
+          tar -xzf dist/github_linux_x86_64.tar.gz -C bin 2>/dev/null || true
+          ls -la bin/
+
+      - name: Run relicta release workflow
+        if: ${{ !inputs.dry-run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Plan the release
+          bin/relicta plan
+
+          # Bump version
+          bin/relicta bump
+
+          # Generate notes
+          bin/relicta notes
+
+          # Approve
+          bin/relicta approve --yes
+
+          # Get the new version
+          VERSION=$(bin/relicta version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+          # Push the tag
+          git push origin $VERSION || true
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Generate checksums
+          cd dist
+          sha256sum relicta_*.tar.gz relicta_*.zip > checksums.txt
+          cd ..
+
+          # Create release with binaries
+          gh release create $VERSION \
+            --title "Relicta $VERSION" \
+            --generate-notes \
+            dist/relicta_Darwin_aarch64.tar.gz \
+            dist/relicta_Darwin_x86_64.tar.gz \
+            dist/relicta_Linux_aarch64.tar.gz \
+            dist/relicta_Linux_x86_64.tar.gz \
+            dist/relicta_Windows_x86_64.zip \
+            dist/checksums.txt
+
+      - name: Dry run
+        if: ${{ inputs.dry-run }}
+        run: |
+          bin/relicta plan --dry-run
+          echo "Dry run complete - no release created"
