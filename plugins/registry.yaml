@@ -4,32 +4,32 @@ updated_at: 2025-12-17T19:40:00Z
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
-    repository: relicta-tech/relicta
-    path: plugins/github
-    version: v2.2.0
+    repository: relicta-tech/plugin-github
+    version: v2.0.0
     category: vcs
     author: Relicta Team
-    homepage: https://github.com/relicta-tech/relicta
+    homepage: https://github.com/relicta-tech/plugin-github
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: cd42565577114488a9d42d703fd88e1f80f6e6269c05df57172e3dba173dddfe
-      darwin_x86_64: 002faf8e7affa7b4d9297c98939d462cae9275909e25f0bde3b7b657a5bf4b32
-      linux_aarch64: 146e01c2124f2bfd5afa05c0d8394858bd268f700f563b13cb189ffd8cad4b31
-      linux_x86_64: 42721c22cd785481c3a7cd6f533b756f452fc936d2cdbb2facd1756c22b8a1f6
-      windows_x86_64: c98ec283e4daf28cb669653373fd0394436552b8246caaa8013078577b4544f7
+      darwin_aarch64: 7130392baa19d28154e27e4a6da5c6eecf6d535df4b58cee0fa53533719ff8d4
+      darwin_x86_64: c5978479e379fcd9cc4bc34761a3eb0552a5ca97f3515b0fd542d2a24f521ca4
+      linux_aarch64: 024fb195cd8f11a69839b8d3a8d67fe5ae3c984850989c020d4d06fee7bb3dde
+      linux_x86_64: 34c22d833fad3d9d282aa58b5d530ac654d80f5cec89313df9a53d3a9e40421c
+      windows_x86_64: 79b9005ca6997f04922aa436d6fbd9cf20ba81850b4ca105b5be3581a78c6299
     hooks:
-      - pre_publish
       - post_publish
+      - on_success
+      - on_error
     config_schema:
       owner:
         type: string
-        required: true
-        description: "Repository owner (username or organization)"
+        required: false
+        description: "Repository owner (auto-detected from git remote)"
       repo:
         type: string
-        required: true
-        description: "Repository name"
+        required: false
+        description: "Repository name (auto-detected from git remote)"
       token:
         type: string
         required: false
@@ -54,6 +54,10 @@ plugins:
         type: array
         required: false
         description: "Glob patterns for assets to upload (e.g., dist/*.tar.gz)"
+      discussion_category:
+        type: string
+        required: false
+        description: "Discussion category name to create for the release"
 
   - name: gitlab
     description: Create GitLab releases
