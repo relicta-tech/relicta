@@ -14,7 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/ui"
@@ -177,6 +179,48 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	// Display release summary
 	displayReleaseSummary(rel)
 
+	// CGP Governance evaluation (if enabled)
+	var govResult *governance.EvaluateReleaseOutput
+	if dddContainer.HasGovernance() {
+		govResult, err = evaluateGovernance(ctx, dddContainer, rel)
+		if err != nil {
+			// In advisory mode, log warning but continue
+			if !cfg.Governance.StrictMode {
+				printWarning(fmt.Sprintf("Governance evaluation failed: %v", err))
+			} else {
+				return fmt.Errorf("governance evaluation failed: %w", err)
+			}
+		} else {
+			// Display governance results
+			displayGovernanceResult(govResult)
+
+			// Check if release is blocked in strict mode
+			if cfg.Governance.StrictMode && govResult.Decision == cgp.DecisionRejected {
+				printError("Release blocked by governance policy")
+				for _, rationale := range govResult.Rationale {
+					fmt.Printf("  - %s\n", rationale)
+				}
+				return fmt.Errorf("release denied by governance: %s", strings.Join(govResult.Rationale, "; "))
+			}
+
+			// Auto-approve if allowed and conditions met
+			if govResult.CanAutoApprove && approveYes {
+				printSuccess("Auto-approved by governance (low risk)")
+				if !dryRun {
+					if err := executeApproval(ctx, dddContainer, rel, nil); err != nil {
+						return err
+					}
+					// Record successful outcome
+					recordReleaseOutcome(ctx, dddContainer, rel, govResult, true)
+				} else {
+					printWarning("Dry run - approval not saved")
+				}
+				printApproveNextSteps()
+				return nil
+			}
+		}
+	}
+
 	// Edit release notes if requested
 	editedNotes, err := handleNotesEditing(rel)
 	if err != nil {
@@ -204,8 +248,179 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Record successful outcome to Release Memory
+	if govResult != nil {
+		recordReleaseOutcome(ctx, dddContainer, rel, govResult, true)
+	}
+
 	printApproveNextSteps()
 	return nil
+}
+
+// createCGPActor creates a CGP actor from the current environment.
+func createCGPActor() cgp.Actor {
+	// Determine actor kind based on environment
+	kind := cgp.ActorKindHuman
+
+	// Check for CI environment indicators
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" ||
+		os.Getenv("GITLAB_CI") == "true" || os.Getenv("JENKINS_URL") != "" {
+		kind = cgp.ActorKindCI
+	}
+
+	// Get actor identity
+	identity := os.Getenv("USER")
+	if identity == "" {
+		identity = os.Getenv("USERNAME") // Windows
+	}
+	if identity == "" {
+		identity = "unknown"
+	}
+
+	// Check for GitHub Actions specific identity
+	if actor := os.Getenv("GITHUB_ACTOR"); actor != "" {
+		identity = actor
+	}
+
+	// Determine trust level
+	trustLevel := cgp.TrustLevelLimited
+	if kind == cgp.ActorKindHuman {
+		trustLevel = cgp.TrustLevelTrusted
+	}
+
+	// Check if actor is in trusted list
+	if governance.IsActorTrusted(&cfg.Governance, cgp.Actor{ID: identity}) {
+		trustLevel = cgp.TrustLevelFull
+	}
+
+	return cgp.Actor{
+		ID:         fmt.Sprintf("%s:%s", kind.String(), identity),
+		Kind:       kind,
+		Name:       identity,
+		TrustLevel: trustLevel,
+	}
+}
+
+// evaluateGovernance evaluates the release through CGP governance.
+func evaluateGovernance(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return nil, fmt.Errorf("governance service not available")
+	}
+
+	// Get repository info
+	gitAdapter := dddContainer.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	actor := createCGPActor()
+
+	input := governance.EvaluateReleaseInput{
+		Release:        rel,
+		Actor:          actor,
+		Repository:     repoInfo.Path,
+		IncludeHistory: cfg.Governance.MemoryEnabled,
+	}
+
+	return govService.EvaluateRelease(ctx, input)
+}
+
+// displayGovernanceResult displays the governance evaluation result.
+func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
+	fmt.Println()
+	printTitle("Governance Evaluation")
+	fmt.Println()
+
+	// Risk score with color indicator
+	riskPct := result.RiskScore * 100
+	riskLabel := "LOW"
+	if result.RiskScore >= 0.7 {
+		riskLabel = "HIGH"
+	} else if result.RiskScore >= 0.4 {
+		riskLabel = "MEDIUM"
+	}
+
+	fmt.Printf("  Risk Score:     %.1f%% (%s)\n", riskPct, riskLabel)
+	fmt.Printf("  Severity:       %s\n", result.Severity)
+	fmt.Printf("  Decision:       %s\n", result.Decision)
+	fmt.Printf("  Auto-Approve:   %v\n", result.CanAutoApprove)
+
+	// Display risk factors if any
+	if len(result.RiskFactors) > 0 {
+		fmt.Println()
+		fmt.Println("  Risk Factors:")
+		for _, factor := range result.RiskFactors {
+			fmt.Printf("    - [%s] %s (%.1f%%)\n", factor.Category, factor.Description, factor.Score*100)
+		}
+	}
+
+	// Display required actions if any
+	if len(result.RequiredActions) > 0 {
+		fmt.Println()
+		fmt.Println("  Required Actions:")
+		for _, action := range result.RequiredActions {
+			fmt.Printf("    - [%s] %s\n", action.Type, action.Description)
+		}
+	}
+
+	// Display rationale if decision is not approved
+	if result.Decision != cgp.DecisionApproved && len(result.Rationale) > 0 {
+		fmt.Println()
+		fmt.Println("  Rationale:")
+		for _, r := range result.Rationale {
+			fmt.Printf("    - %s\n", r)
+		}
+	}
+
+	// Display historical context if available
+	if result.HistoricalContext != nil && result.HistoricalContext.RecentReleases > 0 {
+		fmt.Println()
+		fmt.Println("  Historical Context:")
+		fmt.Printf("    Recent Releases: %d\n", result.HistoricalContext.RecentReleases)
+		fmt.Printf("    Success Rate:    %.1f%%\n", result.HistoricalContext.SuccessRate*100)
+		if result.HistoricalContext.RollbackRate > 0 {
+			fmt.Printf("    Rollback Rate:   %.1f%%\n", result.HistoricalContext.RollbackRate*100)
+		}
+	}
+}
+
+// recordReleaseOutcome records the release outcome to Release Memory.
+func recordReleaseOutcome(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
+	govService := dddContainer.GovernanceService()
+	if govService == nil || govResult == nil {
+		return
+	}
+
+	// Get repository info
+	gitAdapter := dddContainer.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return
+	}
+
+	outcome := governance.OutcomeSuccess
+	if !success {
+		outcome = governance.OutcomeFailure
+	}
+
+	actor := createCGPActor()
+
+	input := governance.RecordOutcomeInput{
+		ReleaseID:  rel.ID(),
+		Repository: repoInfo.Path,
+		Version:    rel.Summary().NextVersion,
+		Actor:      actor,
+		RiskScore:  govResult.RiskScore,
+		Decision:   govResult.Decision,
+		Outcome:    outcome,
+	}
+
+	if err := govService.RecordReleaseOutcome(ctx, input); err != nil {
+		// Non-fatal - just log the warning
+		printWarning(fmt.Sprintf("Failed to record release outcome: %v", err))
+	}
 }
 
 // displayReleaseSummary displays the release summary for review.
@@ -458,6 +673,61 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 	return tuiSummary
 }
 
+// buildGovernanceSummaryForTUI builds governance summary for TUI display.
+func buildGovernanceSummaryForTUI(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) *ui.GovernanceSummary {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return nil
+	}
+
+	// Get repo info
+	repoURL := ""
+	if gitAdapter := dddContainer.GitAdapter(); gitAdapter != nil {
+		if info, err := gitAdapter.GetInfo(ctx); err == nil {
+			repoURL = info.RemoteURL
+		}
+	}
+
+	// Create actor
+	actor := createCGPActor()
+
+	// Evaluate
+	input := governance.EvaluateReleaseInput{
+		Release:    rel,
+		Actor:      actor,
+		Repository: repoURL,
+	}
+
+	result, err := govService.EvaluateRelease(ctx, input)
+	if err != nil {
+		return nil
+	}
+
+	// Build TUI summary
+	govSummary := &ui.GovernanceSummary{
+		RiskScore:      result.RiskScore,
+		Severity:       string(result.Severity),
+		Decision:       string(result.Decision),
+		CanAutoApprove: result.CanAutoApprove,
+	}
+
+	// Add risk factors
+	for _, factor := range result.RiskFactors {
+		govSummary.RiskFactors = append(govSummary.RiskFactors, ui.RiskFactor{
+			Category:    factor.Category,
+			Description: factor.Description,
+			Score:       factor.Score,
+		})
+	}
+
+	// Add required actions
+	for _, action := range result.RequiredActions {
+		govSummary.RequiredActions = append(govSummary.RequiredActions, action.Description)
+	}
+
+	return govSummary
+}
+
 // handleEditApprovalResult handles the edit result from TUI approval.
 // Returns the edited notes and whether approval should proceed.
 func handleEditApprovalResult(rel *release.Release) (*string, bool, error) {
@@ -507,8 +777,18 @@ func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*
 
 // runInteractiveApproval runs the interactive TUI for approval.
 func runInteractiveApproval(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) error {
-	// Build and run TUI
+	// Build TUI summary
 	tuiSummary := buildTUISummary(rel)
+
+	// Add governance info if enabled
+	if dddContainer.HasGovernance() {
+		govSummary := buildGovernanceSummaryForTUI(ctx, dddContainer, rel)
+		if govSummary != nil {
+			tuiSummary.Governance = govSummary
+		}
+	}
+
+	// Run TUI
 	result, err := ui.RunApprovalTUI(tuiSummary)
 	if err != nil {
 		return fmt.Errorf("interactive approval failed: %w", err)

@@ -14,6 +14,7 @@ require (
 	github.com/felixgeelhaar/jirasdk v1.5.2
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/google/go-github/v60 v60.0.0
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.7.0
 	github.com/liushuangls/go-anthropic/v2 v2.17.0

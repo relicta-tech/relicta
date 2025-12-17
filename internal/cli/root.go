@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -374,12 +375,74 @@ func printInfo(msg string) {
 	fmt.Println(styles.Info.Render("ℹ " + msg))
 }
 
+func printDryRunBanner() {
+	fmt.Println(styles.Warning.Render("⚠ DRY RUN MODE - no changes will be made"))
+	fmt.Println()
+}
+
 func printTitle(msg string) {
 	fmt.Println(styles.Title.Render(msg))
 }
 
 func printSubtle(msg string) {
 	fmt.Println(styles.Subtle.Render(msg))
+}
+
+// Spinner provides a simple CLI loading indicator.
+type Spinner struct {
+	message string
+	stop    chan struct{}
+	done    chan struct{}
+}
+
+// NewSpinner creates a new spinner with a message.
+func NewSpinner(message string) *Spinner {
+	return &Spinner{
+		message: message,
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+	}
+}
+
+// Start begins the spinner animation.
+func (s *Spinner) Start() {
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	go func() {
+		defer close(s.done)
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+		i := 0
+		for {
+			select {
+			case <-s.stop:
+				// Clear the spinner line
+				fmt.Printf("\r\033[K")
+				return
+			case <-ticker.C:
+				fmt.Printf("\r%s %s", styles.Info.Render(frames[i%len(frames)]), s.message)
+				i++
+			}
+		}
+	}()
+}
+
+// Stop stops the spinner.
+func (s *Spinner) Stop() {
+	close(s.stop)
+	<-s.done
+	fmt.Println() // Ensure we're on a new line after spinner
+}
+
+// StopWithSuccess stops the spinner and shows a success message.
+func (s *Spinner) StopWithSuccess(msg string) {
+	s.Stop()
+	printSuccess(msg)
+}
+
+// StopWithError stops the spinner and shows an error message.
+func (s *Spinner) StopWithError(msg string) {
+	s.Stop()
+	printError(msg)
 }
 
 // IsCIMode returns true if running in CI/CD mode.

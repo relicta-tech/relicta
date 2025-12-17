@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/config"
@@ -58,6 +59,9 @@ type DDDContainer struct {
 	publishReleaseUC   *release.PublishReleaseUseCase
 	calculateVersionUC *versioning.CalculateVersionUseCase
 	setVersionUC       *versioning.SetVersionUseCase
+
+	// Governance service (CGP)
+	governanceService *governance.Service
 
 	// Cleanup tracking
 	closeables []Closeable
@@ -265,7 +269,7 @@ func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
 }
 
 // initApplicationLayer initializes application layer use cases.
-func (c *DDDContainer) initApplicationLayer(_ context.Context) error {
+func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
 	// Initialize PlanReleaseUseCase with UnitOfWork factory
 	// Each command will create its own transaction via the factory
 	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
@@ -305,6 +309,49 @@ func (c *DDDContainer) initApplicationLayer(_ context.Context) error {
 
 	// Initialize SetVersionUseCase
 	c.setVersionUC = versioning.NewSetVersionUseCase(c.gitAdapter)
+
+	// Initialize Governance service (CGP) if enabled
+	if c.config.Governance.Enabled {
+		if err := c.initGovernanceService(ctx); err != nil {
+			// Governance failure is non-fatal in advisory mode
+			c.logger.Warn("governance service initialization failed", "error", err)
+		}
+	}
+
+	return nil
+}
+
+// initGovernanceService initializes the CGP governance service.
+func (c *DDDContainer) initGovernanceService(ctx context.Context) error {
+	// Check for early cancellation
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Get repository path for memory storage
+	repoPath := ""
+	if c.gitAdapter != nil {
+		info, err := c.gitAdapter.GetInfo(ctx)
+		if err == nil {
+			repoPath = info.Path
+		}
+	}
+
+	var err error
+	c.governanceService, err = governance.NewServiceFromConfig(
+		&c.config.Governance,
+		repoPath,
+		c.logger,
+	)
+	if err != nil {
+		return errors.StateWrap(err, "initGovernanceService", "failed to create governance service")
+	}
+
+	c.logger.Info("governance service initialized",
+		"strict_mode", c.config.Governance.StrictMode,
+		"auto_approve_threshold", c.config.Governance.AutoApproveThreshold,
+		"memory_enabled", c.config.Governance.MemoryEnabled,
+	)
 
 	return nil
 }
@@ -351,6 +398,21 @@ func (c *DDDContainer) SetVersion() *versioning.SetVersionUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.setVersionUC
+}
+
+// GovernanceService returns the CGP governance service.
+// Returns nil if governance is not enabled.
+func (c *DDDContainer) GovernanceService() *governance.Service {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.governanceService
+}
+
+// HasGovernance returns true if governance is enabled and initialized.
+func (c *DDDContainer) HasGovernance() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.governanceService != nil
 }
 
 // Infrastructure layer accessors

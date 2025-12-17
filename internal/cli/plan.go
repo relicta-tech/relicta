@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,9 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/application/governance"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 var (
@@ -35,6 +39,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	printTitle("Release Plan")
 	fmt.Println()
 
+	if dryRun {
+		printDryRunBanner()
+	}
+
 	// Initialize container
 	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
 	if err != nil {
@@ -50,7 +58,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare input
-	input := release.PlanReleaseInput{
+	input := apprelease.PlanReleaseInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        planFromRef,
@@ -59,22 +67,48 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
-	// Execute use case
+	// Execute use case with spinner (unless JSON output)
+	var spinner *Spinner
+	if !outputJSON {
+		spinner = NewSpinner("Analyzing commits...")
+		spinner.Start()
+	}
+
 	output, err := dddContainer.PlanRelease().Execute(ctx, input)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to plan release: %w", err)
 	}
 
-	// Output results
-	if outputJSON {
-		return outputPlanJSON(output)
+	// Get governance risk preview if enabled
+	var riskPreview *governanceRiskPreview
+	if dddContainer.HasGovernance() {
+		riskPreview = getGovernanceRiskPreview(ctx, dddContainer, output, repoInfo.RemoteURL)
 	}
 
-	return outputPlanText(output, planShowAll, planMinimal)
+	// Output results
+	if outputJSON {
+		return outputPlanJSON(output, riskPreview)
+	}
+
+	return outputPlanText(output, planShowAll, planMinimal, riskPreview)
+}
+
+// governanceRiskPreview holds the risk assessment preview for the plan.
+type governanceRiskPreview struct {
+	RiskScore      float64
+	Severity       string
+	Decision       string
+	CanAutoApprove bool
+	RiskFactors    []string
 }
 
 // outputPlanJSON outputs the plan as JSON.
-func outputPlanJSON(output *release.PlanReleaseOutput) error {
+func outputPlanJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
 		"release_id":      string(output.ReleaseID),
@@ -92,13 +126,24 @@ func outputPlanJSON(output *release.PlanReleaseOutput) error {
 		},
 	}
 
+	// Add governance risk preview if available
+	if riskPreview != nil {
+		result["governance"] = map[string]any{
+			"risk_score":       riskPreview.RiskScore,
+			"severity":         riskPreview.Severity,
+			"decision":         riskPreview.Decision,
+			"can_auto_approve": riskPreview.CanAutoApprove,
+			"risk_factors":     riskPreview.RiskFactors,
+		}
+	}
+
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
 }
 
 // outputPlanText outputs the plan as text.
-func outputPlanText(output *release.PlanReleaseOutput, showAll, minimal bool) error {
+func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
 	// Summary
 	printTitle("Summary")
 	fmt.Println()
@@ -113,6 +158,28 @@ func outputPlanText(output *release.PlanReleaseOutput, showAll, minimal bool) er
 	w.Flush()
 
 	fmt.Println()
+
+	// Governance risk preview (if enabled)
+	if riskPreview != nil {
+		printTitle("Governance Risk Preview")
+		fmt.Println()
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintf(w, "  Risk Score:\t%s\n", formatRiskScoreDisplay(riskPreview.RiskScore, riskPreview.Severity))
+		fmt.Fprintf(w, "  Decision:\t%s\n", formatDecisionDisplay(riskPreview.Decision))
+		fmt.Fprintf(w, "  Auto-Approve:\t%s\n", formatAutoApproveDisplay(riskPreview.CanAutoApprove))
+		w.Flush()
+
+		if len(riskPreview.RiskFactors) > 0 {
+			fmt.Println()
+			fmt.Println("  Risk Factors:")
+			for _, factor := range riskPreview.RiskFactors {
+				fmt.Printf("    - %s\n", factor)
+			}
+		}
+
+		fmt.Println()
+	}
 
 	if !minimal {
 		cats := output.ChangeSet.Categories()
@@ -241,4 +308,101 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 	result = append(result, cats.CI...)
 	result = append(result, cats.Other...)
 	return result
+}
+
+// getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
+func getGovernanceRiskPreview(ctx context.Context, dddContainer *container.DDDContainer, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return nil
+	}
+
+	// Create a temporary release from plan output (works in dry-run mode)
+	rel := release.NewRelease(output.ReleaseID, output.Branch, "")
+	plan := release.NewReleasePlan(
+		output.CurrentVersion,
+		output.NextVersion,
+		output.ReleaseType,
+		output.ChangeSet,
+		dryRun,
+	)
+	if err := rel.SetPlan(plan); err != nil {
+		return nil
+	}
+
+	// Create actor (similar to approve.go)
+	actor := createCGPActorForPlan()
+
+	// Evaluate
+	input := governance.EvaluateReleaseInput{
+		Release:    rel,
+		Actor:      actor,
+		Repository: repoURL,
+	}
+
+	result, err := govService.EvaluateRelease(ctx, input)
+	if err != nil {
+		// Don't fail the plan command if governance fails
+		return nil
+	}
+
+	// Extract risk factors
+	var riskFactors []string
+	for _, factor := range result.RiskFactors {
+		riskFactors = append(riskFactors, fmt.Sprintf("[%s] %s (%.0f%%)", factor.Category, factor.Description, factor.Score*100))
+	}
+
+	return &governanceRiskPreview{
+		RiskScore:      result.RiskScore,
+		Severity:       string(result.Severity),
+		Decision:       string(result.Decision),
+		CanAutoApprove: result.CanAutoApprove,
+		RiskFactors:    riskFactors,
+	}
+}
+
+// createCGPActorForPlan creates a CGP actor for plan preview.
+func createCGPActorForPlan() cgp.Actor {
+	// Simple actor for preview - just uses local user
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "unknown"
+	}
+	return cgp.NewHumanActor(user, user)
+}
+
+// formatRiskScoreDisplay formats the risk score with severity label.
+func formatRiskScoreDisplay(score float64, severity string) string {
+	percent := fmt.Sprintf("%.1f%%", score*100)
+
+	switch severity {
+	case "critical", "high":
+		return styles.Error.Render(fmt.Sprintf("%s (%s)", percent, severity))
+	case "medium":
+		return styles.Warning.Render(fmt.Sprintf("%s (%s)", percent, severity))
+	default:
+		return styles.Success.Render(fmt.Sprintf("%s (%s)", percent, severity))
+	}
+}
+
+// formatDecisionDisplay formats the decision with appropriate styling.
+func formatDecisionDisplay(decision string) string {
+	switch decision {
+	case "approved":
+		return styles.Success.Render(decision)
+	case "approval_required":
+		return styles.Warning.Render("requires approval")
+	case "rejected":
+		return styles.Error.Render(decision)
+	default:
+		return styles.Subtle.Render(decision)
+	}
+}
+
+// formatAutoApproveDisplay formats the auto-approve status.
+func formatAutoApproveDisplay(canAutoApprove bool) string {
+	if canAutoApprove {
+		return styles.Success.Render("yes")
+	}
+	return styles.Warning.Render("no (manual review required)")
 }

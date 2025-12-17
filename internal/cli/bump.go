@@ -161,6 +161,10 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	printTitle("Version Bump")
 	fmt.Println()
 
+	if dryRun {
+		printDryRunBanner()
+	}
+
 	// Initialize container
 	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
 	if err != nil {
@@ -199,9 +203,8 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	outputCalculatedVersionText(calcOutput, nextVersion)
 
-	// Dry run check
+	// Dry run - skip actual changes
 	if dryRun {
-		printWarning("Dry run - no changes will be made")
 		return nil
 	}
 

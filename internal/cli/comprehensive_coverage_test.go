@@ -120,7 +120,7 @@ func TestOutputPlanText_WithBreaking(t *testing.T) {
 		Branch:         "main",
 	}
 
-	err := outputPlanText(output, false, false)
+	err := outputPlanText(output, false, false, nil)
 	if err != nil {
 		t.Errorf("outputPlanText() with breaking changes error = %v", err)
 	}
@@ -151,7 +151,7 @@ func TestOutputPlanJSON_CIMode(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputPlanJSON(output)
+	err := outputPlanJSON(output, nil)
 
 	w.Close()
 	os.Stdout = oldStdout

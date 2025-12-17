@@ -1,85 +1,17 @@
-# Relicta Configuration for Self-Release
-# This config allows Relicta to release itself (dogfooding!)
-
 versioning:
-  strategy: conventional  # Use conventional commits for versioning
-  initial_version: "0.1.0"
+  strategy: conventional
+  tag_prefix: v
 
-changelog:
+governance:
   enabled: true
-  file: CHANGELOG.md
-  format: conventional  # Use conventional commit format
-  # repository_url is auto-detected from git remote
-  # issue_url must be explicitly set if link_issues is desired
-  sections:
-    - title: "🚀 New Features"
-      types: ["feat"]
-    - title: "🐛 Bug Fixes"
-      types: ["fix"]
-    - title: "📚 Documentation"
-      types: ["docs"]
-    - title: "🔧 Other Changes"
-      types: ["chore", "refactor", "perf", "style", "test"]
+  strict_mode: false
+  auto_approve_threshold: 0.3
+  max_auto_approve_risk: 0.5
+  require_human_for_breaking: true
+  require_human_for_security: true
+  memory_enabled: true
+  memory_path: .relicta/governance-memory.json
 
 plugins:
-  # GitHub plugin handles release creation and asset uploads
   - name: github
     enabled: true
-    config:
-      owner: relicta-tech
-      repo: relicta
-      draft: false
-      prerelease: false
-      generate_release_notes: false  # We generate our own
-      # Assets to upload - archives + individual plugin binaries
-      assets:
-        # Main binary archives
-        - "dist/relicta_Linux_x86_64.tar.gz"
-        - "dist/relicta_Linux_aarch64.tar.gz"
-        - "dist/relicta_Darwin_x86_64.tar.gz"
-        - "dist/relicta_Darwin_aarch64.tar.gz"
-        - "dist/relicta_Windows_x86_64.zip"
-        # Plugin binaries - GitHub
-        - "dist/github_linux_x86_64"
-        - "dist/github_linux_aarch64"
-        - "dist/github_darwin_x86_64"
-        - "dist/github_darwin_aarch64"
-        - "dist/github_windows_x86_64.exe"
-        # Plugin binaries - GitLab
-        - "dist/gitlab_linux_x86_64"
-        - "dist/gitlab_linux_aarch64"
-        - "dist/gitlab_darwin_x86_64"
-        - "dist/gitlab_darwin_aarch64"
-        - "dist/gitlab_windows_x86_64.exe"
-        # Plugin binaries - npm
-        - "dist/npm_linux_x86_64"
-        - "dist/npm_linux_aarch64"
-        - "dist/npm_darwin_x86_64"
-        - "dist/npm_darwin_aarch64"
-        - "dist/npm_windows_x86_64.exe"
-        # Plugin binaries - Slack
-        - "dist/slack_linux_x86_64"
-        - "dist/slack_linux_aarch64"
-        - "dist/slack_darwin_x86_64"
-        - "dist/slack_darwin_aarch64"
-        - "dist/slack_windows_x86_64.exe"
-        # Plugin binaries - Discord
-        - "dist/discord_linux_x86_64"
-        - "dist/discord_linux_aarch64"
-        - "dist/discord_darwin_x86_64"
-        - "dist/discord_darwin_aarch64"
-        - "dist/discord_windows_x86_64.exe"
-        # Plugin binaries - Jira
-        - "dist/jira_linux_x86_64"
-        - "dist/jira_linux_aarch64"
-        - "dist/jira_darwin_x86_64"
-        - "dist/jira_darwin_aarch64"
-        - "dist/jira_windows_x86_64.exe"
-        # Plugin binaries - LaunchNotes
-        - "dist/launchnotes_linux_x86_64"
-        - "dist/launchnotes_linux_aarch64"
-        - "dist/launchnotes_darwin_x86_64"
-        - "dist/launchnotes_darwin_aarch64"
-        - "dist/launchnotes_windows_x86_64.exe"
-        # Checksums
-        - "dist/checksums.txt"
