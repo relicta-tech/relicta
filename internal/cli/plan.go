@@ -11,10 +11,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/application/release"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 var (
@@ -53,7 +54,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare input
-	input := release.PlanReleaseInput{
+	input := apprelease.PlanReleaseInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        planFromRef,
@@ -92,7 +93,7 @@ type governanceRiskPreview struct {
 }
 
 // outputPlanJSON outputs the plan as JSON.
-func outputPlanJSON(output *release.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+func outputPlanJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
 		"release_id":      string(output.ReleaseID),
@@ -127,7 +128,7 @@ func outputPlanJSON(output *release.PlanReleaseOutput, riskPreview *governanceRi
 }
 
 // outputPlanText outputs the plan as text.
-func outputPlanText(output *release.PlanReleaseOutput, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
+func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
 	// Summary
 	printTitle("Summary")
 	fmt.Println()
@@ -295,15 +296,22 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, dddContainer *container.DDDContainer, output *release.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
+func getGovernanceRiskPreview(ctx context.Context, dddContainer *container.DDDContainer, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
 	govService := dddContainer.GovernanceService()
 	if govService == nil {
 		return nil
 	}
 
-	// Create a temporary release for evaluation
-	rel, err := dddContainer.ReleaseRepository().FindByID(ctx, output.ReleaseID)
-	if err != nil || rel == nil {
+	// Create a temporary release from plan output (works in dry-run mode)
+	rel := release.NewRelease(output.ReleaseID, output.Branch, "")
+	plan := release.NewReleasePlan(
+		output.CurrentVersion,
+		output.NextVersion,
+		output.ReleaseType,
+		output.ChangeSet,
+		dryRun,
+	)
+	if err := rel.SetPlan(plan); err != nil {
 		return nil
 	}
 
