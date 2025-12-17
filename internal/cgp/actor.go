@@ -116,6 +116,9 @@ type Actor struct {
 	// Name is an optional human-readable name for the actor.
 	Name string `json:"name,omitempty"`
 
+	// TrustLevel determines how much autonomy this actor has.
+	TrustLevel TrustLevel `json:"trustLevel,omitempty"`
+
 	// Attributes contains additional actor-specific metadata.
 	// Examples: "model" for agents, "workflow" for CI, "email" for humans.
 	Attributes map[string]string `json:"attributes,omitempty"`
