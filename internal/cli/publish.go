@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
+	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 )
@@ -178,6 +181,20 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		return outputPublishJSON(rel)
 	}
 
+	// Get governance evaluation for outcome tracking (if enabled)
+	var govResult *governance.EvaluateReleaseOutput
+	if dddContainer.HasGovernance() {
+		govResult, err = evaluateGovernanceForPublish(ctx, dddContainer, rel)
+		if err != nil {
+			// Non-fatal - just log warning
+			printWarning(fmt.Sprintf("Governance evaluation failed: %v", err))
+		} else if cfg.Governance.StrictMode && govResult.Decision == cgp.DecisionRejected {
+			// In strict mode, block rejected releases even at publish time
+			printError("Release blocked by governance policy")
+			return fmt.Errorf("release denied by governance")
+		}
+	}
+
 	// Display planned actions
 	displayPublishActions(nextVersion.String())
 
@@ -187,13 +204,21 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Track publish start time for duration recording
+	publishStart := time.Now()
+
 	// Execute publish use case
 	input := buildPublishInput(rel)
 	output, err := dddContainer.PublishRelease().Execute(ctx, input)
 	if err != nil {
 		printError(fmt.Sprintf("Failed to publish release: %v", err))
+		// Record failure outcome to Release Memory
+		recordPublishOutcome(ctx, dddContainer, rel, govResult, false, time.Since(publishStart))
 		return fmt.Errorf("failed to publish release: %w", err)
 	}
+
+	// Record success outcome to Release Memory
+	recordPublishOutcome(ctx, dddContainer, rel, govResult, true, time.Since(publishStart))
 
 	// Output results
 	outputPublishResults(output)
@@ -202,6 +227,88 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	printPublishSummary(nextVersion.String(), output.TagName)
 
 	return nil
+}
+
+// evaluateGovernanceForPublish evaluates the release for governance tracking.
+func evaluateGovernanceForPublish(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return nil, fmt.Errorf("governance service not available")
+	}
+
+	gitAdapter := dddContainer.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	actor := createCGPActor()
+
+	input := governance.EvaluateReleaseInput{
+		Release:        rel,
+		Actor:          actor,
+		Repository:     repoInfo.Path,
+		IncludeHistory: cfg.Governance.MemoryEnabled,
+	}
+
+	return govService.EvaluateRelease(ctx, input)
+}
+
+// recordPublishOutcome records the actual publish outcome to Release Memory.
+func recordPublishOutcome(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
+	govService := dddContainer.GovernanceService()
+	if govService == nil {
+		return
+	}
+
+	gitAdapter := dddContainer.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return
+	}
+
+	// Determine outcome
+	outcome := governance.OutcomeSuccess
+	if !success {
+		outcome = governance.OutcomeFailure
+	}
+
+	actor := createCGPActor()
+
+	// Get risk info from governance result or use defaults
+	var riskScore float64
+	var decision cgp.DecisionType
+	var breakingChanges, securityChanges, filesChanged int
+
+	if govResult != nil {
+		riskScore = govResult.RiskScore
+		decision = govResult.Decision
+	}
+
+	// Extract change metrics from release plan
+	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
+		cats := rel.Plan().GetChangeSet().Categories()
+		breakingChanges = len(cats.Breaking)
+		filesChanged = rel.Plan().GetChangeSet().Summary().TotalCommits
+	}
+
+	input := governance.RecordOutcomeInput{
+		ReleaseID:       rel.ID(),
+		Repository:      repoInfo.Path,
+		Version:         rel.Summary().NextVersion,
+		Actor:           actor,
+		RiskScore:       riskScore,
+		Decision:        decision,
+		BreakingChanges: breakingChanges,
+		SecurityChanges: securityChanges,
+		FilesChanged:    filesChanged,
+		Outcome:         outcome,
+		Duration:        duration,
+	}
+
+	if err := govService.RecordReleaseOutcome(ctx, input); err != nil {
+		printWarning(fmt.Sprintf("Failed to record publish outcome: %v", err))
+	}
 }
 
 // updateChangelogFile updates the changelog file with new content.
