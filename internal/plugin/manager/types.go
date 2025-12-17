@@ -41,6 +41,28 @@ type PluginInfo struct {
 	Homepage string `yaml:"homepage,omitempty"`
 	// License of the plugin
 	License string `yaml:"license,omitempty"`
+	// Source is the registry URL this plugin came from (set at runtime)
+	Source string `yaml:"-"`
+}
+
+// RegistryEntry represents a configured plugin registry.
+type RegistryEntry struct {
+	// Name is a human-readable name for the registry
+	Name string `yaml:"name"`
+	// URL is the registry URL
+	URL string `yaml:"url"`
+	// Priority determines order (higher = checked first, official is always first)
+	Priority int `yaml:"priority"`
+	// Enabled indicates if this registry is active
+	Enabled bool `yaml:"enabled"`
+}
+
+// RegistryConfig stores the list of configured registries.
+type RegistryConfig struct {
+	// Version of the config schema
+	Version string `yaml:"version"`
+	// Registries is the list of configured registries
+	Registries []RegistryEntry `yaml:"registries"`
 }
 
 // ConfigField defines a configuration field for a plugin.

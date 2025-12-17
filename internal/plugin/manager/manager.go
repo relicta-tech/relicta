@@ -15,6 +15,8 @@ const (
 	DefaultPluginDir = ".relicta/plugins"
 	// DefaultCacheDir is the default directory for cache
 	DefaultCacheDir = ".relicta/cache"
+	// DefaultConfigDir is the default directory for configuration
+	DefaultConfigDir = ".relicta"
 	// ManifestFile is the name of the manifest file
 	ManifestFile = "manifest.yaml"
 )
@@ -37,6 +39,7 @@ func NewManager() (*Manager, error) {
 
 	pluginDir := filepath.Join(home, DefaultPluginDir)
 	cacheDir := filepath.Join(home, DefaultCacheDir)
+	configDir := filepath.Join(home, DefaultConfigDir)
 
 	// Ensure directories exist
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
@@ -45,9 +48,12 @@ func NewManager() (*Manager, error) {
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
 
 	return &Manager{
-		registry:     NewRegistryService(cacheDir),
+		registry:     NewRegistryService(configDir, cacheDir),
 		installer:    NewInstaller(pluginDir),
 		pluginDir:    pluginDir,
 		cacheDir:     cacheDir,
@@ -348,4 +354,24 @@ func (m *Manager) Disable(ctx context.Context, name string) error {
 	}
 
 	return m.saveManifest(manifest)
+}
+
+// ListRegistries returns all configured plugin registries.
+func (m *Manager) ListRegistries() []RegistryEntry {
+	return m.registry.ListRegistries()
+}
+
+// AddRegistry adds a new plugin registry.
+func (m *Manager) AddRegistry(name, url string, priority int) error {
+	return m.registry.AddRegistry(name, url, priority)
+}
+
+// RemoveRegistry removes a plugin registry by name.
+func (m *Manager) RemoveRegistry(name string) error {
+	return m.registry.RemoveRegistry(name)
+}
+
+// EnableRegistry enables or disables a registry.
+func (m *Manager) EnableRegistry(name string, enabled bool) error {
+	return m.registry.EnableRegistry(name, enabled)
 }
