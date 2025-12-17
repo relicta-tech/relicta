@@ -277,27 +277,29 @@ func (c *Calculator) assessBlastRadius(analysis *cgp.ChangeAnalysis) (float64, *
 
 	// If no score, calculate from files/lines
 	if score == 0 {
-		fileScore := 0.0
-		if blast.FilesChanged > 50 {
+		var fileScore float64
+		switch {
+		case blast.FilesChanged > 50:
 			fileScore = 1.0
-		} else if blast.FilesChanged > 20 {
+		case blast.FilesChanged > 20:
 			fileScore = 0.7
-		} else if blast.FilesChanged > 10 {
+		case blast.FilesChanged > 10:
 			fileScore = 0.5
-		} else if blast.FilesChanged > 5 {
+		case blast.FilesChanged > 5:
 			fileScore = 0.3
-		} else {
+		default:
 			fileScore = 0.1
 		}
 
-		lineScore := 0.0
-		if blast.LinesChanged > 1000 {
+		var lineScore float64
+		switch {
+		case blast.LinesChanged > 1000:
 			lineScore = 1.0
-		} else if blast.LinesChanged > 500 {
+		case blast.LinesChanged > 500:
 			lineScore = 0.7
-		} else if blast.LinesChanged > 100 {
+		case blast.LinesChanged > 100:
 			lineScore = 0.4
-		} else {
+		default:
 			lineScore = 0.1
 		}
 
@@ -458,12 +460,12 @@ func generateSummary(score float64, factors []cgp.RiskFactor) string {
 }
 
 // clamp restricts a value to a range.
-func clamp(v, min, max float64) float64 {
-	if v < min {
-		return min
+func clamp(v, minVal, maxVal float64) float64 {
+	if v < minVal {
+		return minVal
 	}
-	if v > max {
-		return max
+	if v > maxVal {
+		return maxVal
 	}
 	return v
 }

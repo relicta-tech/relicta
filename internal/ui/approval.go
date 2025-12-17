@@ -46,11 +46,11 @@ type ReleaseSummary struct {
 
 // GovernanceSummary contains governance evaluation results for the TUI.
 type GovernanceSummary struct {
-	RiskScore      float64
-	Severity       string
-	Decision       string
-	CanAutoApprove bool
-	RiskFactors    []RiskFactor
+	RiskScore       float64
+	Severity        string
+	Decision        string
+	CanAutoApprove  bool
+	RiskFactors     []RiskFactor
 	RequiredActions []string
 }
 

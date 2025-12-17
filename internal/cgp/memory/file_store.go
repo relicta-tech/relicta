@@ -283,8 +283,8 @@ func (s *FileStore) GetActorMetrics(ctx context.Context, actorID string) (*Actor
 	}
 
 	// Return a copy
-	copy := *metrics
-	return &copy, nil
+	metricsCopy := *metrics
+	return &metricsCopy, nil
 }
 
 // GetRiskPatterns returns historical risk patterns for a repository.

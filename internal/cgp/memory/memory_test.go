@@ -311,8 +311,8 @@ func TestInMemoryStore_GetActorMetrics_NotFound(t *testing.T) {
 
 func TestActorMetrics_CalculateReliabilityScore(t *testing.T) {
 	tests := []struct {
-		name    string
-		metrics ActorMetrics
+		name     string
+		metrics  ActorMetrics
 		minScore float64
 		maxScore float64
 	}{

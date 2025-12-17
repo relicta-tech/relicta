@@ -272,12 +272,12 @@ func TestGetNestedValue(t *testing.T) {
 
 func TestCompareValues(t *testing.T) {
 	tests := []struct {
-		name      string
-		fieldVal  any
-		operator  string
+		name       string
+		fieldVal   any
+		operator   string
 		compareVal any
-		expected  bool
-		expectErr bool
+		expected   bool
+		expectErr  bool
 	}{
 		// Equal
 		{"string equal", "agent", OperatorEqual, "agent", true, false},

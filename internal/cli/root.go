@@ -445,7 +445,6 @@ func (s *Spinner) StopWithError(msg string) {
 	printError(msg)
 }
 
-
 // IsCIMode returns true if running in CI/CD mode.
 func IsCIMode() bool {
 	return ciMode

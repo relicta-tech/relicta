@@ -160,14 +160,14 @@ type IncidentRecord struct {
 type IncidentType string
 
 const (
-	IncidentRollback     IncidentType = "rollback"      // Release rolled back
-	IncidentBugIntro     IncidentType = "bug_intro"     // Bug introduced
-	IncidentPerformance  IncidentType = "performance"   // Performance regression
-	IncidentSecurity     IncidentType = "security"      // Security issue
-	IncidentAvailability IncidentType = "availability"  // Service availability impact
-	IncidentDataIssue    IncidentType = "data_issue"    // Data corruption or loss
-	IncidentBreaking     IncidentType = "breaking"      // Unexpected breaking change
-	IncidentOther        IncidentType = "other"         // Other incident type
+	IncidentRollback     IncidentType = "rollback"     // Release rolled back
+	IncidentBugIntro     IncidentType = "bug_intro"    // Bug introduced
+	IncidentPerformance  IncidentType = "performance"  // Performance regression
+	IncidentSecurity     IncidentType = "security"     // Security issue
+	IncidentAvailability IncidentType = "availability" // Service availability impact
+	IncidentDataIssue    IncidentType = "data_issue"   // Data corruption or loss
+	IncidentBreaking     IncidentType = "breaking"     // Unexpected breaking change
+	IncidentOther        IncidentType = "other"        // Other incident type
 )
 
 // IsValid returns true if the incident type is a valid value.
@@ -344,7 +344,7 @@ type IncidentCorrelation struct {
 // This is useful for testing and short-lived processes.
 type InMemoryStore struct {
 	mu        sync.RWMutex
-	releases  map[string][]*ReleaseRecord // keyed by repository
+	releases  map[string][]*ReleaseRecord  // keyed by repository
 	incidents map[string][]*IncidentRecord // keyed by repository
 	actors    map[string]*ActorMetrics     // keyed by actor ID
 }
@@ -519,8 +519,8 @@ func (s *InMemoryStore) GetActorMetrics(ctx context.Context, actorID string) (*A
 	}
 
 	// Return a copy
-	copy := *metrics
-	return &copy, nil
+	metricsCopy := *metrics
+	return &metricsCopy, nil
 }
 
 // GetRiskPatterns returns historical risk patterns for a repository.
@@ -623,12 +623,4 @@ func (s *InMemoryStore) UpdateActorMetrics(ctx context.Context, actorID string, 
 	metrics.UpdatedAt = time.Now()
 
 	return nil
-}
-
-// Helper function for min
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

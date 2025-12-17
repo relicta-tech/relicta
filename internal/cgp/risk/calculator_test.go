@@ -202,27 +202,27 @@ func TestCalculator_ActorTrust(t *testing.T) {
 	calc := NewCalculatorWithDefaults()
 
 	tests := []struct {
-		name           string
-		actor          cgp.Actor
-		expectedRange  [2]float64 // [min, max] for score
+		name             string
+		actor            cgp.Actor
+		expectedRange    [2]float64 // [min, max] for score
 		expectedSeverity cgp.Severity
 	}{
 		{
-			name:          "human actor",
-			actor:         cgp.NewHumanActor("john@example.com", "John"),
-			expectedRange: [2]float64{0.0, 0.2},
+			name:             "human actor",
+			actor:            cgp.NewHumanActor("john@example.com", "John"),
+			expectedRange:    [2]float64{0.0, 0.2},
 			expectedSeverity: cgp.SeverityLow,
 		},
 		{
-			name:          "ci actor",
-			actor:         cgp.NewCIActor("github-actions", "release", "123"),
-			expectedRange: [2]float64{0.1, 0.3},
+			name:             "ci actor",
+			actor:            cgp.NewCIActor("github-actions", "release", "123"),
+			expectedRange:    [2]float64{0.1, 0.3},
 			expectedSeverity: cgp.SeverityLow,
 		},
 		{
-			name:          "agent actor",
-			actor:         cgp.NewAgentActor("cursor", "Cursor", "gpt-4"),
-			expectedRange: [2]float64{0.5, 0.7},
+			name:             "agent actor",
+			actor:            cgp.NewAgentActor("cursor", "Cursor", "gpt-4"),
+			expectedRange:    [2]float64{0.5, 0.7},
 			expectedSeverity: cgp.SeverityMedium,
 		},
 	}

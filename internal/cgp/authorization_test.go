@@ -399,7 +399,7 @@ func TestExecutionAuthorization_LastApproval(t *testing.T) {
 
 	last := auth.LastApproval()
 	if last == nil {
-		t.Error("LastApproval() should not return nil")
+		t.Fatal("LastApproval() should not return nil")
 	}
 	if last.Actor.ID != reviewer2.ID {
 		t.Errorf("LastApproval().Actor.ID = %v, want %v", last.Actor.ID, reviewer2.ID)
