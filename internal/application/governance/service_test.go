@@ -325,3 +325,207 @@ func TestService_NoMemoryStore(t *testing.T) {
 		t.Errorf("RecordIncident() error = %v, want nil", err)
 	}
 }
+
+// Security detection tests
+
+func TestIsSecurityCommit(t *testing.T) {
+	tests := []struct {
+		name     string
+		commit   *changes.ConventionalCommit
+		expected bool
+	}{
+		{
+			name:     "nil commit",
+			commit:   nil,
+			expected: false,
+		},
+		{
+			name:     "regular feature commit",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add new button"),
+			expected: false,
+		},
+		{
+			name:     "security scope",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "fix issue", changes.WithScope("security")),
+			expected: true,
+		},
+		{
+			name:     "auth scope",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add login", changes.WithScope("auth")),
+			expected: true,
+		},
+		{
+			name:     "crypto scope",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "update algo", changes.WithScope("crypto")),
+			expected: true,
+		},
+		{
+			name:     "oauth scope",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add oauth", changes.WithScope("oauth")),
+			expected: true,
+		},
+		{
+			name:     "cve keyword in subject",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "fix CVE-2024-1234"),
+			expected: true,
+		},
+		{
+			name:     "vulnerability keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "patch vulnerability in parser"),
+			expected: true,
+		},
+		{
+			name:     "xss keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "prevent XSS attack"),
+			expected: true,
+		},
+		{
+			name:     "injection keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "fix sql injection"),
+			expected: true,
+		},
+		{
+			name:     "sanitize keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "sanitize user input"),
+			expected: true,
+		},
+		{
+			name:     "security fix keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "security fix for login"),
+			expected: true,
+		},
+		{
+			name:     "password keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFix, "improve password hashing"),
+			expected: true,
+		},
+		{
+			name:     "encrypt keyword",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "encrypt sensitive data"),
+			expected: true,
+		},
+		{
+			name:     "authentication scope partial match",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add 2fa", changes.WithScope("authentication")),
+			expected: true,
+		},
+		{
+			name:     "unrelated scope with security in message",
+			commit:   changes.NewConventionalCommit("abc123", changes.CommitTypeDocs, "update security docs", changes.WithScope("docs")),
+			expected: true, // keyword "security" in subject
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isSecurityCommit(tt.commit)
+			if got != tt.expected {
+				t.Errorf("isSecurityCommit() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCountSecurityChanges(t *testing.T) {
+	tests := []struct {
+		name     string
+		commits  []*changes.ConventionalCommit
+		expected int
+	}{
+		{
+			name:     "nil changeset",
+			commits:  nil,
+			expected: 0,
+		},
+		{
+			name: "no security commits",
+			commits: []*changes.ConventionalCommit{
+				changes.NewConventionalCommit("1", changes.CommitTypeFeat, "add feature"),
+				changes.NewConventionalCommit("2", changes.CommitTypeFix, "fix bug"),
+				changes.NewConventionalCommit("3", changes.CommitTypeDocs, "update docs"),
+			},
+			expected: 0,
+		},
+		{
+			name: "one security commit",
+			commits: []*changes.ConventionalCommit{
+				changes.NewConventionalCommit("1", changes.CommitTypeFeat, "add feature"),
+				changes.NewConventionalCommit("2", changes.CommitTypeFix, "fix vulnerability"),
+				changes.NewConventionalCommit("3", changes.CommitTypeDocs, "update docs"),
+			},
+			expected: 1,
+		},
+		{
+			name: "multiple security commits",
+			commits: []*changes.ConventionalCommit{
+				changes.NewConventionalCommit("1", changes.CommitTypeFix, "fix CVE-2024-001"),
+				changes.NewConventionalCommit("2", changes.CommitTypeFeat, "add oauth", changes.WithScope("auth")),
+				changes.NewConventionalCommit("3", changes.CommitTypeFix, "sanitize input"),
+			},
+			expected: 3,
+		},
+		{
+			name: "mixed commits",
+			commits: []*changes.ConventionalCommit{
+				changes.NewConventionalCommit("1", changes.CommitTypeFeat, "add button"),
+				changes.NewConventionalCommit("2", changes.CommitTypeFix, "fix XSS issue"),
+				changes.NewConventionalCommit("3", changes.CommitTypeRefactor, "clean up code"),
+				changes.NewConventionalCommit("4", changes.CommitTypeFix, "fix auth bypass", changes.WithScope("security")),
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cs *changes.ChangeSet
+			if tt.commits != nil {
+				cs = changes.NewChangeSet("test-cs", "v1.0.0", "HEAD")
+				cs.AddCommits(tt.commits)
+			}
+
+			got := countSecurityChanges(cs)
+			if got != tt.expected {
+				t.Errorf("countSecurityChanges() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSecurityDetectionInEvaluateRelease(t *testing.T) {
+	svc, _ := createTestService(t)
+	ctx := context.Background()
+	actor := cgp.NewHumanActor("john@example.com", "John")
+
+	// Create release with security commits
+	rel := release.NewRelease("release-security", "main", "owner/repo")
+	changeSet := changes.NewChangeSet("cs-sec", "v1.0.0", "HEAD")
+	changeSet.AddCommit(changes.NewConventionalCommit("1", changes.CommitTypeFeat, "add feature"))
+	changeSet.AddCommit(changes.NewConventionalCommit("2", changes.CommitTypeFix, "fix CVE-2024-1234"))
+	changeSet.AddCommit(changes.NewConventionalCommit("3", changes.CommitTypeFix, "patch auth bypass", changes.WithScope("security")))
+
+	current, _ := version.Parse("1.0.0")
+	next, _ := version.Parse("1.1.0")
+	plan := release.NewReleasePlan(current, next, changes.ReleaseTypeMinor, changeSet, false)
+	rel.SetPlan(plan)
+
+	input := EvaluateReleaseInput{
+		Release:    rel,
+		Actor:      actor,
+		Repository: "owner/repo",
+	}
+
+	output, err := svc.EvaluateRelease(ctx, input)
+	if err != nil {
+		t.Fatalf("EvaluateRelease() error = %v", err)
+	}
+
+	// With security changes, risk should be elevated
+	if output.RiskScore <= 0 {
+		t.Error("expected elevated risk score with security changes")
+	}
+
+	// Security changes should trigger require_human_for_security rule
+	// (depending on config, may require human approval)
+	t.Logf("Risk score with security changes: %.2f, Severity: %s", output.RiskScore, output.Severity)
+}

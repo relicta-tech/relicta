@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
@@ -205,6 +206,8 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 		if plan.HasChangeSet() {
 			cats := plan.GetChangeSet().Categories()
 			breakingChanges = len(cats.Breaking)
+			// Detect security-related changes from commits
+			securityChanges = countSecurityChanges(plan.GetChangeSet())
 		}
 	}
 
@@ -233,6 +236,71 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 	}
 
 	return proposal, analysis
+}
+
+// securityScopes are commit scopes that indicate security-related changes.
+var securityScopes = []string{
+	"security", "auth", "authentication", "authorization",
+	"crypto", "encryption", "ssl", "tls", "cert", "certificate",
+	"oauth", "jwt", "token", "session", "password", "credential",
+	"acl", "rbac", "permission", "access-control",
+}
+
+// securityKeywords are keywords in commit messages that indicate security changes.
+var securityKeywords = []string{
+	"security", "cve", "vulnerability", "vuln", "exploit",
+	"injection", "xss", "csrf", "sqli", "rce",
+	"authentication", "authorization", "privilege",
+	"sanitize", "escape", "validate input",
+	"secret", "credential", "password", "token",
+	"encrypt", "decrypt", "hash", "salt",
+	"owasp", "pentest", "security fix", "security patch",
+}
+
+// countSecurityChanges counts the number of security-related commits in a changeset.
+func countSecurityChanges(cs *changes.ChangeSet) int {
+	if cs == nil {
+		return 0
+	}
+
+	count := 0
+	commits := cs.Commits()
+
+	for _, commit := range commits {
+		if isSecurityCommit(commit) {
+			count++
+		}
+	}
+
+	return count
+}
+
+// isSecurityCommit determines if a commit is security-related.
+func isSecurityCommit(commit *changes.ConventionalCommit) bool {
+	if commit == nil {
+		return false
+	}
+
+	scope := strings.ToLower(commit.Scope())
+	subject := strings.ToLower(commit.Subject())
+	body := strings.ToLower(commit.Body())
+
+	// Check if scope indicates security
+	for _, secScope := range securityScopes {
+		if scope == secScope || strings.Contains(scope, secScope) {
+			return true
+		}
+	}
+
+	// Check if subject or body contains security keywords
+	textToCheck := subject + " " + body
+	for _, keyword := range securityKeywords {
+		if strings.Contains(textToCheck, keyword) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getHistoricalContext retrieves historical context from memory store.
