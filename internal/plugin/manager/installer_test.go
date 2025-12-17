@@ -261,8 +261,10 @@ func TestInstaller_FindBinary(t *testing.T) {
 	installer := NewInstaller(t.TempDir())
 	extractDir := t.TempDir()
 
-	// Create a test binary
-	binaryPath := filepath.Join(extractDir, "github_darwin_aarch64")
+	// Create a test binary with platform-specific name
+	platform := GetCurrentPlatform()
+	binaryName := "github_" + platform
+	binaryPath := filepath.Join(extractDir, binaryName)
 	if err := os.WriteFile(binaryPath, []byte("binary"), 0o755); err != nil {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
@@ -270,7 +272,27 @@ func TestInstaller_FindBinary(t *testing.T) {
 	found := installer.findBinary(extractDir, "github")
 
 	if found == "" {
-		t.Error("findBinary() returned empty string, expected to find the binary")
+		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
+	}
+	if found != binaryPath {
+		t.Errorf("findBinary() = %q, want %q", found, binaryPath)
+	}
+}
+
+func TestInstaller_FindBinary_SimpleName(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	extractDir := t.TempDir()
+
+	// Create a test binary with simple name (no platform suffix)
+	binaryPath := filepath.Join(extractDir, "github")
+	if err := os.WriteFile(binaryPath, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("Failed to create test binary: %v", err)
+	}
+
+	found := installer.findBinary(extractDir, "github")
+
+	if found == "" {
+		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
 	}
 	if found != binaryPath {
 		t.Errorf("findBinary() = %q, want %q", found, binaryPath)
