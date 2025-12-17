@@ -655,7 +655,7 @@ func TestFindPluginBinary_SearchAllowedDirs(t *testing.T) {
 
 	// Create a mock plugin binary with expected naming
 	pluginName := "searchtest"
-	pluginPath := filepath.Join(allowedDir, "relicta-plugin-"+pluginName)
+	pluginPath := filepath.Join(allowedDir, pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -1124,7 +1124,7 @@ func TestFindPluginBinary_SearchMultipleDirs(t *testing.T) {
 	defer os.RemoveAll(filepath.Join(homeDir, ".relicta"))
 
 	pluginName := "searchtest2"
-	pluginPath := filepath.Join(allowedDir, "relicta-plugin-"+pluginName)
+	pluginPath := filepath.Join(allowedDir, pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -1288,7 +1288,7 @@ func TestFindPluginBinary_LocalProjectDir(t *testing.T) {
 	defer os.RemoveAll(".relicta")
 
 	pluginName := "localtest"
-	pluginPath := filepath.Join(localDir, "relicta-plugin-"+pluginName)
+	pluginPath := filepath.Join(localDir, pluginName)
 	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
 	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
@@ -1424,7 +1424,7 @@ func TestFindPluginBinary_SkipInvalidDirs(t *testing.T) {
 
 	// Create a non-executable plugin in first directory (should be skipped)
 	pluginName := "skiptest"
-	badPluginPath := filepath.Join(allowedDir1, "relicta-plugin-"+pluginName)
+	badPluginPath := filepath.Join(allowedDir1, pluginName)
 	err := os.WriteFile(badPluginPath, []byte("bad"), 0644) // Not executable
 	if err != nil {
 		t.Fatalf("Failed to create bad plugin: %v", err)
