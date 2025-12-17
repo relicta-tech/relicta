@@ -1,5 +1,5 @@
 version: "1.0"
-updated_at: 2025-12-17T21:40:00Z
+updated_at: 2025-12-17T23:30:00Z
 
 plugins:
   - name: github
@@ -283,3 +283,567 @@ plugins:
         type: string
         required: true
         description: "LaunchNotes project ID"
+
+  - name: homebrew
+    description: Update Homebrew formula with new release
+    repository: relicta-tech/plugin-homebrew
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-homebrew
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 189f0fca1c15fe355543646774b49eb8213e23c9f32f175758a1f55ef6f57fdc
+      darwin_x86_64: 366f3874806683314ad1da9dfea8e465b5c2f323f77973c6c1ca0a4e3865fcde
+      linux_aarch64: fbec6db88e3976521430ccdd6a2a3c0e32e2ae16eb60a2b050904f352f5c190e
+      linux_x86_64: eed2137393492df2d5b4f84feb949b8197719daa27249c6abfb1ae3690428dbf
+      windows_x86_64: 0c776fad41c175e06a7b98ec7993040f4a53c6c4c77452d229895cf0d3984a2e
+    hooks:
+      - post_publish
+    config_schema:
+      tap:
+        type: string
+        required: true
+        description: "Homebrew tap repository (e.g., user/homebrew-tap)"
+      formula:
+        type: string
+        required: true
+        description: "Formula name"
+      token:
+        type: string
+        required: false
+        env: HOMEBREW_GITHUB_TOKEN
+        description: "GitHub token for tap repository access"
+      url_template:
+        type: string
+        required: false
+        description: "URL template for download (uses {{.Version}} placeholder)"
+      sha256:
+        type: string
+        required: false
+        description: "SHA256 checksum of the release archive"
+
+  - name: docker
+    description: Build and push Docker images
+    repository: relicta-tech/plugin-docker
+    version: v2.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-docker
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 9bf3b39adeadbafb67ac567000882fd918562138b5da3651349db03f36de1a3d
+      darwin_x86_64: ae4c627094369b7a21568c6680df78f9eb44281044c47f959786ab5d861cb1b5
+      linux_aarch64: 76b91387a85c3c6c2027b99fe284b79804cdd9b8b73c3a719b4f052606136996
+      linux_x86_64: 5618ee1a6a69fb1544e4a98d2d72a670a23a432ab0d007e68ca5891db3a5fe2a
+      windows_x86_64: bae129cd6842f84b754a7159b4eb823a67e79566fa18005e98211651f3ef17bf
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: false
+        default: "docker.io"
+        description: "Container registry URL"
+      image:
+        type: string
+        required: true
+        description: "Image name (e.g., username/image)"
+      dockerfile:
+        type: string
+        required: false
+        default: "Dockerfile"
+        description: "Path to Dockerfile"
+      context:
+        type: string
+        required: false
+        default: "."
+        description: "Build context path"
+      username:
+        type: string
+        required: false
+        env: DOCKER_USERNAME
+        description: "Registry username"
+      password:
+        type: string
+        required: false
+        env: DOCKER_PASSWORD
+        description: "Registry password or token"
+      tags:
+        type: array
+        required: false
+        description: "Additional tags (version tag is automatic)"
+      build_args:
+        type: object
+        required: false
+        description: "Build arguments as key-value pairs"
+      platforms:
+        type: array
+        required: false
+        description: "Target platforms (e.g., linux/amd64, linux/arm64)"
+
+  - name: teams
+    description: Send release notifications to Microsoft Teams
+    repository: relicta-tech/plugin-teams
+    version: v2.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-teams
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: f1be6162a256d6ce0dedfdfc0338079135c5808967619ed2755b12af61aa9ba5
+      darwin_x86_64: db592f65716c217f74af036f539288dabf0fa8aa5da4510a963b3c7243242288
+      linux_aarch64: 6e6d90a9a46cabcf1219a3097247801e963e036715b18fb9f8aecae3990ec42b
+      linux_x86_64: 0919af385354aac694b4cf3aefee314b210334007d594c529db005251864737e
+      windows_x86_64: 99d87bd5680c67c7b8b5b7bdff6c79b8b51a7fce6865dc2d137ef2900ba198e1
+    hooks:
+      - post_publish
+    config_schema:
+      webhook:
+        type: string
+        required: true
+        env: TEAMS_WEBHOOK_URL
+        description: "Microsoft Teams incoming webhook URL"
+      title:
+        type: string
+        required: false
+        description: "Message title template"
+      theme_color:
+        type: string
+        required: false
+        default: "0076D7"
+        description: "Theme color for the message card (hex without #)"
+      notify_on_success:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on successful release"
+      notify_on_error:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on release failure"
+
+  - name: pypi
+    description: Publish packages to PyPI
+    repository: relicta-tech/plugin-pypi
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-pypi
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 1544300d0e98a24b21d322009c65c44c008a4f71a46c97fa0a349d2191e0b889
+      darwin_x86_64: a651cb02664a19355d7f9e097c76d45129213d3cba95379a66dd6df78de4e8ac
+      linux_aarch64: b1739916cf03181ab8eb40636def88de959b1c81654ca861db556d255dd34af2
+      linux_x86_64: fc405765b2b2b861d6516a17c28b701d42f54321274e7e1dd19fd0ddb2dda547
+      windows_x86_64: cfa7cc197643b91b41f0e4f231a4dd68cf4374293ab5dc7583bdbf7d09ee52b0
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      repository:
+        type: string
+        required: false
+        default: "https://upload.pypi.org/legacy/"
+        description: "PyPI repository URL"
+      username:
+        type: string
+        required: false
+        env: PYPI_USERNAME
+        description: "PyPI username (use __token__ for API tokens)"
+      password:
+        type: string
+        required: false
+        env: PYPI_PASSWORD
+        description: "PyPI password or API token"
+      dist_dir:
+        type: string
+        required: false
+        default: "dist"
+        description: "Directory containing distribution files"
+      skip_existing:
+        type: boolean
+        required: false
+        default: false
+        description: "Skip upload if version already exists"
+
+  - name: chocolatey
+    description: Publish packages to Chocolatey
+    repository: relicta-tech/plugin-chocolatey
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-chocolatey
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 1d1c1009718496d6dd96c401e2ab31f6ca42e4de863a2a73b9880f100c57d0a9
+      darwin_x86_64: 692ab4f4250c7ad78e632272ebbb71e660be15f0d605c81ae45990b862fbfcf1
+      linux_aarch64: 63a98a4276b47fab42b8a7d797d8105f4ac3cce57ce4e53b69b7f4c0d711adc1
+      linux_x86_64: 78542eeb067fb12f2c1cd50408d7dcc863e69ac23f13566a3c6740b684bb2106
+      windows_x86_64: 6b01359e30a6e9cf2f2beddcd62f4bc1be4a5ea4d72326d5eed9a60183f4fc4b
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: CHOCOLATEY_API_KEY
+        description: "Chocolatey API key"
+      source:
+        type: string
+        required: false
+        default: "https://push.chocolatey.org/"
+        description: "Chocolatey source URL"
+      package_id:
+        type: string
+        required: true
+        description: "Chocolatey package ID"
+      nuspec_path:
+        type: string
+        required: false
+        description: "Path to .nuspec file"
+
+  - name: linuxpkg
+    description: Build Linux packages (deb, rpm, apk)
+    repository: relicta-tech/plugin-linuxpkg
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-linuxpkg
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: c67eec12b5f567c6367cfa4d9204dc38dc8d720855c8a3b411e41b54cffd134a
+      darwin_x86_64: 584d249be2ce03b9bafa507f0ad72c2342c6d9712cd715c041341a7cda8e434c
+      linux_aarch64: c5e53ce035efe04acd0f6703b67d273848488e57f0864bba9019e9cc1dfd908d
+      linux_x86_64: 2c481e8ae97c8120f835f7c28f2c8708d10ff706cccaa9c6177e2976b154a8d7
+      windows_x86_64: c4d5a6519f3d6b5f8739fd81f1c172670bfef029f221c69c1fad29d0a6ff3e2d
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      formats:
+        type: array
+        required: false
+        default: ["deb", "rpm"]
+        description: "Package formats to build (deb, rpm, apk)"
+      maintainer:
+        type: string
+        required: true
+        description: "Package maintainer name and email"
+      description:
+        type: string
+        required: true
+        description: "Package description"
+      homepage:
+        type: string
+        required: false
+        description: "Project homepage URL"
+      license:
+        type: string
+        required: false
+        default: "MIT"
+        description: "Package license"
+      binaries:
+        type: array
+        required: true
+        description: "List of binary files to include"
+      output_dir:
+        type: string
+        required: false
+        default: "dist"
+        description: "Output directory for packages"
+
+  - name: crates
+    description: Publish packages to crates.io
+    repository: relicta-tech/plugin-crates
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-crates
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 2ffa57f4fbf4da7bd8da0b1cba28892ddfd40d36f9e494af56c4eb384529ec59
+      darwin_x86_64: 37f9aebed981ab198c5f67390ab5edf6467fc91e3224dff0872c1399361bf42b
+      linux_aarch64: 96cf52c937f5519bd6aaedc0adde1b906871c6e87d9df8ac20817c58986a5328
+      linux_x86_64: 43a10dd68ec2b61d57519509e7cd3e656c5c3bd988d1951ba4ebc037f6f54cd2
+      windows_x86_64: 5e6e4c8b81956bb874605a502dd16f313711488733478e5303b1c180028ea773
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      token:
+        type: string
+        required: true
+        env: CARGO_REGISTRY_TOKEN
+        description: "crates.io API token"
+      manifest_path:
+        type: string
+        required: false
+        default: "Cargo.toml"
+        description: "Path to Cargo.toml"
+      allow_dirty:
+        type: boolean
+        required: false
+        default: false
+        description: "Allow publishing from dirty working directory"
+      dry_run:
+        type: boolean
+        required: false
+        default: false
+        description: "Perform a dry run without publishing"
+
+  - name: nuget
+    description: Publish packages to NuGet
+    repository: relicta-tech/plugin-nuget
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-nuget
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: a3e9ec33e980773018fd13b4c9830fa110aafa456a4c1c41dd7157c2bfd876aa
+      darwin_x86_64: 711c1817742230b7303bb94b1a8260677fbefb90fe3f6e66bdea9930f5566961
+      linux_aarch64: 6cdf787e5c8ebf3d812a5d4f221f98aa29a7385dc6705c729e6ea47fcf2ff0c0
+      linux_x86_64: 6ce7c20f257c3cf0fe80681b02ee0e8981d0caa63dfbf61060f1ffb3d0426a94
+      windows_x86_64: 9d8c1cca9fae67df654337300aa9e114351a61f00cc29f78cdef47d6c3214d6d
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: NUGET_API_KEY
+        description: "NuGet API key"
+      source:
+        type: string
+        required: false
+        default: "https://api.nuget.org/v3/index.json"
+        description: "NuGet source URL"
+      package_path:
+        type: string
+        required: false
+        description: "Path to .nupkg file (auto-detected if not specified)"
+      skip_duplicate:
+        type: boolean
+        required: false
+        default: false
+        description: "Skip push if package version already exists"
+
+  - name: maven
+    description: Publish packages to Maven Central
+    repository: relicta-tech/plugin-maven
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-maven
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 30de643c77bbd140a46dc752921759ce419cc864b419c2e6bd41e6e434b8a5ee
+      darwin_x86_64: a0fa99b6dcc44e25b9d4f65ff75132eb2d7e0ed914b935da63707d03714a7590
+      linux_aarch64: 9bb55b06bd777f561199b77cc9f1cdc0a739b2e4cc9b1ec7ecd97be424276b92
+      linux_x86_64: f69c351761477df7909e358f35412773c99e0089a1fa6664f6b95cc14b9aecc9
+      windows_x86_64: ddf4853ae1ed88fd132df91aa734a7068190ea0fcc6720e70d9163e5c3a6415a
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      repository_url:
+        type: string
+        required: false
+        default: "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        description: "Maven repository URL"
+      username:
+        type: string
+        required: false
+        env: MAVEN_USERNAME
+        description: "Maven repository username"
+      password:
+        type: string
+        required: false
+        env: MAVEN_PASSWORD
+        description: "Maven repository password"
+      group_id:
+        type: string
+        required: true
+        description: "Maven group ID"
+      artifact_id:
+        type: string
+        required: true
+        description: "Maven artifact ID"
+      pom_path:
+        type: string
+        required: false
+        default: "pom.xml"
+        description: "Path to pom.xml"
+      gpg_key:
+        type: string
+        required: false
+        env: GPG_KEY_ID
+        description: "GPG key ID for signing"
+
+  - name: rubygems
+    description: Publish gems to RubyGems
+    repository: relicta-tech/plugin-rubygems
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-rubygems
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: eafd949efa953f84db11ab41970637831f30383895ca07f4a6d24c39dbfa2a25
+      darwin_x86_64: 54dff02b77228e7da11d4b1865994a99d1318a22b0449a48628f4a270b352c16
+      linux_aarch64: 5e8a1c535f6fde608ddcd0ce7272064cd60caec069c96f9826c9a254bc536546
+      linux_x86_64: 309f1166fa1847cc59f7b50b125aff66391cf9199733d1dab2460a6a37af4e64
+      windows_x86_64: 62859e3f26e716caf9d1e3506cb90acc1e1f5505ca9574c7fc9a0b0580341cee
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: GEM_HOST_API_KEY
+        description: "RubyGems API key"
+      host:
+        type: string
+        required: false
+        default: "https://rubygems.org"
+        description: "RubyGems host URL"
+      gemspec_path:
+        type: string
+        required: false
+        description: "Path to .gemspec file (auto-detected if not specified)"
+      gem_path:
+        type: string
+        required: false
+        description: "Path to built .gem file"
+
+  - name: hex
+    description: Publish packages to Hex.pm
+    repository: relicta-tech/plugin-hex
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-hex
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: fd304c625aa5961c0af4e7cf6283c80592fd6c4193a5e86097b4e0dc452914a0
+      darwin_x86_64: 8afcd52aa284c78460cef1391c62a2969e943970f1e311d374a98afefdb124e5
+      linux_aarch64: a67257906a9730fd01a93bc5d15b8e5b0a48bcfbc142c73421b76cd79587b1d7
+      linux_x86_64: 479d0ce52257bae3caf1223355a509f0ba830c9e6c4f8208389313146488b8db
+      windows_x86_64: 070fec2f6b04abc1ae2a98bed4c7dc3dbf31071d344fc77f678eb4d24c15cf16
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: HEX_API_KEY
+        description: "Hex.pm API key"
+      organization:
+        type: string
+        required: false
+        description: "Hex.pm organization (for private packages)"
+      replace:
+        type: boolean
+        required: false
+        default: false
+        description: "Replace existing package version"
+      mix_path:
+        type: string
+        required: false
+        default: "mix.exs"
+        description: "Path to mix.exs file"
+
+  - name: packagist
+    description: Publish packages to Packagist
+    repository: relicta-tech/plugin-packagist
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-packagist
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 6428088553917f45a04ca5b361d7663b4d16c21c2f287a133f214054929bd974
+      darwin_x86_64: 99c747031cabf4634a60083f8b0a290bc2e4639d622483ba16a8b8f49a02fa57
+      linux_aarch64: 90993dbb9f0bb52c5140aafbac17a46ac6922d68fd2729568cdef739a8d37644
+      linux_x86_64: 5d44fbabe3bcb529eede0ea292aeae4d02478d2c41934d5b79431f77576574f4
+      windows_x86_64: 0ed595142714a0a8db3076bf8a828d657d0e73a6227b70ac3fe5f28092176ec2
+    hooks:
+      - post_publish
+    config_schema:
+      api_token:
+        type: string
+        required: true
+        env: PACKAGIST_API_TOKEN
+        description: "Packagist API token"
+      username:
+        type: string
+        required: true
+        env: PACKAGIST_USERNAME
+        description: "Packagist username"
+      package_name:
+        type: string
+        required: true
+        description: "Package name (vendor/package)"
+      update_url:
+        type: string
+        required: false
+        default: "https://packagist.org/api/update-package"
+        description: "Packagist update API URL"
+
+  - name: gomod
+    description: Publish Go modules
+    repository: relicta-tech/plugin-gomod
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-gomod
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 4fffdbac8d9972a5e127634b5fa874c28d914d388682d93cb39ff761a0be8022
+      darwin_x86_64: 3f3280f79f963000e90dfa0bcbc5fdebd2f14e35d6ddbc2920653e9fa262c5bc
+      linux_aarch64: 42cb3d39e15917aadcd7c5271a5d109da204cb92258b67570ae2222047c5377d
+      linux_x86_64: a34126d2c747c48ecfbfbaf0d044fbd4ac236e46aa0e0347444672a4bb66ccfa
+      windows_x86_64: c25550afc161f066c15d8ccabce290c8f766418fcdb8e129ba81d8017ec0d50c
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      module_path:
+        type: string
+        required: true
+        description: "Go module path (e.g., github.com/user/repo)"
+      proxy_url:
+        type: string
+        required: false
+        default: "https://proxy.golang.org"
+        description: "Go module proxy URL"
+      private:
+        type: boolean
+        required: false
+        default: false
+        description: "Module is private (skip proxy notification)"
+      sumdb_url:
+        type: string
+        required: false
+        default: "https://sum.golang.org"
+        description: "Go checksum database URL"
