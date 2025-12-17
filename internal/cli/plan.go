@@ -67,8 +67,19 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
-	// Execute use case
+	// Execute use case with spinner (unless JSON output)
+	var spinner *Spinner
+	if !outputJSON {
+		spinner = NewSpinner("Analyzing commits...")
+		spinner.Start()
+	}
+
 	output, err := dddContainer.PlanRelease().Execute(ctx, input)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to plan release: %w", err)
 	}

@@ -143,7 +143,24 @@ func runNotes(cmd *cobra.Command, args []string) error {
 
 	// Build input and execute use case
 	input := buildGenerateNotesInput(rel, dddContainer.HasAI())
+
+	// Show spinner (unless JSON output)
+	var spinner *Spinner
+	if !outputJSON {
+		spinnerMsg := "Generating release notes..."
+		if input.UseAI {
+			spinnerMsg = "Generating release notes with AI..."
+		}
+		spinner = NewSpinner(spinnerMsg)
+		spinner.Start()
+	}
+
 	output, err := dddContainer.GenerateNotes().Execute(ctx, input)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to generate notes: %w", err)
 	}

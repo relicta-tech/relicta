@@ -210,9 +210,15 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	// Track publish start time for duration recording
 	publishStart := time.Now()
 
-	// Execute publish use case
+	// Execute publish use case with spinner
+	spinner := NewSpinner("Publishing release...")
+	spinner.Start()
+
 	input := buildPublishInput(rel)
 	output, err := dddContainer.PublishRelease().Execute(ctx, input)
+
+	spinner.Stop()
+
 	if err != nil {
 		printError(fmt.Sprintf("Failed to publish release: %v", err))
 		// Record failure outcome to Release Memory
