@@ -142,6 +142,16 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("output.verbose", defaults.Output.Verbose)
 	l.v.SetDefault("output.quiet", defaults.Output.Quiet)
 	l.v.SetDefault("output.log_level", defaults.Output.LogLevel)
+
+	// Governance defaults (CGP)
+	l.v.SetDefault("governance.enabled", defaults.Governance.Enabled)
+	l.v.SetDefault("governance.strict_mode", defaults.Governance.StrictMode)
+	l.v.SetDefault("governance.auto_approve_threshold", defaults.Governance.AutoApproveThreshold)
+	l.v.SetDefault("governance.max_auto_approve_risk", defaults.Governance.MaxAutoApproveRisk)
+	l.v.SetDefault("governance.require_human_for_breaking", defaults.Governance.RequireHumanForBreaking)
+	l.v.SetDefault("governance.require_human_for_security", defaults.Governance.RequireHumanForSecurity)
+	l.v.SetDefault("governance.memory_enabled", defaults.Governance.MemoryEnabled)
+	l.v.SetDefault("governance.memory_path", defaults.Governance.MemoryPath)
 }
 
 // configFileExists checks if a config file exists in search paths.
