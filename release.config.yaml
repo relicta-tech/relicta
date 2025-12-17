@@ -1,0 +1,17 @@
+versioning:
+  strategy: conventional
+  tag_prefix: v
+
+governance:
+  enabled: true
+  strict_mode: false
+  auto_approve_threshold: 0.3
+  max_auto_approve_risk: 0.5
+  require_human_for_breaking: true
+  require_human_for_security: true
+  memory_enabled: true
+  memory_path: .relicta/governance-memory.json
+
+plugins:
+  - name: github
+    enabled: true
