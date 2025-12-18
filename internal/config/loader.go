@@ -364,6 +364,22 @@ func (l *Loader) loadConfigFile() error {
 }
 
 // expandEnvVars expands environment variables in sensitive configuration fields.
+//
+// Security: Environment variable expansion is limited to a whitelist of fields:
+//   - AI credentials (api_key, base_url)
+//   - Plugin configurations (for tokens/credentials)
+//   - Changelog URLs (repository_url, issue_url)
+//   - Output log file path
+//   - Workflow hooks (pre/post release - NOT YET EXECUTED)
+//
+// Expanded values are used for:
+//   - HTTP API calls (safe - no shell interpretation)
+//   - File paths (validated separately)
+//   - Display purposes
+//
+// The workflow hooks (PreReleaseHook, PostReleaseHook) are stored but NOT
+// currently executed. If implemented, they MUST use exec.Command with
+// argument splitting, NOT shell interpretation.
 func (l *Loader) expandEnvVars(cfg *Config) {
 	// Expand AI API key
 	cfg.AI.APIKey = expandEnvVar(cfg.AI.APIKey)

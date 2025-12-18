@@ -143,6 +143,7 @@ func init() {
 	rootCmd.AddCommand(notesCmd)
 	rootCmd.AddCommand(approveCmd)
 	rootCmd.AddCommand(publishCmd)
+	rootCmd.AddCommand(releaseCmd)
 }
 
 // loadAndValidateConfig loads and validates the configuration.

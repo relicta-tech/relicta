@@ -3,7 +3,9 @@ package plugin
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,10 +17,12 @@ import (
 	goplugin "github.com/hashicorp/go-plugin"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	"gopkg.in/yaml.v3"
 
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/plugin/audit"
+	pmgr "github.com/relicta-tech/relicta/internal/plugin/manager"
 	"github.com/relicta-tech/relicta/internal/plugin/sandbox"
 	"github.com/relicta-tech/relicta/pkg/plugin"
 )
@@ -186,6 +190,14 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 	}
 
 	m.logger.Debug("loading plugin", "name", cfg.Name, "path", pluginPath)
+
+	// Security: Verify plugin binary integrity before execution
+	// This prevents executing tampered binaries
+	if err := m.verifyPluginBinary(cfg.Name, pluginPath); err != nil {
+		m.logger.Warn("plugin integrity verification failed", "plugin", cfg.Name, "error", err)
+		_ = audit.LogLoad(ctx, cfg.Name, false, "integrity verification failed: "+err.Error())
+		return errors.Plugin("plugin.Load", fmt.Sprintf("integrity verification failed for %s: %v", cfg.Name, err))
+	}
 
 	// Create sandbox with capabilities from config
 	sb := sandbox.New(cfg.Name, cfg.Capabilities)
@@ -757,4 +769,78 @@ func joinErrors(errs []string) string {
 		sb.WriteString(e)
 	}
 	return sb.String()
+}
+
+// verifyPluginBinary verifies the integrity of a plugin binary before execution.
+// It loads the manifest and checks the stored checksum against the current binary.
+// Security: This prevents execution of tampered binaries after installation.
+func (m *Manager) verifyPluginBinary(name, binaryPath string) error {
+	// Get plugin directory from config or use default
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		m.logger.Debug("cannot get home dir for manifest lookup, skipping verification", "error", err)
+		return nil // Don't fail if we can't verify
+	}
+
+	manifestPath := filepath.Join(homeDir, ".relicta", "plugins", pmgr.ManifestFile)
+
+	// Load manifest
+	data, err := os.ReadFile(manifestPath) // #nosec G304 -- path from app config dir
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No manifest means plugin wasn't installed via plugin manager
+			// (might be a dev plugin or inline plugin) - skip verification
+			m.logger.Debug("no manifest found, skipping checksum verification", "plugin", name)
+			return nil
+		}
+		return fmt.Errorf("failed to read manifest: %w", err)
+	}
+
+	var manifest pmgr.Manifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return fmt.Errorf("failed to parse manifest: %w", err)
+	}
+
+	// Find the plugin in manifest
+	var installedPlugin *pmgr.InstalledPlugin
+	for i := range manifest.Installed {
+		if manifest.Installed[i].Name == name {
+			installedPlugin = &manifest.Installed[i]
+			break
+		}
+	}
+
+	if installedPlugin == nil {
+		// Plugin not in manifest - might be a dev plugin
+		m.logger.Debug("plugin not in manifest, skipping checksum verification", "plugin", name)
+		return nil
+	}
+
+	if installedPlugin.Checksum == "" {
+		// No checksum stored - skip verification
+		m.logger.Debug("no checksum stored for plugin, skipping verification", "plugin", name)
+		return nil
+	}
+
+	// Calculate current checksum
+	file, err := os.Open(binaryPath) // #nosec G304 -- path validated by findPluginBinary
+	if err != nil {
+		return fmt.Errorf("failed to open binary for verification: %w", err)
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return fmt.Errorf("failed to compute checksum: %w", err)
+	}
+	currentChecksum := fmt.Sprintf("%x", hash.Sum(nil))
+
+	// Compare checksums
+	if !strings.EqualFold(currentChecksum, installedPlugin.Checksum) {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s (binary may have been tampered with)",
+			installedPlugin.Checksum, currentChecksum)
+	}
+
+	m.logger.Debug("plugin integrity verified", "plugin", name, "checksum", currentChecksum[:16]+"...")
+	return nil
 }

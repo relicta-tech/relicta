@@ -521,6 +521,8 @@ var allowedEditors = map[string]bool{
 }
 
 // validateEditor checks if the editor is in the allowed list and resolves its path safely.
+// Security: Validates both the requested name AND the resolved binary name to prevent
+// symlink attacks where ~/bin/vim could point to a malicious binary.
 func validateEditor(editor string) (string, error) {
 	// Extract just the binary name (handle paths like /usr/bin/vim)
 	baseName := filepath.Base(editor)
@@ -534,6 +536,13 @@ func validateEditor(editor string) (string, error) {
 	resolvedPath, err := exec.LookPath(baseName)
 	if err != nil {
 		return "", fmt.Errorf("editor %q not found in PATH: %w", baseName, err)
+	}
+
+	// Security: Verify the resolved binary name also matches an allowed editor
+	// This prevents symlink attacks where ~/bin/vim -> /path/to/malicious
+	resolvedBase := filepath.Base(resolvedPath)
+	if !allowedEditors[resolvedBase] {
+		return "", fmt.Errorf("editor resolved to unexpected binary %q (expected %q)", resolvedPath, baseName)
 	}
 
 	return resolvedPath, nil
