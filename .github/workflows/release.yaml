@@ -94,18 +94,18 @@ jobs:
           # Plan the release
           bin/relicta plan
 
-          # Bump version
-          bin/relicta bump
+          # Bump version and capture the new version from JSON output
+          BUMP_OUTPUT=$(bin/relicta bump --json)
+          echo "Bump output: $BUMP_OUTPUT"
+          VERSION=$(echo "$BUMP_OUTPUT" | jq -r '.tag_name')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "New version: $VERSION"
 
           # Generate notes
           bin/relicta notes
 
           # Approve
           bin/relicta approve --yes
-
-          # Get the new version
-          VERSION=$(bin/relicta version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
           # Push the tag
           git push origin $VERSION || true
