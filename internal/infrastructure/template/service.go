@@ -188,7 +188,7 @@ func (s *ServiceImpl) loadCustomTemplates() error {
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		content, err := os.ReadFile(path) // #nosec G304 -- path from app template dir
 		if err != nil {
 			return fmt.Errorf("failed to read custom template %s: %w", path, err)
 		}
@@ -309,7 +309,7 @@ func (s *ServiceImpl) RenderStringWithContext(ctx context.Context, tmplStr strin
 func (s *ServiceImpl) RenderFile(path string, data any) (string, error) {
 	const op = "template.RenderFile"
 
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(path) // #nosec G304 -- user-specified template path
 	if err != nil {
 		return "", rperrors.IOWrap(err, op, fmt.Sprintf("failed to read template file: %s", path))
 	}

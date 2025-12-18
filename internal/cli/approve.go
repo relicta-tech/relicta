@@ -580,7 +580,7 @@ func editReleaseNotes(notes string) (string, error) {
 	}
 
 	// Open editor with resolved safe path
-	cmd := exec.Command(resolvedEditor, tmpPath)
+	cmd := exec.Command(resolvedEditor, tmpPath) // #nosec G204 -- editor path validated above
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -590,7 +590,7 @@ func editReleaseNotes(notes string) (string, error) {
 	}
 
 	// Read edited content
-	content, err := os.ReadFile(tmpPath)
+	content, err := os.ReadFile(tmpPath) // #nosec G304 -- temp file we just created
 	if err != nil {
 		return "", fmt.Errorf("failed to read edited file: %w", err)
 	}

@@ -175,7 +175,8 @@ jobs:
 
       - name: Run Gosec Security Scanner
         run: |
-          gosec -no-fail -fmt=sarif -out=results.sarif ./... 2>/dev/null || true
+          # Exclude G103 (unsafe calls) for generated protobuf files - standard Google pattern
+          gosec -no-fail -fmt=sarif -out=results.sarif -exclude-dir=internal/plugin/proto ./... 2>/dev/null || true
           # Fix SARIF format issues - ensure artifactChanges is always an array
           if [ -f results.sarif ]; then
             jq '(.runs[].results // [])[] |= (if .fixes then .fixes = [.fixes[] | .artifactChanges = (if .artifactChanges | type == "array" then .artifactChanges else [.artifactChanges] end)] else . end)' results.sarif > results.fixed.sarif 2>/dev/null && mv results.fixed.sarif results.sarif || true

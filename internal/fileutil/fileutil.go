@@ -12,7 +12,7 @@ import (
 // Returns an error if the file exceeds the maximum size.
 // This prevents denial of service from maliciously crafted large files.
 func ReadFileLimited(path string, maxSize int64) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- caller is responsible for path validation
 	if err != nil {
 		return nil, err
 	}

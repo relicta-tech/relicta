@@ -53,7 +53,7 @@ func NewRegistryService(configDir, cacheDir string) *RegistryService {
 // loadConfig loads the registry configuration from disk.
 func (r *RegistryService) loadConfig() {
 	configPath := filepath.Join(r.configDir, RegistryConfigFile)
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(configPath) // #nosec G304 -- path from app config dir
 	if err != nil {
 		// Create default config with official registry
 		r.config = r.defaultConfig()
@@ -108,7 +108,7 @@ func (r *RegistryService) ensureOfficialRegistry() {
 
 // saveConfig saves the registry configuration to disk.
 func (r *RegistryService) saveConfig() error {
-	if err := os.MkdirAll(r.configDir, 0o755); err != nil {
+	if err := os.MkdirAll(r.configDir, 0o755); err != nil { // #nosec G301 -- config dirs need exec
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -118,7 +118,7 @@ func (r *RegistryService) saveConfig() error {
 	}
 
 	configPath := filepath.Join(r.configDir, RegistryConfigFile)
-	if err := os.WriteFile(configPath, data, 0o644); err != nil {
+	if err := os.WriteFile(configPath, data, 0o644); err != nil { // #nosec G306 -- config readable by user
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
@@ -298,7 +298,7 @@ func (r *RegistryService) fetchFromRemote(ctx context.Context, url string) (*Reg
 
 // loadFromCache loads the registry from the cache file.
 func (r *RegistryService) loadFromCache(cachePath string) (*Registry, error) {
-	data, err := os.ReadFile(cachePath)
+	data, err := os.ReadFile(cachePath) // #nosec G304 -- path from app cache dir
 	if err != nil {
 		return nil, fmt.Errorf("failed to read cache file: %w", err)
 	}
@@ -314,7 +314,7 @@ func (r *RegistryService) loadFromCache(cachePath string) (*Registry, error) {
 // saveToCache saves the registry to the cache file.
 func (r *RegistryService) saveToCache(cachePath string, registry *Registry) error {
 	// Ensure cache directory exists
-	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil { // #nosec G301 -- cache dirs need exec
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
@@ -323,7 +323,7 @@ func (r *RegistryService) saveToCache(cachePath string, registry *Registry) erro
 		return fmt.Errorf("failed to marshal registry: %w", err)
 	}
 
-	if err := os.WriteFile(cachePath, data, 0o644); err != nil {
+	if err := os.WriteFile(cachePath, data, 0o644); err != nil { // #nosec G306 -- cache readable by user
 		return fmt.Errorf("failed to write cache file: %w", err)
 	}
 

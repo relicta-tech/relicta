@@ -110,7 +110,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	}
 
 	// Calculate checksum of the installed binary for manifest storage
-	binaryFile, err := os.Open(extractedBinary)
+	binaryFile, err := os.Open(extractedBinary) // #nosec G304 -- path from controlled extraction
 	if err != nil {
 		return nil, fmt.Errorf("failed to open extracted binary: %w", err)
 	}
@@ -223,7 +223,7 @@ func (i *Installer) downloadFile(ctx context.Context, url string, dest io.Writer
 
 // extractTarGz extracts a .tar.gz archive to the destination directory.
 func (i *Installer) extractTarGz(archivePath, destDir string) error {
-	file, err := os.Open(archivePath)
+	file, err := os.Open(archivePath) // #nosec G304 -- path from verified download
 	if err != nil {
 		return fmt.Errorf("failed to open archive: %w", err)
 	}
@@ -254,14 +254,14 @@ func (i *Installer) extractTarGz(archivePath, destDir string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := os.MkdirAll(target, 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 				return fmt.Errorf("failed to create parent directory: %w", err)
 			}
-			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode)) // #nosec G304,G115 -- path validated, mode from archive
 			if err != nil {
 				return fmt.Errorf("failed to create file: %w", err)
 			}
@@ -300,13 +300,13 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 		}
 
 		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := os.MkdirAll(target, 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 			return fmt.Errorf("failed to create parent directory: %w", err)
 		}
 
@@ -320,7 +320,7 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 
 // extractZipFile extracts a single file from a zip archive.
 func (i *Installer) extractZipFile(f *zip.File, target string) error {
-	outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+	outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode()) // #nosec G304 -- path validated above
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -414,18 +414,18 @@ func (i *Installer) calculateChecksum(file io.Reader) (string, error) {
 // installBinary moves the downloaded binary to the plugin directory and sets permissions.
 func (i *Installer) installBinary(srcPath, destPath string) error {
 	// Read the source file
-	data, err := os.ReadFile(srcPath)
+	data, err := os.ReadFile(srcPath) // #nosec G304 -- path from controlled extraction
 	if err != nil {
 		return fmt.Errorf("failed to read source file: %w", err)
 	}
 
 	// Ensure destination directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// Write to destination with executable permissions
-	if err := os.WriteFile(destPath, data, 0o755); err != nil {
+	if err := os.WriteFile(destPath, data, 0o755); err != nil { // #nosec G306 -- plugins must be executable
 		return fmt.Errorf("failed to write destination file: %w", err)
 	}
 

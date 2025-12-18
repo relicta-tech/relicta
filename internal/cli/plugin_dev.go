@@ -116,7 +116,7 @@ func buildPlugin(srcPath, destPath string) error {
 	}
 
 	// Make executable
-	if err := os.Chmod(destPath, 0o755); err != nil {
+	if err := os.Chmod(destPath, 0o755); err != nil { // #nosec G302 -- plugins must be executable
 		return fmt.Errorf("failed to set permissions: %w", err)
 	}
 

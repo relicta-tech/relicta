@@ -96,7 +96,7 @@ func runPluginCreate(cmd *cobra.Command, args []string) error {
 		outputDir,
 	}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0755); err != nil { // #nosec G301 -- plugin output needs exec
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -192,7 +192,7 @@ func generateFile(path, tmplContent string, data pluginTemplateData) error {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(path) // #nosec G304 -- path is constructed from validated plugin name
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}

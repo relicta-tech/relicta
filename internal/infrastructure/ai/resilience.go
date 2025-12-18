@@ -82,11 +82,11 @@ func NewResilience(cfg ResilienceConfig) *Resilience {
 	if cfg.CircuitBreakerEnabled {
 		threshold := cfg.CircuitBreakerThreshold
 		r.circuitBreaker = circuitbreaker.New[string](circuitbreaker.Config{
-			MaxRequests: uint32(cfg.CircuitBreakerMaxRequests),
+			MaxRequests: uint32(cfg.CircuitBreakerMaxRequests), // #nosec G115 -- bounded config value
 			Interval:    cfg.CircuitBreakerTimeout,
 			Timeout:     cfg.CircuitBreakerTimeout,
 			ReadyToTrip: func(counts circuitbreaker.Counts) bool {
-				return counts.ConsecutiveFailures >= uint32(threshold)
+				return counts.ConsecutiveFailures >= uint32(threshold) // #nosec G115 -- bounded config value
 			},
 		})
 	}

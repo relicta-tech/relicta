@@ -43,13 +43,13 @@ func NewManager() (*Manager, error) {
 	configDir := filepath.Join(home, DefaultConfigDir)
 
 	// Ensure directories exist
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil { // #nosec G301 -- plugin dirs need exec
 		return nil, fmt.Errorf("failed to create plugin directory: %w", err)
 	}
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil { // #nosec G301 -- cache dirs need exec
 		return nil, fmt.Errorf("failed to create cache directory: %w", err)
 	}
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil { // #nosec G301 -- config dirs need exec
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -208,7 +208,7 @@ func (m *Manager) saveManifest(manifest *Manifest) error {
 		return fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
-	if err := os.WriteFile(m.manifestPath, data, 0o644); err != nil {
+	if err := os.WriteFile(m.manifestPath, data, 0o644); err != nil { // #nosec G306 -- manifest readable by user
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 

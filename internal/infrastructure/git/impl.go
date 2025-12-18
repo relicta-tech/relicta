@@ -632,7 +632,7 @@ func (s *ServiceImpl) pushTagFallback(ctx context.Context, name, remote string, 
 		args = append(args, "--force")
 	}
 
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204 -- git command with validated args
 	cmd.Dir = repoRoot
 	output, err := cmd.CombinedOutput()
 	if err != nil {

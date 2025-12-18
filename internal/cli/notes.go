@@ -79,7 +79,7 @@ func buildGenerateNotesInput(rel *release.Release, hasAI bool) apprelease.Genera
 // writeNotesToFile writes the release notes to a file.
 func writeNotesToFile(output *apprelease.GenerateNotesOutput, filename string) error {
 	content := output.ReleaseNotes.Render()
-	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(filename, []byte(content), 0o644); err != nil { // #nosec G306 -- notes readable by user
 		return fmt.Errorf("failed to write notes to file: %w", err)
 	}
 	printSuccess(fmt.Sprintf("Release notes written to %s", filename))

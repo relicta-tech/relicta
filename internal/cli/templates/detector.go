@@ -615,7 +615,7 @@ func (d *Detector) hasFilesWithExt(ext string, dirs ...string) bool {
 
 func (d *Detector) hasFileContent(filename, content string) bool {
 	path := filepath.Join(d.basePath, filename)
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path from validated basePath
 	if err != nil {
 		return false
 	}

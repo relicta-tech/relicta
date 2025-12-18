@@ -70,10 +70,10 @@ func (r *TestRepo) WriteFile(path, content string) {
 	r.t.Helper()
 	fullPath := filepath.Join(r.Dir, path)
 	dir := filepath.Dir(fullPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil { // #nosec G301 -- test repo needs exec
 		r.t.Fatalf("failed to create directory %s: %v", dir, err)
 	}
-	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil { // #nosec G306 -- test file permissions
 		r.t.Fatalf("failed to write file %s: %v", path, err)
 	}
 }
@@ -91,7 +91,7 @@ func (r *TestRepo) CommitWithDate(message string, date time.Time) string {
 	r.t.Helper()
 	r.Git("add", "-A")
 	dateStr := date.Format(time.RFC3339)
-	cmd := exec.Command("git", "commit", "-m", message, "--allow-empty", "--date", dateStr)
+	cmd := exec.Command("git", "commit", "-m", message, "--allow-empty", "--date", dateStr) // #nosec G204 -- test helper with known args
 	cmd.Dir = r.Dir
 	cmd.Env = append(os.Environ(),
 		"GIT_AUTHOR_DATE="+dateStr,

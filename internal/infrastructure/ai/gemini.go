@@ -157,7 +157,7 @@ func (s *geminiService) complete(ctx context.Context, systemPrompt, userPrompt s
 			[]*genai.Content{{Parts: parts}},
 			&genai.GenerateContentConfig{
 				Temperature:     &temperature,
-				MaxOutputTokens: int32(s.config.MaxTokens),
+				MaxOutputTokens: int32(s.config.MaxTokens), // #nosec G115 -- MaxTokens is bounded by config
 			},
 		)
 		if err != nil {

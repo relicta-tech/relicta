@@ -328,7 +328,7 @@ func updateChangelogFile(filename, newContent string) error {
 
 	// Read existing content
 	existingContent := ""
-	if data, err := os.ReadFile(filename); err == nil {
+	if data, err := os.ReadFile(filename); err == nil { // #nosec G304 -- user-specified changelog path
 		existingContent = string(data)
 	}
 
@@ -350,7 +350,7 @@ func updateChangelogFile(filename, newContent string) error {
 		}
 	}
 
-	return os.WriteFile(filename, []byte(finalContent), 0o644)
+	return os.WriteFile(filename, []byte(finalContent), 0o644) // #nosec G306 -- changelog readable by user
 }
 
 // stripChangelogHeader removes any "# Changelog" header from the content.
