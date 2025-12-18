@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-12-18
+
+### Features
+
+- **security:** implement quality review P1 improvements (ee75aef)
+- **build:** add pre-commit hooks to reduce CI costs (2128c5f)
+
+### Bug Fixes
+
+- **security:** correct decompression bomb size check (daf6845)
+- **ci:** exclude gosec false positives from security scan (2bcbf48)
+- **security:** add #nosec comments for all gosec false positives (4e8ca4e)
+- **security:** add #nosec comments for false positive gosec alerts (6b60658)
+- **lint:** remove unused nolint directive for gosec G115 (e92ae0c)
+- **bump:** update release state when using --force flag (258a1b6)
+- **security:** handle all unhandled errors flagged by CodeQL (b814e30)
+
+
 ## [2.4.0] - 2025-12-18
 
 ### Features
