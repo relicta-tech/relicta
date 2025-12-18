@@ -86,6 +86,12 @@ func handleForcedVersion(ctx context.Context, dddContainer *container.DDDContain
 		return fmt.Errorf("failed to set version: %w", err)
 	}
 
+	// Update release state if there's an active release (same as normal bump flow)
+	// Not fatal if it fails - just means there's no release to update
+	if !dryRun {
+		_ = updateReleaseVersion(ctx, dddContainer, forcedVersion)
+	}
+
 	if outputJSON {
 		return outputSetVersionJSON(output)
 	}
