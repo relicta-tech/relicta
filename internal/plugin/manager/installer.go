@@ -275,8 +275,8 @@ func (i *Installer) extractTarGz(archivePath, destDir string) error {
 			if closeErr != nil {
 				return fmt.Errorf("failed to close file: %w", closeErr)
 			}
-			if written == MaxPluginFileSize {
-				return fmt.Errorf("file %s exceeds maximum allowed size", header.Name)
+			if written >= MaxPluginFileSize {
+				return fmt.Errorf("file %s exceeds maximum allowed size of %d bytes", header.Name, MaxPluginFileSize)
 			}
 		}
 	}
@@ -348,8 +348,8 @@ func (i *Installer) extractZipFile(f *zip.File, target string) error {
 	if outCloseErr != nil {
 		return fmt.Errorf("failed to close output file: %w", outCloseErr)
 	}
-	if written == MaxPluginFileSize {
-		return fmt.Errorf("file %s exceeds maximum allowed size", f.Name)
+	if written >= MaxPluginFileSize {
+		return fmt.Errorf("file %s exceeds maximum allowed size of %d bytes", f.Name, MaxPluginFileSize)
 	}
 
 	return nil
