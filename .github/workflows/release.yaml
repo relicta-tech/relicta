@@ -97,7 +97,8 @@ jobs:
           # Bump version and capture the new version from JSON output
           BUMP_OUTPUT=$(bin/relicta bump --json)
           echo "Bump output: $BUMP_OUTPUT"
-          VERSION=$(echo "$BUMP_OUTPUT" | jq -r '.tag_name')
+          # Extract JSON from the output (skip header lines before the JSON object)
+          VERSION=$(echo "$BUMP_OUTPUT" | grep -A100 '^{' | jq -r '.tag_name')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "New version: $VERSION"
 
