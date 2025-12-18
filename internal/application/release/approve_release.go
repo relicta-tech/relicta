@@ -19,6 +19,26 @@ type ApproveReleaseInput struct {
 	EditedNotes *string
 }
 
+// Validate validates the ApproveReleaseInput.
+func (i *ApproveReleaseInput) Validate() error {
+	v := NewValidationError()
+
+	// ReleaseID validation
+	v.Add(ValidateReleaseID(i.ReleaseID))
+
+	// ApprovedBy validation
+	if i.ApprovedBy != "" {
+		v.Add(ValidateSafeString(i.ApprovedBy, "approved_by", MaxApproverLength))
+	}
+
+	// EditedNotes size validation
+	if i.EditedNotes != nil && len(*i.EditedNotes) > MaxNotesLength {
+		v.AddMessage(fmt.Sprintf("edited notes too long (max %d bytes)", MaxNotesLength))
+	}
+
+	return v.ToError()
+}
+
 // ApproveReleaseOutput represents the output of the ApproveRelease use case.
 type ApproveReleaseOutput struct {
 	Approved    bool
@@ -47,6 +67,11 @@ func NewApproveReleaseUseCase(
 
 // Execute executes the approve release use case.
 func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveReleaseInput) (*ApproveReleaseOutput, error) {
+	// Validate input
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid input: %w", err)
+	}
+
 	// Retrieve release
 	rel, err := uc.releaseRepo.FindByID(ctx, input.ReleaseID)
 	if err != nil {
@@ -101,6 +126,11 @@ type GetReleaseForApprovalInput struct {
 	ReleaseID release.ReleaseID
 }
 
+// Validate validates the GetReleaseForApprovalInput.
+func (i *GetReleaseForApprovalInput) Validate() error {
+	return ValidateReleaseID(i.ReleaseID)
+}
+
 // GetReleaseForApprovalOutput represents output with release details for approval.
 type GetReleaseForApprovalOutput struct {
 	Release     *release.Release
@@ -121,6 +151,11 @@ func NewGetReleaseForApprovalUseCase(releaseRepo release.Repository) *GetRelease
 
 // Execute retrieves release details for approval.
 func (uc *GetReleaseForApprovalUseCase) Execute(ctx context.Context, input GetReleaseForApprovalInput) (*GetReleaseForApprovalOutput, error) {
+	// Validate input
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid input: %w", err)
+	}
+
 	rel, err := uc.releaseRepo.FindByID(ctx, input.ReleaseID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find release: %w", err)

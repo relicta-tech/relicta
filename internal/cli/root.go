@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/security"
 )
 
 var (
@@ -26,14 +27,15 @@ var (
 	}
 
 	// Global flags
-	cfgFile    string
-	verbose    bool
-	dryRun     bool
-	outputJSON bool
-	noColor    bool
-	logLevel   string
-	modelFlag  string // --model flag for AI provider/model selection
-	ciMode     bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
+	cfgFile       string
+	verbose       bool
+	dryRun        bool
+	outputJSON    bool
+	noColor       bool
+	logLevel      string
+	modelFlag     string // --model flag for AI provider/model selection
+	ciMode        bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
+	redactSecrets bool   // --redact flag to mask sensitive data in output
 
 	// Global config
 	cfg *config.Config
@@ -126,6 +128,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "CI/CD mode: auto-approve, JSON output, non-interactive")
+	rootCmd.PersistentFlags().BoolVar(&redactSecrets, "redact", false, "redact secrets and API keys from output (auto-enabled in CI mode)")
 
 	// Bind flags to viper
 	viper.BindPFlag("output.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
@@ -205,6 +208,16 @@ func applyCIModeFlag() {
 	cfg.Workflow.RequireApproval = false    // Skip approval prompts
 	noColor = true                          // Disable colors for cleaner logs
 	lipgloss.SetColorProfile(termenv.Ascii) // Reset color profile
+	security.Enable()                       // Auto-enable secret masking in CI
+}
+
+// applyRedactSecretsFlag enables secret masking if --redact flag is set.
+func applyRedactSecretsFlag() {
+	if redactSecrets {
+		security.Enable()
+	}
+	// Also check for CI environment variables even if --redact not explicitly set
+	security.EnableInCI()
 }
 
 // configureLoggerFormat configures the logger format based on settings.
@@ -262,6 +275,7 @@ func initConfig() error {
 	applyGlobalFlags()
 	applyModelFlag()
 	applyCIModeFlag()
+	applyRedactSecretsFlag()
 
 	// Configure logger
 	configureLoggerFormat()
@@ -358,21 +372,22 @@ This command performs all the release actions including:
 }
 
 // Helper functions for output
+// All print functions mask sensitive data when masking is enabled.
 
 func printSuccess(msg string) {
-	fmt.Println(styles.Success.Render("✓ " + msg))
+	fmt.Println(styles.Success.Render("✓ " + security.Mask(msg)))
 }
 
 func printError(msg string) {
-	fmt.Println(styles.Error.Render("✗ " + msg))
+	fmt.Println(styles.Error.Render("✗ " + security.Mask(msg)))
 }
 
 func printWarning(msg string) {
-	fmt.Println(styles.Warning.Render("⚠ " + msg))
+	fmt.Println(styles.Warning.Render("⚠ " + security.Mask(msg)))
 }
 
 func printInfo(msg string) {
-	fmt.Println(styles.Info.Render("ℹ " + msg))
+	fmt.Println(styles.Info.Render("ℹ " + security.Mask(msg)))
 }
 
 func printDryRunBanner() {
@@ -381,11 +396,11 @@ func printDryRunBanner() {
 }
 
 func printTitle(msg string) {
-	fmt.Println(styles.Title.Render(msg))
+	fmt.Println(styles.Title.Render(security.Mask(msg)))
 }
 
 func printSubtle(msg string) {
-	fmt.Println(styles.Subtle.Render(msg))
+	fmt.Println(styles.Subtle.Render(security.Mask(msg)))
 }
 
 // Spinner provides a simple CLI loading indicator.

@@ -43,7 +43,7 @@ endef
 
 .PHONY: all build install clean clean-dist test test-race test-coverage lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
-        test-integration test-e2e help release-build release-binaries release-plugins \
+        test-integration test-e2e bench bench-save bench-quick help release-build release-binaries release-plugins \
         release-archives release-checksums release-snapshot check install-hooks
 
 # Default target
@@ -130,6 +130,26 @@ test-integration:
 test-e2e:
 	@echo "Running e2e tests..."
 	$(GOTEST) -v -tags=e2e ./test/e2e/...
+
+# Run benchmarks
+bench:
+	@echo "Running benchmarks..."
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... ./pkg/...
+
+# Run benchmarks and save results
+bench-save:
+	@echo "Running benchmarks and saving results..."
+	@mkdir -p $(BIN_DIR)
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... ./pkg/... | tee $(BIN_DIR)/bench-results.txt
+	@echo "Results saved to $(BIN_DIR)/bench-results.txt"
+
+# Run quick benchmarks (critical paths only)
+bench-quick:
+	@echo "Running quick benchmarks..."
+	$(GOTEST) -bench=. -benchmem -benchtime=100ms -run=^$$ \
+		./internal/infrastructure/git/... \
+		./internal/domain/version/... \
+		./internal/plugin/...
 
 ## Code quality targets
 
@@ -307,6 +327,9 @@ help:
 	@echo "  make test-coverage  Run tests with coverage report"
 	@echo "  make test-integration Run integration tests"
 	@echo "  make test-e2e       Run end-to-end tests"
+	@echo "  make bench          Run all benchmarks"
+	@echo "  make bench-save     Run benchmarks and save results"
+	@echo "  make bench-quick    Run quick benchmarks (critical paths)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint           Run golangci-lint"

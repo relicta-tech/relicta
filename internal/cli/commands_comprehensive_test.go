@@ -24,6 +24,7 @@ func TestRootCommand_AllGlobalFlags(t *testing.T) {
 		{"log-level", "", "info", false},
 		{"model", "", "", false},
 		{"ci", "", "false", false},
+		{"redact", "", "false", false},
 	}
 
 	for _, f := range flags {

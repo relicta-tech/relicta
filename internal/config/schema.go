@@ -180,6 +180,24 @@ type CustomPrompts struct {
 	MarketingUser string `mapstructure:"marketing_user" json:"marketing_user,omitempty"`
 }
 
+// PluginCapabilities defines security restrictions for plugin execution.
+type PluginCapabilities struct {
+	// AllowNetwork enables network access for the plugin.
+	AllowNetwork bool `mapstructure:"allow_network" json:"allow_network"`
+	// AllowFilesystem enables filesystem access for the plugin.
+	AllowFilesystem bool `mapstructure:"allow_filesystem" json:"allow_filesystem"`
+	// AllowedPaths restricts filesystem access to specific paths.
+	AllowedPaths []string `mapstructure:"allowed_paths" json:"allowed_paths,omitempty"`
+	// AllowEnvRead enables reading environment variables.
+	AllowEnvRead bool `mapstructure:"allow_env_read" json:"allow_env_read"`
+	// AllowedEnvVars restricts env access to specific variables.
+	AllowedEnvVars []string `mapstructure:"allowed_env_vars" json:"allowed_env_vars,omitempty"`
+	// MaxMemoryMB is the maximum memory the plugin can use (0 = unlimited).
+	MaxMemoryMB int64 `mapstructure:"max_memory_mb" json:"max_memory_mb"`
+	// MaxCPUPercent is the maximum CPU percentage (0 = unlimited).
+	MaxCPUPercent int `mapstructure:"max_cpu_percent" json:"max_cpu_percent"`
+}
+
 // PluginConfig configures a single plugin.
 type PluginConfig struct {
 	// Name is the plugin name.
@@ -196,6 +214,8 @@ type PluginConfig struct {
 	Timeout time.Duration `mapstructure:"timeout" json:"timeout,omitempty"`
 	// ContinueOnError indicates whether to continue if the plugin fails.
 	ContinueOnError bool `mapstructure:"continue_on_error" json:"continue_on_error"`
+	// Capabilities defines security restrictions for the plugin.
+	Capabilities *PluginCapabilities `mapstructure:"capabilities" json:"capabilities,omitempty"`
 }
 
 // IsEnabled returns whether the plugin is enabled.
@@ -242,6 +262,8 @@ type OutputConfig struct {
 	LogFile string `mapstructure:"log_file" json:"log_file,omitempty"`
 	// LogLevel is the log level (debug, info, warn, error).
 	LogLevel string `mapstructure:"log_level" json:"log_level"`
+	// PluginAuditLog is the path to the plugin audit log file.
+	PluginAuditLog string `mapstructure:"plugin_audit_log" json:"plugin_audit_log,omitempty"`
 }
 
 // TelemetryConfig configures observability and tracing.

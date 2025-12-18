@@ -86,6 +86,11 @@ linters:
         linters:
           - revive
         text: var-naming
+      # Exclude contextcheck for collectPluginsForHook - intentionally doesn't use context
+      - path: internal/plugin/manager\.go
+        linters:
+          - contextcheck
+        text: collectPluginsForHook
 
   settings:
     errcheck:

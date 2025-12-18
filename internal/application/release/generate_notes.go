@@ -20,6 +20,29 @@ type GenerateNotesInput struct {
 	RepositoryURL    string
 }
 
+// Validate validates the GenerateNotesInput.
+func (i *GenerateNotesInput) Validate() error {
+	v := NewValidationError()
+
+	// ReleaseID validation
+	v.Add(ValidateReleaseID(i.ReleaseID))
+
+	// Tone validation (empty is allowed, uses default)
+	if i.Tone != "" && !i.Tone.IsValid() {
+		v.AddMessage(fmt.Sprintf("invalid tone: %s", i.Tone))
+	}
+
+	// Audience validation (empty is allowed, uses default)
+	if i.Audience != "" && !i.Audience.IsValid() {
+		v.AddMessage(fmt.Sprintf("invalid audience: %s", i.Audience))
+	}
+
+	// RepositoryURL validation
+	v.Add(ValidateURL(i.RepositoryURL, "repository URL"))
+
+	return v.ToError()
+}
+
 // GenerateNotesOutput represents the output of the GenerateNotes use case.
 type GenerateNotesOutput struct {
 	ReleaseNotes *communication.ReleaseNotes
@@ -62,6 +85,11 @@ func NewGenerateNotesUseCase(
 
 // Execute executes the generate notes use case.
 func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotesInput) (*GenerateNotesOutput, error) {
+	// Validate input
+	if err := input.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid input: %w", err)
+	}
+
 	// Retrieve release
 	rel, err := uc.releaseRepo.FindByID(ctx, input.ReleaseID)
 	if err != nil {

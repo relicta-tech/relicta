@@ -464,13 +464,30 @@ func ConflictWrap(err error, op, message string) *Error {
 var sensitivePatterns = []*regexp.Regexp{
 	// OpenAI API keys: sk-..., sk-proj-..., sk-svc-...
 	regexp.MustCompile(`\bsk-(?:proj-|svc-)?[a-zA-Z0-9_-]{20,}\b`),
+	// Anthropic API keys: sk-ant-...
+	regexp.MustCompile(`\bsk-ant-[a-zA-Z0-9_-]{20,}\b`),
 	// Google Gemini API keys: AIza...
 	regexp.MustCompile(`\bAIza[a-zA-Z0-9_-]{35,}\b`),
+	// Azure OpenAI API keys (32 hex characters)
+	regexp.MustCompile(`\b[a-f0-9]{32}\b`),
 	// GitHub tokens: ghp_..., gho_..., ghs_..., ghr_...
 	regexp.MustCompile(`\bgh[posh]_[a-zA-Z0-9]{36,}\b`),
+	// GitLab tokens: glpat-..., glfat-...
+	regexp.MustCompile(`\bgl[pf]at-[a-zA-Z0-9_-]{20,}\b`),
+	// Slack tokens: xoxb-..., xoxa-..., xoxp-...
+	regexp.MustCompile(`\bxox[bap]-[a-zA-Z0-9-]+\b`),
 	// Slack webhook URLs - intentionally matches anywhere for comprehensive redaction
 	// lgtm[go/regex/missing-regexp-anchor]
 	regexp.MustCompile(`https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+`),
+	// Discord webhook URLs
+	// lgtm[go/regex/missing-regexp-anchor]
+	regexp.MustCompile(`https://discord(?:app)?\.com/api/webhooks/[0-9]+/[a-zA-Z0-9_-]+`),
+	// Jira API tokens: ATATT...
+	regexp.MustCompile(`\bATATT[a-zA-Z0-9_-]{20,}\b`),
+	// AWS access key IDs: AKIA..., ABIA..., ACCA..., ASIA...
+	regexp.MustCompile(`\b(?:AKIA|ABIA|ACCA|ASIA)[A-Z0-9]{16}\b`),
+	// AWS secret access keys (40 base64-ish characters)
+	regexp.MustCompile(`\b[A-Za-z0-9/+=]{40}\b`),
 	// Generic bearer tokens
 	regexp.MustCompile(`\bBearer\s+[a-zA-Z0-9_-]{20,}\b`),
 	// Basic auth with password in URL - intentionally matches anywhere for comprehensive redaction

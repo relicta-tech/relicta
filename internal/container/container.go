@@ -251,10 +251,9 @@ func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
 	// Create plugin manager for external gRPC plugins
 	c.pluginManager = plugin.NewManager(c.config)
 
-	// Load configured plugins
-	if err := c.pluginManager.LoadPlugins(ctx); err != nil {
-		return err
-	}
+	// Register plugins for lazy loading (improves startup time)
+	// Plugins will be loaded on-demand when hooks are executed
+	c.pluginManager.RegisterPlugins()
 
 	// Register manager for cleanup
 	c.registerCloseable(c.pluginManager)

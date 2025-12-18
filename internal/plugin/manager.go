@@ -18,6 +18,8 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/plugin/audit"
+	"github.com/relicta-tech/relicta/internal/plugin/sandbox"
 	"github.com/relicta-tech/relicta/pkg/plugin"
 )
 
@@ -39,6 +41,11 @@ type Manager struct {
 	logger           hclog.Logger
 	cfg              *config.Config
 	executionLimiter *semaphore.Weighted
+
+	// Lazy loading support
+	pendingPlugins map[string]*config.PluginConfig // Registered but not yet loaded
+	loadOnce       map[string]*sync.Once           // Ensures each plugin loads only once
+	loadErrors     map[string]error                // Stores load errors for lazy-loaded plugins
 }
 
 // loadedPlugin represents a loaded and running plugin.
@@ -49,6 +56,7 @@ type loadedPlugin struct {
 	info    plugin.Info
 	config  map[string]any
 	timeout time.Duration
+	sandbox *sandbox.Sandbox
 }
 
 // NewManager creates a new plugin manager.
@@ -70,6 +78,9 @@ func NewManager(cfg *config.Config) *Manager {
 		logger:           logger,
 		cfg:              cfg,
 		executionLimiter: semaphore.NewWeighted(MaxConcurrentPluginExecutions),
+		pendingPlugins:   make(map[string]*config.PluginConfig, pluginCount),
+		loadOnce:         make(map[string]*sync.Once, pluginCount),
+		loadErrors:       make(map[string]error, pluginCount),
 	}
 }
 
@@ -95,21 +106,104 @@ func (m *Manager) LoadPlugins(ctx context.Context) error {
 	return nil
 }
 
+// RegisterPlugins registers all configured plugins for lazy loading.
+// Plugins are not actually loaded until they are needed (when a hook is executed).
+// This improves startup time for commands that don't use plugins.
+func (m *Manager) RegisterPlugins() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.cfg.Plugins {
+		pluginCfg := &m.cfg.Plugins[i]
+		if !pluginCfg.IsEnabled() {
+			m.logger.Debug("plugin disabled", "name", pluginCfg.Name)
+			continue
+		}
+
+		m.logger.Debug("registering plugin for lazy loading", "name", pluginCfg.Name)
+		m.pendingPlugins[pluginCfg.Name] = pluginCfg
+		m.loadOnce[pluginCfg.Name] = &sync.Once{}
+	}
+}
+
+// ensurePluginLoaded ensures a plugin is loaded, loading it lazily if needed.
+// This is thread-safe and ensures each plugin is loaded only once.
+func (m *Manager) ensurePluginLoaded(ctx context.Context, name string) (*loadedPlugin, error) {
+	// Fast path: check if already loaded
+	m.mu.RLock()
+	if lp, ok := m.plugins[name]; ok {
+		m.mu.RUnlock()
+		return lp, nil
+	}
+
+	// Check if there was a previous load error
+	if err, ok := m.loadErrors[name]; ok {
+		m.mu.RUnlock()
+		return nil, err
+	}
+
+	// Get config and once for this plugin
+	cfg, hasCfg := m.pendingPlugins[name]
+	once, hasOnce := m.loadOnce[name]
+	m.mu.RUnlock()
+
+	if !hasCfg || !hasOnce {
+		return nil, fmt.Errorf("plugin not registered: %s", name)
+	}
+
+	// Load the plugin (sync.Once ensures this happens only once)
+	var loadErr error
+	once.Do(func() {
+		m.logger.Debug("lazy loading plugin", "name", name)
+		loadErr = m.loadPlugin(ctx, cfg)
+		if loadErr != nil {
+			// Store the error for future calls
+			m.mu.Lock()
+			m.loadErrors[name] = loadErr
+			m.mu.Unlock()
+		}
+	})
+
+	if loadErr != nil {
+		return nil, loadErr
+	}
+
+	// Get the loaded plugin
+	m.mu.RLock()
+	lp := m.plugins[name]
+	m.mu.RUnlock()
+
+	return lp, nil
+}
+
 // loadPlugin loads a single plugin.
 func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) error {
 	// Find plugin binary
 	pluginPath, err := m.findPluginBinary(cfg)
 	if err != nil {
+		_ = audit.LogLoad(ctx, cfg.Name, false, err.Error())
 		return err
 	}
 
 	m.logger.Debug("loading plugin", "name", cfg.Name, "path", pluginPath)
 
-	// Create plugin client
+	// Create sandbox with capabilities from config
+	sb := sandbox.New(cfg.Name, cfg.Capabilities)
+
+	// Create the command for the plugin
+	cmd := exec.Command(pluginPath)
+
+	// Apply sandbox restrictions to the command
+	if err := sb.PrepareCommand(ctx, cmd); err != nil {
+		m.logger.Warn("failed to apply sandbox restrictions", "plugin", cfg.Name, "error", err)
+		// Continue without sandboxing - this is best-effort
+	}
+
+	// Create plugin client with sandboxed command
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig:  plugin.Handshake,
 		Plugins:          plugin.PluginMap,
-		Cmd:              exec.Command(pluginPath),
+		Cmd:              cmd,
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
 		Logger:           m.logger.Named(cfg.Name),
 	})
@@ -171,10 +265,14 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 		info:    info,
 		config:  cfg.Config,
 		timeout: timeout,
+		sandbox: sb,
 	}
 	m.mu.Unlock()
 
 	m.logger.Info("plugin loaded", "name", cfg.Name, "version", info.Version, "hooks", info.Hooks)
+
+	// Log successful load
+	_ = audit.LogLoad(ctx, cfg.Name, true, "")
 
 	return nil
 }
@@ -413,6 +511,9 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 			execCtx, cancel := context.WithTimeout(gCtx, exec.timeout)
 			defer cancel()
 
+			// Track execution time for audit logging
+			startTime := time.Now()
+
 			resp, err := exec.plugin.Execute(execCtx, plugin.ExecuteRequest{
 				Hook:    hook,
 				Config:  exec.config,
@@ -420,8 +521,11 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 				DryRun:  dryRun,
 			})
 
+			duration := time.Since(startTime)
+
 			if err != nil {
 				m.logger.Error("plugin execution failed", "plugin", exec.name, "hook", hook, "error", err)
+				_ = audit.LogExecution(gCtx, exec.name, string(hook), false, duration, err.Error())
 				resultsChan <- pluginResult{
 					index: i,
 					response: plugin.ExecuteResponse{
@@ -436,8 +540,10 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 			if resp != nil {
 				if resp.Success {
 					m.logger.Info("plugin executed successfully", "plugin", exec.name, "hook", hook)
+					_ = audit.LogExecution(gCtx, exec.name, string(hook), true, duration, "")
 				} else {
 					m.logger.Warn("plugin execution returned error", "plugin", exec.name, "hook", hook, "error", resp.Error)
+					_ = audit.LogExecution(gCtx, exec.name, string(hook), false, duration, resp.Error)
 				}
 				resultsChan <- pluginResult{
 					index:    i,
@@ -445,6 +551,7 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 				}
 			} else {
 				// Ensure we always send a result to prevent deadlock
+				_ = audit.LogExecution(gCtx, exec.name, string(hook), true, duration, "")
 				resultsChan <- pluginResult{
 					index: i,
 					response: plugin.ExecuteResponse{
@@ -494,14 +601,15 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 }
 
 // collectPluginsForHook collects plugins that support the given hook.
-// Holds the read lock only briefly to copy needed data.
+// Supports both eagerly-loaded plugins and lazy-loaded plugins.
 func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
 	m.mu.RLock()
-	defer m.mu.RUnlock()
 
 	// Pre-allocate with reasonable capacity
-	toExecute := make([]pluginExecInfo, 0, len(m.plugins))
+	totalPlugins := len(m.plugins) + len(m.pendingPlugins)
+	toExecute := make([]pluginExecInfo, 0, totalPlugins)
 
+	// Collect already-loaded plugins that support this hook
 	for _, lp := range m.plugins {
 		if !m.pluginSupportsHook(lp, hook) {
 			continue
@@ -515,7 +623,61 @@ func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
 		})
 	}
 
+	// Identify pending plugins that might support this hook
+	pendingToLoad := make([]string, 0)
+	for name, cfg := range m.pendingPlugins {
+		// Skip if already loaded
+		if _, loaded := m.plugins[name]; loaded {
+			continue
+		}
+
+		// Check if plugin config specifies hooks
+		if len(cfg.Hooks) > 0 {
+			// Only load if the hook is in the config list
+			if !m.configHasHook(cfg, hook) {
+				continue
+			}
+		}
+		// If no hooks specified in config, we need to load to find out
+
+		pendingToLoad = append(pendingToLoad, name)
+	}
+	m.mu.RUnlock()
+
+	// Lazily load pending plugins that might support this hook
+	ctx := context.Background()
+	for _, name := range pendingToLoad {
+		lp, err := m.ensurePluginLoaded(ctx, name)
+		if err != nil {
+			m.logger.Warn("failed to lazy load plugin", "name", name, "error", err)
+			continue
+		}
+
+		// Now check if it actually supports the hook
+		if !m.pluginSupportsHook(lp, hook) {
+			continue
+		}
+
+		toExecute = append(toExecute, pluginExecInfo{
+			name:    lp.name,
+			plugin:  lp.plugin,
+			config:  lp.config,
+			timeout: lp.timeout,
+		})
+	}
+
 	return toExecute
+}
+
+// configHasHook checks if the plugin config specifies support for a hook.
+func (m *Manager) configHasHook(cfg *config.PluginConfig, hook plugin.Hook) bool {
+	hookStr := string(hook)
+	for _, h := range cfg.Hooks {
+		if h == hookStr {
+			return true
+		}
+	}
+	return false
 }
 
 // pluginSupportsHook checks if a plugin supports a given hook.
@@ -559,11 +721,13 @@ func (m *Manager) Shutdown() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	ctx := context.Background()
 	for name, lp := range m.plugins {
 		m.logger.Debug("shutting down plugin", "name", name)
 		if lp.client != nil {
 			lp.client.Kill()
 		}
+		_ = audit.LogUnload(ctx, name)
 	}
 
 	m.plugins = make(map[string]*loadedPlugin)
