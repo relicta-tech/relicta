@@ -117,7 +117,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 
 	// Step 4: Approve
 	printStep(4, 5, "Reviewing release")
-	approved, err := runReleaseApprove(planOutput, notesOutput, releaseAutoApprove)
+	approved, err := runReleaseApprove(ctx, dddContainer, planOutput, notesOutput, releaseAutoApprove)
 	if err != nil {
 		return fmt.Errorf("approval failed: %w", err)
 	}
@@ -228,9 +228,18 @@ func runReleaseNotes(ctx context.Context, c *container.DDDContainer, plan *appre
 }
 
 // runReleaseApprove handles the approval step.
-func runReleaseApprove(plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
+func runReleaseApprove(ctx context.Context, c *container.DDDContainer, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
 	if autoApprove {
 		printInfo("Auto-approving release")
+		// Actually approve the release in the domain model
+		input := apprelease.ApproveReleaseInput{
+			ReleaseID:  plan.ReleaseID,
+			ApprovedBy: "auto-approve",
+		}
+		_, err := c.ApproveRelease().Execute(ctx, input)
+		if err != nil {
+			return false, fmt.Errorf("auto-approve failed: %w", err)
+		}
 		return true, nil
 	}
 
@@ -270,7 +279,19 @@ func runReleaseApprove(plan *apprelease.PlanReleaseOutput, notes *apprelease.Gen
 		return false, nil // Treat as "no"
 	}
 
-	return response == "y" || response == "Y" || response == "yes" || response == "Yes", nil
+	approved := response == "y" || response == "Y" || response == "yes" || response == "Yes"
+	if approved {
+		// Actually approve the release in the domain model
+		input := apprelease.ApproveReleaseInput{
+			ReleaseID:  plan.ReleaseID,
+			ApprovedBy: "user",
+		}
+		_, err := c.ApproveRelease().Execute(ctx, input)
+		if err != nil {
+			return false, fmt.Errorf("approval failed: %w", err)
+		}
+	}
+	return approved, nil
 }
 
 // runReleasePublish executes the publish step.
