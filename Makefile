@@ -41,10 +41,10 @@ define get_os_name
 $(if $(filter linux,$(1)),Linux,$(if $(filter darwin,$(1)),Darwin,$(if $(filter windows,$(1)),Windows,$(1))))
 endef
 
-.PHONY: all build install clean clean-dist test test-race test-coverage lint fmt vet \
+.PHONY: all build install clean clean-dist test test-race test-coverage lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e help release-build release-binaries release-plugins \
-        release-archives release-checksums release-snapshot
+        release-archives release-checksums release-snapshot check install-hooks
 
 # Default target
 all: lint test build
@@ -142,6 +142,19 @@ lint:
 fmt:
 	@echo "Formatting code..."
 	$(GOFMT) -s -w .
+
+# Check formatting (no changes, just verify)
+fmt-check:
+	@echo "Checking code formatting..."
+	@DIFF=$$($(GOFMT) -s -l .); \
+	if [ -n "$$DIFF" ]; then \
+		echo "❌ The following files need formatting:"; \
+		echo "$$DIFF"; \
+		echo ""; \
+		echo "Run 'make fmt' to fix formatting."; \
+		exit 1; \
+	fi
+	@echo "✓ All files are properly formatted"
 
 # Run go vet
 vet:
@@ -311,3 +324,37 @@ help:
 	@echo "  make clean          Clean build artifacts"
 	@echo "  make clean-dist     Clean dist directory"
 	@echo "  make version        Show version info"
+	@echo ""
+	@echo "Pre-commit:"
+	@echo "  make check          Run all pre-commit checks (fmt, lint, vet, test)"
+	@echo "  make install-hooks  Install git pre-commit hook"
+
+## Pre-commit targets
+
+# Run all pre-commit checks (mirrors CI workflow)
+check: fmt-check vet lint test
+	@echo ""
+	@echo "✓ All pre-commit checks passed!"
+
+# Install git pre-commit hook
+install-hooks:
+	@echo "Installing git pre-commit hook..."
+	@mkdir -p .git/hooks
+	@echo '#!/bin/sh' > .git/hooks/pre-commit
+	@echo '# Pre-commit hook - runs make check before each commit' >> .git/hooks/pre-commit
+	@echo '' >> .git/hooks/pre-commit
+	@echo 'echo "Running pre-commit checks..."' >> .git/hooks/pre-commit
+	@echo 'make check' >> .git/hooks/pre-commit
+	@echo '' >> .git/hooks/pre-commit
+	@echo 'if [ $$? -ne 0 ]; then' >> .git/hooks/pre-commit
+	@echo '    echo ""' >> .git/hooks/pre-commit
+	@echo '    echo "❌ Pre-commit checks failed. Please fix the issues above."' >> .git/hooks/pre-commit
+	@echo '    echo "   Run '\''make check'\'' to see all issues."' >> .git/hooks/pre-commit
+	@echo '    echo "   Run '\''make fmt'\'' to auto-fix formatting."' >> .git/hooks/pre-commit
+	@echo '    exit 1' >> .git/hooks/pre-commit
+	@echo 'fi' >> .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✓ Pre-commit hook installed successfully!"
+	@echo ""
+	@echo "The hook will run: make check (fmt-check, vet, lint, test)"
+	@echo "To skip the hook temporarily: git commit --no-verify"
