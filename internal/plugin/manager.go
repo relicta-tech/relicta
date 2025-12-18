@@ -191,7 +191,7 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 	sb := sandbox.New(cfg.Name, cfg.Capabilities)
 
 	// Create the command for the plugin
-	cmd := exec.Command(pluginPath)
+	cmd := exec.Command(pluginPath) // #nosec G204 -- pluginPath is validated and checksum-verified
 
 	// Apply sandbox restrictions to the command
 	if err := sb.PrepareCommand(ctx, cmd); err != nil {

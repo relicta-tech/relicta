@@ -25,7 +25,7 @@ func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 	// Apply memory limit if configured
 	if s.capabilities.MaxMemoryMB > 0 {
 		// Convert MB to bytes (safe conversion since we already checked > 0)
-		memBytes := uint64(s.capabilities.MaxMemoryMB) * 1024 * 1024
+		memBytes := uint64(s.capabilities.MaxMemoryMB) * 1024 * 1024 // #nosec G115 -- MaxMemoryMB validated > 0
 
 		// Set virtual memory limit (RLIMIT_AS)
 		// This is the most effective way to limit memory on Linux

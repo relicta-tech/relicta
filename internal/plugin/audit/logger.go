@@ -77,7 +77,7 @@ func Initialize(path string) error {
 		return nil
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304 -- path is from trusted config
 	if err != nil {
 		return fmt.Errorf("failed to open audit log file: %w", err)
 	}
@@ -203,7 +203,7 @@ func NewLogger(path string) (*Logger, error) {
 		return &Logger{enabled: false}, nil
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304 -- path is from trusted config
 	if err != nil {
 		return nil, fmt.Errorf("failed to open audit log file: %w", err)
 	}
