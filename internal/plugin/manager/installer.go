@@ -267,10 +267,13 @@ func (i *Installer) extractTarGz(archivePath, destDir string) error {
 			}
 			// Use LimitReader to prevent decompression bomb attacks (G110)
 			limitedReader := io.LimitReader(tr, MaxPluginFileSize)
-			written, err := io.Copy(outFile, limitedReader)
-			outFile.Close()
-			if err != nil {
-				return fmt.Errorf("failed to write file: %w", err)
+			written, copyErr := io.Copy(outFile, limitedReader)
+			closeErr := outFile.Close()
+			if copyErr != nil {
+				return fmt.Errorf("failed to write file: %w", copyErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("failed to close file: %w", closeErr)
 			}
 			if written == MaxPluginFileSize {
 				return fmt.Errorf("file %s exceeds maximum allowed size", header.Name)
@@ -307,28 +310,46 @@ func (i *Installer) extractZip(archivePath, destDir string) error {
 			return fmt.Errorf("failed to create parent directory: %w", err)
 		}
 
-		outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return fmt.Errorf("failed to create file: %w", err)
+		if err := i.extractZipFile(f, target); err != nil {
+			return err
 		}
+	}
 
-		rc, err := f.Open()
-		if err != nil {
-			outFile.Close()
-			return fmt.Errorf("failed to open file in archive: %w", err)
-		}
+	return nil
+}
 
-		// Use LimitReader to prevent decompression bomb attacks (G110)
-		limitedReader := io.LimitReader(rc, MaxPluginFileSize)
-		written, err := io.Copy(outFile, limitedReader)
-		rc.Close()
-		outFile.Close()
-		if err != nil {
-			return fmt.Errorf("failed to write file: %w", err)
-		}
-		if written == MaxPluginFileSize {
-			return fmt.Errorf("file %s exceeds maximum allowed size", f.Name)
-		}
+// extractZipFile extracts a single file from a zip archive.
+func (i *Installer) extractZipFile(f *zip.File, target string) error {
+	outFile, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+
+	rc, err := f.Open()
+	if err != nil {
+		_ = outFile.Close()
+		return fmt.Errorf("failed to open file in archive: %w", err)
+	}
+
+	// Use LimitReader to prevent decompression bomb attacks (G110)
+	limitedReader := io.LimitReader(rc, MaxPluginFileSize)
+	written, copyErr := io.Copy(outFile, limitedReader)
+
+	// Close both handles, track errors
+	rcCloseErr := rc.Close()
+	outCloseErr := outFile.Close()
+
+	if copyErr != nil {
+		return fmt.Errorf("failed to write file: %w", copyErr)
+	}
+	if rcCloseErr != nil {
+		return fmt.Errorf("failed to close archive file: %w", rcCloseErr)
+	}
+	if outCloseErr != nil {
+		return fmt.Errorf("failed to close output file: %w", outCloseErr)
+	}
+	if written == MaxPluginFileSize {
+		return fmt.Errorf("file %s exceeds maximum allowed size", f.Name)
 	}
 
 	return nil

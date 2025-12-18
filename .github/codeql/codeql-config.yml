@@ -1,0 +1,17 @@
+name: "Relicta CodeQL Config"
+
+# Exclude test files and vendored dependencies from analysis
+paths-ignore:
+  - '**/vendor/**'
+  - '**/*_test.go'
+  - '**/testdata/**'
+
+# Query filters - exclude false positive queries for specific patterns
+# Note: The missing-regexp-anchor warnings in internal/errors/errors.go are
+# intentional - these patterns are designed for comprehensive redaction and
+# must match sensitive data anywhere in strings.
+query-filters:
+  - exclude:
+      id: go/regex/missing-regexp-anchor
+      # These patterns in errors.go intentionally lack anchors for comprehensive
+      # secret redaction across all contexts (URLs, query strings, etc.)

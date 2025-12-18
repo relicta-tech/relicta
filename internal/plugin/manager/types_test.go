@@ -76,7 +76,7 @@ func TestPluginInfo_GetChecksum(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.info.GetChecksum()
 
-			if tt.info.Checksums == nil || len(tt.info.Checksums) == 0 {
+			if len(tt.info.Checksums) == 0 {
 				if got != "" {
 					t.Errorf("GetChecksum() = %q, want empty string for nil/empty checksums", got)
 				}

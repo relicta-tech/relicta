@@ -34,6 +34,7 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: go
+          config-file: ./.github/codeql/codeql-config.yml
           queries: +security-extended,security-and-quality
 
       - name: Set up Go
