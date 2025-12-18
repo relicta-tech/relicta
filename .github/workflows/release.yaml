@@ -94,16 +94,12 @@ jobs:
           # Plan the release
           bin/relicta plan
 
-          # First get the planned version using --json (dry-run mode)
-          BUMP_OUTPUT=$(bin/relicta bump --json --dry-run)
+          # Bump version (--json outputs JSON after creating the tag)
+          BUMP_OUTPUT=$(bin/relicta bump --json)
           echo "Bump output: $BUMP_OUTPUT"
-          # Extract JSON from the output (skip header lines before the JSON object)
           VERSION=$(echo "$BUMP_OUTPUT" | grep -A100 '^{' | jq -r '.tag_name')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "New version: $VERSION"
-
-          # Now actually bump (creates the tag)
-          bin/relicta bump
 
           # Generate notes
           bin/relicta notes

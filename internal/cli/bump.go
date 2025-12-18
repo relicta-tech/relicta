@@ -196,15 +196,16 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		nextVersion = nextVersion.WithMetadata(version.BuildMetadata(bumpBuild))
 	}
 
-	// Output results
-	if outputJSON {
-		return outputBumpJSON(calcOutput.CurrentVersion, nextVersion, calcOutput.BumpType, calcOutput.AutoDetected)
+	// Output text results (skip for JSON mode)
+	if !outputJSON {
+		outputCalculatedVersionText(calcOutput, nextVersion)
 	}
 
-	outputCalculatedVersionText(calcOutput, nextVersion)
-
-	// Dry run - skip actual changes
+	// Dry run - skip actual changes but still output JSON if requested
 	if dryRun {
+		if outputJSON {
+			return outputBumpJSON(calcOutput.CurrentVersion, nextVersion, calcOutput.BumpType, calcOutput.AutoDetected)
+		}
 		return nil
 	}
 
@@ -217,6 +218,11 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	// Not fatal if it fails - just means there's no release to update
 	// This can happen when bump is run standalone
 	_ = updateReleaseVersion(ctx, dddContainer, nextVersion)
+
+	// Output JSON after operations complete
+	if outputJSON {
+		return outputBumpJSON(calcOutput.CurrentVersion, nextVersion, calcOutput.BumpType, calcOutput.AutoDetected)
+	}
 
 	printBumpNextSteps()
 	return nil
