@@ -61,9 +61,27 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 		return nil, fmt.Errorf("failed to download plugin from %s: %w", downloadURL, err)
 	}
 
-	// Close temp file before extraction
+	// Close temp file before checksum verification and extraction
 	if err := tmpFile.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	// Verify archive checksum BEFORE extraction (security: prevent installing tampered archives)
+	expectedChecksum := pluginInfo.GetChecksum()
+	if expectedChecksum != "" {
+		archiveFile, err := os.Open(tmpFile.Name())
+		if err != nil {
+			return nil, fmt.Errorf("failed to open archive for checksum verification: %w", err)
+		}
+		archiveChecksum, err := i.calculateChecksum(archiveFile)
+		archiveFile.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate archive checksum: %w", err)
+		}
+		if !strings.EqualFold(archiveChecksum, expectedChecksum) {
+			return nil, fmt.Errorf("checksum verification failed for %s: expected %s, got %s",
+				pluginInfo.Name, expectedChecksum, archiveChecksum)
+		}
 	}
 
 	// Create temp directory for extraction
@@ -73,7 +91,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	}
 	defer os.RemoveAll(extractDir)
 
-	// Extract the archive
+	// Extract the archive (already verified)
 	archiveName := i.getArchiveName(pluginInfo)
 	if strings.HasSuffix(archiveName, ".zip") {
 		if err := i.extractZip(tmpFile.Name(), extractDir); err != nil {
@@ -91,24 +109,15 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 		return nil, fmt.Errorf("binary not found in archive")
 	}
 
-	// Calculate checksum of the binary
+	// Calculate checksum of the installed binary for manifest storage
 	binaryFile, err := os.Open(extractedBinary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open extracted binary: %w", err)
 	}
-	checksum, err := i.calculateChecksum(binaryFile)
+	binaryChecksum, err := i.calculateChecksum(binaryFile)
 	binaryFile.Close()
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate checksum: %w", err)
-	}
-
-	// Verify checksum against registry if available
-	expectedChecksum := pluginInfo.GetChecksum()
-	if expectedChecksum != "" {
-		if !strings.EqualFold(checksum, expectedChecksum) {
-			return nil, fmt.Errorf("checksum verification failed for %s: expected %s, got %s",
-				pluginInfo.Name, expectedChecksum, checksum)
-		}
+		return nil, fmt.Errorf("failed to calculate binary checksum: %w", err)
 	}
 
 	// Install the binary to the plugin directory
@@ -118,12 +127,13 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	}
 
 	// Create installed plugin entry
+	// Store the binary checksum for later integrity verification of the installed binary
 	installed := &InstalledPlugin{
 		Name:        pluginInfo.Name,
 		Version:     pluginInfo.Version,
 		InstalledAt: time.Now(),
 		BinaryPath:  destPath,
-		Checksum:    checksum,
+		Checksum:    binaryChecksum,
 		Enabled:     false, // Installed but not enabled by default
 	}
 

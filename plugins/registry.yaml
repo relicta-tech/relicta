@@ -1,5 +1,5 @@
 version: "1.0"
-updated_at: 2025-12-17T23:30:00Z
+updated_at: 2025-12-18T12:00:00Z
 
 plugins:
   - name: github
@@ -12,11 +12,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 7130392baa19d28154e27e4a6da5c6eecf6d535df4b58cee0fa53533719ff8d4
-      darwin_x86_64: c5978479e379fcd9cc4bc34761a3eb0552a5ca97f3515b0fd542d2a24f521ca4
-      linux_aarch64: 024fb195cd8f11a69839b8d3a8d67fe5ae3c984850989c020d4d06fee7bb3dde
-      linux_x86_64: 34c22d833fad3d9d282aa58b5d530ac654d80f5cec89313df9a53d3a9e40421c
-      windows_x86_64: 79b9005ca6997f04922aa436d6fbd9cf20ba81850b4ca105b5be3581a78c6299
+      darwin_aarch64: a2120fd328e610d5fec37eaa9bdfcd0653643741b5c924b1a9c8c4a066ca05f7
+      darwin_x86_64: e2f5db3a79cfb958ec894b813aa440b710a38e09354bacf3ea5ce0de687362c5
+      linux_aarch64: 4c9e113719bedd3065fc44ed84704673d275160dd59e8d4c764c0912b0789945
+      linux_x86_64: dbf02e9094266cde0484f4ac8c1ce0a6319fff19398ae0c482dfdc2790a6777a
+      windows_x86_64: 89231ca3c5b1ce9a3841097a7d1d2abc641948a77e1fb621915f384d3bfb0426
     hooks:
       - post_publish
       - on_success
@@ -69,11 +69,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 9171acee8f610089cac9ebadf52e9d1b0f396c1e944746595fa594ce3bb3c8b8
-      darwin_x86_64: d783cd4267c5bec7a098aa63f122dde3055faed2ffd18dccb2038220890bb5c0
-      linux_aarch64: f9e1e530b502ad1993675fb62adbc2b97b717e0475ec7b261cf509c19f2e56a4
-      linux_x86_64: 6520f60bb834ecd3591f7f2835a1be7e2aeb7bbea1064b3eda89e9c1a1320c6a
-      windows_x86_64: e0328f657e14f0ace349f3074e4236f9399d7cc866cce42c0e7a5ab852c83bfa
+      darwin_aarch64: 6ca8230c57cad65ee46385a514e2b22fc653c6a063ceaa47883e9eb60f72cd42
+      darwin_x86_64: 1cf98dae627b2d8621fb42da8feaebcfb5bd8541bfb90d1c142bd18874d04d85
+      linux_aarch64: 327576fc51881d0ef6f731fc40276f711d2c1be3d3901b5663391b69e77c8032
+      linux_x86_64: aad5c11c65d16bd714a9abb5a61a4d9a8c30577c7bf9ea3364602589c3b98b34
+      windows_x86_64: da294650e9b56eb2646fc10c2a9eb463a0f4fc439f4319a54adbe6a6fa91dd2e
     hooks:
       - post_publish
     config_schema:
@@ -102,11 +102,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 3701ce07bca8796d9d6704bbe74295cf734625a67ec42829c0395072e3ccf475
-      darwin_x86_64: 67086aadca15f3e8e38f04c2ce617b455f97d85bb85cd6e750bee2edfeadd693
-      linux_aarch64: f8572598dd478d46217cd43557a2ffc53abdd665befadf911ade11d24348bccf
-      linux_x86_64: e59755beac950eeae995661c160448ff98d030278a279ef3415f7cbc3ab0fc7b
-      windows_x86_64: d82bf83604745515b76757cc9a0488b3709f96f737cce059a802b2884b27623d
+      darwin_aarch64: 05a45f24b8539d0915e67cd88d0960000f20e65f3f9426e5c40a724a6b71bd70
+      darwin_x86_64: 9f535d9717f76074bd233362e49a283788c3eba32c77aab7e7650fdd7c72f1a0
+      linux_aarch64: 124ba2b0c33ff07d09f4694de7a85b91dcb0979f6f5d72047957ef76122e7d28
+      linux_x86_64: c76e3d24080299ce7b4add9be870051dad2a71072673fd1d8769152224ed96f8
+      windows_x86_64: b7dddf4e2da1014ebb888975b7016a58985740cd6f0f68175769abb329f3d447
     hooks:
       - post_publish
     config_schema:
@@ -145,11 +145,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: e4fdd095c2b0843dcffd4e0749cedff71f8c1f62360b3232171950007dd18e76
-      darwin_x86_64: 3d2ef978e0927352e5001095671587f7ed712a6fd5135bee9d38dbd1e6299767
-      linux_aarch64: cd09f160ebb0eb06af31f0c1d285b81798208513795e11e1a480ba9600afafeb
-      linux_x86_64: a253ca1f3d5b5fc11d2a2b92cdcba86926cdeed70c93b44aaea2155efb60a3d5
-      windows_x86_64: 4a6690660cf1c5208ac95af9b408cb7f5328b274f64de91cd59010f322399495
+      darwin_aarch64: b188383cb56c28b8ac1c72c27f179f1e4ad0eb5891abcdf397366fe98eeff015
+      darwin_x86_64: d1c85ad781225996f6de6f33d71a8a22e61eb07dd08dfb8cb3b07f18fe47bddb
+      linux_aarch64: 459005dd8fd433160486fc33e7aa542041cc9330ba627b0c2b94fbf87f4a060d
+      linux_x86_64: 7faf52ec5365fe595092639ede0623fc6024eca2c3e36e6ca16592bf080f1599
+      windows_x86_64: 1995b063a5c16546118eca4905ab2663cda43c0a2a67663d648dde1f7099217f
     hooks:
       - post_publish
     config_schema:
@@ -178,11 +178,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: ed7420afc52e9bf9816512eae6f7192b83606b350f8bf0a069b07d09f98a3917
-      darwin_x86_64: 1ee308143a18877d178baf4de23448bad21e2eadaf5bb884bd3b3c1ef3fd6ea5
-      linux_aarch64: 205d9dc00bd73001450bd93792ba81cbc5ce1c6afd080b52a076aaba2a79764d
-      linux_x86_64: dd269411ac22dab97e096ec7e05da14aeb3bd78db0046eb1f14b1bf0e0ed663a
-      windows_x86_64: f27ac5777a3230680dcbced6e00fc8b34bd1b95269b65917866ff88b4f3a10b9
+      darwin_aarch64: 9c859c85257e51b3a6494d2ff15974d66b0f5eec8392c7ef3bbeb6132e04c6ba
+      darwin_x86_64: 5470577893097c7a8908be5562966b75f125cd3b1855db212b66b78a0836f470
+      linux_aarch64: e9e812bd23d97f855a25b37cf2bb7f6028d642fad2ec432498c79eb7b7b47933
+      linux_x86_64: 3ef49d6ddbddbdc9f3b9fc138c440899357b34810c7eecbe143cc01d5a099b56
+      windows_x86_64: 7f32d2505b76d371fea60836583b2255db292e8326c85f72b17dca3eddfe26f4
     hooks:
       - post_publish
     config_schema:
@@ -225,11 +225,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 334fd0c52dc47f6b6ff032d8dadacad8a4e0dc02ef2e41d458e028b42f7c3dd3
-      darwin_x86_64: 0354b7c4826b932d162833632873df19da615626d0b8baaf016d70867be57e98
-      linux_aarch64: 41cf2a8ad370d8a30384f0a1809b7e4808eca4e467dd2dfb16eac17c3efc3f0f
-      linux_x86_64: 08f7fbd5bafe448b2e7189ac2a0ebb117d54eb822405aea79dd3137cf34d9a72
-      windows_x86_64: f824fedf601229466c70dfa72b5d934c819f2d04f927dd9613145399570f6f98
+      darwin_aarch64: 27960be265929454ee767b555ce47dbf2e2d66653b759768f2b4169eebc6673d
+      darwin_x86_64: ca3d0162bfa06e2baa2cef7fee2c93cd6f5bcc51385f7687433495a179f1187d
+      linux_aarch64: 03e31b88f5f3ad2acb7eb4a602c131dcf9b3f56a90d1f07208789abf639a24c1
+      linux_x86_64: b4d91ae715e60f31a7f2ec9f5aeb9f508fe1214b566d56d91008946013e52306
+      windows_x86_64: bae0adc8479cd4a06bce73f0177c54c1bc91e6d797ba9533c4814d43ad816f26
     hooks:
       - pre_publish
       - post_publish
@@ -266,11 +266,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: b7579934be7770c190744ed59a0e9ee3e226c7ca085232f2375ed7f42a3ca849
-      darwin_x86_64: 76f24fe5d60796bd209adbb93d2bd7eb62ea86982a835443cd4a1c7707354e5f
-      linux_aarch64: d77e2855eeac74018b1ae06296cd70b69d272d290d90c17097df150576a43b56
-      linux_x86_64: 1212ed125bd255dd8059809bf56f87283e2db6869f95eae6cbb1610be800b5a6
-      windows_x86_64: e76871a1763db5d0126ff8364c686451e17e8bc48b1f9b23d1d610a86609d63f
+      darwin_aarch64: 5131134b92d79e76c0e9f92e6022fa72cefc87e684d049bcd26f5a5974de9583
+      darwin_x86_64: 7f8b8d63a6d143b498ad79ce622546e1f63297c7acaa0192f07dc7b3648224ea
+      linux_aarch64: 4e764dc7479d11840279258dd773f2ece6e1be3dd85495b91751ee06686e6117
+      linux_x86_64: 811d14402031453d4aa3800a7dcbc47c9007938f632169208531939c38ebf678
+      windows_x86_64: 87610049ceb6b4637c707984fe8e5e4bc759e54d3ef57f9fafc92d67db1274c7
     hooks:
       - post_publish
     config_schema:
@@ -294,11 +294,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 189f0fca1c15fe355543646774b49eb8213e23c9f32f175758a1f55ef6f57fdc
-      darwin_x86_64: 366f3874806683314ad1da9dfea8e465b5c2f323f77973c6c1ca0a4e3865fcde
-      linux_aarch64: fbec6db88e3976521430ccdd6a2a3c0e32e2ae16eb60a2b050904f352f5c190e
-      linux_x86_64: eed2137393492df2d5b4f84feb949b8197719daa27249c6abfb1ae3690428dbf
-      windows_x86_64: 0c776fad41c175e06a7b98ec7993040f4a53c6c4c77452d229895cf0d3984a2e
+      darwin_aarch64: 16367a1a2dcfbbda35023eaa48d80ab99a61156b6e67659c74f0fec7d78c8c31
+      darwin_x86_64: 9b7d9c8e185bd67203503fd11254904a3de5349dd9cba056f386a0187017f233
+      linux_aarch64: 8896b5af4e6769fc088c9985725104282a7f652908c0574851ee8eaeb47dfadb
+      linux_x86_64: ea8449084a48a9e2a31e05978a167609c28a5a296272a62a59129810daefb9a3
+      windows_x86_64: 4f23852e5eb3d3eefcd7f9ba5d00dd1f3623ae7745d5a9c7b32caaab8eceb1b7
     hooks:
       - post_publish
     config_schema:
@@ -334,11 +334,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 9bf3b39adeadbafb67ac567000882fd918562138b5da3651349db03f36de1a3d
-      darwin_x86_64: ae4c627094369b7a21568c6680df78f9eb44281044c47f959786ab5d861cb1b5
-      linux_aarch64: 76b91387a85c3c6c2027b99fe284b79804cdd9b8b73c3a719b4f052606136996
-      linux_x86_64: 5618ee1a6a69fb1544e4a98d2d72a670a23a432ab0d007e68ca5891db3a5fe2a
-      windows_x86_64: bae129cd6842f84b754a7159b4eb823a67e79566fa18005e98211651f3ef17bf
+      darwin_aarch64: 4dda46ba55686984051f66d893adbb7b27ef6345f4cbafae14c05e0b322355c5
+      darwin_x86_64: 99ec8ec2c3a02bffe0f9473130950aae60de05d6cfbc397ec4778aca5e59f8ad
+      linux_aarch64: f66ca4edaedd515369671f3954b05a9feaa14903625e69ef5c55e962d856041f
+      linux_x86_64: d34053f4ad01f2abe119fe3b37594322013d1a7caac9877dd69fb110beb7d49f
+      windows_x86_64: 5ff61258a51fec0b967c2702eef3b0486e0521393b3792228d914f339a527b1c
     hooks:
       - pre_publish
       - post_publish
@@ -395,11 +395,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: f1be6162a256d6ce0dedfdfc0338079135c5808967619ed2755b12af61aa9ba5
-      darwin_x86_64: db592f65716c217f74af036f539288dabf0fa8aa5da4510a963b3c7243242288
-      linux_aarch64: 6e6d90a9a46cabcf1219a3097247801e963e036715b18fb9f8aecae3990ec42b
-      linux_x86_64: 0919af385354aac694b4cf3aefee314b210334007d594c529db005251864737e
-      windows_x86_64: 99d87bd5680c67c7b8b5b7bdff6c79b8b51a7fce6865dc2d137ef2900ba198e1
+      darwin_aarch64: 64a636be502cf31f4647bad7c963fabcd8b17eb1d772ada02a568b40a67d345c
+      darwin_x86_64: bf7cc8f73dee81a4b253ecf75450747d1dc7ab6398cfbb4b4f8f4f1938e70f17
+      linux_aarch64: 220587ce5dd02fe3935b41a2e3a755b858a9d9c26c5e46f2d4cc16584a89f0dc
+      linux_x86_64: e31580915119149b203eccd43eb867d72ba03ab68ab7100cf4daeaee5f0ac589
+      windows_x86_64: 5ded3e399897fd1ed41ad0e0cb647e50e3bfef82657aff06f5ea3c157d868ffa
     hooks:
       - post_publish
     config_schema:
@@ -438,11 +438,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 1544300d0e98a24b21d322009c65c44c008a4f71a46c97fa0a349d2191e0b889
-      darwin_x86_64: a651cb02664a19355d7f9e097c76d45129213d3cba95379a66dd6df78de4e8ac
-      linux_aarch64: b1739916cf03181ab8eb40636def88de959b1c81654ca861db556d255dd34af2
-      linux_x86_64: fc405765b2b2b861d6516a17c28b701d42f54321274e7e1dd19fd0ddb2dda547
-      windows_x86_64: cfa7cc197643b91b41f0e4f231a4dd68cf4374293ab5dc7583bdbf7d09ee52b0
+      darwin_aarch64: 2357ad120647dbd8f1b2b7232cea4816774ccdf6d4addf09a1ff323a935a3572
+      darwin_x86_64: 8f650f2cce5bd3f38c11df4c3ca414710710b10d8cd6a096d1c0a332b680c99c
+      linux_aarch64: 7bf1b724f4c5eb2846acfef35909eacfb1d5dd5cdd0af85b7b228e64283c8f49
+      linux_x86_64: d9137c1f2eadf8c1cb50a927e06ab3309042416a6071cbb7ad59401c99a62757
+      windows_x86_64: ee70876aac03fdf648bb648feca2cb4d890ae1d413b9a0ae8eb561ab390694fd
     hooks:
       - pre_publish
       - post_publish
@@ -483,11 +483,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 1d1c1009718496d6dd96c401e2ab31f6ca42e4de863a2a73b9880f100c57d0a9
-      darwin_x86_64: 692ab4f4250c7ad78e632272ebbb71e660be15f0d605c81ae45990b862fbfcf1
-      linux_aarch64: 63a98a4276b47fab42b8a7d797d8105f4ac3cce57ce4e53b69b7f4c0d711adc1
-      linux_x86_64: 78542eeb067fb12f2c1cd50408d7dcc863e69ac23f13566a3c6740b684bb2106
-      windows_x86_64: 6b01359e30a6e9cf2f2beddcd62f4bc1be4a5ea4d72326d5eed9a60183f4fc4b
+      darwin_aarch64: 350c680b4250b0e34cddc2b2f15eb18b743648eac00ace49b135e8fe37627b10
+      darwin_x86_64: b50242505bb849956c963c260ca02b42ce884346bc647517fd8dcaa7adbcea80
+      linux_aarch64: a2f1fa40c55825226ad84f5a7d1d675f525039509aea16df8d9b865d8ec20a20
+      linux_x86_64: d5faeecc572b078a4e68d2f1a80e96c940c16ae5d35d0e2d914741e9c3509835
+      windows_x86_64: b8a944663ded2888f4b60e25b21557a0be310e340ba50d4ac598a239abc6b830
     hooks:
       - pre_publish
       - post_publish
@@ -521,11 +521,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: c67eec12b5f567c6367cfa4d9204dc38dc8d720855c8a3b411e41b54cffd134a
-      darwin_x86_64: 584d249be2ce03b9bafa507f0ad72c2342c6d9712cd715c041341a7cda8e434c
-      linux_aarch64: c5e53ce035efe04acd0f6703b67d273848488e57f0864bba9019e9cc1dfd908d
-      linux_x86_64: 2c481e8ae97c8120f835f7c28f2c8708d10ff706cccaa9c6177e2976b154a8d7
-      windows_x86_64: c4d5a6519f3d6b5f8739fd81f1c172670bfef029f221c69c1fad29d0a6ff3e2d
+      darwin_aarch64: 8ef12dc1950ed558d36fce174a58f416aea1a222c9f0fb94c9b9a3d80306adc5
+      darwin_x86_64: ea983b80518a7fdb6d93d58cd23b3762ac66dea458df63a2470eda0651f730b8
+      linux_aarch64: 44d557c7382fba68a9da3a9dbe4fcc8442506efd958d34d2ed5c66be2399c270
+      linux_x86_64: 12752b081eb740d31b20767e09508a8618f62cccc5dcc0a07a0dafb85e09a61a
+      windows_x86_64: e9a52b2b8a0f10ab69ac85d7d3ab0324509ac4e0b8cee06740839dc2d6d00214
     hooks:
       - pre_publish
       - post_publish
@@ -572,11 +572,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 2ffa57f4fbf4da7bd8da0b1cba28892ddfd40d36f9e494af56c4eb384529ec59
-      darwin_x86_64: 37f9aebed981ab198c5f67390ab5edf6467fc91e3224dff0872c1399361bf42b
-      linux_aarch64: 96cf52c937f5519bd6aaedc0adde1b906871c6e87d9df8ac20817c58986a5328
-      linux_x86_64: 43a10dd68ec2b61d57519509e7cd3e656c5c3bd988d1951ba4ebc037f6f54cd2
-      windows_x86_64: 5e6e4c8b81956bb874605a502dd16f313711488733478e5303b1c180028ea773
+      darwin_aarch64: 03a590bcdd1534ed612380cd69582f3023c45315db98ec21e0007919214808e4
+      darwin_x86_64: 624dea3b3dcd5b642eee7710096b14666a7a21f14e6dc6e31ffee24bd1d31b01
+      linux_aarch64: b16aee9d6eb655ad9c2970d3a10310d908126da415dd8dbad28e268e32d8179c
+      linux_x86_64: a3ca41e4204e9046c5b9ada299e3abfa2b6cd39cd73b680da5b5a8b2a87a5e4f
+      windows_x86_64: e3819f73f17ff86fc5c82be4d298bd234d7590025c4581abf6ea3fa09c24bac9
     hooks:
       - pre_publish
       - post_publish
@@ -612,11 +612,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: a3e9ec33e980773018fd13b4c9830fa110aafa456a4c1c41dd7157c2bfd876aa
-      darwin_x86_64: 711c1817742230b7303bb94b1a8260677fbefb90fe3f6e66bdea9930f5566961
-      linux_aarch64: 6cdf787e5c8ebf3d812a5d4f221f98aa29a7385dc6705c729e6ea47fcf2ff0c0
-      linux_x86_64: 6ce7c20f257c3cf0fe80681b02ee0e8981d0caa63dfbf61060f1ffb3d0426a94
-      windows_x86_64: 9d8c1cca9fae67df654337300aa9e114351a61f00cc29f78cdef47d6c3214d6d
+      darwin_aarch64: 53b3bb0193f2265e28d496da9587397141d5c1d1100703299303e9d135d821b5
+      darwin_x86_64: f8c0de3664b19c4fce8aa80a93a39ec4973021ba9923c269979bc8420e0bbf4e
+      linux_aarch64: e58b06ed5cff2a6652ec8a85b6d0fcb07c1e135ebe70ad5a2427d64d8bae033e
+      linux_x86_64: 8991fb2c252280a0b6a52583a9d14cb5e71b26eae4373f306fe20a6ad6526e8c
+      windows_x86_64: a5e8e31878ae358647262e15546be0d6b0f435bc0b0893b7b7c462d4195fefe7
     hooks:
       - pre_publish
       - post_publish
@@ -651,11 +651,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 30de643c77bbd140a46dc752921759ce419cc864b419c2e6bd41e6e434b8a5ee
-      darwin_x86_64: a0fa99b6dcc44e25b9d4f65ff75132eb2d7e0ed914b935da63707d03714a7590
-      linux_aarch64: 9bb55b06bd777f561199b77cc9f1cdc0a739b2e4cc9b1ec7ecd97be424276b92
-      linux_x86_64: f69c351761477df7909e358f35412773c99e0089a1fa6664f6b95cc14b9aecc9
-      windows_x86_64: ddf4853ae1ed88fd132df91aa734a7068190ea0fcc6720e70d9163e5c3a6415a
+      darwin_aarch64: 5e37d17e61b68812a4ef0ad462b258e39cf015aaf5fbaafe710f5a0d45130af0
+      darwin_x86_64: d0fd5843122afc79d07f4a0779751bcd25573a3fdaa98925f9dd6fec2148748f
+      linux_aarch64: a60b6e8567b524ad2e71a1f2dc242836e72f9be4f69afd1b96685f62cded3461
+      linux_x86_64: 4bf4c9fe74ab2edca79e66aeb12882ed1b8f93f12af8b8cb5a1ebea04e53bf3d
+      windows_x86_64: 6616490357f53d935f61c7e0ac28f7b1e518ac69e0b7d45eb919efc93f823ce8
     hooks:
       - pre_publish
       - post_publish
@@ -704,11 +704,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: eafd949efa953f84db11ab41970637831f30383895ca07f4a6d24c39dbfa2a25
-      darwin_x86_64: 54dff02b77228e7da11d4b1865994a99d1318a22b0449a48628f4a270b352c16
-      linux_aarch64: 5e8a1c535f6fde608ddcd0ce7272064cd60caec069c96f9826c9a254bc536546
-      linux_x86_64: 309f1166fa1847cc59f7b50b125aff66391cf9199733d1dab2460a6a37af4e64
-      windows_x86_64: 62859e3f26e716caf9d1e3506cb90acc1e1f5505ca9574c7fc9a0b0580341cee
+      darwin_aarch64: 35d6e509421c389f72b4f345a00aaa57dc863f62ba9fadebb660629483ea4838
+      darwin_x86_64: b5b007022a90442cffa562a2759a8105ca039b51f1987a093e3527e28127ec98
+      linux_aarch64: eed7e08f03c4bcc8a587c1c696631322715b6fc265e7cecc8f67f460928b2d94
+      linux_x86_64: 050b12628ace2ef084c06ecbbb690d8d5992c8d6114efc0e2233f48bbb8f099d
+      windows_x86_64: 309628b43c20c4f689d8dbcd2155d68711642f1d4af750db7cc37adcef70f0c7
     hooks:
       - pre_publish
       - post_publish
@@ -742,11 +742,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: fd304c625aa5961c0af4e7cf6283c80592fd6c4193a5e86097b4e0dc452914a0
-      darwin_x86_64: 8afcd52aa284c78460cef1391c62a2969e943970f1e311d374a98afefdb124e5
-      linux_aarch64: a67257906a9730fd01a93bc5d15b8e5b0a48bcfbc142c73421b76cd79587b1d7
-      linux_x86_64: 479d0ce52257bae3caf1223355a509f0ba830c9e6c4f8208389313146488b8db
-      windows_x86_64: 070fec2f6b04abc1ae2a98bed4c7dc3dbf31071d344fc77f678eb4d24c15cf16
+      darwin_aarch64: 38433d04462ab2e611bf38b8d9b49966d2e0a19efce95c44580af4645bfe6818
+      darwin_x86_64: 906137beebb60e763140068d9f4120edc10a3eee5cccf60eeeefc5c04dbd7d7e
+      linux_aarch64: 410879c55f594872b938918115bc46ccaf6cc64e4af55849c4b35906712f95ae
+      linux_x86_64: ebeb05d442dee322dff2de0596fffa424e6f82b4f35789c02aacc43d57762ed7
+      windows_x86_64: b148462fb511b4939b8fae86a2d69667164f6b91ad3263f3cfae8f0fd84fa732
     hooks:
       - pre_publish
       - post_publish
@@ -781,11 +781,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 6428088553917f45a04ca5b361d7663b4d16c21c2f287a133f214054929bd974
-      darwin_x86_64: 99c747031cabf4634a60083f8b0a290bc2e4639d622483ba16a8b8f49a02fa57
-      linux_aarch64: 90993dbb9f0bb52c5140aafbac17a46ac6922d68fd2729568cdef739a8d37644
-      linux_x86_64: 5d44fbabe3bcb529eede0ea292aeae4d02478d2c41934d5b79431f77576574f4
-      windows_x86_64: 0ed595142714a0a8db3076bf8a828d657d0e73a6227b70ac3fe5f28092176ec2
+      darwin_aarch64: b57559444a54ec2ac467663449e02a217ef47a8c41c0f5cd98f78be1b87997a5
+      darwin_x86_64: 45c16093fba1b50f2a0113a46ed7fa92ab04d3cd6fdc10e31147acb11f4f4888
+      linux_aarch64: 6301dd796adbb1d08c89de64300c83ef96c22da0f5f2ac1756410b70851727bc
+      linux_x86_64: caccef49c426a99ea866c05dc2c46a4a255f73c33aae8b21730282dc4e63c142
+      windows_x86_64: 88bc9ef6640a6517c7f33f863abfc0424d166ed85f45dddeea4cff1d983fef91
     hooks:
       - post_publish
     config_schema:
@@ -819,11 +819,11 @@ plugins:
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: 4fffdbac8d9972a5e127634b5fa874c28d914d388682d93cb39ff761a0be8022
-      darwin_x86_64: 3f3280f79f963000e90dfa0bcbc5fdebd2f14e35d6ddbc2920653e9fa262c5bc
-      linux_aarch64: 42cb3d39e15917aadcd7c5271a5d109da204cb92258b67570ae2222047c5377d
-      linux_x86_64: a34126d2c747c48ecfbfbaf0d044fbd4ac236e46aa0e0347444672a4bb66ccfa
-      windows_x86_64: c25550afc161f066c15d8ccabce290c8f766418fcdb8e129ba81d8017ec0d50c
+      darwin_aarch64: a679eb4a37a83d97b4cde6301633de9404267db34824f3d4123165acb8ebf014
+      darwin_x86_64: 112a89b83cd18960ec27ca486f17b0a312cfcf1f1a865b9958a36f7be7c8432c
+      linux_aarch64: 45011818e713001e027f706562ff90305d17e129b70d7f66a965fe1125f442ef
+      linux_x86_64: b4183e56422c6429fd510597fca3eece4216389b30e99183e9c23de401353333
+      windows_x86_64: 072c961056f2f3727b8dfd21134fd6d93c94fbce57227d9d79ac0102089e01f3
     hooks:
       - pre_publish
       - post_publish

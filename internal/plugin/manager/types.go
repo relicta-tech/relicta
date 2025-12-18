@@ -39,7 +39,9 @@ type PluginInfo struct {
 	Hooks []plugin.Hook `yaml:"hooks"`
 	// ConfigSchema defines the configuration options for the plugin
 	ConfigSchema map[string]ConfigField `yaml:"config_schema"`
-	// Checksums contains SHA256 checksums for each platform binary
+	// Checksums contains SHA256 checksums for each platform's release archive
+	// (e.g., plugin_darwin_aarch64.tar.gz, plugin_windows_x86_64.zip).
+	// These are verified BEFORE extraction to prevent installing tampered archives.
 	// Keys are platform identifiers like "darwin_aarch64", "linux_x86_64", etc.
 	Checksums map[string]string `yaml:"checksums,omitempty"`
 	// MinSDKVersion is the minimum SDK version required to run this plugin
@@ -54,7 +56,8 @@ type PluginInfo struct {
 	Source string `yaml:"-"`
 }
 
-// GetChecksum returns the expected checksum for the current platform.
+// GetChecksum returns the expected archive checksum for the current platform.
+// This checksum is for the release archive (tar.gz/zip), not the binary inside.
 func (p *PluginInfo) GetChecksum() string {
 	platform := GetCurrentPlatform()
 	if p.Checksums == nil {
