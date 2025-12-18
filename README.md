@@ -289,13 +289,40 @@ make test
 make lint
 ```
 
+### Pre-commit Hooks
+
+Set up pre-commit hooks to catch issues before pushing (recommended):
+
+```bash
+make install-hooks
+```
+
+This installs a git hook that runs before each commit:
+- **Format check** - Verifies code formatting
+- **Vet** - Runs Go static analysis
+- **Lint** - Runs golangci-lint
+- **Test** - Runs unit tests
+
+To manually run all checks:
+
+```bash
+make check
+```
+
+To skip the hook temporarily (use sparingly):
+
+```bash
+git commit --no-verify
+```
+
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes using conventional commits
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Set up pre-commit hooks: `make install-hooks`
+3. Create a feature branch (`git checkout -b feature/amazing-feature`)
+4. Commit your changes using conventional commits
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ## License
 
