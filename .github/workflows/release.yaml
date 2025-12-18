@@ -57,7 +57,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed for creating releases
+      contents: write       # Needed for creating releases
+      id-token: write       # Needed for OIDC token (Sigstore signing)
+      attestations: write   # Needed for artifact attestations
 
     steps:
       - name: Checkout code
@@ -108,16 +110,30 @@ jobs:
           # Push the tag
           git push origin $VERSION || true
 
+      - name: Generate checksums
+        if: ${{ !inputs.dry-run }}
+        run: |
+          cd dist
+          sha256sum relicta_*.tar.gz relicta_*.zip > checksums.txt
+          cd ..
+
+      # Generate SLSA provenance attestations for release artifacts
+      - name: Generate attestations for release archives
+        if: ${{ !inputs.dry-run }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/relicta_Darwin_aarch64.tar.gz
+            dist/relicta_Darwin_x86_64.tar.gz
+            dist/relicta_Linux_aarch64.tar.gz
+            dist/relicta_Linux_x86_64.tar.gz
+            dist/relicta_Windows_x86_64.zip
+
       - name: Create GitHub Release
         if: ${{ !inputs.dry-run }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Generate checksums
-          cd dist
-          sha256sum relicta_*.tar.gz relicta_*.zip > checksums.txt
-          cd ..
-
           # Create release with binaries
           gh release create $VERSION \
             --title "Relicta $VERSION" \
