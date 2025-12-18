@@ -82,6 +82,25 @@ The easiest way to use Relicta in your CI/CD pipeline:
 
 ## Quick Start
 
+### One-Command Release (Recommended)
+
+Run the complete release workflow in a single command:
+
+```bash
+# Interactive release (prompts for approval)
+relicta release
+
+# CI/CD auto-approve
+relicta release --yes
+
+# Preview changes without releasing
+relicta release --dry-run
+```
+
+### Step-by-Step Workflow
+
+For more control, use individual commands:
+
 1. Initialize Relicta in your project:
 
 ```bash
@@ -155,8 +174,10 @@ workflow:
 
 | Command | Description |
 |---------|-------------|
+| `release` | **Run complete release workflow** (plan → bump → notes → approve → publish) |
 | `init` | Initialize Relicta with guided setup |
 | `plan` | Analyze commits and plan the next release |
+| `bump` | Apply version bump (create tag) |
 | `notes` | Generate changelog and release notes |
 | `approve` | Review and approve the release |
 | `publish` | Execute the release (create tag, run plugins) |
