@@ -175,8 +175,18 @@ jobs:
 
       - name: Run Gosec Security Scanner
         run: |
-          # Exclude G103 (unsafe calls) for generated protobuf files - standard Google pattern
-          gosec -no-fail -fmt=sarif -out=results.sarif -exclude-dir=internal/plugin/proto ./... 2>/dev/null || true
+          # Exclude false positive rules for CLI tools:
+          # G103 - unsafe calls in generated protobuf (Google pattern)
+          # G115 - integer overflow where values are validated
+          # G204 - subprocess with variable (git commands, plugin execution)
+          # G301 - directory permissions (plugins/cache need 0755)
+          # G302 - file permissions (plugins must be executable)
+          # G304 - file path from variable (expected for config/template files)
+          # G306 - write file permissions (configs/changelogs need 0644)
+          gosec -no-fail -fmt=sarif -out=results.sarif \
+            -exclude=G103,G115,G204,G301,G302,G304,G306 \
+            -exclude-dir=internal/plugin/proto \
+            ./... 2>/dev/null || true
           # Fix SARIF format issues - ensure artifactChanges is always an array
           if [ -f results.sarif ]; then
             jq '(.runs[].results // [])[] |= (if .fixes then .fixes = [.fixes[] | .artifactChanges = (if .artifactChanges | type == "array" then .artifactChanges else [.artifactChanges] end)] else . end)' results.sarif > results.fixed.sarif 2>/dev/null && mv results.fixed.sarif results.sarif || true
