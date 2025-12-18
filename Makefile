@@ -24,8 +24,9 @@ DIST_DIR := dist
 CMD_DIR := cmd/relicta
 PLUGINS_DIR := plugins
 
-# All plugin binaries (matching GoReleaser config)
-ALL_PLUGINS := github gitlab npm slack discord jira launchnotes
+# All plugin binaries - NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
+# This is kept for backwards compatibility with local development only
+ALL_PLUGINS :=
 
 # Release platforms (os/arch pairs)
 RELEASE_PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
@@ -82,24 +83,23 @@ install:
 	$(GOBUILD) $(LDFLAGS) -o $(GOPATH)/bin/$(BINARY_NAME) ./$(CMD_DIR)
 
 ## Plugin targets
+# NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
+# These targets are kept for backwards compatibility but now show guidance
 
-# Build all plugins
-plugins: plugin-github plugin-npm plugin-slack
+# Build all plugins (no-op - plugins are in separate repos)
+plugins:
+	@echo "Plugins are now in separate repositories:"
+	@echo "  - github:  https://github.com/relicta-tech/plugin-github"
+	@echo "  - gitlab:  https://github.com/relicta-tech/plugin-gitlab"
+	@echo "  - npm:     https://github.com/relicta-tech/plugin-npm"
+	@echo "  - slack:   https://github.com/relicta-tech/plugin-slack"
+	@echo "  - discord: https://github.com/relicta-tech/plugin-discord"
+	@echo "  - jira:    https://github.com/relicta-tech/plugin-jira"
+	@echo ""
+	@echo "Install plugins with: relicta plugin install <name>"
 
-plugin-github:
-	@echo "Building GitHub plugin..."
-	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-github ./$(PLUGINS_DIR)/github
-
-plugin-npm:
-	@echo "Building npm plugin..."
-	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-npm ./$(PLUGINS_DIR)/npm
-
-plugin-slack:
-	@echo "Building Slack plugin..."
-	@mkdir -p $(BIN_DIR)/plugins
-	$(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/plugins/relicta-slack ./$(PLUGINS_DIR)/slack
+plugin-github plugin-npm plugin-slack:
+	@echo "Plugin targets are deprecated. Use 'relicta plugin install <name>' instead."
 
 ## Test targets
 
@@ -178,15 +178,12 @@ proto:
 ## Release build targets (replacement for GoReleaser)
 
 # Full release build - creates everything GoReleaser would create
-release-build: clean-dist release-binaries release-plugins release-archives release-checksums
+# NOTE: Plugins are now built separately in their own repositories (relicta-tech/plugin-*)
+release-build: clean-dist release-binaries release-archives release-checksums
 	@echo "✓ Release build complete!"
 	@echo ""
 	@echo "Artifacts in $(DIST_DIR):"
 	@ls -lh $(DIST_DIR)/*.tar.gz $(DIST_DIR)/*.zip 2>/dev/null || true
-	@echo ""
-	@echo "Plugin binaries:"
-	@ls -1 $(DIST_DIR)/*_linux_* $(DIST_DIR)/*_darwin_* $(DIST_DIR)/*_windows_* 2>/dev/null | head -10
-	@echo "... and more"
 
 # Build main binary for all release platforms
 release-binaries:
@@ -208,23 +205,11 @@ release-binaries:
 	)
 
 # Build all plugins for all release platforms
+# NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
+# This target is kept for backwards compatibility but is a no-op
 release-plugins:
-	@echo "Building plugins for all platforms..."
-	@mkdir -p $(DIST_DIR)
-	@$(foreach plugin,$(ALL_PLUGINS), \
-		$(foreach platform,$(RELEASE_PLATFORMS), \
-			$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
-			$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
-			$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
-			$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
-			$(eval PLUGIN_BIN := $(plugin)_$(OS)_$(ARCH_NAME)$(EXT)) \
-			echo "  Building $(plugin) for $(OS)/$(ARCH)..." && \
-			GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 \
-				$(GOBUILD) -ldflags "-s -w" \
-				-o $(DIST_DIR)/$(PLUGIN_BIN) \
-				./$(PLUGINS_DIR)/$(plugin) || exit 1; \
-		) \
-	)
+	@echo "Skipping plugin builds (plugins are now in separate repositories)"
+	@echo "See: https://github.com/relicta-tech/plugin-*"
 
 # Create archives (tar.gz for linux/darwin, zip for windows)
 release-archives:
