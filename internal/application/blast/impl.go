@@ -274,10 +274,10 @@ func (s *serviceImpl) GetChangedFiles(ctx context.Context, fromRef, toRef string
 		if len(parts) >= 3 {
 			var ins, del int
 			if parts[0] != "-" {
-				fmt.Sscanf(parts[0], "%d", &ins)
+				_, _ = fmt.Sscanf(parts[0], "%d", &ins)
 			}
 			if parts[1] != "-" {
-				fmt.Sscanf(parts[1], "%d", &del)
+				_, _ = fmt.Sscanf(parts[1], "%d", &del)
 			}
 			// Handle renamed files
 			path := parts[len(parts)-1]

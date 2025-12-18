@@ -152,7 +152,7 @@ func outputBlastSummary(br *blast.BlastRadius) {
 	fmt.Fprintf(w, "  Directly Affected:\t%d\n", s.DirectlyAffected)
 	fmt.Fprintf(w, "  Transitively Affected:\t%d\n", s.TransitivelyAffected)
 	fmt.Fprintf(w, "  Packages Needing Release:\t%d\n", s.PackagesRequiringRelease)
-	w.Flush()
+	_ = w.Flush() // Ignore flush error for stdout display
 	fmt.Println()
 
 	riskDisplay := formatRiskLevel(s.RiskLevel)

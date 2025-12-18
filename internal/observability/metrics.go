@@ -236,7 +236,7 @@ func (m *Metrics) Handler() http.Handler {
 		}
 		m.mu.RUnlock()
 
-		w.Write([]byte(sb.String()))
+		_, _ = w.Write([]byte(sb.String()))
 	})
 }
 

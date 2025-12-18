@@ -115,7 +115,7 @@ func (o *Options) IsVerbose() bool {
 // Cleanup closes any open resources.
 func (o *Options) Cleanup() {
 	if o.LogFile != nil {
-		o.LogFile.Close()
+		_ = o.LogFile.Close() // Ignore error on cleanup
 		o.LogFile = nil
 	}
 }
@@ -152,7 +152,7 @@ func (o *Options) PrintSubtle(msg string) {
 
 func (o *Options) println(s string) {
 	if o.Stdout != nil {
-		o.Stdout.Write([]byte(s + "\n"))
+		_, _ = o.Stdout.Write([]byte(s + "\n"))
 	}
 }
 

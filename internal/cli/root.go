@@ -130,10 +130,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "CI/CD mode: auto-approve, JSON output, non-interactive")
 	rootCmd.PersistentFlags().BoolVar(&redactSecrets, "redact", false, "redact secrets and API keys from output (auto-enabled in CI mode)")
 
-	// Bind flags to viper
-	viper.BindPFlag("output.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	viper.BindPFlag("output.color", rootCmd.PersistentFlags().Lookup("no-color"))
-	viper.BindPFlag("output.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
+	// Bind flags to viper (errors are non-fatal for flag binding)
+	_ = viper.BindPFlag("output.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	_ = viper.BindPFlag("output.color", rootCmd.PersistentFlags().Lookup("no-color"))
+	_ = viper.BindPFlag("output.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
 
 	// Add subcommands
 	rootCmd.AddCommand(versionCmd)

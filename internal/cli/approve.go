@@ -439,7 +439,7 @@ func displayReleaseSummary(rel *release.Release) {
 	fmt.Fprintf(w, "  Total commits:\t%d\n", summary.CommitCount)
 	fmt.Fprintf(w, "  Branch:\t%s\n", summary.Branch)
 	fmt.Fprintf(w, "  State:\t%s\n", summary.State.String())
-	w.Flush()
+	_ = w.Flush() // Ignore flush error for stdout display
 
 	// Show changes overview
 	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
@@ -566,16 +566,18 @@ func editReleaseNotes(notes string) (string, error) {
 
 	// Set restrictive permissions explicitly
 	if err := os.Chmod(tmpPath, 0600); err != nil {
-		tmpfile.Close()
+		_ = tmpfile.Close()
 		return "", fmt.Errorf("failed to set temp file permissions: %w", err)
 	}
 
 	// Write current notes to temp file
 	if _, err := tmpfile.WriteString(notes); err != nil {
-		tmpfile.Close()
+		_ = tmpfile.Close()
 		return "", fmt.Errorf("failed to write to temp file: %w", err)
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		return "", fmt.Errorf("failed to close temp file: %w", err)
+	}
 
 	// Open editor with resolved safe path
 	cmd := exec.Command(resolvedEditor, tmpPath)

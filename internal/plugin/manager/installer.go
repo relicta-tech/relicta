@@ -74,7 +74,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 			return nil, fmt.Errorf("failed to open archive for checksum verification: %w", err)
 		}
 		archiveChecksum, err := i.calculateChecksum(archiveFile)
-		archiveFile.Close()
+		_ = archiveFile.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate archive checksum: %w", err)
 		}
@@ -115,7 +115,7 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 		return nil, fmt.Errorf("failed to open extracted binary: %w", err)
 	}
 	binaryChecksum, err := i.calculateChecksum(binaryFile)
-	binaryFile.Close()
+	_ = binaryFile.Close()
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate binary checksum: %w", err)
 	}

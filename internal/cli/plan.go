@@ -155,7 +155,7 @@ func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool,
 	fmt.Fprintf(w, "  Total commits:\t%d\n", output.ChangeSet.CommitCount())
 	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
 	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
-	w.Flush()
+	_ = w.Flush() // Ignore flush error for stdout display
 
 	fmt.Println()
 
@@ -168,7 +168,7 @@ func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool,
 		fmt.Fprintf(w, "  Risk Score:\t%s\n", formatRiskScoreDisplay(riskPreview.RiskScore, riskPreview.Severity))
 		fmt.Fprintf(w, "  Decision:\t%s\n", formatDecisionDisplay(riskPreview.Decision))
 		fmt.Fprintf(w, "  Auto-Approve:\t%s\n", formatAutoApproveDisplay(riskPreview.CanAutoApprove))
-		w.Flush()
+		_ = w.Flush() // Ignore flush error for stdout display
 
 		if len(riskPreview.RiskFactors) > 0 {
 			fmt.Println()

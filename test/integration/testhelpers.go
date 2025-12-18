@@ -31,7 +31,7 @@ func NewTestRepo(t testing.TB) *TestRepo {
 		t:   t,
 		Dir: dir,
 		cleanup: func() {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir)
 		},
 	}
 

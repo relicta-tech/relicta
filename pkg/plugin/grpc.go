@@ -243,7 +243,7 @@ func (c *GRPCClient) Execute(ctx context.Context, req ExecuteRequest) (*ExecuteR
 
 	var outputs map[string]any
 	if resp.Outputs != "" {
-		json.Unmarshal([]byte(resp.Outputs), &outputs)
+		_ = json.Unmarshal([]byte(resp.Outputs), &outputs) // Ignore unmarshal error for optional field
 	}
 
 	artifacts := make([]Artifact, len(resp.Artifacts))

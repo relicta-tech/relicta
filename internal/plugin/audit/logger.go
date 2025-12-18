@@ -69,7 +69,7 @@ func Initialize(path string) error {
 
 	// Close existing logger if any
 	if globalLogger != nil && globalLogger.file != nil {
-		globalLogger.file.Close()
+		_ = globalLogger.file.Close() // Ignore error on cleanup of old logger
 	}
 
 	if path == "" {
