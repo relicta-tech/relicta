@@ -141,18 +141,26 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	printSuccess(fmt.Sprintf("Released %s successfully!", bumpOutput.Version.String()))
 
-	// Show publish summary
-	if publishOutput.TagName != "" {
-		fmt.Printf("  ✓ Tag: %s\n", publishOutput.TagName)
-	}
-	if publishOutput.ReleaseURL != "" {
-		fmt.Printf("  ✓ URL: %s\n", publishOutput.ReleaseURL)
-	}
-	for _, pr := range publishOutput.PluginResults {
-		if pr.Success {
-			fmt.Printf("  ✓ Plugin %s: %s\n", pr.PluginName, pr.Message)
+	// Show appropriate success message based on skip-push
+	if releaseSkipPush {
+		printSuccess(fmt.Sprintf("Created %s locally (push skipped)", bumpOutput.Version.String()))
+		fmt.Printf("  ✓ Tag created locally: %s\n", bumpOutput.TagName)
+		printInfo("Run 'git push origin --tags' to publish when ready")
+	} else {
+		printSuccess(fmt.Sprintf("Released %s successfully!", bumpOutput.Version.String()))
+
+		// Show publish summary
+		if publishOutput.TagName != "" {
+			fmt.Printf("  ✓ Tag: %s\n", publishOutput.TagName)
+		}
+		if publishOutput.ReleaseURL != "" {
+			fmt.Printf("  ✓ URL: %s\n", publishOutput.ReleaseURL)
+		}
+		for _, pr := range publishOutput.PluginResults {
+			if pr.Success {
+				fmt.Printf("  ✓ Plugin %s: %s\n", pr.PluginName, pr.Message)
+			}
 		}
 	}
 
