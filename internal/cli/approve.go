@@ -37,14 +37,14 @@ func init() {
 }
 
 // getLatestRelease retrieves the latest release from the repository.
-func getLatestRelease(ctx context.Context, dddContainer *container.DDDContainer) (*release.Release, error) {
-	gitAdapter := dddContainer.GitAdapter()
+func getLatestRelease(ctx context.Context, app *container.App) (*release.Release, error) {
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	releaseRepo := dddContainer.ReleaseRepository()
+	releaseRepo := app.ReleaseRepository()
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		printError("No release in progress")
@@ -115,7 +115,7 @@ func getApproverName() string {
 }
 
 // executeApproval executes the approval use case.
-func executeApproval(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release, editedNotes *string) error {
+func executeApproval(ctx context.Context, app *container.App, rel *release.Release, editedNotes *string) error {
 	input := apprelease.ApproveReleaseInput{
 		ReleaseID:   rel.ID(),
 		ApprovedBy:  getApproverName(),
@@ -123,7 +123,7 @@ func executeApproval(ctx context.Context, dddContainer *container.DDDContainer, 
 		EditedNotes: editedNotes,
 	}
 
-	_, err := dddContainer.ApproveRelease().Execute(ctx, input)
+	_, err := app.ApproveRelease().Execute(ctx, input)
 	if err != nil {
 		return fmt.Errorf("failed to approve release: %w", err)
 	}
@@ -149,14 +149,14 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Get latest release
-	rel, err := getLatestRelease(ctx, dddContainer)
+	rel, err := getLatestRelease(ctx, app)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func runApprove(cmd *cobra.Command, args []string) error {
 
 	// Use interactive TUI if requested
 	if shouldUseInteractiveApproval() {
-		return runInteractiveApproval(ctx, dddContainer, rel)
+		return runInteractiveApproval(ctx, app, rel)
 	}
 
 	// Display release summary
@@ -181,8 +181,8 @@ func runApprove(cmd *cobra.Command, args []string) error {
 
 	// CGP Governance evaluation (if enabled)
 	var govResult *governance.EvaluateReleaseOutput
-	if dddContainer.HasGovernance() {
-		govResult, err = evaluateGovernance(ctx, dddContainer, rel)
+	if app.HasGovernance() {
+		govResult, err = evaluateGovernance(ctx, app, rel)
 		if err != nil {
 			// In advisory mode, log warning but continue
 			if !cfg.Governance.StrictMode {
@@ -207,11 +207,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 			if govResult.CanAutoApprove && approveYes {
 				printSuccess("Auto-approved by governance (low risk)")
 				if !dryRun {
-					if err := executeApproval(ctx, dddContainer, rel, nil); err != nil {
+					if err := executeApproval(ctx, app, rel, nil); err != nil {
 						return err
 					}
 					// Record successful outcome
-					recordReleaseOutcome(ctx, dddContainer, rel, govResult, true)
+					recordReleaseOutcome(ctx, app, rel, govResult, true)
 				} else {
 					printWarning("Dry run - approval not saved")
 				}
@@ -244,13 +244,13 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	}
 
 	// Execute approval
-	if err := executeApproval(ctx, dddContainer, rel, editedNotes); err != nil {
+	if err := executeApproval(ctx, app, rel, editedNotes); err != nil {
 		return err
 	}
 
 	// Record successful outcome to Release Memory
 	if govResult != nil {
-		recordReleaseOutcome(ctx, dddContainer, rel, govResult, true)
+		recordReleaseOutcome(ctx, app, rel, govResult, true)
 	}
 
 	printApproveNextSteps()
@@ -302,14 +302,14 @@ func createCGPActor() cgp.Actor {
 }
 
 // evaluateGovernance evaluates the release through CGP governance.
-func evaluateGovernance(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
-	govService := dddContainer.GovernanceService()
+func evaluateGovernance(ctx context.Context, app *container.App, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
 	}
 
 	// Get repository info
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
@@ -387,14 +387,14 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 }
 
 // recordReleaseOutcome records the release outcome to Release Memory.
-func recordReleaseOutcome(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
-	govService := dddContainer.GovernanceService()
+func recordReleaseOutcome(ctx context.Context, app *container.App, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
+	govService := app.GovernanceService()
 	if govService == nil || govResult == nil {
 		return
 	}
 
 	// Get repository info
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return
@@ -685,15 +685,15 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 }
 
 // buildGovernanceSummaryForTUI builds governance summary for TUI display.
-func buildGovernanceSummaryForTUI(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) *ui.GovernanceSummary {
-	govService := dddContainer.GovernanceService()
+func buildGovernanceSummaryForTUI(ctx context.Context, app *container.App, rel *release.Release) *ui.GovernanceSummary {
+	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
 	}
 
 	// Get repo info
 	repoURL := ""
-	if gitAdapter := dddContainer.GitAdapter(); gitAdapter != nil {
+	if gitAdapter := app.GitAdapter(); gitAdapter != nil {
 		if info, err := gitAdapter.GetInfo(ctx); err == nil {
 			repoURL = info.RemoteURL
 		}
@@ -787,13 +787,13 @@ func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*
 }
 
 // runInteractiveApproval runs the interactive TUI for approval.
-func runInteractiveApproval(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) error {
+func runInteractiveApproval(ctx context.Context, app *container.App, rel *release.Release) error {
 	// Build TUI summary
 	tuiSummary := buildTUISummary(rel)
 
 	// Add governance info if enabled
-	if dddContainer.HasGovernance() {
-		govSummary := buildGovernanceSummaryForTUI(ctx, dddContainer, rel)
+	if app.HasGovernance() {
+		govSummary := buildGovernanceSummaryForTUI(ctx, app, rel)
 		if govSummary != nil {
 			tuiSummary.Governance = govSummary
 		}
@@ -821,7 +821,7 @@ func runInteractiveApproval(ctx context.Context, dddContainer *container.DDDCont
 	}
 
 	// Execute approval (reuse the common helper)
-	if err := executeApproval(ctx, dddContainer, rel, editedNotes); err != nil {
+	if err := executeApproval(ctx, app, rel, editedNotes); err != nil {
 		return err
 	}
 

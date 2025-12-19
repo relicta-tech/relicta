@@ -119,21 +119,21 @@ func runNotes(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Get latest release from repository
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get repository info: %w", err)
 	}
 
 	// Find the latest release
-	releaseRepo := dddContainer.ReleaseRepository()
+	releaseRepo := app.ReleaseRepository()
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		printError("No release in progress")
@@ -142,7 +142,7 @@ func runNotes(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build input and execute use case
-	input := buildGenerateNotesInput(rel, dddContainer.HasAI())
+	input := buildGenerateNotesInput(rel, app.HasAI())
 
 	// Show spinner (unless JSON output)
 	var spinner *Spinner
@@ -155,7 +155,7 @@ func runNotes(cmd *cobra.Command, args []string) error {
 		spinner.Start()
 	}
 
-	output, err := dddContainer.GenerateNotes().Execute(ctx, input)
+	output, err := app.GenerateNotes().Execute(ctx, input)
 
 	if spinner != nil {
 		spinner.Stop()

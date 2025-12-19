@@ -123,7 +123,7 @@ linters:
         - github.com/spf13/viper.BindPFlag
         # Container/closer patterns
         - (io.Closer).Close
-        - (*github.com/relicta-tech/relicta/internal/container.DDDContainer).Close
+        - (*github.com/relicta-tech/relicta/internal/container.App).Close
         # io.Writer - common to ignore
         - (io.Writer).Write
         # JSON marshaling - often intentionally ignored in logging/output

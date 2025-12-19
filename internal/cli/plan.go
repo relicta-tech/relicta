@@ -44,14 +44,14 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Get repository info for the path
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get repository info: %w", err)
@@ -74,7 +74,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		spinner.Start()
 	}
 
-	output, err := dddContainer.PlanRelease().Execute(ctx, input)
+	output, err := app.PlanRelease().Execute(ctx, input)
 
 	if spinner != nil {
 		spinner.Stop()
@@ -86,8 +86,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
-	if dddContainer.HasGovernance() {
-		riskPreview = getGovernanceRiskPreview(ctx, dddContainer, output, repoInfo.RemoteURL)
+	if app.HasGovernance() {
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
 	}
 
 	// Output results
@@ -311,8 +311,8 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, dddContainer *container.DDDContainer, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
-	govService := dddContainer.GovernanceService()
+func getGovernanceRiskPreview(ctx context.Context, app *container.App, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
+	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
 	}

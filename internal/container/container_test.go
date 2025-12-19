@@ -34,11 +34,11 @@ func (m *mockCloseable) getCloseCount() int32 {
 	return atomic.LoadInt32(&m.closeCount)
 }
 
-func TestDDDContainer_Close_EmptyCloseables(t *testing.T) {
+func TestApp_Close_EmptyCloseables(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Close should work even with no closeables
@@ -48,11 +48,11 @@ func TestDDDContainer_Close_EmptyCloseables(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Close_ClosesAllComponents(t *testing.T) {
+func TestApp_Close_ClosesAllComponents(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Register multiple closeables
@@ -82,11 +82,11 @@ func TestDDDContainer_Close_ClosesAllComponents(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Close_Idempotent(t *testing.T) {
+func TestApp_Close_Idempotent(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	closeable := &mockCloseable{name: "test"}
@@ -109,11 +109,11 @@ func TestDDDContainer_Close_Idempotent(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_CloseWithTimeout_ReturnsFirstError(t *testing.T) {
+func TestApp_CloseWithTimeout_ReturnsFirstError(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	expectedErr := errors.New("close failed")
@@ -133,11 +133,11 @@ func TestDDDContainer_CloseWithTimeout_ReturnsFirstError(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_CloseWithTimeout_TimesOut(t *testing.T) {
+func TestApp_CloseWithTimeout_TimesOut(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Create a closeable that takes longer than the timeout
@@ -157,11 +157,11 @@ func TestDDDContainer_CloseWithTimeout_TimesOut(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Close_ClosesInReverseOrder(t *testing.T) {
+func TestApp_Close_ClosesInReverseOrder(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	var mu sync.Mutex
@@ -210,11 +210,11 @@ func (c *orderRecordingCloseable) Close() error {
 	return nil
 }
 
-func TestDDDContainer_RegisterCloseable_NilSafe(t *testing.T) {
+func TestApp_RegisterCloseable_NilSafe(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Register nil closeable should not panic
@@ -227,11 +227,11 @@ func TestDDDContainer_RegisterCloseable_NilSafe(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_FailsWhenClosed(t *testing.T) {
+func TestApp_Initialize_FailsWhenClosed(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Close the container
@@ -248,11 +248,11 @@ func TestDDDContainer_Initialize_FailsWhenClosed(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_RegisterCloseable_ConcurrentSafe(t *testing.T) {
+func TestApp_RegisterCloseable_ConcurrentSafe(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	const numGoroutines = 100
@@ -277,21 +277,21 @@ func TestDDDContainer_RegisterCloseable_ConcurrentSafe(t *testing.T) {
 	}
 }
 
-func TestNewDDDContainer_NilConfig(t *testing.T) {
-	c, err := NewDDDContainer(nil)
+func TestNew_NilConfig(t *testing.T) {
+	c, err := New(nil)
 	if err == nil {
-		t.Error("NewDDDContainer(nil) should return error")
+		t.Error("New(nil) should return error")
 	}
 	if c != nil {
-		t.Error("NewDDDContainer(nil) should return nil container")
+		t.Error("New(nil) should return nil container")
 	}
 }
 
-func TestDDDContainer_Accessors_BeforeInitialize(t *testing.T) {
+func TestApp_Accessors_BeforeInitialize(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Use cases should return nil before initialization
@@ -344,11 +344,11 @@ func TestDDDContainer_Accessors_BeforeInitialize(t *testing.T) {
 	_ = pluginReg
 }
 
-func TestDDDContainer_Accessors_ConcurrentRead(t *testing.T) {
+func TestApp_Accessors_ConcurrentRead(t *testing.T) {
 	cfg := &config.Config{}
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	const numGoroutines = 50
@@ -379,7 +379,7 @@ func TestDDDContainer_Accessors_ConcurrentRead(t *testing.T) {
 	wg.Wait()
 }
 
-func TestDDDContainer_Initialize_Success(t *testing.T) {
+func TestApp_Initialize_Success(t *testing.T) {
 	// Create a temporary directory for the release repository
 	tmpDir := t.TempDir()
 
@@ -390,9 +390,9 @@ func TestDDDContainer_Initialize_Success(t *testing.T) {
 		Plugins: []config.PluginConfig{}, // No plugins to simplify test
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	// Change to temp directory for git initialization
@@ -471,7 +471,7 @@ func TestDDDContainer_Initialize_Success(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_WithPlugins(t *testing.T) {
+func TestApp_Initialize_WithPlugins(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	enabled := true
@@ -487,9 +487,9 @@ func TestDDDContainer_Initialize_WithPlugins(t *testing.T) {
 		},
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	oldDir, err := os.Getwd()
@@ -527,7 +527,7 @@ func TestDDDContainer_Initialize_WithPlugins(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_WithAIEnabled(t *testing.T) {
+func TestApp_Initialize_WithAIEnabled(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Set API key via environment variable
@@ -546,9 +546,9 @@ func TestDDDContainer_Initialize_WithAIEnabled(t *testing.T) {
 		Plugins: []config.PluginConfig{},
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	oldDir, err := os.Getwd()
@@ -583,7 +583,7 @@ func TestDDDContainer_Initialize_WithAIEnabled(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_AIEnabledWithoutAPIKey(t *testing.T) {
+func TestApp_Initialize_AIEnabledWithoutAPIKey(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Ensure no API key is set
@@ -597,9 +597,9 @@ func TestDDDContainer_Initialize_AIEnabledWithoutAPIKey(t *testing.T) {
 		Plugins: []config.PluginConfig{},
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	oldDir, err := os.Getwd()
@@ -638,7 +638,7 @@ func TestDDDContainer_Initialize_AIEnabledWithoutAPIKey(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_AIWithConfigAPIKey(t *testing.T) {
+func TestApp_Initialize_AIWithConfigAPIKey(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := &config.Config{
@@ -650,9 +650,9 @@ func TestDDDContainer_Initialize_AIWithConfigAPIKey(t *testing.T) {
 		Plugins: []config.PluginConfig{},
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	oldDir, err := os.Getwd()
@@ -686,7 +686,7 @@ func TestDDDContainer_Initialize_AIWithConfigAPIKey(t *testing.T) {
 	}
 }
 
-func TestDDDContainer_Initialize_AIWithBaseURL(t *testing.T) {
+func TestApp_Initialize_AIWithBaseURL(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := &config.Config{
@@ -699,9 +699,9 @@ func TestDDDContainer_Initialize_AIWithBaseURL(t *testing.T) {
 		Plugins: []config.PluginConfig{},
 	}
 
-	c, err := NewDDDContainer(cfg)
+	c, err := New(cfg)
 	if err != nil {
-		t.Fatalf("NewDDDContainer failed: %v", err)
+		t.Fatalf("New failed: %v", err)
 	}
 
 	oldDir, err := os.Getwd()
@@ -735,7 +735,7 @@ func TestDDDContainer_Initialize_AIWithBaseURL(t *testing.T) {
 	}
 }
 
-func TestNewInitializedDDDContainer_Success(t *testing.T) {
+func TestNewInitialized_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	cfg := &config.Config{
@@ -762,9 +762,9 @@ func TestNewInitializedDDDContainer_Success(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	c, err := NewInitializedDDDContainer(ctx, cfg)
+	c, err := NewInitialized(ctx, cfg)
 	if err != nil {
-		t.Fatalf("NewInitializedDDDContainer failed: %v", err)
+		t.Fatalf("NewInitialized failed: %v", err)
 	}
 
 	// Verify container is initialized
@@ -777,13 +777,13 @@ func TestNewInitializedDDDContainer_Success(t *testing.T) {
 	}
 }
 
-func TestNewInitializedDDDContainer_NilConfig(t *testing.T) {
+func TestNewInitialized_NilConfig(t *testing.T) {
 	ctx := context.Background()
-	c, err := NewInitializedDDDContainer(ctx, nil)
+	c, err := NewInitialized(ctx, nil)
 	if err == nil {
-		t.Error("NewInitializedDDDContainer(nil) should return error")
+		t.Error("NewInitialized(nil) should return error")
 	}
 	if c != nil {
-		t.Error("NewInitializedDDDContainer(nil) should return nil container")
+		t.Error("NewInitialized(nil) should return nil container")
 	}
 }

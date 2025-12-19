@@ -161,14 +161,14 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Get latest release (reuse helper from approve.go)
-	rel, err := getLatestRelease(ctx, dddContainer)
+	rel, err := getLatestRelease(ctx, app)
 	if err != nil {
 		return err
 	}
@@ -187,8 +187,8 @@ func runPublish(cmd *cobra.Command, args []string) error {
 
 	// Get governance evaluation for outcome tracking (if enabled)
 	var govResult *governance.EvaluateReleaseOutput
-	if dddContainer.HasGovernance() {
-		govResult, err = evaluateGovernanceForPublish(ctx, dddContainer, rel)
+	if app.HasGovernance() {
+		govResult, err = evaluateGovernanceForPublish(ctx, app, rel)
 		if err != nil {
 			// Non-fatal - just log warning
 			printWarning(fmt.Sprintf("Governance evaluation failed: %v", err))
@@ -215,19 +215,19 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	spinner.Start()
 
 	input := buildPublishInput(rel)
-	output, err := dddContainer.PublishRelease().Execute(ctx, input)
+	output, err := app.PublishRelease().Execute(ctx, input)
 
 	spinner.Stop()
 
 	if err != nil {
 		printError(fmt.Sprintf("Failed to publish release: %v", err))
 		// Record failure outcome to Release Memory
-		recordPublishOutcome(ctx, dddContainer, rel, govResult, false, time.Since(publishStart))
+		recordPublishOutcome(ctx, app, rel, govResult, false, time.Since(publishStart))
 		return fmt.Errorf("failed to publish release: %w", err)
 	}
 
 	// Record success outcome to Release Memory
-	recordPublishOutcome(ctx, dddContainer, rel, govResult, true, time.Since(publishStart))
+	recordPublishOutcome(ctx, app, rel, govResult, true, time.Since(publishStart))
 
 	// Output results
 	outputPublishResults(output)
@@ -239,13 +239,13 @@ func runPublish(cmd *cobra.Command, args []string) error {
 }
 
 // evaluateGovernanceForPublish evaluates the release for governance tracking.
-func evaluateGovernanceForPublish(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
-	govService := dddContainer.GovernanceService()
+func evaluateGovernanceForPublish(ctx context.Context, app *container.App, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
 	}
 
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
@@ -264,13 +264,13 @@ func evaluateGovernanceForPublish(ctx context.Context, dddContainer *container.D
 }
 
 // recordPublishOutcome records the actual publish outcome to Release Memory.
-func recordPublishOutcome(ctx context.Context, dddContainer *container.DDDContainer, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
-	govService := dddContainer.GovernanceService()
+func recordPublishOutcome(ctx context.Context, app *container.App, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
+	govService := app.GovernanceService()
 	if govService == nil {
 		return
 	}
 
-	gitAdapter := dddContainer.GitAdapter()
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return

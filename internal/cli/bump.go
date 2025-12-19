@@ -73,7 +73,7 @@ func outputSetVersionResult(output *versioning.SetVersionOutput) {
 }
 
 // handleForcedVersion handles the --force flag to set a specific version.
-func handleForcedVersion(ctx context.Context, dddContainer *container.DDDContainer, forcedVersionStr string) error {
+func handleForcedVersion(ctx context.Context, app *container.App, forcedVersionStr string) error {
 	forcedVersion, err := version.Parse(forcedVersionStr)
 	if err != nil {
 		return fmt.Errorf("invalid version format: %w", err)
@@ -81,7 +81,7 @@ func handleForcedVersion(ctx context.Context, dddContainer *container.DDDContain
 
 	setInput := buildSetVersionInput(forcedVersion, bumpCreateTag, bumpPush, dryRun)
 
-	output, err := dddContainer.SetVersion().Execute(ctx, setInput)
+	output, err := app.SetVersion().Execute(ctx, setInput)
 	if err != nil {
 		return fmt.Errorf("failed to set version: %w", err)
 	}
@@ -89,7 +89,7 @@ func handleForcedVersion(ctx context.Context, dddContainer *container.DDDContain
 	// Update release state if there's an active release (same as normal bump flow)
 	// Not fatal if it fails - just means there's no release to update
 	if !dryRun {
-		_ = updateReleaseVersion(ctx, dddContainer, forcedVersion)
+		_ = updateReleaseVersion(ctx, app, forcedVersion)
 	}
 
 	if outputJSON {
@@ -127,14 +127,14 @@ func outputCalculatedVersionText(calcOutput *versioning.CalculateVersionOutput, 
 }
 
 // applyVersionTag creates and optionally pushes the version tag.
-func applyVersionTag(ctx context.Context, dddContainer *container.DDDContainer, nextVersion version.SemanticVersion) error {
+func applyVersionTag(ctx context.Context, app *container.App, nextVersion version.SemanticVersion) error {
 	if !bumpCreateTag || !cfg.Versioning.GitTag {
 		return nil
 	}
 
 	setInput := buildSetVersionInput(nextVersion, true, bumpPush, false)
 
-	setOutput, err := dddContainer.SetVersion().Execute(ctx, setInput)
+	setOutput, err := app.SetVersion().Execute(ctx, setInput)
 	if err != nil {
 		return fmt.Errorf("failed to set version: %w", err)
 	}
@@ -172,11 +172,11 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Parse bump type from flag
 	bumpType, auto, err := parseBumpLevel(bumpLevel)
@@ -186,12 +186,12 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	// Handle forced version separately
 	if bumpForce != "" {
-		return handleForcedVersion(ctx, dddContainer, bumpForce)
+		return handleForcedVersion(ctx, app, bumpForce)
 	}
 
 	// Calculate version
 	calcInput := buildCalculateVersionInput(bumpType, auto)
-	calcOutput, err := dddContainer.CalculateVersion().Execute(ctx, calcInput)
+	calcOutput, err := app.CalculateVersion().Execute(ctx, calcInput)
 	if err != nil {
 		return fmt.Errorf("failed to calculate version: %w", err)
 	}
@@ -216,14 +216,14 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Apply version tag
-	if err := applyVersionTag(ctx, dddContainer, nextVersion); err != nil {
+	if err := applyVersionTag(ctx, app, nextVersion); err != nil {
 		return err
 	}
 
 	// Update release state if there's an active release
 	// Not fatal if it fails - just means there's no release to update
 	// This can happen when bump is run standalone
-	_ = updateReleaseVersion(ctx, dddContainer, nextVersion)
+	_ = updateReleaseVersion(ctx, app, nextVersion)
 
 	// Output JSON after operations complete
 	if outputJSON {
@@ -235,14 +235,14 @@ func runVersion(cmd *cobra.Command, args []string) error {
 }
 
 // updateReleaseVersion updates the active release with the bumped version.
-func updateReleaseVersion(ctx context.Context, dddContainer *container.DDDContainer, ver version.SemanticVersion) error {
-	gitAdapter := dddContainer.GitAdapter()
+func updateReleaseVersion(ctx context.Context, app *container.App, ver version.SemanticVersion) error {
+	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return err
 	}
 
-	releaseRepo := dddContainer.ReleaseRepository()
+	releaseRepo := app.ReleaseRepository()
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		return err

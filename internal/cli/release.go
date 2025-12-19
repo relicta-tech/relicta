@@ -64,15 +64,15 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	dddContainer, err := container.NewInitializedDDDContainer(ctx, cfg)
+	app, err := container.NewInitialized(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer dddContainer.Close()
+	defer app.Close()
 
 	// Step 1: Plan
 	printStep(1, 5, "Planning release")
-	planOutput, err := runReleasePlan(ctx, dddContainer)
+	planOutput, err := runReleasePlan(ctx, app)
 	if err != nil {
 		return fmt.Errorf("plan failed: %w", err)
 	}
@@ -97,7 +97,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 
 	// Step 2: Bump version
 	printStep(2, 5, "Bumping version")
-	bumpOutput, err := runReleaseBump(ctx, dddContainer, planOutput)
+	bumpOutput, err := runReleaseBump(ctx, app, planOutput)
 	if err != nil {
 		return fmt.Errorf("bump failed: %w", err)
 	}
@@ -106,7 +106,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 
 	// Step 3: Generate notes
 	printStep(3, 5, "Generating release notes")
-	notesOutput, err := runReleaseNotes(ctx, dddContainer, planOutput)
+	notesOutput, err := runReleaseNotes(ctx, app, planOutput)
 	if err != nil {
 		return fmt.Errorf("notes failed: %w", err)
 	}
@@ -117,7 +117,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 
 	// Step 4: Approve
 	printStep(4, 5, "Reviewing release")
-	approved, err := runReleaseApprove(ctx, dddContainer, planOutput, notesOutput, releaseAutoApprove)
+	approved, err := runReleaseApprove(ctx, app, planOutput, notesOutput, releaseAutoApprove)
 	if err != nil {
 		return fmt.Errorf("approval failed: %w", err)
 	}
@@ -135,7 +135,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	publishOutput, err := runReleasePublish(ctx, dddContainer, planOutput)
+	publishOutput, err := runReleasePublish(ctx, app, planOutput)
 	if err != nil {
 		return fmt.Errorf("publish failed: %w", err)
 	}
@@ -160,7 +160,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 }
 
 // runReleasePlan executes the plan step.
-func runReleasePlan(ctx context.Context, c *container.DDDContainer) (*apprelease.PlanReleaseOutput, error) {
+func runReleasePlan(ctx context.Context, c *container.App) (*apprelease.PlanReleaseOutput, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func runReleasePlan(ctx context.Context, c *container.DDDContainer) (*apprelease
 }
 
 // runReleaseBump executes the bump step.
-func runReleaseBump(ctx context.Context, c *container.DDDContainer, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
+func runReleaseBump(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
 	var ver version.SemanticVersion
 	if releaseForce != "" {
 		parsed, err := version.Parse(releaseForce)
@@ -214,7 +214,7 @@ func runReleaseBump(ctx context.Context, c *container.DDDContainer, plan *apprel
 }
 
 // runReleaseNotes executes the notes generation step.
-func runReleaseNotes(ctx context.Context, c *container.DDDContainer, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
+func runReleaseNotes(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
 	input := apprelease.GenerateNotesInput{
 		ReleaseID:        plan.ReleaseID,
 		UseAI:            cfg.AI.Enabled,
@@ -228,7 +228,7 @@ func runReleaseNotes(ctx context.Context, c *container.DDDContainer, plan *appre
 }
 
 // runReleaseApprove handles the approval step.
-func runReleaseApprove(ctx context.Context, c *container.DDDContainer, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
+func runReleaseApprove(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
 	if autoApprove {
 		printInfo("Auto-approving release")
 		// Actually approve the release in the domain model
@@ -295,7 +295,7 @@ func runReleaseApprove(ctx context.Context, c *container.DDDContainer, plan *app
 }
 
 // runReleasePublish executes the publish step.
-func runReleasePublish(ctx context.Context, c *container.DDDContainer, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
+func runReleasePublish(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
 	input := apprelease.PublishReleaseInput{
 		ReleaseID: plan.ReleaseID,
 		DryRun:    dryRun,

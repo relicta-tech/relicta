@@ -31,8 +31,9 @@ type Closeable interface {
 	Close() error
 }
 
-// DDDContainer provides dependency injection for the DDD architecture.
-type DDDContainer struct {
+// App provides dependency injection for Relicta services.
+// It manages infrastructure, application use cases, and service lifecycle.
+type App struct {
 	config *config.Config
 	logger *slog.Logger
 	mu     sync.RWMutex
@@ -67,13 +68,13 @@ type DDDContainer struct {
 	closeables []Closeable
 }
 
-// NewDDDContainer creates a new DDD container with the given configuration.
-func NewDDDContainer(cfg *config.Config) (*DDDContainer, error) {
+// New creates a new App container with the given configuration.
+func New(cfg *config.Config) (*App, error) {
 	if cfg == nil {
-		return nil, errors.Config("NewDDDContainer", "configuration is required")
+		return nil, errors.Config("New", "configuration is required")
 	}
 
-	return &DDDContainer{
+	return &App{
 		config:     cfg,
 		logger:     slog.Default(),
 		closeables: make([]Closeable, 0),
@@ -81,7 +82,7 @@ func NewDDDContainer(cfg *config.Config) (*DDDContainer, error) {
 }
 
 // registerCloseable registers a component for cleanup during shutdown.
-func (c *DDDContainer) registerCloseable(closeable Closeable) {
+func (c *App) registerCloseable(closeable Closeable) {
 	if closeable != nil {
 		c.closeables = append(c.closeables, closeable)
 	}
@@ -89,14 +90,14 @@ func (c *DDDContainer) registerCloseable(closeable Closeable) {
 
 // RegisterCloseable allows external components to register for cleanup during shutdown.
 // Components are closed in reverse order of registration (LIFO).
-func (c *DDDContainer) RegisterCloseable(closeable Closeable) {
+func (c *App) RegisterCloseable(closeable Closeable) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.registerCloseable(closeable)
 }
 
 // Initialize initializes all layers of the DDD container.
-func (c *DDDContainer) Initialize(ctx context.Context) error {
+func (c *App) Initialize(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -114,7 +115,7 @@ func (c *DDDContainer) Initialize(ctx context.Context) error {
 }
 
 // initInfrastructure initializes infrastructure layer components.
-func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
+func (c *App) initInfrastructure(ctx context.Context) error {
 	var err error
 
 	// Initialize existing git service
@@ -163,7 +164,7 @@ func (c *DDDContainer) initInfrastructure(ctx context.Context) error {
 }
 
 // initAIService initializes the AI service based on configuration.
-func (c *DDDContainer) initAIService(ctx context.Context) (ai.Service, error) {
+func (c *App) initAIService(ctx context.Context) (ai.Service, error) {
 	// Check for early cancellation
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -240,7 +241,7 @@ func (c *DDDContainer) initAIService(ctx context.Context) (ai.Service, error) {
 // initPluginSystem initializes the plugin system.
 // If plugins are configured, it uses the plugin.Manager with ExecutorAdapter.
 // Otherwise, it uses an empty in-memory registry.
-func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
+func (c *App) initPluginSystem(ctx context.Context) error {
 	// If no plugins configured, use empty in-memory implementation
 	if len(c.config.Plugins) == 0 {
 		c.pluginRegistry = integration.NewInMemoryPluginRegistry()
@@ -268,7 +269,7 @@ func (c *DDDContainer) initPluginSystem(ctx context.Context) error {
 }
 
 // initApplicationLayer initializes application layer use cases.
-func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
+func (c *App) initApplicationLayer(ctx context.Context) error {
 	// Initialize PlanReleaseUseCase with UnitOfWork factory
 	// Each command will create its own transaction via the factory
 	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
@@ -321,7 +322,7 @@ func (c *DDDContainer) initApplicationLayer(ctx context.Context) error {
 }
 
 // initGovernanceService initializes the CGP governance service.
-func (c *DDDContainer) initGovernanceService(ctx context.Context) error {
+func (c *App) initGovernanceService(ctx context.Context) error {
 	// Check for early cancellation
 	if err := ctx.Err(); err != nil {
 		return err
@@ -358,42 +359,42 @@ func (c *DDDContainer) initGovernanceService(ctx context.Context) error {
 // Application layer accessors
 
 // PlanRelease returns the PlanReleaseUseCase.
-func (c *DDDContainer) PlanRelease() *release.PlanReleaseUseCase {
+func (c *App) PlanRelease() *release.PlanReleaseUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.planReleaseUC
 }
 
 // GenerateNotes returns the GenerateNotesUseCase.
-func (c *DDDContainer) GenerateNotes() *release.GenerateNotesUseCase {
+func (c *App) GenerateNotes() *release.GenerateNotesUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.generateNotesUC
 }
 
 // ApproveRelease returns the ApproveReleaseUseCase.
-func (c *DDDContainer) ApproveRelease() *release.ApproveReleaseUseCase {
+func (c *App) ApproveRelease() *release.ApproveReleaseUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.approveReleaseUC
 }
 
 // PublishRelease returns the PublishReleaseUseCase.
-func (c *DDDContainer) PublishRelease() *release.PublishReleaseUseCase {
+func (c *App) PublishRelease() *release.PublishReleaseUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.publishReleaseUC
 }
 
 // CalculateVersion returns the CalculateVersionUseCase.
-func (c *DDDContainer) CalculateVersion() *versioning.CalculateVersionUseCase {
+func (c *App) CalculateVersion() *versioning.CalculateVersionUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.calculateVersionUC
 }
 
 // SetVersion returns the SetVersionUseCase.
-func (c *DDDContainer) SetVersion() *versioning.SetVersionUseCase {
+func (c *App) SetVersion() *versioning.SetVersionUseCase {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.setVersionUC
@@ -401,14 +402,14 @@ func (c *DDDContainer) SetVersion() *versioning.SetVersionUseCase {
 
 // GovernanceService returns the CGP governance service.
 // Returns nil if governance is not enabled.
-func (c *DDDContainer) GovernanceService() *governance.Service {
+func (c *App) GovernanceService() *governance.Service {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.governanceService
 }
 
 // HasGovernance returns true if governance is enabled and initialized.
-func (c *DDDContainer) HasGovernance() bool {
+func (c *App) HasGovernance() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.governanceService != nil
@@ -417,21 +418,21 @@ func (c *DDDContainer) HasGovernance() bool {
 // Infrastructure layer accessors
 
 // GitAdapter returns the git adapter implementing sourcecontrol.GitRepository.
-func (c *DDDContainer) GitAdapter() sourcecontrol.GitRepository {
+func (c *App) GitAdapter() sourcecontrol.GitRepository {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.gitAdapter
 }
 
 // ReleaseRepository returns the release repository implementing release.Repository.
-func (c *DDDContainer) ReleaseRepository() domainrelease.Repository {
+func (c *App) ReleaseRepository() domainrelease.Repository {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.releaseRepo
 }
 
 // EventPublisher returns the event publisher implementing release.EventPublisher.
-func (c *DDDContainer) EventPublisher() domainrelease.EventPublisher {
+func (c *App) EventPublisher() domainrelease.EventPublisher {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.eventPublisher
@@ -439,14 +440,14 @@ func (c *DDDContainer) EventPublisher() domainrelease.EventPublisher {
 
 // UnitOfWork returns a new UnitOfWork for transactional operations.
 // It returns an error if the UnitOfWork could not be initialized.
-func (c *DDDContainer) UnitOfWork() (domainrelease.UnitOfWork, error) {
+func (c *App) UnitOfWork() (domainrelease.UnitOfWork, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.unitOfWorkFactory.Begin(context.Background())
 }
 
 // PluginRegistry returns the plugin registry.
-func (c *DDDContainer) PluginRegistry() integration.PluginRegistry {
+func (c *App) PluginRegistry() integration.PluginRegistry {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.pluginRegistry
@@ -455,40 +456,40 @@ func (c *DDDContainer) PluginRegistry() integration.PluginRegistry {
 // Service layer accessors (existing services)
 
 // Git returns the legacy git service.
-func (c *DDDContainer) Git() git.Service {
+func (c *App) Git() git.Service {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.gitService
 }
 
 // AI returns the AI service.
-func (c *DDDContainer) AI() ai.Service {
+func (c *App) AI() ai.Service {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.aiService
 }
 
 // HasAI returns true if the AI service is available.
-func (c *DDDContainer) HasAI() bool {
+func (c *App) HasAI() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.aiService != nil && c.aiService.IsAvailable()
 }
 
 // Config returns the configuration.
-func (c *DDDContainer) Config() *config.Config {
+func (c *App) Config() *config.Config {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.config
 }
 
 // Close gracefully shuts down the container and all its components.
-func (c *DDDContainer) Close() error {
+func (c *App) Close() error {
 	return c.CloseWithTimeout(defaultShutdownTimeout)
 }
 
 // CloseWithTimeout gracefully shuts down the container with a custom timeout.
-func (c *DDDContainer) CloseWithTimeout(timeout time.Duration) error {
+func (c *App) CloseWithTimeout(timeout time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -523,7 +524,7 @@ func (c *DDDContainer) CloseWithTimeout(timeout time.Duration) error {
 }
 
 // closeWithContext closes a component with context cancellation support.
-func (c *DDDContainer) closeWithContext(ctx context.Context, closeable Closeable) error {
+func (c *App) closeWithContext(ctx context.Context, closeable Closeable) error {
 	done := make(chan error, 1)
 	go func() {
 		done <- closeable.Close()
@@ -538,9 +539,9 @@ func (c *DDDContainer) closeWithContext(ctx context.Context, closeable Closeable
 	}
 }
 
-// NewInitializedDDDContainer creates and initializes a new DDD container.
-func NewInitializedDDDContainer(ctx context.Context, cfg *config.Config) (*DDDContainer, error) {
-	c, err := NewDDDContainer(cfg)
+// NewInitialized creates and initializes a new App container.
+func NewInitialized(ctx context.Context, cfg *config.Config) (*App, error) {
+	c, err := New(cfg)
 	if err != nil {
 		return nil, err
 	}
