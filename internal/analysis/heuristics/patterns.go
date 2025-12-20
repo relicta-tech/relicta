@@ -195,7 +195,3 @@ func initSkipPatterns() ([]*regexp.Regexp, []string) {
 
 	return compiled, reasons
 }
-
-// CommitType represents the final change type for compatibility.
-// Note: This is kept for potential future use but currently uses changes.CommitType.
-type ChangeType = changes.CommitType

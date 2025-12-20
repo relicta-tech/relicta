@@ -162,8 +162,8 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 		changes.CommitTypeFix: {
 			// High confidence - explicit fix keywords at start
 			{pattern: "fix", position: "start", confidence: 0.90, requireWordBoundary: true},
-			{pattern: "bugfix", position: "start", confidence: 0.92},
-			{pattern: "hotfix", position: "start", confidence: 0.92},
+			{pattern: "bugfix", position: "start", confidence: 0.92, requireWordBoundary: true},
+			{pattern: "hotfix", position: "start", confidence: 0.92, requireWordBoundary: true},
 			{pattern: "patch", position: "start", confidence: 0.85, requireWordBoundary: true},
 
 			// Medium-high confidence - fix-related words
@@ -186,8 +186,8 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 		changes.CommitTypeFeat: {
 			// High confidence - explicit feature keywords at start
 			{pattern: "add", position: "start", confidence: 0.85, requireWordBoundary: true},
-			{pattern: "feature", position: "start", confidence: 0.92},
-			{pattern: "implement", position: "start", confidence: 0.88},
+			{pattern: "feature", position: "start", confidence: 0.92, requireWordBoundary: true},
+			{pattern: "implement", position: "start", confidence: 0.88, requireWordBoundary: true},
 			{pattern: "new", position: "start", confidence: 0.80, requireWordBoundary: true},
 
 			// Medium-high confidence - feature-related words
@@ -205,9 +205,9 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 
 		changes.CommitTypeRefactor: {
 			// High confidence
-			{pattern: "refactor", position: "start", confidence: 0.92},
-			{pattern: "restructure", position: "start", confidence: 0.90},
-			{pattern: "reorganize", position: "start", confidence: 0.88},
+			{pattern: "refactor", position: "start", confidence: 0.92, requireWordBoundary: true},
+			{pattern: "restructure", position: "start", confidence: 0.90, requireWordBoundary: true},
+			{pattern: "reorganize", position: "start", confidence: 0.88, requireWordBoundary: true},
 			{pattern: "remove", position: "start", confidence: 0.75, requireWordBoundary: true},
 
 			// Medium-high confidence
@@ -216,7 +216,7 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "refactoring", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
 			{pattern: "simplify", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "clean", position: "anywhere", confidence: 0.65, requireWordBoundary: true},
-			{pattern: "cleanup", position: "anywhere", confidence: 0.75},
+			{pattern: "cleanup", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "clean up", position: "anywhere", confidence: 0.75},
 			{pattern: "improve", position: "anywhere", confidence: 0.60, requireWordBoundary: true},
 			{pattern: "optimize", position: "anywhere", confidence: 0.65, requireWordBoundary: true},
@@ -230,9 +230,9 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 		changes.CommitTypeDocs: {
 			// High confidence
 			{pattern: "doc", position: "start", confidence: 0.90, requireWordBoundary: true},
-			{pattern: "docs", position: "start", confidence: 0.92},
-			{pattern: "readme", position: "start", confidence: 0.90},
-			{pattern: "documentation", position: "start", confidence: 0.92},
+			{pattern: "docs", position: "start", confidence: 0.92, requireWordBoundary: true},
+			{pattern: "readme", position: "start", confidence: 0.90, requireWordBoundary: true},
+			{pattern: "documentation", position: "start", confidence: 0.92, requireWordBoundary: true},
 
 			// Medium-high confidence
 			{pattern: "doc", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
@@ -245,21 +245,21 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "typo", position: "anywhere", confidence: 0.86, requireWordBoundary: true},
 			{pattern: "spelling", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
 			{pattern: "grammar", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
-			{pattern: "jsdoc", position: "anywhere", confidence: 0.86},
-			{pattern: "godoc", position: "anywhere", confidence: 0.86},
-			{pattern: "docstring", position: "anywhere", confidence: 0.86},
+			{pattern: "jsdoc", position: "anywhere", confidence: 0.86, requireWordBoundary: true},
+			{pattern: "godoc", position: "anywhere", confidence: 0.86, requireWordBoundary: true},
+			{pattern: "docstring", position: "anywhere", confidence: 0.86, requireWordBoundary: true},
 		},
 
 		changes.CommitTypeChore: {
 			// High confidence
-			{pattern: "chore", position: "start", confidence: 0.92},
-			{pattern: "deps", position: "start", confidence: 0.88},
-			{pattern: "bump", position: "start", confidence: 0.85},
+			{pattern: "chore", position: "start", confidence: 0.92, requireWordBoundary: true},
+			{pattern: "deps", position: "start", confidence: 0.88, requireWordBoundary: true},
+			{pattern: "bump", position: "start", confidence: 0.85, requireWordBoundary: true},
 
 			// Medium-high confidence
 			{pattern: "chore", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
 			{pattern: "dependency", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
-			{pattern: "dependencies", position: "anywhere", confidence: 0.80},
+			{pattern: "dependencies", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
 			{pattern: "upgrade", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "update", position: "start", confidence: 0.60, requireWordBoundary: true},
 			{pattern: "bump", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
@@ -270,11 +270,11 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "build", position: "start", confidence: 0.88, requireWordBoundary: true},
 			{pattern: "build", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "make", position: "anywhere", confidence: 0.60, requireWordBoundary: true},
-			{pattern: "makefile", position: "anywhere", confidence: 0.80},
-			{pattern: "webpack", position: "anywhere", confidence: 0.80},
+			{pattern: "makefile", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "webpack", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
 			{pattern: "vite", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
-			{pattern: "rollup", position: "anywhere", confidence: 0.80},
-			{pattern: "esbuild", position: "anywhere", confidence: 0.80},
+			{pattern: "rollup", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "esbuild", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
 		},
 
 		changes.CommitTypeCI: {
@@ -288,16 +288,16 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "github-action", position: "anywhere", confidence: 0.85},
 			{pattern: "workflow", position: "anywhere", confidence: 0.70, requireWordBoundary: true},
 			{pattern: "pipeline", position: "anywhere", confidence: 0.70, requireWordBoundary: true},
-			{pattern: "travis", position: "anywhere", confidence: 0.80},
-			{pattern: "circleci", position: "anywhere", confidence: 0.80},
-			{pattern: "gitlab-ci", position: "anywhere", confidence: 0.85},
-			{pattern: "jenkins", position: "anywhere", confidence: 0.80},
+			{pattern: "travis", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "circleci", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "gitlab-ci", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
+			{pattern: "jenkins", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
 		},
 
 		changes.CommitTypeTest: {
 			// High confidence
 			{pattern: "test", position: "start", confidence: 0.90, requireWordBoundary: true},
-			{pattern: "tests", position: "start", confidence: 0.90},
+			{pattern: "tests", position: "start", confidence: 0.90, requireWordBoundary: true},
 			{pattern: "spec", position: "start", confidence: 0.85, requireWordBoundary: true},
 
 			// Medium-high confidence
@@ -307,14 +307,14 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "spec", position: "anywhere", confidence: 0.70, requireWordBoundary: true},
 			{pattern: "coverage", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "e2e", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
-			{pattern: "unit test", position: "anywhere", confidence: 0.85},
-			{pattern: "integration test", position: "anywhere", confidence: 0.85},
+			{pattern: "unit test", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
+			{pattern: "integration test", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
 		},
 
 		changes.CommitTypePerf: {
 			// High confidence
 			{pattern: "perf", position: "start", confidence: 0.90, requireWordBoundary: true},
-			{pattern: "performance", position: "start", confidence: 0.90},
+			{pattern: "performance", position: "start", confidence: 0.90, requireWordBoundary: true},
 
 			// Medium-high confidence
 			{pattern: "perf", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
@@ -328,7 +328,7 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 		},
 
 		changes.CommitTypeRevert: {
-			{pattern: "revert", position: "start", confidence: 0.95},
+			{pattern: "revert", position: "start", confidence: 0.95, requireWordBoundary: true},
 			{pattern: "revert", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
 			{pattern: "rollback", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
 			{pattern: "undo", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
@@ -343,11 +343,11 @@ func initKeywordPatterns() map[changes.CommitType][]keywordPattern {
 			{pattern: "format", position: "anywhere", confidence: 0.70, requireWordBoundary: true},
 			{pattern: "formatting", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 			{pattern: "lint", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
-			{pattern: "prettier", position: "anywhere", confidence: 0.80},
-			{pattern: "eslint", position: "anywhere", confidence: 0.80},
-			{pattern: "gofmt", position: "anywhere", confidence: 0.85},
-			{pattern: "whitespace", position: "anywhere", confidence: 0.75},
-			{pattern: "indentation", position: "anywhere", confidence: 0.75},
+			{pattern: "prettier", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "eslint", position: "anywhere", confidence: 0.80, requireWordBoundary: true},
+			{pattern: "gofmt", position: "anywhere", confidence: 0.85, requireWordBoundary: true},
+			{pattern: "whitespace", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
+			{pattern: "indentation", position: "anywhere", confidence: 0.75, requireWordBoundary: true},
 		},
 	}
 }
