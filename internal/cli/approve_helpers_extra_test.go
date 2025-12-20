@@ -27,6 +27,8 @@ func TestCreateCGPActorHuman(t *testing.T) {
 	cfg = config.DefaultConfig()
 	defer cleanupEnv("CI", "GITHUB_ACTOR", "USER")()
 
+	os.Unsetenv("CI")
+	os.Unsetenv("GITHUB_ACTOR")
 	os.Setenv("USER", "tester")
 	cfg.Governance.TrustedActors = []string{"tester"}
 

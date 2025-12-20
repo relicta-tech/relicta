@@ -897,7 +897,7 @@ func TestRunBlastJSON(t *testing.T) {
 	blastVerbose = false
 	blastIncludeTests = false
 	blastIncludeDocs = false
-	blastFromRef = ""
+	blastFromRef = "HEAD"
 	blastToRef = "HEAD"
 
 	cmd := &cobra.Command{}
