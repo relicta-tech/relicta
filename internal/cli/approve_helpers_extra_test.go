@@ -25,10 +25,13 @@ func cleanupEnv(keys ...string) func() {
 
 func TestCreateCGPActorHuman(t *testing.T) {
 	cfg = config.DefaultConfig()
-	defer cleanupEnv("CI", "GITHUB_ACTOR", "USER")()
+	defer cleanupEnv("CI", "GITHUB_ACTOR", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "USER")()
 
 	os.Unsetenv("CI")
 	os.Unsetenv("GITHUB_ACTOR")
+	os.Unsetenv("GITHUB_ACTIONS")
+	os.Unsetenv("GITLAB_CI")
+	os.Unsetenv("JENKINS_URL")
 	os.Setenv("USER", "tester")
 	cfg.Governance.TrustedActors = []string{"tester"}
 
@@ -44,7 +47,7 @@ func TestCreateCGPActorHuman(t *testing.T) {
 
 func TestCreateCGPActorCI(t *testing.T) {
 	cfg = config.DefaultConfig()
-	defer cleanupEnv("CI", "GITHUB_ACTOR", "USER")()
+	defer cleanupEnv("CI", "GITHUB_ACTOR", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "USER")()
 
 	os.Setenv("CI", "true")
 	os.Setenv("GITHUB_ACTOR", "ci-user")
