@@ -42,8 +42,7 @@ go.work.sum
 .env.local
 .env.*.local
 
-# Private docs (IP content)
-docs/private/
+# Internal docs (IP content)
 docs/internal/
 AGENTS.md
 
