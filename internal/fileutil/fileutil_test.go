@@ -4,7 +4,9 @@ package fileutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -105,6 +107,64 @@ func TestReadFileLimited_Directory(t *testing.T) {
 	_, err := ReadFileLimited(tmpDir, 100)
 	if err == nil {
 		t.Error("expected error when reading directory, got nil")
+	}
+}
+
+func TestReadFileLimited_PermissionDenied(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("permissions behave differently on windows")
+	}
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "secret.txt")
+	if err := os.WriteFile(filePath, []byte("secret"), 0600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	if err := os.Chmod(filePath, 0000); err != nil {
+		t.Fatalf("failed to chmod: %v", err)
+	}
+
+	_, err := ReadFileLimited(filePath, 10)
+	if err == nil {
+		t.Fatal("expected permission error")
+	}
+}
+
+func TestReadFileLimited_FIFOExceedsLimit(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("mkfifo not supported on windows")
+	}
+
+	tmpDir := t.TempDir()
+	fifoPath := filepath.Join(tmpDir, "fifo")
+	if err := syscall.Mkfifo(fifoPath, 0600); err != nil {
+		t.Fatalf("failed to create fifo: %v", err)
+	}
+
+	maxSize := int64(5)
+	done := make(chan error, 1)
+
+	go func() {
+		w, err := os.OpenFile(fifoPath, os.O_WRONLY, 0600)
+		if err != nil {
+			done <- err
+			return
+		}
+		_, err = w.Write([]byte("1234567"))
+		_ = w.Close()
+		done <- err
+	}()
+
+	_, err := ReadFileLimited(fifoPath, maxSize)
+	if err == nil {
+		t.Fatal("expected size error for fifo content")
+	}
+	if werr := <-done; werr != nil {
+		t.Fatalf("fifo writer error: %v", werr)
 	}
 }
 
@@ -242,6 +302,15 @@ func TestAtomicWriteFile_InvalidDirectory(t *testing.T) {
 	err := AtomicWriteFile("/nonexistent/dir/file.txt", []byte("content"), 0600)
 	if err == nil {
 		t.Error("expected error for nonexistent directory, got nil")
+	}
+}
+
+func TestAtomicWriteFile_RenameToExistingDirFails(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	if err := AtomicWriteFile(tmpDir, []byte("content"), 0600); err == nil {
+		t.Fatal("expected error when renaming over existing directory")
 	}
 }
 

@@ -65,6 +65,26 @@ jobs:
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
+      - name: Check coverage gates
+        run: >
+          go run ./cmd/coveragecheck
+          -coverprofile=coverage.out
+          -min=80
+          -include=/cmd/
+          -include=/internal/
+          -include=/pkg/
+          -exclude=/internal/plugin/proto
+          -group=analysis=/internal/analysis/
+          -group=application=/internal/application/
+          -group=cgp=/internal/cgp/
+          -group=cli=/internal/cli/
+          -group=domain=/internal/domain/
+          -group=infrastructure=/internal/infrastructure/
+          -group=plugin=/internal/plugin/
+          -group=ui=/internal/ui/
+          -group=pkg=/pkg/
+          -group=cmd=/cmd/
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

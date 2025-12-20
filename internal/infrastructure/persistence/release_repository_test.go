@@ -209,6 +209,31 @@ func TestFileReleaseRepository_SaveWithPrerelease(t *testing.T) {
 	}
 }
 
+func TestFileReleaseRepository_FindBySpecification(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo, _ := NewFileReleaseRepository(tmpDir)
+	ctx := context.Background()
+
+	relMain := release.NewRelease("spec-main", "main", "/repo")
+	relDev := release.NewRelease("spec-dev", "dev", "/repo")
+
+	if err := repo.Save(ctx, relMain); err != nil {
+		t.Fatalf("Save main error: %v", err)
+	}
+	if err := repo.Save(ctx, relDev); err != nil {
+		t.Fatalf("Save dev error: %v", err)
+	}
+
+	spec := release.ByBranch("main")
+	found, err := repo.FindBySpecification(ctx, spec)
+	if err != nil {
+		t.Fatalf("FindBySpecification error: %v", err)
+	}
+	if len(found) != 1 || found[0].ID() != "spec-main" {
+		t.Fatalf("unexpected results: %#v", found)
+	}
+}
+
 func TestFileReleaseRepository_FindLatest(t *testing.T) {
 	tmpDir := t.TempDir()
 	repo, _ := NewFileReleaseRepository(tmpDir)

@@ -17,6 +17,7 @@
 ## Features
 
 - **Automatic Version Calculation**: Determines semantic version bumps from conventional commits
+- **Smart Commit Intelligence**: Supports conventional commits and infers intent from unstructured histories via heuristics, AST analysis, and optional AI
 - **AI-Powered Release Notes**: Generates professional changelogs and release notes (supports OpenAI, Anthropic, Google Gemini, Azure OpenAI, and Ollama)
 - **Plugin System**: Extensible via gRPC plugins (GitHub releases, npm publish, Slack notifications)
 - **Approval Workflow**: Review and approve releases before publishing

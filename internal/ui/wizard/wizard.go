@@ -59,6 +59,20 @@ func NewWizard(basePath string) (*Wizard, error) {
 	}, nil
 }
 
+var newWizard = NewWizard
+
+type programRunner interface {
+	Run() (tea.Model, error)
+}
+
+var newProgram = func(model tea.Model) programRunner {
+	return tea.NewProgram(model)
+}
+
+var runWizard = func(w *Wizard) (WizardResult, error) {
+	return w.Run()
+}
+
 // Run executes the wizard flow and returns the result.
 func (w *Wizard) Run() (WizardResult, error) {
 	for {
@@ -109,7 +123,7 @@ func (w *Wizard) Run() (WizardResult, error) {
 // runWelcome runs the welcome screen.
 func (w *Wizard) runWelcome() error {
 	w.welcomeModel = NewWelcomeModel()
-	p := tea.NewProgram(w.welcomeModel)
+	p := newProgram(w.welcomeModel)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -133,7 +147,7 @@ func (w *Wizard) runWelcome() error {
 // runDetection runs the detection screen.
 func (w *Wizard) runDetection() error {
 	w.detectionModel = NewDetectionModel(w.basePath)
-	p := tea.NewProgram(w.detectionModel)
+	p := newProgram(w.detectionModel)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -158,7 +172,7 @@ func (w *Wizard) runDetection() error {
 // runTemplateSelection runs the template selection screen.
 func (w *Wizard) runTemplateSelection() error {
 	w.templateModel = NewTemplateModel(w.registry, w.detection)
-	p := tea.NewProgram(w.templateModel)
+	p := newProgram(w.templateModel)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -186,7 +200,7 @@ func (w *Wizard) runTemplateSelection() error {
 // runReview runs the review and preview screen.
 func (w *Wizard) runReview() error {
 	w.reviewModel = NewReviewModel(w.config)
-	p := tea.NewProgram(w.reviewModel)
+	p := newProgram(w.reviewModel)
 
 	finalModel, err := p.Run()
 	if err != nil {
@@ -215,7 +229,7 @@ func (w *Wizard) runReview() error {
 // runSuccess runs the success screen.
 func (w *Wizard) runSuccess() error {
 	w.successModel = NewSuccessModel(w.configPath)
-	p := tea.NewProgram(w.successModel)
+	p := newProgram(w.successModel)
 
 	_, err := p.Run()
 	if err != nil {
@@ -284,7 +298,7 @@ func (w *Wizard) handleError(err error) (WizardResult, error) {
 
 // RunWizard is a convenience function to create and run the wizard.
 func RunWizard(basePath string) (WizardResult, error) {
-	wizard, err := NewWizard(basePath)
+	wizard, err := newWizard(basePath)
 	if err != nil {
 		return WizardResult{
 			State: StateError,
@@ -292,5 +306,5 @@ func RunWizard(basePath string) (WizardResult, error) {
 		}, err
 	}
 
-	return wizard.Run()
+	return runWizard(wizard)
 }

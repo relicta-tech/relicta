@@ -44,6 +44,8 @@ go.work.sum
 
 # Private docs (IP content)
 docs/private/
+docs/internal/
+AGENTS.md
 
 # Relicta state directory
 .relicta/

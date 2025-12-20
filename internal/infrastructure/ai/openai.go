@@ -146,6 +146,11 @@ func (s *openAIService) SummarizeChanges(ctx context.Context, changes *git.Categ
 	return s.complete(ctx, systemPrompt, userPrompt)
 }
 
+// Complete generates a raw completion from prompts.
+func (s *openAIService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	return s.complete(ctx, systemPrompt, userPrompt)
+}
+
 // IsAvailable returns true if the AI service is available.
 func (s *openAIService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""
@@ -211,6 +216,11 @@ func (s *noopService) GenerateMarketingBlurb(ctx context.Context, releaseNotes s
 // SummarizeChanges returns empty string when AI is not available.
 func (s *noopService) SummarizeChanges(ctx context.Context, changes *git.CategorizedChanges, opts GenerateOptions) (string, error) {
 	return "", nil
+}
+
+// Complete returns an error when AI is not available.
+func (s *noopService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	return "", errors.AI("complete", "ai service not available")
 }
 
 // IsAvailable returns false for the noop service.

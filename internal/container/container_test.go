@@ -787,3 +787,106 @@ func TestNewInitialized_NilConfig(t *testing.T) {
 		t.Error("NewInitialized(nil) should return nil container")
 	}
 }
+
+func TestApp_initAIService_ContextCanceled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.AI.Enabled = true
+	cfg.AI.Provider = "openai"
+
+	app, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	svc, err := app.initAIService(ctx)
+	if err == nil {
+		t.Fatal("expected error from canceled context")
+	}
+	if svc != nil {
+		t.Fatal("expected nil service on canceled context")
+	}
+}
+
+func TestApp_Initialize_WithGovernanceEnabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Plugins = nil
+	cfg.Governance.Enabled = true
+
+	app, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
+	initGitRepo(t, tmpDir)
+
+	if err := app.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	if !app.HasGovernance() || app.GovernanceService() == nil {
+		t.Fatal("expected governance service to be initialized")
+	}
+}
+
+func TestApp_UnitOfWork_AfterInitialize(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := config.DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Plugins = nil
+
+	app, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
+	initGitRepo(t, tmpDir)
+
+	if err := app.Initialize(context.Background()); err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	uow, err := app.UnitOfWork()
+	if err != nil {
+		t.Fatalf("UnitOfWork error: %v", err)
+	}
+	if uow == nil {
+		t.Fatal("expected UnitOfWork instance")
+	}
+	if err := uow.Rollback(); err != nil {
+		t.Fatalf("Rollback error: %v", err)
+	}
+}
+
+func initGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+}

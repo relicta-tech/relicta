@@ -2,13 +2,20 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
+	"github.com/relicta-tech/relicta/internal/application/governance"
+	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/communication"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestParseNoteTone(t *testing.T) {
@@ -196,6 +203,100 @@ func TestParseNoteTone_AllValues(t *testing.T) {
 		if result == communication.NoteTone("") {
 			t.Errorf("parseNoteTone(%q) returned empty NoteTone", tone)
 		}
+	}
+}
+
+func TestRunNotes_NoRelease(t *testing.T) {
+	origCfg := cfg
+	origOutput := outputJSON
+	defer func() {
+		cfg = origCfg
+		outputJSON = origOutput
+	}()
+
+	cfg = config.DefaultConfig()
+	outputJSON = true
+
+	app := testCLIApp{
+		gitRepo:     stubGitRepo{},
+		releaseRepo: testReleaseRepo{},
+	}
+	withStubContainerApp(t, app)
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	if err := runNotes(cmd, nil); err == nil {
+		t.Fatal("expected runNotes to return error when no release exists")
+	}
+}
+
+type stubGenerateNotesUseCase struct {
+	output *apprelease.GenerateNotesOutput
+	err    error
+}
+
+func (s stubGenerateNotesUseCase) Execute(ctx context.Context, input apprelease.GenerateNotesInput) (*apprelease.GenerateNotesOutput, error) {
+	return s.output, s.err
+}
+
+type notesTestApp struct {
+	gitRepo     stubGitRepo
+	releaseRepo testReleaseRepo
+	generate    generateNotesUseCase
+}
+
+func (n notesTestApp) Close() error                              { return nil }
+func (n notesTestApp) GitAdapter() sourcecontrol.GitRepository   { return n.gitRepo }
+func (n notesTestApp) ReleaseRepository() release.Repository     { return n.releaseRepo }
+func (n notesTestApp) PlanRelease() planReleaseUseCase           { return nil }
+func (n notesTestApp) GenerateNotes() generateNotesUseCase       { return n.generate }
+func (n notesTestApp) ApproveRelease() approveReleaseUseCase     { return nil }
+func (n notesTestApp) PublishRelease() publishReleaseUseCase     { return nil }
+func (n notesTestApp) CalculateVersion() calculateVersionUseCase { return nil }
+func (n notesTestApp) SetVersion() setVersionUseCase             { return nil }
+func (n notesTestApp) HasAI() bool                               { return true }
+func (n notesTestApp) HasGovernance() bool                       { return false }
+func (n notesTestApp) GovernanceService() *governance.Service    { return nil }
+
+func TestRunNotesSuccessToStdout(t *testing.T) {
+	origCfg := cfg
+	origOutput := outputJSON
+	origNotesOut := notesOutput
+	defer func() {
+		cfg = origCfg
+		outputJSON = origOutput
+		notesOutput = origNotesOut
+	}()
+
+	cfg = config.DefaultConfig()
+	outputJSON = false
+	notesOutput = ""
+
+	ver, _ := version.Parse("1.2.3")
+	changelog := communication.NewChangelog("Changelog", communication.FormatKeepAChangelog)
+	notes := communication.NewReleaseNotesBuilder(ver).
+		WithSummary("Summary").
+		Build()
+
+	output := &apprelease.GenerateNotesOutput{
+		Changelog:    changelog,
+		ReleaseNotes: notes,
+	}
+
+	rel := release.NewRelease("notes-1", "main", ".")
+	app := notesTestApp{
+		gitRepo:     stubGitRepo{},
+		releaseRepo: testReleaseRepo{latest: rel},
+		generate:    stubGenerateNotesUseCase{output: output},
+	}
+	withStubContainerApp(t, app)
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	if err := runNotes(cmd, nil); err != nil {
+		t.Fatalf("runNotes error: %v", err)
 	}
 }
 

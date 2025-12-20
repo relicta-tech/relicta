@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/analysis"
+	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
@@ -26,6 +29,9 @@ type mockGitRepository struct {
 	latestCommit     *sourcecontrol.Commit
 	latestCommitErr  error
 	pushTagErr       error
+	diffStats        map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats
+	patches          map[sourcecontrol.CommitHash]string
+	filesAtRef       map[string]map[string][]byte
 }
 
 func (m *mockGitRepository) GetInfo(ctx context.Context) (*sourcecontrol.RepositoryInfo, error) {
@@ -61,6 +67,35 @@ func (m *mockGitRepository) GetCommitsSince(ctx context.Context, ref string) ([]
 
 func (m *mockGitRepository) GetLatestCommit(ctx context.Context, branch string) (*sourcecontrol.Commit, error) {
 	return m.latestCommit, m.latestCommitErr
+}
+
+func (m *mockGitRepository) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
+	if m.diffStats != nil {
+		if stats, ok := m.diffStats[hash]; ok {
+			return stats, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *mockGitRepository) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
+	if m.patches != nil {
+		if patch, ok := m.patches[hash]; ok {
+			return patch, nil
+		}
+	}
+	return "", nil
+}
+
+func (m *mockGitRepository) GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error) {
+	if m.filesAtRef != nil {
+		if files, ok := m.filesAtRef[ref]; ok {
+			if data, ok := files[path]; ok {
+				return data, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (m *mockGitRepository) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
@@ -208,6 +243,47 @@ func (m *mockEventPublisher) Publish(ctx context.Context, events ...release.Doma
 	}
 	m.published = append(m.published, events...)
 	return nil
+}
+
+type mockUnitOfWork struct {
+	repo           *mockReleaseRepository
+	commitErr      error
+	commitCalled   bool
+	rollbackCalled bool
+}
+
+func (u *mockUnitOfWork) Commit(ctx context.Context) error {
+	u.commitCalled = true
+	if u.commitErr != nil {
+		return u.commitErr
+	}
+	return nil
+}
+
+func (u *mockUnitOfWork) Rollback() error {
+	u.rollbackCalled = true
+	return nil
+}
+
+func (u *mockUnitOfWork) ReleaseRepository() release.Repository {
+	return u.repo
+}
+
+type mockUnitOfWorkFactory struct {
+	beginErr error
+	uow      *mockUnitOfWork
+}
+
+func (f *mockUnitOfWorkFactory) Begin(ctx context.Context) (release.UnitOfWork, error) {
+	if f.beginErr != nil {
+		return nil, f.beginErr
+	}
+	if f.uow == nil {
+		f.uow = &mockUnitOfWork{
+			repo: newMockReleaseRepository(),
+		}
+	}
+	return f.uow, nil
 }
 
 // createTestCommit creates a commit for testing.
@@ -423,6 +499,10 @@ func TestPlanReleaseUseCase_Execute(t *testing.T) {
 					CurrentBranch: "main",
 					IsDirty:       true,
 				},
+				commits: []*sourcecontrol.Commit{
+					createTestCommit("abc123", "feat: new feature"),
+				},
+				latestTagErr: errors.New("no tags found"),
 			},
 			releaseRepo:    newMockReleaseRepository(),
 			versionCalc:    &mockVersionCalculator{},
@@ -538,6 +618,7 @@ func TestPlanReleaseUseCase_Execute(t *testing.T) {
 				tt.gitRepo,
 				tt.versionCalc,
 				tt.eventPublisher,
+				nil,
 			)
 
 			output, err := uc.Execute(ctx, tt.input)
@@ -580,7 +661,7 @@ func TestNewPlanReleaseUseCase(t *testing.T) {
 	versionCalc := &mockVersionCalculator{}
 	eventPublisher := &mockEventPublisher{}
 
-	uc := NewPlanReleaseUseCase(releaseRepo, gitRepo, versionCalc, eventPublisher)
+	uc := NewPlanReleaseUseCase(releaseRepo, gitRepo, versionCalc, eventPublisher, nil)
 
 	if uc == nil {
 		t.Fatal("expected non-nil use case")
@@ -599,6 +680,255 @@ func TestNewPlanReleaseUseCase(t *testing.T) {
 	}
 	if uc.logger == nil {
 		t.Error("logger should not be nil")
+	}
+}
+
+func TestPlanReleaseUseCase_AnalyzeCommits(t *testing.T) {
+	ctx := context.Background()
+	commit := createTestCommit("abc123", "update docs")
+
+	gitRepo := &mockGitRepository{
+		info: &sourcecontrol.RepositoryInfo{
+			Name:          "test-repo",
+			CurrentBranch: "main",
+			IsDirty:       false,
+		},
+		commits:      []*sourcecontrol.Commit{commit},
+		latestTagErr: errors.New("no tags found"),
+		diffStats: map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats{
+			commit.Hash(): {
+				Additions:    2,
+				Deletions:    1,
+				FilesChanged: 1,
+				Files: []sourcecontrol.FileStats{
+					{Path: "README.md", Additions: 2, Deletions: 1},
+				},
+			},
+		},
+	}
+
+	analysisFactory := analysisfactory.NewFactory(nil)
+	uc := NewPlanReleaseUseCase(newMockReleaseRepository(), gitRepo, &mockVersionCalculator{}, &mockEventPublisher{}, analysisFactory)
+
+	result, infos, err := uc.AnalyzeCommits(ctx, PlanReleaseInput{})
+	if err != nil {
+		t.Fatalf("AnalyzeCommits error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected analysis result")
+	}
+	if len(infos) != 1 {
+		t.Fatalf("infos length = %d, want 1", len(infos))
+	}
+	if infos[0].Stats.FilesChanged != 1 {
+		t.Errorf("FilesChanged = %d, want 1", infos[0].Stats.FilesChanged)
+	}
+	if result.Stats.TotalCommits != 1 {
+		t.Errorf("TotalCommits = %d, want 1", result.Stats.TotalCommits)
+	}
+}
+
+func TestPlanReleaseUseCase_AnalyzeCommits_NoFactory(t *testing.T) {
+	ctx := context.Background()
+	gitRepo := &mockGitRepository{
+		info: &sourcecontrol.RepositoryInfo{
+			Name:          "test-repo",
+			CurrentBranch: "main",
+		},
+		commits: []*sourcecontrol.Commit{
+			createTestCommit("abc123", "update docs"),
+		},
+		latestTagErr: errors.New("no tags found"),
+	}
+
+	uc := NewPlanReleaseUseCase(newMockReleaseRepository(), gitRepo, &mockVersionCalculator{}, &mockEventPublisher{}, nil)
+	_, _, err := uc.AnalyzeCommits(ctx, PlanReleaseInput{})
+	if err == nil {
+		t.Fatal("expected error when analysis factory is nil")
+	}
+}
+
+func TestClassificationToCommit_BreakingScope(t *testing.T) {
+	commit := createTestCommit("abc123", "update stuff")
+	classification := &analysis.CommitClassification{
+		CommitHash:     commit.Hash(),
+		Type:           changes.CommitTypeFeat,
+		Scope:          "api",
+		IsBreaking:     true,
+		BreakingReason: "api removed",
+	}
+
+	result := classificationToCommit(commit, classification)
+	if result.Scope() != "api" {
+		t.Errorf("Scope = %q, want %q", result.Scope(), "api")
+	}
+	if !result.IsBreaking() {
+		t.Error("IsBreaking = false, want true")
+	}
+	if result.BreakingMessage() != "api removed" {
+		t.Errorf("BreakingMessage = %q, want %q", result.BreakingMessage(), "api removed")
+	}
+}
+
+func TestPlanReleaseUseCase_buildCommitInfos_AST(t *testing.T) {
+	commit := createTestCommit("abc123", "update api")
+	commit.SetParents([]sourcecontrol.CommitHash{"parent123"})
+
+	gitRepo := &mockGitRepository{
+		diffStats: map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats{
+			commit.Hash(): {
+				Additions:    10,
+				Deletions:    2,
+				FilesChanged: 1,
+				Files: []sourcecontrol.FileStats{
+					{Path: "internal/api.go", Additions: 10, Deletions: 2},
+				},
+			},
+		},
+		filesAtRef: map[string]map[string][]byte{
+			"parent123": {
+				"internal/api.go": []byte("package api\nfunc Old() {}\n"),
+			},
+			commit.Hash().String(): {
+				"internal/api.go": []byte("package api\nfunc New() {}\n"),
+			},
+		},
+	}
+
+	uc := NewPlanReleaseUseCase(newMockReleaseRepository(), gitRepo, &mockVersionCalculator{}, &mockEventPublisher{}, analysisfactory.NewFactory(nil))
+	cfg := analysis.DefaultConfig()
+	cfg.EnableAST = true
+
+	infos, err := uc.buildCommitInfos(context.Background(), []*sourcecontrol.Commit{commit}, cfg)
+	if err != nil {
+		t.Fatalf("buildCommitInfos error: %v", err)
+	}
+	if len(infos) != 1 {
+		t.Fatalf("infos length = %d, want 1", len(infos))
+	}
+	if len(infos[0].FileDiffs) != 1 {
+		t.Fatalf("FileDiffs length = %d, want 1", len(infos[0].FileDiffs))
+	}
+}
+
+func TestPlanReleaseUseCase_NewWithUoW(t *testing.T) {
+	factory := &mockUnitOfWorkFactory{}
+	uc := NewPlanReleaseUseCaseWithUoW(factory, &mockGitRepository{}, &mockVersionCalculator{}, &mockEventPublisher{}, nil)
+	if uc == nil {
+		t.Fatal("expected non-nil use case")
+	}
+	if uc.unitOfWorkFactory == nil {
+		t.Fatal("expected unitOfWorkFactory to be set")
+	}
+	if uc.releaseRepo != nil {
+		t.Fatal("releaseRepo should be nil for UoW constructor")
+	}
+}
+
+func TestPlanReleaseUseCase_SaveReleaseWithUoW(t *testing.T) {
+	ctx := context.Background()
+	gitRepo := &mockGitRepository{
+		info: &sourcecontrol.RepositoryInfo{
+			Name:          "test-repo",
+			CurrentBranch: "main",
+			IsDirty:       false,
+		},
+		commits: []*sourcecontrol.Commit{
+			createTestCommit("abc123", "feat: add feature"),
+		},
+		latestTagErr: errors.New("no tags"),
+	}
+	factory := &mockUnitOfWorkFactory{
+		uow: &mockUnitOfWork{
+			repo: newMockReleaseRepository(),
+		},
+	}
+
+	uc := NewPlanReleaseUseCaseWithUoW(factory, gitRepo, &mockVersionCalculator{}, &mockEventPublisher{}, nil)
+	_, err := uc.Execute(ctx, PlanReleaseInput{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if factory.uow == nil {
+		t.Fatal("expected unit of work")
+	}
+	if !factory.uow.commitCalled {
+		t.Error("expected commit to be called")
+	}
+	if !factory.uow.repo.saveCalled {
+		t.Error("expected release to be saved via UoW")
+	}
+}
+
+func TestPlanReleaseUseCase_PrepareCommitClassifications_Overrides(t *testing.T) {
+	ctx := context.Background()
+	commit := createTestCommit("abc123", "fix: bug")
+	uc := NewPlanReleaseUseCase(newMockReleaseRepository(), &mockGitRepository{}, &mockVersionCalculator{}, &mockEventPublisher{}, nil)
+	overrides := map[sourcecontrol.CommitHash]*analysis.CommitClassification{
+		commit.Hash(): {
+			CommitHash: commit.Hash(),
+			Type:       changes.CommitTypeFix,
+		},
+	}
+
+	result, classifications, err := uc.prepareCommitClassifications(ctx, []*sourcecontrol.Commit{commit}, PlanReleaseInput{
+		CommitClassifications: overrides,
+	})
+	if err != nil {
+		t.Fatalf("prepareCommitClassifications error: %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected nil result, got %+v", result)
+	}
+	if got := classifications[commit.Hash()]; got == nil || got.Type != changes.CommitTypeFix {
+		t.Fatalf("unexpected classification: %+v", got)
+	}
+}
+
+func TestPlanReleaseUseCase_PrepareCommitClassifications_WithAnalysis(t *testing.T) {
+	ctx := context.Background()
+	commit := createTestCommit("abc123", "fix: bug fix")
+	gitRepo := &mockGitRepository{
+		commits: []*sourcecontrol.Commit{commit},
+		diffStats: map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats{
+			commit.Hash(): {
+				Additions:    1,
+				Deletions:    0,
+				FilesChanged: 1,
+				Files: []sourcecontrol.FileStats{
+					{Path: "README.md", Additions: 1, Deletions: 0},
+				},
+			},
+		},
+		latestTagErr: errors.New("no tags"),
+	}
+	analysisFactory := analysisfactory.NewFactory(nil)
+	uc := NewPlanReleaseUseCase(newMockReleaseRepository(), gitRepo, &mockVersionCalculator{}, &mockEventPublisher{}, analysisFactory)
+
+	result, classifications, err := uc.prepareCommitClassifications(ctx, []*sourcecontrol.Commit{commit}, PlanReleaseInput{})
+	if err != nil {
+		t.Fatalf("prepareCommitClassifications error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected result to be non-nil")
+	}
+	if len(classifications) == 0 {
+		t.Fatal("expected at least one classification")
+	}
+}
+
+func TestShouldAnalyzeAST(t *testing.T) {
+	cfg := analysis.DefaultConfig()
+	cfg.EnableAST = true
+	if !shouldAnalyzeAST("internal/service/api.go", cfg) {
+		t.Error("expected .go file to be analyzed")
+	}
+	if shouldAnalyzeAST("internal/service/api_test.go", cfg) {
+		t.Error("expected _test.go file to be skipped")
+	}
+	if shouldAnalyzeAST("docs/README.md", cfg) {
+		t.Error("expected non-go file to be skipped")
 	}
 }
 

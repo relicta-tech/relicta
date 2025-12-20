@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
@@ -270,6 +271,8 @@ func (c *App) initPluginSystem(ctx context.Context) error {
 
 // initApplicationLayer initializes application layer use cases.
 func (c *App) initApplicationLayer(ctx context.Context) error {
+	analysisFactory := analysisfactory.NewFactory(c.aiService)
+
 	// Initialize PlanReleaseUseCase with UnitOfWork factory
 	// Each command will create its own transaction via the factory
 	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
@@ -277,6 +280,7 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 		c.gitAdapter,
 		c.versionCalc,
 		c.eventPublisher,
+		analysisFactory,
 	)
 
 	// Initialize GenerateNotesUseCase

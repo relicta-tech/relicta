@@ -2,10 +2,13 @@ package evaluator
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/internal/cgp/risk"
 )
 
 func TestNew(t *testing.T) {
@@ -458,4 +461,62 @@ func containsSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestEvaluator_SettersAndGetPolicies(t *testing.T) {
+	logger := slog.Default().With("test", "logger")
+	riskCalc := risk.NewCalculatorWithDefaults()
+	policyEngine := policy.NewEngine(nil, logger)
+
+	e := New(
+		WithLogger(logger),
+		WithRiskCalculator(riskCalc),
+		WithPolicyEngine(policyEngine),
+	)
+
+	if e.logger != logger {
+		t.Error("WithLogger did not update logger")
+	}
+	if e.riskCalculator != riskCalc {
+		t.Error("WithRiskCalculator did not update calculator")
+	}
+	if e.policyEngine != policyEngine {
+		t.Error("WithPolicyEngine did not update engine")
+	}
+	if got := e.GetPolicies(); got != nil {
+		t.Errorf("GetPolicies() = %v, want nil", got)
+	}
+}
+
+func TestEvaluatorApplyGovernanceRulesAutoApprove(t *testing.T) {
+	e := New(WithConfig(Config{
+		AutoApproveThreshold: 0.5,
+		MaxAutoApproveRisk:   0.4,
+	}))
+
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("john@example.com", "John"),
+		cgp.ProposalScope{Repository: "owner/repo", CommitRange: "abc..def"},
+		cgp.ProposalIntent{Summary: "Trusted fix", Confidence: 0.9},
+	)
+	proposal.Actor.TrustLevel = cgp.TrustLevelFull
+
+	decision := cgp.NewDecision(proposal.ID, cgp.DecisionApprovalRequired)
+	riskAssessment := &risk.Assessment{Score: 0.1}
+
+	e.applyGovernanceRules(decision, proposal, nil, riskAssessment)
+
+	if decision.Decision != cgp.DecisionApproved {
+		t.Fatalf("expected auto-approval, got %v", decision.Decision)
+	}
+	found := false
+	for _, r := range decision.Rationale {
+		if strings.Contains(r, "auto-approved") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected auto-approval rationale, got %v", decision.Rationale)
+	}
 }

@@ -109,6 +109,9 @@ type CommitInfo struct {
 	// Files is the list of files changed in this commit.
 	Files []string
 
+	// FileDiffs contains per-file before/after content (optional).
+	FileDiffs []FileDiff
+
 	// Diff contains the actual diff content (optional, for AI analysis).
 	Diff string
 
@@ -120,6 +123,16 @@ type CommitInfo struct {
 
 	// ParentCount is the number of parent commits.
 	ParentCount int
+}
+
+// FileDiff contains before/after content for a file.
+type FileDiff struct {
+	// Path is the file path.
+	Path string
+	// Before is the file content before the change.
+	Before []byte
+	// After is the file content after the change.
+	After []byte
 }
 
 // DiffStats contains statistics about a commit's changes.
@@ -165,6 +178,9 @@ type AnalysisStats struct {
 
 	// LowConfidenceCount is the number below the confidence threshold.
 	LowConfidenceCount int
+
+	// LowConfidenceCommits lists commits below the confidence threshold.
+	LowConfidenceCommits []sourcecontrol.CommitHash
 
 	// AverageConfidence is the average confidence across all classifications.
 	AverageConfidence float64
@@ -257,7 +273,7 @@ func DefaultConfig() AnalyzerConfig {
 		MinConfidence:    0.7,
 		EnableHeuristics: true,
 		EnableAST:        true,
-		EnableAI:         false, // Disabled by default, requires AI setup
+		EnableAI:         true,
 		Languages:        []string{"go", "typescript", "python"},
 		CustomKeywords:   nil,
 		SkipPaths:        []string{"vendor/*", "node_modules/*", "*.generated.go"},

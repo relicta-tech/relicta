@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -249,5 +250,24 @@ func TestNewService_WithAllOptions(t *testing.T) {
 	}
 	if svc == nil {
 		t.Error("NewService() returned nil")
+	}
+}
+
+func TestNewService_AzureOpenAI(t *testing.T) {
+	key := strings.Repeat("a", 32)
+	svc, err := NewService(
+		WithProvider("azure-openai"),
+		WithAPIKey(key),
+		WithBaseURL("https://example.openai.azure.com/"),
+		WithAPIVersion("2024-03-01-preview"),
+	)
+	if err != nil {
+		t.Fatalf("NewService(azure-openai) error = %v", err)
+	}
+	if svc == nil {
+		t.Fatal("azure-openai service should not be nil")
+	}
+	if !svc.IsAvailable() {
+		t.Error("azure-openai service should report available")
 	}
 }

@@ -129,6 +129,11 @@ func (s *anthropicService) SummarizeChanges(ctx context.Context, changes *git.Ca
 	return s.complete(ctx, systemPrompt, userPrompt)
 }
 
+// Complete generates a raw completion from prompts.
+func (s *anthropicService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	return s.complete(ctx, systemPrompt, userPrompt)
+}
+
 // IsAvailable returns true if the Anthropic service is available.
 func (s *anthropicService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""

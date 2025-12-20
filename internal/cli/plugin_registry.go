@@ -90,7 +90,7 @@ func init() {
 }
 
 func runPluginRegistryList(cmd *cobra.Command, args []string) error {
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -140,7 +140,7 @@ func runPluginRegistryAdd(cmd *cobra.Command, args []string) error {
 		priority = p
 	}
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -159,7 +159,7 @@ func runPluginRegistryAdd(cmd *cobra.Command, args []string) error {
 func runPluginRegistryRemove(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -176,7 +176,7 @@ func runPluginRegistryRemove(cmd *cobra.Command, args []string) error {
 func runPluginRegistryEnable(cmd *cobra.Command, args []string) error {
 	name := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -198,7 +198,7 @@ func runPluginRegistryDisable(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot disable the official registry")
 	}
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}

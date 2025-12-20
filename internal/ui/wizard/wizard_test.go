@@ -248,20 +248,33 @@ func TestWizard_handleError(t *testing.T) {
 }
 
 func TestRunWizard_InvalidPath(t *testing.T) {
-	// Test with a path that will cause registry initialization to fail
-	// This exercises the error path in RunWizard
-	result, err := RunWizard("")
+	// Override constructor to avoid running the interactive wizard.
+	origNewWizard := newWizard
+	origRunWizard := runWizard
+	t.Cleanup(func() {
+		newWizard = origNewWizard
+		runWizard = origRunWizard
+	})
 
-	// Should return an error result
+	expectedErr := os.ErrNotExist
+	newWizard = func(_ string) (*Wizard, error) {
+		return nil, expectedErr
+	}
+	runWizard = func(_ *Wizard) (WizardResult, error) {
+		t.Fatal("runWizard should not be called on constructor error")
+		return WizardResult{}, nil
+	}
+
+	result, err := RunWizard("/bad/path")
+
+	if err != expectedErr {
+		t.Errorf("error = %v, want %v", err, expectedErr)
+	}
 	if result.State != StateError {
 		t.Errorf("result.State = %v, want %v", result.State, StateError)
 	}
-
-	// Registry initialization should succeed, so this test will only fail
-	// if NewWizard itself fails, which it won't with empty path
-	if err == nil {
-		// This is expected - NewWizard("") succeeds and initializes registry
-		t.Skip("NewWizard succeeds with empty path - cannot test error path")
+	if result.Error != expectedErr {
+		t.Errorf("result.Error = %v, want %v", result.Error, expectedErr)
 	}
 }
 

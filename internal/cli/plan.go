@@ -2,27 +2,34 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/internal/analysis"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 )
 
 var (
-	planFromRef string
-	planToRef   string
-	planShowAll bool
-	planMinimal bool
+	planFromRef       string
+	planToRef         string
+	planShowAll       bool
+	planMinimal       bool
+	planAnalyze       bool
+	planReview        bool
+	planMinConfidence float64
+	planDisableAI     bool
 )
 
 func init() {
@@ -30,11 +37,23 @@ func init() {
 	planCmd.Flags().StringVar(&planToRef, "to", "HEAD", "ending reference")
 	planCmd.Flags().BoolVar(&planShowAll, "all", false, "show all commits including non-conventional")
 	planCmd.Flags().BoolVar(&planMinimal, "minimal", false, "show minimal output")
+	planCmd.Flags().BoolVar(&planAnalyze, "analyze", false, "analyze commit classifications and stop")
+	planCmd.Flags().BoolVar(&planReview, "review", false, "review and adjust commit classifications before planning")
+	planCmd.Flags().Float64Var(&planMinConfidence, "min-confidence", 0, "minimum confidence to accept classifications")
+	planCmd.Flags().BoolVar(&planDisableAI, "no-ai", false, "disable AI classification")
 }
 
 // runPlan implements the plan command.
 func runPlan(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	if planAnalyze && planReview {
+		return fmt.Errorf("use either --analyze or --review, not both")
+	}
+
+	if planReview && outputJSON {
+		return fmt.Errorf("--review is not supported with --json output")
+	}
 
 	printTitle("Release Plan")
 	fmt.Println()
@@ -44,11 +63,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Get repository info for the path
 	gitAdapter := app.GitAdapter()
@@ -65,6 +84,20 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		ToRef:          planToRef,
 		DryRun:         dryRun,
 		TagPrefix:      cfg.Versioning.TagPrefix,
+	}
+
+	minConfidenceSet := cmd.Flags().Changed("min-confidence")
+	analysisConfig, hasAnalysisConfig := buildPlanAnalysisConfig(minConfidenceSet)
+	if hasAnalysisConfig {
+		input.AnalysisConfig = &analysisConfig
+	}
+
+	if planAnalyze {
+		return runPlanAnalyze(ctx, app, input)
+	}
+
+	if planReview {
+		return runPlanReview(ctx, app, input, repoInfo.RemoteURL)
 	}
 
 	// Execute use case with spinner (unless JSON output)
@@ -96,6 +129,290 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	return outputPlanText(output, planShowAll, planMinimal, riskPreview)
+}
+
+func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bool) {
+	cfg := analysis.DefaultConfig()
+	updated := planAnalyze || planReview
+	if minConfidenceSet {
+		cfg.MinConfidence = planMinConfidence
+		updated = true
+	}
+	if planDisableAI {
+		cfg.EnableAI = false
+		updated = true
+	}
+
+	return cfg, updated
+}
+
+func runPlanAnalyze(ctx context.Context, app cliApp, input apprelease.PlanReleaseInput) error {
+	result, commitInfos, err := app.PlanRelease().AnalyzeCommits(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to analyze commits: %w", err)
+	}
+
+	if outputJSON {
+		return outputAnalysisJSON(result, commitInfos)
+	}
+
+	return outputAnalysisText(result, commitInfos)
+}
+
+func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanReleaseInput, repoURL string) error {
+	if ciMode {
+		return fmt.Errorf("--review is not supported in CI mode")
+	}
+
+	result, commitInfos, err := app.PlanRelease().AnalyzeCommits(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to analyze commits: %w", err)
+	}
+
+	classifications, err := reviewCommitClassifications(result, commitInfos)
+	if err != nil {
+		return err
+	}
+
+	input.CommitClassifications = classifications
+
+	var spinner *Spinner
+	if !outputJSON {
+		spinner = NewSpinner("Planning release...")
+		spinner.Start()
+	}
+
+	output, err := app.PlanRelease().Execute(ctx, input)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to plan release: %w", err)
+	}
+
+	var riskPreview *governanceRiskPreview
+	if app.HasGovernance() {
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoURL)
+	}
+
+	if outputJSON {
+		return outputPlanJSON(output, riskPreview)
+	}
+
+	return outputPlanText(output, planShowAll, planMinimal, riskPreview)
+}
+
+func outputAnalysisJSON(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) error {
+	commits := make([]map[string]any, 0, len(commitInfos))
+	for _, info := range commitInfos {
+		classification := result.Classifications[info.Hash]
+		entry := map[string]any{
+			"hash":    info.Hash.String(),
+			"subject": info.Subject,
+		}
+		if classification != nil {
+			entry["type"] = string(classification.Type)
+			entry["scope"] = classification.Scope
+			entry["method"] = classification.Method.String()
+			entry["confidence"] = classification.Confidence
+			entry["reasoning"] = classification.Reasoning
+			entry["is_breaking"] = classification.IsBreaking
+			entry["breaking_reason"] = classification.BreakingReason
+			entry["should_skip"] = classification.ShouldSkip
+			entry["skip_reason"] = classification.SkipReason
+		}
+		commits = append(commits, entry)
+	}
+
+	payload := map[string]any{
+		"stats":         result.Stats,
+		"commits":       commits,
+		"total_commits": result.Stats.TotalCommits,
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(payload)
+}
+
+func outputAnalysisText(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) error {
+	printTitle("Commit Analysis")
+	fmt.Println()
+
+	fmt.Printf("  Analyzed %d commits\n", result.Stats.TotalCommits)
+	fmt.Printf("  Average confidence: %.2f\n", result.Stats.AverageConfidence)
+	fmt.Println()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "  Conventional:\t%d\n", result.Stats.ConventionalCount)
+	fmt.Fprintf(w, "  Heuristics:\t%d\n", result.Stats.HeuristicCount)
+	fmt.Fprintf(w, "  AST:\t%d\n", result.Stats.ASTCount)
+	fmt.Fprintf(w, "  AI:\t%d\n", result.Stats.AICount)
+	fmt.Fprintf(w, "  Skipped:\t%d\n", result.Stats.SkippedCount)
+	fmt.Fprintf(w, "  Low confidence:\t%d\n", result.Stats.LowConfidenceCount)
+	_ = w.Flush()
+
+	if len(result.Stats.LowConfidenceCommits) > 0 {
+		fmt.Println()
+		fmt.Println("  Low confidence commits:")
+		for _, hash := range result.Stats.LowConfidenceCommits {
+			fmt.Printf("    - %s\n", hash.Short())
+		}
+	}
+
+	fmt.Println()
+	printTitle("Commit Breakdown")
+	fmt.Println()
+
+	for _, info := range commitInfos {
+		classification := result.Classifications[info.Hash]
+		if classification == nil {
+			fmt.Printf("  %s  unknown  ?    0.00  %s\n", info.Hash.Short(), info.Subject)
+			continue
+		}
+
+		commitType := string(classification.Type)
+		if classification.ShouldSkip {
+			commitType = "skip"
+		} else if commitType == "" {
+			commitType = "unknown"
+		}
+
+		fmt.Printf("  %s  %-8s  %-4s  %.2f  %s\n",
+			info.Hash.Short(),
+			commitType,
+			classification.Method.ShortString(),
+			classification.Confidence,
+			info.Subject,
+		)
+
+		if classification.Reasoning != "" {
+			fmt.Printf("        reason: %s\n", classification.Reasoning)
+		}
+		if classification.ShouldSkip && classification.SkipReason != "" {
+			fmt.Printf("        skip: %s\n", classification.SkipReason)
+		}
+		if classification.IsBreaking && classification.BreakingReason != "" {
+			fmt.Printf("        breaking: %s\n", classification.BreakingReason)
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("  Run 'relicta plan' to create the release plan.")
+	return nil
+}
+
+func reviewCommitClassifications(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) (map[sourcecontrol.CommitHash]*analysis.CommitClassification, error) {
+	reader := bufio.NewReader(os.Stdin)
+	classifications := make(map[sourcecontrol.CommitHash]*analysis.CommitClassification, len(commitInfos))
+
+	for idx, info := range commitInfos {
+		classification := result.Classifications[info.Hash]
+		if classification == nil {
+			classification = &analysis.CommitClassification{
+				CommitHash: info.Hash,
+				Method:     analysis.MethodHeuristic,
+				Confidence: 0,
+				Reasoning:  "unclassified",
+			}
+		}
+
+		fmt.Println()
+		fmt.Printf("[%d/%d] %s  %s\n", idx+1, len(commitInfos), info.Hash.Short(), info.Subject)
+		fmt.Printf("  Detected: %s (%s, %.2f)\n", classificationTypeLabel(classification), classification.Method.String(), classification.Confidence)
+		if len(info.Files) > 0 {
+			fmt.Printf("  Files: %s\n", strings.Join(trimList(info.Files, 6), ", "))
+		}
+		if classification.Reasoning != "" {
+			fmt.Printf("  Reason: %s\n", classification.Reasoning)
+		}
+
+		for {
+			fmt.Print("  Override? (enter=accept, type[/!], skip) > ")
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				return nil, err
+			}
+			line = strings.TrimSpace(line)
+			if line == "" {
+				classifications[info.Hash] = classification
+				break
+			}
+
+			updated, err := parseClassificationOverride(line, classification)
+			if err != nil {
+				fmt.Printf("  %s\n", err.Error())
+				continue
+			}
+			classifications[info.Hash] = updated
+			break
+		}
+	}
+
+	return classifications, nil
+}
+
+func parseClassificationOverride(input string, current *analysis.CommitClassification) (*analysis.CommitClassification, error) {
+	lower := strings.ToLower(strings.TrimSpace(input))
+	if lower == "skip" || lower == "s" {
+		return &analysis.CommitClassification{
+			CommitHash: current.CommitHash,
+			Method:     analysis.MethodManual,
+			Confidence: 1.0,
+			ShouldSkip: true,
+			SkipReason: "manual skip",
+			Reasoning:  "manual override",
+		}, nil
+	}
+
+	isBreaking := false
+	if strings.HasSuffix(lower, "!") {
+		isBreaking = true
+		lower = strings.TrimSuffix(lower, "!")
+	}
+
+	commitType, ok := changes.ParseCommitType(lower)
+	if !ok {
+		return nil, fmt.Errorf("unknown type: %s", input)
+	}
+
+	updated := *current
+	updated.Type = commitType
+	updated.Method = analysis.MethodManual
+	updated.Confidence = 1.0
+	updated.Reasoning = "manual override"
+	updated.ShouldSkip = false
+	updated.SkipReason = ""
+	updated.IsBreaking = isBreaking
+	if isBreaking {
+		updated.BreakingReason = "manual override"
+	} else {
+		updated.BreakingReason = ""
+	}
+
+	return &updated, nil
+}
+
+func classificationTypeLabel(classification *analysis.CommitClassification) string {
+	if classification == nil {
+		return "unknown"
+	}
+	if classification.ShouldSkip {
+		return "skip"
+	}
+	if classification.Type == "" {
+		return "unknown"
+	}
+	return string(classification.Type)
+}
+
+func trimList(items []string, limit int) []string {
+	if len(items) <= limit {
+		return items
+	}
+	return append(items[:limit], "...")
 }
 
 // governanceRiskPreview holds the risk assessment preview for the plan.
@@ -311,7 +628,7 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, app *container.App, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
+func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil

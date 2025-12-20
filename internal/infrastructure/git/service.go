@@ -91,6 +91,15 @@ type Service interface {
 	// GetDiffStats returns statistics about changes between two refs.
 	GetDiffStats(ctx context.Context, from, to string) (*DiffStats, error)
 
+	// GetCommitDiffStats returns statistics about changes in a single commit.
+	GetCommitDiffStats(ctx context.Context, hash string) (*DiffStats, error)
+
+	// GetCommitPatch returns the unified diff patch for a commit.
+	GetCommitPatch(ctx context.Context, hash string) (string, error)
+
+	// GetFileAtRef returns file contents at a specific ref (commit, tag, branch).
+	GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error)
+
 	// Conventional commit operations
 
 	// ParseConventionalCommit parses a commit message as a conventional commit.

@@ -51,6 +51,17 @@ type CommitReader interface {
 	GetLatestCommit(ctx context.Context, branch string) (*Commit, error)
 }
 
+// DiffReader provides read access to commit diffs and file contents.
+// Use this interface when you need per-commit change details.
+type DiffReader interface {
+	// GetCommitDiffStats returns diff statistics for a specific commit.
+	GetCommitDiffStats(ctx context.Context, hash CommitHash) (*DiffStats, error)
+	// GetCommitPatch returns the unified diff patch for a commit.
+	GetCommitPatch(ctx context.Context, hash CommitHash) (string, error)
+	// GetFileAtRef returns file contents at a specific ref (commit, tag, branch).
+	GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error)
+}
+
 // TagReader provides read access to tags.
 // Use this interface when you only need to read tag information.
 type TagReader interface {
@@ -100,6 +111,7 @@ type RemoteOperator interface {
 type GitRepository interface {
 	RepositoryInfoReader
 	CommitReader
+	DiffReader
 	TagManager
 	WorkingTreeInspector
 	RemoteOperator
@@ -117,6 +129,32 @@ type WorkingTreeStatus struct {
 type FileChange struct {
 	Path   string
 	Status FileStatus
+}
+
+// DiffStats contains statistics about changes for a commit.
+type DiffStats struct {
+	// FilesChanged is the number of files changed.
+	FilesChanged int
+	// Additions is the number of lines added.
+	Additions int
+	// Deletions is the number of lines deleted.
+	Deletions int
+	// Files contains per-file stats.
+	Files []FileStats
+}
+
+// FileStats contains statistics about changes to a single file.
+type FileStats struct {
+	// Path is the file path.
+	Path string
+	// Additions is the number of lines added.
+	Additions int
+	// Deletions is the number of lines deleted.
+	Deletions int
+	// Status is the file status (added, modified, deleted, renamed, copied).
+	Status FileStatus
+	// OldPath is the old path (for renamed files).
+	OldPath string
 }
 
 // FileStatus represents the status of a file change.

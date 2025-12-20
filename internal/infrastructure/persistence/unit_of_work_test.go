@@ -217,6 +217,67 @@ func TestFileUnitOfWork_EventCollection(t *testing.T) {
 	})
 }
 
+func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, NewInMemoryEventPublisher())
+	ctx := context.Background()
+
+	now := time.Now()
+	active := release.NewRelease("base-active", "main", "/repo")
+	active.ReconstructState(release.StatePlanned, nil, nil, "", nil, nil, now, now, nil, "")
+	final := release.NewRelease("base-final", "main", "/repo")
+	final.ReconstructState(release.StatePublished, nil, nil, "", nil, nil, now, now, &now, "")
+
+	if err := baseRepo.Save(ctx, active); err != nil {
+		t.Fatalf("save active error: %v", err)
+	}
+	if err := baseRepo.Save(ctx, final); err != nil {
+		t.Fatalf("save final error: %v", err)
+	}
+
+	uow, err := factory.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin error: %v", err)
+	}
+	defer uow.Rollback()
+
+	repo := uow.ReleaseRepository()
+	pending := release.NewRelease("pending-active", "dev", "/repo")
+	pending.ReconstructState(release.StatePlanned, nil, nil, "", nil, nil, now, now, nil, "")
+	if err := repo.Save(ctx, pending); err != nil {
+		t.Fatalf("save pending error: %v", err)
+	}
+
+	planned, err := repo.FindByState(ctx, release.StatePlanned)
+	if err != nil {
+		t.Fatalf("FindByState error: %v", err)
+	}
+	if len(planned) != 2 {
+		t.Fatalf("expected 2 planned releases, got %d", len(planned))
+	}
+
+	activeList, err := repo.FindActive(ctx)
+	if err != nil {
+		t.Fatalf("FindActive error: %v", err)
+	}
+	if len(activeList) != 2 {
+		t.Fatalf("expected 2 active releases, got %d", len(activeList))
+	}
+
+	specList, err := repo.FindBySpecification(ctx, release.ByBranch("dev"))
+	if err != nil {
+		t.Fatalf("FindBySpecification error: %v", err)
+	}
+	if len(specList) != 1 || specList[0].ID() != "pending-active" {
+		t.Fatalf("unexpected spec results: %#v", specList)
+	}
+}
+
 func TestFileUnitOfWork_IndependentTransactions(t *testing.T) {
 	// Setup
 	tempDir, err := os.MkdirTemp("", "uow-independent-test-*")

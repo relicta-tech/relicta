@@ -2,7 +2,11 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/config"
 )
@@ -424,5 +428,59 @@ func TestInitCommand_Configuration(t *testing.T) {
 	}
 	if initCmd.Long == "" {
 		t.Error("initCmd.Long should not be empty")
+	}
+}
+
+func TestRunInitNonInteractiveCreatesConfig(t *testing.T) {
+	origInteractive := initInteractive
+	origForce := initForce
+	origFormat := initFormat
+	origVerbose := verbose
+	defer func() {
+		initInteractive = origInteractive
+		initForce = origForce
+		initFormat = origFormat
+		verbose = origVerbose
+	}()
+
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	initInteractive = false
+	initForce = true
+	initFormat = "yaml"
+	verbose = false
+
+	cmd := &cobra.Command{}
+	if err := runInit(cmd, nil); err != nil {
+		t.Fatalf("runInit error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(tmpDir, "release.config.yaml")); err != nil {
+		t.Fatalf("expected config file to be created: %v", err)
+	}
+}
+
+func TestDetectRepoSettings_NoRepo(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	cfg := config.DefaultConfig()
+	if err := detectRepoSettings(cfg); err == nil {
+		t.Fatal("expected detectRepoSettings to fail outside a git repo")
 	}
 }

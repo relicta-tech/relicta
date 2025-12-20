@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,41 +24,49 @@ var (
 // shutdownTimeout is the maximum time to wait for graceful shutdown.
 const shutdownTimeout = 30 * time.Second
 
-func main() {
-	// Set up context with graceful shutdown handling
-	ctx, cancel := context.WithCancel(context.Background())
+var exitFunc = os.Exit
 
-	// Set up signal handling for graceful shutdown
+func main() {
+	ctx := context.Background()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	exitCode := run(ctx, sigChan, cli.ExecuteContext, cli.Cleanup, os.Stderr)
+	exitFunc(exitCode)
+}
+
+func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Context) error, cleanup func(), stderr io.Writer) int {
+	// Set up context with graceful shutdown handling
+	ctx, cancel := context.WithCancel(ctx)
 
 	// Track completion for coordinated shutdown
 	var wg sync.WaitGroup
 	done := make(chan struct{})
 
 	// Handle shutdown signals in a goroutine
-	go func() {
-		sig := <-sigChan
-		fmt.Fprintf(os.Stderr, "\nReceived signal %v, initiating graceful shutdown...\n", sig)
-		cancel()
+	if sigChan != nil {
+		go func() {
+			sig := <-sigChan
+			fmt.Fprintf(stderr, "\nReceived signal %v, initiating graceful shutdown...\n", sig)
+			cancel()
 
-		// Start shutdown timeout
-		shutdownTimer := time.NewTimer(shutdownTimeout)
-		defer shutdownTimer.Stop()
+			// Start shutdown timeout
+			shutdownTimer := time.NewTimer(shutdownTimeout)
+			defer shutdownTimer.Stop()
 
-		// Wait for either: graceful completion, timeout, or second signal
-		select {
-		case <-done:
-			// Graceful shutdown completed
-			return
-		case <-shutdownTimer.C:
-			fmt.Fprintf(os.Stderr, "\nShutdown timeout (%v) exceeded, forcing exit\n", shutdownTimeout)
-			os.Exit(1)
-		case sig = <-sigChan:
-			fmt.Fprintf(os.Stderr, "\nReceived second signal %v, forcing exit\n", sig)
-			os.Exit(1)
-		}
-	}()
+			// Wait for either: graceful completion, timeout, or second signal
+			select {
+			case <-done:
+				// Graceful shutdown completed
+				return
+			case <-shutdownTimer.C:
+				fmt.Fprintf(stderr, "\nShutdown timeout (%v) exceeded, forcing exit\n", shutdownTimeout)
+				exitFunc(1)
+			case sig = <-sigChan:
+				fmt.Fprintf(stderr, "\nReceived second signal %v, forcing exit\n", sig)
+				exitFunc(1)
+			}
+		}()
+	}
 
 	cli.SetVersionInfo(version, commit, date)
 
@@ -66,15 +75,15 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := cli.ExecuteContext(ctx); err != nil {
+		if err := execute(ctx); err != nil {
 			// Check if it was a context cancellation (user interrupted)
 			if ctx.Err() != nil {
-				fmt.Fprintln(os.Stderr, "Operation canceled")
+				fmt.Fprintln(stderr, "Operation canceled")
 				exitCode = 130 // Standard exit code for SIGINT
 				return
 			}
 			// Print the error since SilenceErrors is enabled in cobra
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			fmt.Fprintf(stderr, "Error: %v\n", err)
 			exitCode = 1
 		}
 	}()
@@ -87,7 +96,9 @@ func main() {
 	cancel() // Ensure context is canceled for cleanup
 
 	// Cleanup CLI resources (e.g., log file handles)
-	cli.Cleanup()
+	if cleanup != nil {
+		cleanup()
+	}
 
-	os.Exit(exitCode)
+	return exitCode
 }

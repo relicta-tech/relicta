@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/communication"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 )
@@ -119,11 +118,11 @@ func runNotes(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Get latest release from repository
 	gitAdapter := app.GitAdapter()
