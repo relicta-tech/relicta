@@ -1,0 +1,71 @@
+version: 1
+policy:
+  default:
+    min: 80
+  domains:
+    - name: cmd
+      match:
+        - ./cmd/...
+      min: null
+    - name: analysis
+      match:
+        - ./internal/analysis/...
+      min: null
+    - name: application
+      match:
+        - ./internal/application/...
+      min: null
+    - name: cgp
+      match:
+        - ./internal/cgp/...
+      min: null
+    - name: cli
+      match:
+        - ./internal/cli/...
+      min: null
+    - name: config
+      match:
+        - ./internal/config/...
+      min: null
+    - name: container
+      match:
+        - ./internal/container/...
+      min: null
+    - name: domain
+      match:
+        - ./internal/domain/...
+      min: null
+    - name: errors
+      match:
+        - ./internal/errors/...
+      min: null
+    - name: fileutil
+      match:
+        - ./internal/fileutil/...
+      min: null
+    - name: infrastructure
+      match:
+        - ./internal/infrastructure/...
+      min: null
+    - name: observability
+      match:
+        - ./internal/observability/...
+      min: null
+    - name: plugin
+      match:
+        - ./internal/plugin/...
+      min: null
+    - name: security
+      match:
+        - ./internal/security/...
+      min: null
+    - name: ui
+      match:
+        - ./internal/ui/...
+      min: null
+    - name: pkg
+      match:
+        - ./pkg/...
+      min: null
+exclude:
+  - internal/plugin/proto/...
