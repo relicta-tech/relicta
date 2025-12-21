@@ -2,6 +2,7 @@
 package fileutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -104,7 +105,7 @@ func TestReadFileLimited_Directory(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	_, err := ReadFileLimited(tmpDir, 100)
+	_, err := ReadFileLimited(tmpDir, 1024*1024)
 	if err == nil {
 		t.Error("expected error when reading directory, got nil")
 	}
@@ -377,5 +378,133 @@ func TestReadFileLimited_Integration(t *testing.T) {
 
 	if string(data) != content {
 		t.Errorf("content mismatch: got %q, want %q", string(data), content)
+	}
+}
+
+type stubTempFile struct {
+	name     string
+	chmodErr error
+	writeErr error
+	syncErr  error
+	closeErr error
+}
+
+func (s *stubTempFile) Name() string {
+	return s.name
+}
+
+func (s *stubTempFile) Chmod(os.FileMode) error {
+	return s.chmodErr
+}
+
+func (s *stubTempFile) Write(p []byte) (int, error) {
+	if s.writeErr != nil {
+		return 0, s.writeErr
+	}
+	return len(p), nil
+}
+
+func (s *stubTempFile) Sync() error {
+	return s.syncErr
+}
+
+func (s *stubTempFile) Close() error {
+	return s.closeErr
+}
+
+func TestAtomicWriteFile_CreateTempError(t *testing.T) {
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) {
+			return nil, errors.New("boom")
+		},
+		rename: func(oldpath, newpath string) error { return nil },
+		remove: func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to create temp file") {
+		t.Fatalf("expected create temp error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_ChmodError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		chmodErr: errors.New("chmod fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to set file permissions") {
+		t.Fatalf("expected chmod error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_WriteError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		writeErr: errors.New("write fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to write data") {
+		t.Fatalf("expected write error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_SyncError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:    "temp",
+		syncErr: errors.New("sync fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to sync file") {
+		t.Fatalf("expected sync error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_CloseError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		closeErr: errors.New("close fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to close file") {
+		t.Fatalf("expected close error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_RenameError(t *testing.T) {
+	tmp := &stubTempFile{name: "temp"}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return errors.New("rename fail") },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to rename temp file") {
+		t.Fatalf("expected rename error, got %v", err)
 	}
 }

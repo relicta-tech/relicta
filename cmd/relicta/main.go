@@ -30,11 +30,11 @@ func main() {
 	ctx := context.Background()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	exitCode := run(ctx, sigChan, cli.ExecuteContext, cli.Cleanup, os.Stderr)
+	exitCode := run(ctx, sigChan, cli.ExecuteContext, cli.Cleanup, os.Stderr, exitFunc)
 	exitFunc(exitCode)
 }
 
-func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Context) error, cleanup func(), stderr io.Writer) int {
+func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Context) error, cleanup func(), stderr io.Writer, exitFn func(int)) int {
 	// Set up context with graceful shutdown handling
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -60,10 +60,10 @@ func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Con
 				return
 			case <-shutdownTimer.C:
 				fmt.Fprintf(stderr, "\nShutdown timeout (%v) exceeded, forcing exit\n", shutdownTimeout)
-				exitFunc(1)
+				exitFn(1)
 			case sig = <-sigChan:
 				fmt.Fprintf(stderr, "\nReceived second signal %v, forcing exit\n", sig)
-				exitFunc(1)
+				exitFn(1)
 			}
 		}()
 	}

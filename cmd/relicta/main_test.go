@@ -35,7 +35,7 @@ func (b *lockedBuffer) Len() int {
 
 func TestRun_Success(t *testing.T) {
 	out := &lockedBuffer{}
-	code := run(context.Background(), nil, func(context.Context) error { return nil }, func() {}, out)
+	code := run(context.Background(), nil, func(context.Context) error { return nil }, func() {}, out, func(int) {})
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
@@ -48,7 +48,7 @@ func TestRun_Error(t *testing.T) {
 	out := &lockedBuffer{}
 	code := run(context.Background(), nil, func(context.Context) error {
 		return errors.New("boom")
-	}, func() {}, out)
+	}, func() {}, out, func(int) {})
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -63,7 +63,7 @@ func TestRun_ContextCanceled(t *testing.T) {
 	cancel()
 	code := run(ctx, nil, func(context.Context) error {
 		return errors.New("interrupted")
-	}, func() {}, out)
+	}, func() {}, out, func(int) {})
 	if code != 130 {
 		t.Fatalf("exit code = %d, want 130", code)
 	}
@@ -82,7 +82,7 @@ func TestRun_HandlesSignal(t *testing.T) {
 	code := run(context.Background(), sigChan, func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
-	}, func() {}, out)
+	}, func() {}, out, func(int) {})
 
 	if code != 130 {
 		t.Fatalf("exit code = %d, want 130", code)
@@ -97,11 +97,9 @@ func TestRun_SecondSignalForcesExit(t *testing.T) {
 	sigChan := make(chan os.Signal, 2)
 
 	exitCalled := make(chan int, 1)
-	origExit := exitFunc
-	exitFunc = func(code int) {
+	exitFn := func(code int) {
 		exitCalled <- code
 	}
-	t.Cleanup(func() { exitFunc = origExit })
 
 	go func() {
 		sigChan <- os.Interrupt
@@ -111,7 +109,7 @@ func TestRun_SecondSignalForcesExit(t *testing.T) {
 	code := run(context.Background(), sigChan, func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
-	}, func() {}, out)
+	}, func() {}, out, exitFn)
 
 	if code != 130 {
 		t.Fatalf("exit code = %d, want 130", code)
