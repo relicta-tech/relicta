@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -230,13 +232,15 @@ func TestManager_LoadPlugin_InvalidName(t *testing.T) {
 }
 
 func TestManager_LoadPlugin_VerifyFailure(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	pluginDir := filepath.Join(tmpDir, ".relicta", "plugins")
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	pluginDir := filepath.Join(workDir, ".relicta", "plugins")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll error: %v", err)
 	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join(workDir, ".relicta")) })
 
 	binaryPath := filepath.Join(pluginDir, "alpha")
 	if err := os.WriteFile(binaryPath, []byte("binary"), 0o755); err != nil {
@@ -255,7 +259,7 @@ func TestManager_LoadPlugin_VerifyFailure(t *testing.T) {
 	cfg := &config.Config{}
 	m := NewManager(cfg)
 
-	err := m.loadPlugin(context.Background(), &config.PluginConfig{Name: "alpha", Path: binaryPath})
+	err = m.loadPlugin(context.Background(), &config.PluginConfig{Name: "alpha", Path: binaryPath})
 	if err == nil {
 		t.Fatal("expected loadPlugin to fail on checksum mismatch")
 	}
@@ -266,13 +270,15 @@ func TestManager_LoadPlugin_InvalidHandshake(t *testing.T) {
 		t.Skip("shell script test not supported on Windows")
 	}
 
-	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	pluginDir := filepath.Join(tmpDir, ".relicta", "plugins")
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	pluginDir := filepath.Join(workDir, ".relicta", "plugins")
 	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll error: %v", err)
 	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join(workDir, ".relicta")) })
 
 	scriptPath := filepath.Join(pluginDir, "alpha")
 	script := []byte("#!/bin/sh\nexit 1\n")
@@ -290,9 +296,154 @@ func TestManager_LoadPlugin_InvalidHandshake(t *testing.T) {
 	writeManifestYAML(t, filepath.Join(pluginDir, pmgr.ManifestFile), manifest)
 
 	m := NewManager(&config.Config{})
-	err := m.loadPlugin(context.Background(), &config.PluginConfig{Name: "alpha", Path: scriptPath})
+	err = m.loadPlugin(context.Background(), &config.PluginConfig{Name: "alpha", Path: scriptPath})
 	if err == nil {
 		t.Fatal("expected loadPlugin to fail for invalid plugin handshake")
+	}
+}
+
+func TestManager_LoadPlugin_Success(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("plugin build test not supported on Windows")
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	pluginDir := filepath.Join(workDir, ".relicta", "plugins")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join(workDir, ".relicta")) })
+
+	binaryPath := filepath.Join(pluginDir, "alpha")
+	buildTestPluginBinary(t, binaryPath, "alpha")
+
+	binaryBytes, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	checksum := sha256.Sum256(binaryBytes)
+	manifest := pmgr.Manifest{
+		Version: "1.0",
+		Installed: []pmgr.InstalledPlugin{
+			{Name: "alpha", Checksum: fmt.Sprintf("%x", checksum[:])},
+		},
+	}
+	writeManifestYAML(t, filepath.Join(pluginDir, pmgr.ManifestFile), manifest)
+
+	m := NewManager(&config.Config{})
+	t.Cleanup(func() { _ = m.Close() })
+
+	err = m.loadPlugin(context.Background(), &config.PluginConfig{
+		Name:   "alpha",
+		Path:   binaryPath,
+		Config: map[string]any{"mode": "ok"},
+	})
+	if err != nil {
+		t.Fatalf("loadPlugin error: %v", err)
+	}
+
+	m.mu.RLock()
+	lp := m.plugins["alpha"]
+	m.mu.RUnlock()
+	if lp == nil {
+		t.Fatal("expected loaded plugin to be stored")
+	}
+	if lp.info.Name != "alpha" {
+		t.Fatalf("expected info name alpha, got %s", lp.info.Name)
+	}
+	if lp.timeout != 30*time.Second {
+		t.Fatalf("expected default timeout, got %s", lp.timeout)
+	}
+}
+
+func TestManager_LoadPlugin_ValidateError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("plugin build test not supported on Windows")
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	pluginDir := filepath.Join(workDir, ".relicta", "plugins")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join(workDir, ".relicta")) })
+
+	binaryPath := filepath.Join(pluginDir, "beta")
+	buildTestPluginBinary(t, binaryPath, "beta")
+
+	binaryBytes, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	checksum := sha256.Sum256(binaryBytes)
+	manifest := pmgr.Manifest{
+		Version: "1.0",
+		Installed: []pmgr.InstalledPlugin{
+			{Name: "beta", Checksum: fmt.Sprintf("%x", checksum[:])},
+		},
+	}
+	writeManifestYAML(t, filepath.Join(pluginDir, pmgr.ManifestFile), manifest)
+
+	m := NewManager(&config.Config{})
+	t.Cleanup(func() { _ = m.Close() })
+
+	err = m.loadPlugin(context.Background(), &config.PluginConfig{
+		Name:   "beta",
+		Path:   binaryPath,
+		Config: map[string]any{"error": true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid plugin configuration") {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestManager_LoadPlugin_InvalidConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("plugin build test not supported on Windows")
+	}
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	pluginDir := filepath.Join(workDir, ".relicta", "plugins")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Join(workDir, ".relicta")) })
+
+	binaryPath := filepath.Join(pluginDir, "gamma")
+	buildTestPluginBinary(t, binaryPath, "gamma")
+
+	binaryBytes, err := os.ReadFile(binaryPath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	checksum := sha256.Sum256(binaryBytes)
+	manifest := pmgr.Manifest{
+		Version: "1.0",
+		Installed: []pmgr.InstalledPlugin{
+			{Name: "gamma", Checksum: fmt.Sprintf("%x", checksum[:])},
+		},
+	}
+	writeManifestYAML(t, filepath.Join(pluginDir, pmgr.ManifestFile), manifest)
+
+	m := NewManager(&config.Config{})
+	t.Cleanup(func() { _ = m.Close() })
+
+	err = m.loadPlugin(context.Background(), &config.PluginConfig{
+		Name:   "gamma",
+		Path:   binaryPath,
+		Config: map[string]any{"invalid": true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid plugin configuration") {
+		t.Fatalf("expected invalid config error, got %v", err)
 	}
 }
 
@@ -351,5 +502,95 @@ func writeManifestYAML(t *testing.T, path string, manifest pmgr.Manifest) {
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("WriteFile error: %v", err)
+	}
+}
+
+func buildTestPluginBinary(t *testing.T, outputPath, name string) {
+	t.Helper()
+
+	repoRoot := findRepoRoot(t)
+	buildDir, err := os.MkdirTemp(repoRoot, "tmp-plugin-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(buildDir) })
+
+	source := fmt.Sprintf(`package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/relicta-tech/relicta/pkg/plugin"
+)
+
+type testPlugin struct{}
+
+func (testPlugin) GetInfo() plugin.Info {
+	return plugin.Info{
+		Name:    %q,
+		Version: "1.0.0",
+		Hooks:   []plugin.Hook{plugin.HookPostPublish},
+	}
+}
+
+func (testPlugin) Execute(ctx context.Context, req plugin.ExecuteRequest) (*plugin.ExecuteResponse, error) {
+	return &plugin.ExecuteResponse{Success: true, Message: "ok"}, nil
+}
+
+func (testPlugin) Validate(ctx context.Context, cfg map[string]any) (*plugin.ValidateResponse, error) {
+	if cfg["error"] == true {
+		return nil, fmt.Errorf("validation error")
+	}
+	if cfg["invalid"] == true {
+		return &plugin.ValidateResponse{
+			Valid: false,
+			Errors: []plugin.ValidationError{
+				{Field: "mode", Message: "invalid"},
+			},
+		}, nil
+	}
+	return &plugin.ValidateResponse{Valid: true}, nil
+}
+
+func main() {
+	plugin.Serve(testPlugin{})
+}
+`, name)
+
+	if err := os.WriteFile(filepath.Join(buildDir, "main.go"), []byte(source), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	relDir, err := filepath.Rel(repoRoot, buildDir)
+	if err != nil {
+		t.Fatalf("Rel error: %v", err)
+	}
+
+	cmd := exec.Command("go", "build", "-o", outputPath, "./"+filepath.ToSlash(relDir))
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go build error: %v\n%s", err, output)
+	}
+}
+
+func findRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("go.mod not found in parent dirs")
+		}
+		dir = parent
 	}
 }

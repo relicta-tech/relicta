@@ -219,6 +219,267 @@ func TestManager_EnableDisable_Uninstall(t *testing.T) {
 	}
 }
 
+func TestManager_GetOrCreateManifest_Invalid(t *testing.T) {
+	pluginDir := t.TempDir()
+	manifestPath := filepath.Join(pluginDir, ManifestFile)
+	if err := os.WriteFile(manifestPath, []byte("invalid: ["), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	mgr := &Manager{manifestPath: manifestPath}
+	if _, err := mgr.getOrCreateManifest(); err == nil {
+		t.Fatal("expected getOrCreateManifest to fail on invalid YAML")
+	}
+}
+
+func TestManager_SaveManifest_WriteError(t *testing.T) {
+	pluginDir := t.TempDir()
+	manifestPath := filepath.Join(pluginDir, ManifestFile)
+	if err := os.MkdirAll(manifestPath, 0o755); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+
+	mgr := &Manager{manifestPath: manifestPath}
+	if err := mgr.saveManifest(&Manifest{Version: "1.0"}); err == nil {
+		t.Fatal("expected saveManifest to fail when path is directory")
+	}
+}
+
+func TestManager_Install_AlreadyInstalled(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version:   "1.0",
+		Plugins:   []PluginInfo{{Name: "alpha", Version: "1.0.0", Repository: "relicta-tech/relicta"}},
+		UpdatedAt: time.Now(),
+	})
+
+	writeManifest(t, filepath.Join(pluginDir, ManifestFile), Manifest{
+		Version: "1.0",
+		Installed: []InstalledPlugin{
+			{Name: "alpha", Version: "1.0.0", Enabled: true},
+		},
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	if err := mgr.Install(context.Background(), "alpha"); err == nil {
+		t.Fatal("expected Install to fail when plugin is already installed")
+	}
+}
+
+func TestManager_Install_SaveManifestError(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+	manifestPath := filepath.Join(t.TempDir(), "manifest.yaml")
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version:   "1.0",
+		Plugins:   []PluginInfo{{Name: "alpha", Version: "v1.0.0", Repository: "relicta-tech/relicta"}},
+		UpdatedAt: time.Now(),
+	})
+
+	if err := os.WriteFile(manifestPath, []byte("version: \"1.0\"\ninstalled: []\n"), 0o444); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	installer := NewInstaller(pluginDir)
+	archiveData := createTarGzBytesForTest(t, installer.getBinaryName("alpha"), []byte("binary content"))
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(archiveData)),
+				Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
+			}, nil
+		}),
+	}
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    installer,
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: manifestPath,
+	}
+
+	if err := mgr.Install(context.Background(), "alpha"); err == nil {
+		t.Fatal("expected Install to fail when manifest write fails")
+	}
+
+	entries, err := os.ReadDir(pluginDir)
+	if err != nil {
+		t.Fatalf("ReadDir error: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected plugin binary cleanup, found %d entries", len(entries))
+	}
+}
+
+func TestManager_Uninstall_NotInstalled(t *testing.T) {
+	pluginDir := t.TempDir()
+	manifestPath := filepath.Join(pluginDir, ManifestFile)
+	writeManifest(t, manifestPath, Manifest{
+		Version:   "1.0",
+		Installed: []InstalledPlugin{},
+	})
+
+	mgr := &Manager{installer: NewInstaller(pluginDir), manifestPath: manifestPath}
+	if err := mgr.Uninstall(context.Background(), "missing"); err == nil {
+		t.Fatal("expected Uninstall to fail for missing plugin")
+	}
+}
+
+func TestManager_ListAvailable_RegistryError(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "remote", URL: server.URL, Priority: 1, Enabled: true},
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	entries, err := mgr.ListAvailable(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListAvailable error: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected 0 entries on registry failure, got %d", len(entries))
+	}
+}
+
+func TestManager_GetPluginInfo_NotFound(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version:   "1.0",
+		Plugins:   []PluginInfo{{Name: "alpha", Version: "1.0.0"}},
+		UpdatedAt: time.Now(),
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	if _, err := mgr.GetPluginInfo(context.Background(), "missing"); err == nil {
+		t.Fatal("expected GetPluginInfo to fail for missing plugin")
+	}
+}
+
+func TestManager_Update_NotInstalled(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version:   "1.0",
+		Plugins:   []PluginInfo{{Name: "alpha", Version: "1.0.0"}},
+		UpdatedAt: time.Now(),
+	})
+
+	writeManifest(t, filepath.Join(pluginDir, ManifestFile), Manifest{
+		Version:   "1.0",
+		Installed: []InstalledPlugin{},
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	if _, err := mgr.Update(context.Background(), "alpha"); err == nil {
+		t.Fatal("expected Update to fail for missing plugin")
+	}
+}
+
+func TestManager_Update_InstallError(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	binaryPath := filepath.Join(pluginDir, "alpha")
+	if err := os.WriteFile(binaryPath, []byte("bin"), 0o755); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version:   "1.0",
+		Plugins:   []PluginInfo{{Name: "alpha", Version: "2.0.0", MinSDKVersion: CurrentSDKVersion + 10}},
+		UpdatedAt: time.Now(),
+	})
+
+	writeManifest(t, filepath.Join(pluginDir, ManifestFile), Manifest{
+		Version: "1.0",
+		Installed: []InstalledPlugin{
+			{Name: "alpha", Version: "1.0.0", BinaryPath: binaryPath, Enabled: true},
+		},
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	if _, err := mgr.Update(context.Background(), "alpha"); err == nil {
+		t.Fatal("expected Update to fail when installer cannot install")
+	}
+}
+
 func TestManager_Install_SDKIncompatible(t *testing.T) {
 	pluginDir := t.TempDir()
 	configDir := t.TempDir()

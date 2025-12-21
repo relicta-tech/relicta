@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -477,6 +478,134 @@ func TestInstaller_Install_BinaryNotFound(t *testing.T) {
 
 	if _, err := installer.Install(context.Background(), info); err == nil {
 		t.Fatal("expected Install to fail when binary not found")
+	}
+}
+
+func TestInstaller_ExtractZip_InvalidArchive(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := t.TempDir()
+
+	archivePath := filepath.Join(t.TempDir(), "invalid.zip")
+	if err := os.WriteFile(archivePath, []byte("not-a-zip"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if err := installer.extractZip(archivePath, destDir); err == nil {
+		t.Fatal("expected extractZip to fail for invalid archive")
+	}
+}
+
+func TestInstaller_ExtractTarGz_InvalidArchive(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := t.TempDir()
+
+	archivePath := filepath.Join(t.TempDir(), "invalid.tar.gz")
+	if err := os.WriteFile(archivePath, []byte("not-a-gzip"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if err := installer.extractTarGz(archivePath, destDir); err == nil {
+		t.Fatal("expected extractTarGz to fail for invalid archive")
+	}
+}
+
+func TestInstaller_Uninstall_MissingBinary(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	err := installer.Uninstall(InstalledPlugin{
+		Name:       "missing",
+		BinaryPath: filepath.Join(t.TempDir(), "missing"),
+	})
+	if err != nil {
+		t.Fatalf("expected Uninstall to ignore missing file, got %v", err)
+	}
+}
+
+func TestInstaller_Install_DownloadError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("network down")
+		}),
+	}
+
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+	}
+
+	if _, err := installer.Install(context.Background(), info); err == nil {
+		t.Fatal("expected Install to fail when download fails")
+	}
+}
+
+func TestInstaller_ExtractZipFile_OpenError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test.txt", []byte("content"))
+
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("OpenReader error: %v", err)
+	}
+	f := reader.File[0]
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close error: %v", err)
+	}
+
+	if err := installer.extractZipFile(f, filepath.Join(t.TempDir(), "out.txt")); err == nil {
+		t.Fatal("expected extractZipFile to fail when archive is closed")
+	}
+}
+
+func TestInstaller_ExtractZipFile_CreateError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test.txt", []byte("content"))
+
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("OpenReader error: %v", err)
+	}
+	t.Cleanup(func() { _ = reader.Close() })
+
+	targetDir := filepath.Join(t.TempDir(), "readonly")
+	if err := os.MkdirAll(targetDir, 0o555); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+
+	if err := installer.extractZipFile(reader.File[0], filepath.Join(targetDir, "out.txt")); err == nil {
+		t.Fatal("expected extractZipFile to fail when target is not writable")
+	}
+}
+
+func TestInstaller_ExtractTarGz_DestDirFile(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := filepath.Join(t.TempDir(), "dest-file")
+	if err := os.WriteFile(destDir, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "test.tar.gz")
+	createTestTarGz(t, archivePath, "test-binary", []byte("binary content"))
+
+	if err := installer.extractTarGz(archivePath, destDir); err == nil {
+		t.Fatal("expected extractTarGz to fail when dest is a file")
+	}
+}
+
+func TestInstaller_ExtractZip_DestDirFile(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := filepath.Join(t.TempDir(), "dest-file")
+	if err := os.WriteFile(destDir, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test-binary.exe", []byte("binary content"))
+
+	if err := installer.extractZip(archivePath, destDir); err == nil {
+		t.Fatal("expected extractZip to fail when dest is a file")
 	}
 }
 

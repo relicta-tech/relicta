@@ -199,3 +199,55 @@ func TestRegistryService_SaveConfig_Error(t *testing.T) {
 		t.Fatal("expected saveConfig to fail with file as directory")
 	}
 }
+
+func TestRegistryService_LoadFromCache_InvalidYAML(t *testing.T) {
+	cacheDir := t.TempDir()
+	service := NewRegistryService(t.TempDir(), cacheDir)
+
+	cachePath := service.getCachePath("bad")
+	if err := os.WriteFile(cachePath, []byte("invalid: ["), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if _, err := service.loadFromCache(cachePath); err == nil {
+		t.Fatal("expected loadFromCache to fail for invalid YAML")
+	}
+}
+
+func TestRegistryService_SaveToCache_WriteError(t *testing.T) {
+	cacheDir := t.TempDir()
+	service := NewRegistryService(t.TempDir(), cacheDir)
+
+	blocker := filepath.Join(cacheDir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	cachePath := filepath.Join(blocker, "registry.yaml")
+	if err := service.saveToCache(cachePath, &Registry{Version: "1.0"}); err == nil {
+		t.Fatal("expected saveToCache to fail when parent is a file")
+	}
+}
+
+func TestRegistryService_Fetch_RemoteErrorNoCache(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "remote", URL: server.URL, Priority: 1, Enabled: true},
+	})
+
+	service := NewRegistryService(configDir, cacheDir)
+	registry, err := service.Fetch(context.Background(), true)
+	if err != nil {
+		t.Fatalf("Fetch error: %v", err)
+	}
+	if len(registry.Plugins) != 0 {
+		t.Fatalf("expected empty registry on fetch failure, got %d plugins", len(registry.Plugins))
+	}
+}
