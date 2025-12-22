@@ -163,6 +163,82 @@ func TestNewService(t *testing.T) {
 	})
 }
 
+func TestServiceImpl_CommitDiffStatsAndPatch(t *testing.T) {
+	helper := newTestRepo(t)
+	hash := helper.makeCommit("feat: add file")
+
+	svc, err := NewService(WithRepoPath(helper.repoDir))
+	if err != nil {
+		t.Fatalf("NewService error: %v", err)
+	}
+
+	stats, err := svc.GetCommitDiffStats(context.Background(), hash)
+	if err != nil {
+		t.Fatalf("GetCommitDiffStats error: %v", err)
+	}
+	if stats == nil || stats.FilesChanged == 0 {
+		t.Fatal("expected diff stats")
+	}
+
+	patch, err := svc.GetCommitPatch(context.Background(), hash)
+	if err != nil {
+		t.Fatalf("GetCommitPatch error: %v", err)
+	}
+	if patch == "" {
+		t.Fatal("expected patch content")
+	}
+}
+
+func TestServiceImpl_GetFileAtRef(t *testing.T) {
+	helper := newTestRepo(t)
+	hash := helper.makeCommit("feat: add file")
+
+	svc, err := NewService(WithRepoPath(helper.repoDir))
+	if err != nil {
+		t.Fatalf("NewService error: %v", err)
+	}
+
+	data, err := svc.GetFileAtRef(context.Background(), hash, "test.txt")
+	if err != nil {
+		t.Fatalf("GetFileAtRef error: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("expected file contents")
+	}
+}
+
+func TestServiceImpl_isCleanFallback(t *testing.T) {
+	helper := newTestRepo(t)
+	helper.makeCommit("feat: add file")
+
+	svc, err := NewService(WithRepoPath(helper.repoDir))
+	if err != nil {
+		t.Fatalf("NewService error: %v", err)
+	}
+
+	clean, err := svc.isCleanFallback(context.Background())
+	if err != nil {
+		t.Fatalf("isCleanFallback error: %v", err)
+	}
+	if !clean {
+		t.Fatal("expected clean repo")
+	}
+}
+
+func TestServiceImpl_pushTagFallback(t *testing.T) {
+	helper := newTestRepo(t)
+	helper.makeCommit("feat: add file")
+
+	svc, err := NewService(WithRepoPath(helper.repoDir))
+	if err != nil {
+		t.Fatalf("NewService error: %v", err)
+	}
+
+	if err := svc.pushTagFallback(context.Background(), "v1.0.0", "origin", false); err == nil {
+		t.Fatal("expected pushTagFallback to fail without remote")
+	}
+}
+
 // TestGetRepositoryRoot tests getting the repository root.
 func TestGetRepositoryRoot(t *testing.T) {
 	helper := newTestRepo(t)

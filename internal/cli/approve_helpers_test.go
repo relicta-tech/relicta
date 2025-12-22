@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/ui"
 )
 
 func TestShouldUseInteractiveApproval(t *testing.T) {
@@ -180,5 +182,73 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 				t.Errorf("isReleaseAlreadyApproved() = %v, want %v for state %v", got, tt.want, tt.state)
 			}
 		})
+	}
+}
+
+func TestHandleEditApprovalResultWithoutNotes(t *testing.T) {
+	rel := release.NewRelease(release.ReleaseID("no-notes-edit"), "main", ".")
+	notes, proceed, err := handleEditApprovalResult(rel)
+	if err != nil {
+		t.Fatalf("handleEditApprovalResult returned error: %v", err)
+	}
+	if notes != nil {
+		t.Fatalf("expected nil notes when none exist, got %v", notes)
+	}
+	if proceed {
+		t.Fatal("expected proceed=false when no notes to edit")
+	}
+}
+
+func TestProcessTUIApprovalResultPaths(t *testing.T) {
+	rel := release.NewRelease(release.ReleaseID("tui-result"), "main", ".")
+	tests := []struct {
+		name    string
+		result  ui.ApprovalResult
+		wantErr bool
+		wantOk  bool
+	}{
+		{"accepted", ui.ApprovalAccepted, false, true},
+		{"rejected", ui.ApprovalRejected, false, false},
+		{"edit without notes", ui.ApprovalEdit, false, false},
+		{"unknown", ui.ApprovalRejected + 100, false, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notes, ok, err := processTUIApprovalResult(tt.result, rel)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("processTUIApprovalResult error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if ok != tt.wantOk {
+				t.Fatalf("processTUIApprovalResult proceed = %v, want %v", ok, tt.wantOk)
+			}
+			if tt.result != ui.ApprovalEdit && notes != nil {
+				t.Fatalf("expected nil notes for %v", tt.name)
+			}
+		})
+	}
+}
+
+func TestBuildTUISummary_IncludesReleaseNotesAndPlugins(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+
+	cfg = config.DefaultConfig()
+	enabled := true
+	cfg.Plugins = []config.PluginConfig{
+		{Name: "test-plugin", Enabled: &enabled},
+	}
+
+	rel := newTestRelease(t, "tui-summary-test")
+
+	summary := buildTUISummary(rel)
+	if summary.FeatureCount == 0 {
+		t.Fatalf("expected feature count > 0, got %d", summary.FeatureCount)
+	}
+	if summary.ReleaseNotes != "changelog" {
+		t.Fatalf("unexpected release notes: %s", summary.ReleaseNotes)
+	}
+	if len(summary.Plugins) != 1 || summary.Plugins[0] != "test-plugin" {
+		t.Fatalf("unexpected plugins: %v", summary.Plugins)
 	}
 }

@@ -23,6 +23,9 @@ type Service interface {
 	// SummarizeChanges generates a summary of changes.
 	SummarizeChanges(ctx context.Context, changes *git.CategorizedChanges, opts GenerateOptions) (string, error)
 
+	// Complete generates a raw completion from prompts.
+	Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
+
 	// IsAvailable returns true if the AI service is available.
 	IsAvailable() bool
 }

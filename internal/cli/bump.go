@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
@@ -73,7 +72,7 @@ func outputSetVersionResult(output *versioning.SetVersionOutput) {
 }
 
 // handleForcedVersion handles the --force flag to set a specific version.
-func handleForcedVersion(ctx context.Context, app *container.App, forcedVersionStr string) error {
+func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr string) error {
 	forcedVersion, err := version.Parse(forcedVersionStr)
 	if err != nil {
 		return fmt.Errorf("invalid version format: %w", err)
@@ -127,7 +126,7 @@ func outputCalculatedVersionText(calcOutput *versioning.CalculateVersionOutput, 
 }
 
 // applyVersionTag creates and optionally pushes the version tag.
-func applyVersionTag(ctx context.Context, app *container.App, nextVersion version.SemanticVersion) error {
+func applyVersionTag(ctx context.Context, app cliApp, nextVersion version.SemanticVersion) error {
 	if !bumpCreateTag || !cfg.Versioning.GitTag {
 		return nil
 	}
@@ -172,11 +171,11 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Parse bump type from flag
 	bumpType, auto, err := parseBumpLevel(bumpLevel)
@@ -235,7 +234,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 }
 
 // updateReleaseVersion updates the active release with the bumped version.
-func updateReleaseVersion(ctx context.Context, app *container.App, ver version.SemanticVersion) error {
+func updateReleaseVersion(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {

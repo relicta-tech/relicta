@@ -131,6 +131,11 @@ func (s *geminiService) SummarizeChanges(ctx context.Context, changes *git.Categ
 	return s.complete(ctx, systemPrompt, userPrompt)
 }
 
+// Complete generates a raw completion from prompts.
+func (s *geminiService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	return s.complete(ctx, systemPrompt, userPrompt)
+}
+
 // IsAvailable returns true if the Gemini service is available.
 func (s *geminiService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""

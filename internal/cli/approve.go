@@ -17,7 +17,6 @@ import (
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/ui"
 )
@@ -29,6 +28,8 @@ var (
 	approveInteractive bool
 )
 
+var runApprovalTUI = ui.RunApprovalTUI
+
 func init() {
 	approveCmd.Flags().BoolVarP(&approveYes, "yes", "y", false, "automatically approve without prompting")
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
@@ -37,7 +38,7 @@ func init() {
 }
 
 // getLatestRelease retrieves the latest release from the repository.
-func getLatestRelease(ctx context.Context, app *container.App) (*release.Release, error) {
+func getLatestRelease(ctx context.Context, app cliApp) (*release.Release, error) {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -115,7 +116,7 @@ func getApproverName() string {
 }
 
 // executeApproval executes the approval use case.
-func executeApproval(ctx context.Context, app *container.App, rel *release.Release, editedNotes *string) error {
+func executeApproval(ctx context.Context, app cliApp, rel *release.Release, editedNotes *string) error {
 	input := apprelease.ApproveReleaseInput{
 		ReleaseID:   rel.ID(),
 		ApprovedBy:  getApproverName(),
@@ -149,11 +150,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Get latest release
 	rel, err := getLatestRelease(ctx, app)
@@ -302,7 +303,7 @@ func createCGPActor() cgp.Actor {
 }
 
 // evaluateGovernance evaluates the release through CGP governance.
-func evaluateGovernance(ctx context.Context, app *container.App, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+func evaluateGovernance(ctx context.Context, app cliApp, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
@@ -387,7 +388,7 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 }
 
 // recordReleaseOutcome records the release outcome to Release Memory.
-func recordReleaseOutcome(ctx context.Context, app *container.App, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
+func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
 	govService := app.GovernanceService()
 	if govService == nil || govResult == nil {
 		return
@@ -685,7 +686,7 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 }
 
 // buildGovernanceSummaryForTUI builds governance summary for TUI display.
-func buildGovernanceSummaryForTUI(ctx context.Context, app *container.App, rel *release.Release) *ui.GovernanceSummary {
+func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.Release) *ui.GovernanceSummary {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
@@ -787,7 +788,7 @@ func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*
 }
 
 // runInteractiveApproval runs the interactive TUI for approval.
-func runInteractiveApproval(ctx context.Context, app *container.App, rel *release.Release) error {
+func runInteractiveApproval(ctx context.Context, app cliApp, rel *release.Release) error {
 	// Build TUI summary
 	tuiSummary := buildTUISummary(rel)
 
@@ -800,7 +801,7 @@ func runInteractiveApproval(ctx context.Context, app *container.App, rel *releas
 	}
 
 	// Run TUI
-	result, err := ui.RunApprovalTUI(tuiSummary)
+	result, err := runApprovalTUI(tuiSummary)
 	if err != nil {
 		return fmt.Errorf("interactive approval failed: %w", err)
 	}

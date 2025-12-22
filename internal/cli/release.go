@@ -10,7 +10,6 @@ import (
 
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
@@ -64,11 +63,11 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Step 1: Plan
 	printStep(1, 5, "Planning release")
@@ -168,7 +167,7 @@ func runRelease(cmd *cobra.Command, args []string) error {
 }
 
 // runReleasePlan executes the plan step.
-func runReleasePlan(ctx context.Context, c *container.App) (*apprelease.PlanReleaseOutput, error) {
+func runReleasePlan(ctx context.Context, c cliApp) (*apprelease.PlanReleaseOutput, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -188,7 +187,7 @@ func runReleasePlan(ctx context.Context, c *container.App) (*apprelease.PlanRele
 }
 
 // runReleaseBump executes the bump step.
-func runReleaseBump(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
+func runReleaseBump(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
 	var ver version.SemanticVersion
 	if releaseForce != "" {
 		parsed, err := version.Parse(releaseForce)
@@ -222,7 +221,7 @@ func runReleaseBump(ctx context.Context, c *container.App, plan *apprelease.Plan
 }
 
 // runReleaseNotes executes the notes generation step.
-func runReleaseNotes(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
+func runReleaseNotes(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
 	input := apprelease.GenerateNotesInput{
 		ReleaseID:        plan.ReleaseID,
 		UseAI:            cfg.AI.Enabled,
@@ -236,7 +235,7 @@ func runReleaseNotes(ctx context.Context, c *container.App, plan *apprelease.Pla
 }
 
 // runReleaseApprove handles the approval step.
-func runReleaseApprove(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
+func runReleaseApprove(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
 	if autoApprove {
 		printInfo("Auto-approving release")
 		// Actually approve the release in the domain model
@@ -303,7 +302,7 @@ func runReleaseApprove(ctx context.Context, c *container.App, plan *apprelease.P
 }
 
 // runReleasePublish executes the publish step.
-func runReleasePublish(ctx context.Context, c *container.App, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
+func runReleasePublish(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
 	input := apprelease.PublishReleaseInput{
 		ReleaseID: plan.ReleaseID,
 		DryRun:    dryRun,

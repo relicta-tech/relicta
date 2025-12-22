@@ -27,6 +27,8 @@ var (
 	gitHTTPURLPattern = regexp.MustCompile(`^https?://([^/]+)/(.+?)(?:\.git)?$`)
 )
 
+var gitRemoteURLFetcher = fetchGitRemoteURL
+
 // Loader handles configuration loading and merging.
 type Loader struct {
 	v           *viper.Viper
@@ -277,7 +279,7 @@ func (l *Loader) autoDetectRepositoryURL(cfg *Config) {
 	}
 
 	// Try to detect from git remote
-	repoURL := detectGitRemoteURL()
+	repoURL := gitRemoteURLFetcher()
 	if repoURL == "" {
 		return
 	}
@@ -292,11 +294,13 @@ func (l *Loader) autoDetectRepositoryURL(cfg *Config) {
 	}
 }
 
-// detectGitRemoteURL attempts to get the repository URL from git remote.
+var gitCommand = exec.Command
+
+// fetchGitRemoteURL attempts to get the repository URL from git remote.
 // Returns an empty string if not in a git repository or no remote is configured.
-func detectGitRemoteURL() string {
+func fetchGitRemoteURL() string {
 	// Run git remote get-url origin
-	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd := gitCommand("git", "remote", "get-url", "origin")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

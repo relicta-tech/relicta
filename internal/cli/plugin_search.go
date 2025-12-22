@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/relicta-tech/relicta/internal/plugin/manager"
 )
 
 var pluginSearchCmd = &cobra.Command{
@@ -31,7 +29,7 @@ func runPluginSearch(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	query := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}

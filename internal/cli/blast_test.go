@@ -3,10 +3,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/application/blast"
 )
@@ -871,5 +874,35 @@ func TestOutputBlastLegend(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Errorf("outputBlastLegend() output should contain %q, got:\n%s", want, output)
 		}
+	}
+}
+
+func TestRunBlastJSON(t *testing.T) {
+	origOutput := outputJSON
+	origVerbose := blastVerbose
+	origIncludeTests := blastIncludeTests
+	origIncludeDocs := blastIncludeDocs
+	origFrom := blastFromRef
+	origTo := blastToRef
+	defer func() {
+		outputJSON = origOutput
+		blastVerbose = origVerbose
+		blastIncludeTests = origIncludeTests
+		blastIncludeDocs = origIncludeDocs
+		blastFromRef = origFrom
+		blastToRef = origTo
+	}()
+
+	outputJSON = true
+	blastVerbose = false
+	blastIncludeTests = false
+	blastIncludeDocs = false
+	blastFromRef = "HEAD"
+	blastToRef = "HEAD"
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	if err := runBlast(cmd, nil); err != nil {
+		t.Fatalf("runBlast returned error: %v", err)
 	}
 }

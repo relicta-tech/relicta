@@ -360,6 +360,11 @@ func TestNoopService_Methods(t *testing.T) {
 	if svc.IsAvailable() {
 		t.Error("IsAvailable() should return false for noop service")
 	}
+
+	// Test Complete
+	if _, err := svc.Complete(ctx, "system", "user"); err == nil {
+		t.Error("Complete should return error for noop service")
+	}
 }
 
 func TestOpenAIKeyPattern(t *testing.T) {

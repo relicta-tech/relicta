@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/analysis"
+	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
@@ -23,6 +25,11 @@ type PlanReleaseInput struct {
 	ToRef          string
 	DryRun         bool
 	TagPrefix      string
+
+	// AnalysisConfig overrides smart commit analysis defaults.
+	AnalysisConfig *analysis.AnalyzerConfig
+	// CommitClassifications overrides analysis results keyed by commit hash.
+	CommitClassifications map[sourcecontrol.CommitHash]*analysis.CommitClassification
 }
 
 // Validate validates the PlanReleaseInput.
@@ -87,6 +94,9 @@ type PlanReleaseOutput struct {
 	ChangeSet      *changes.ChangeSet
 	RepositoryName string
 	Branch         string
+
+	// Analysis contains optional smart commit analysis results.
+	Analysis *analysis.AnalysisResult
 }
 
 // PlanReleaseUseCase implements the plan release use case.
@@ -96,6 +106,7 @@ type PlanReleaseUseCase struct {
 	gitRepo           sourcecontrol.GitRepository
 	versionCalc       version.VersionCalculator
 	eventPublisher    release.EventPublisher
+	analysisFactory   *analysisfactory.Factory
 	logger            *slog.Logger
 }
 
@@ -105,13 +116,15 @@ func NewPlanReleaseUseCase(
 	gitRepo sourcecontrol.GitRepository,
 	versionCalc version.VersionCalculator,
 	eventPublisher release.EventPublisher,
+	analysisFactory *analysisfactory.Factory,
 ) *PlanReleaseUseCase {
 	return &PlanReleaseUseCase{
-		releaseRepo:    releaseRepo,
-		gitRepo:        gitRepo,
-		versionCalc:    versionCalc,
-		eventPublisher: eventPublisher,
-		logger:         slog.Default().With("usecase", "plan_release"),
+		releaseRepo:     releaseRepo,
+		gitRepo:         gitRepo,
+		versionCalc:     versionCalc,
+		eventPublisher:  eventPublisher,
+		analysisFactory: analysisFactory,
+		logger:          slog.Default().With("usecase", "plan_release"),
 	}
 }
 
@@ -121,12 +134,14 @@ func NewPlanReleaseUseCaseWithUoW(
 	gitRepo sourcecontrol.GitRepository,
 	versionCalc version.VersionCalculator,
 	eventPublisher release.EventPublisher,
+	analysisFactory *analysisfactory.Factory,
 ) *PlanReleaseUseCase {
 	return &PlanReleaseUseCase{
 		unitOfWorkFactory: unitOfWorkFactory,
 		gitRepo:           gitRepo,
 		versionCalc:       versionCalc,
 		eventPublisher:    eventPublisher,
+		analysisFactory:   analysisFactory,
 		logger:            slog.Default().With("usecase", "plan_release"),
 	}
 }
@@ -138,10 +153,9 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, fmt.Errorf("invalid input: %w", err)
 	}
 
-	// Get repository info
-	repoInfo, err := uc.gitRepo.GetInfo(ctx)
+	repoInfo, currentVersion, fromRef, commits, err := uc.collectCommits(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get repository info: %w", err)
+		return nil, err
 	}
 
 	// Check for dirty working tree
@@ -149,52 +163,19 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, sourcecontrol.ErrWorkingTreeDirty
 	}
 
-	// Determine current version from tags
-	tagPrefix := input.TagPrefix
-	if tagPrefix == "" {
-		tagPrefix = "v"
-	}
-
-	versionDiscovery := sourcecontrol.NewVersionDiscovery(tagPrefix)
-	currentVersion, err := versionDiscovery.DiscoverCurrentVersion(ctx, uc.gitRepo)
-	if err != nil {
-		// If no version found, start with initial
-		currentVersion = version.Initial
-	}
-
-	// Determine the from reference
-	fromRef := input.FromRef
-	if fromRef == "" {
-		// Use latest version tag
-		latestTag, tagErr := uc.gitRepo.GetLatestVersionTag(ctx, tagPrefix)
-		if tagErr == nil && latestTag != nil {
-			fromRef = latestTag.Name()
-		}
-	}
-
-	// Get commits since last version
-	var commits []*sourcecontrol.Commit
-	if fromRef != "" {
-		toRef := input.ToRef
-		if toRef == "" {
-			toRef = "HEAD"
-		}
-		commits, err = uc.gitRepo.GetCommitsBetween(ctx, fromRef, toRef)
-	} else {
-		// No previous version, get all commits
-		commits, err = uc.gitRepo.GetCommitsSince(ctx, "")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get commits: %w", err)
-	}
-
-	if len(commits) == 0 {
-		return nil, changes.ErrNoCommitsFound
-	}
-
 	// Parse commits as conventional commits and build changeset
 	changeSetID := changes.ChangeSetID(fmt.Sprintf("cs-%d", time.Now().UnixNano()))
 	changeSet := changes.NewChangeSet(changeSetID, fromRef, input.ToRef)
+
+	analysisResult, classifications, err := uc.prepareCommitClassifications(ctx, commits, input)
+	if err != nil {
+		return nil, err
+	}
+
+	minConfidence := analysis.DefaultConfig().MinConfidence
+	if input.AnalysisConfig != nil {
+		minConfidence = input.AnalysisConfig.MinConfidence
+	}
 
 	for _, commit := range commits {
 		conventionalCommit := changes.ParseConventionalCommit(
@@ -202,10 +183,27 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 			commit.Message(),
 			changes.WithAuthor(commit.Author().Name, commit.Author().Email),
 			changes.WithDate(commit.Date()),
+			changes.WithRawMessage(commit.Message()),
 		)
 		if conventionalCommit != nil {
 			changeSet.AddCommit(conventionalCommit)
+			continue
 		}
+
+		classification := classifications[commit.Hash()]
+		if classification == nil || classification.ShouldSkip {
+			continue
+		}
+
+		useClassification := classification
+		if classification.Method != analysis.MethodManual && classification.Confidence < minConfidence {
+			lowConfidence := *classification
+			lowConfidence.Type = changes.CommitType("")
+			useClassification = &lowConfidence
+		}
+
+		inferred := classificationToCommit(commit, useClassification)
+		changeSet.AddCommit(inferred)
 	}
 
 	if changeSet.IsEmpty() {
@@ -254,7 +252,314 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		ChangeSet:      plan.GetChangeSet(),
 		RepositoryName: repoInfo.Name,
 		Branch:         branch,
+		Analysis:       analysisResult,
 	}, nil
+}
+
+// AnalyzeCommits runs smart commit analysis without creating a release plan.
+func (uc *PlanReleaseUseCase) AnalyzeCommits(ctx context.Context, input PlanReleaseInput) (*analysis.AnalysisResult, []analysis.CommitInfo, error) {
+	if err := input.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("invalid input: %w", err)
+	}
+
+	_, _, _, commits, err := uc.collectCommits(ctx, input)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cfg := analysis.DefaultConfig()
+	if input.AnalysisConfig != nil {
+		cfg = *input.AnalysisConfig
+	}
+
+	if uc.analysisFactory == nil {
+		return nil, nil, fmt.Errorf("analysis is not configured")
+	}
+
+	commitInfos, err := uc.buildCommitInfos(ctx, commits, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	analyzer := uc.analysisFactory.NewAnalyzer(cfg)
+	result, err := analyzer.AnalyzeAll(ctx, commitInfos)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return result, commitInfos, nil
+}
+
+func (uc *PlanReleaseUseCase) collectCommits(ctx context.Context, input PlanReleaseInput) (*sourcecontrol.RepositoryInfo, version.SemanticVersion, string, []*sourcecontrol.Commit, error) {
+	repoInfo, err := uc.gitRepo.GetInfo(ctx)
+	if err != nil {
+		return nil, version.Zero, "", nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	tagPrefix := input.TagPrefix
+	if tagPrefix == "" {
+		tagPrefix = "v"
+	}
+
+	versionDiscovery := sourcecontrol.NewVersionDiscovery(tagPrefix)
+	currentVersion, err := versionDiscovery.DiscoverCurrentVersion(ctx, uc.gitRepo)
+	if err != nil {
+		currentVersion = version.Initial
+	}
+
+	fromRef := input.FromRef
+	if fromRef == "" {
+		latestTag, tagErr := uc.gitRepo.GetLatestVersionTag(ctx, tagPrefix)
+		if tagErr == nil && latestTag != nil {
+			fromRef = latestTag.Name()
+		}
+	}
+
+	var commits []*sourcecontrol.Commit
+	if fromRef != "" {
+		toRef := input.ToRef
+		if toRef == "" {
+			toRef = "HEAD"
+		}
+		commits, err = uc.gitRepo.GetCommitsBetween(ctx, fromRef, toRef)
+	} else {
+		commits, err = uc.gitRepo.GetCommitsSince(ctx, "")
+	}
+	if err != nil {
+		return nil, version.Zero, "", nil, fmt.Errorf("failed to get commits: %w", err)
+	}
+
+	if len(commits) == 0 {
+		return nil, version.Zero, "", nil, changes.ErrNoCommitsFound
+	}
+
+	return repoInfo, currentVersion, fromRef, commits, nil
+}
+
+func (uc *PlanReleaseUseCase) prepareCommitClassifications(ctx context.Context, commits []*sourcecontrol.Commit, input PlanReleaseInput) (*analysis.AnalysisResult, map[sourcecontrol.CommitHash]*analysis.CommitClassification, error) {
+	if input.CommitClassifications != nil {
+		return nil, input.CommitClassifications, nil
+	}
+
+	if uc.analysisFactory == nil {
+		return nil, map[sourcecontrol.CommitHash]*analysis.CommitClassification{}, nil
+	}
+
+	cfg := analysis.DefaultConfig()
+	if input.AnalysisConfig != nil {
+		cfg = *input.AnalysisConfig
+	}
+
+	commitInfos, err := uc.buildCommitInfos(ctx, commits, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	analyzer := uc.analysisFactory.NewAnalyzer(cfg)
+	result, err := analyzer.AnalyzeAll(ctx, commitInfos)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return result, result.Classifications, nil
+}
+
+func (uc *PlanReleaseUseCase) buildCommitInfos(ctx context.Context, commits []*sourcecontrol.Commit, cfg analysis.AnalyzerConfig) ([]analysis.CommitInfo, error) {
+	infos := make([]analysis.CommitInfo, 0, len(commits))
+
+	aiAvailable := cfg.EnableAI && uc.analysisFactory != nil && uc.analysisFactory.AIAvailable()
+
+	for _, commit := range commits {
+		info := analysis.CommitInfo{
+			Hash:        commit.Hash(),
+			Message:     commit.Message(),
+			Subject:     commit.Subject(),
+			IsMerge:     commit.IsMergeCommit(),
+			ParentCount: len(commit.Parents()),
+		}
+
+		stats, err := uc.gitRepo.GetCommitDiffStats(ctx, commit.Hash())
+		if err != nil {
+			uc.logger.Debug("commit diff stats unavailable", "error", err, "commit", commit.Hash().Short())
+		} else if stats != nil {
+			info.Stats = analysis.DiffStats{
+				Additions:    stats.Additions,
+				Deletions:    stats.Deletions,
+				FilesChanged: stats.FilesChanged,
+			}
+			info.Files = make([]string, 0, len(stats.Files))
+			for _, file := range stats.Files {
+				if shouldSkipPath(file.Path, cfg) {
+					continue
+				}
+				info.Files = append(info.Files, file.Path)
+			}
+
+			if cfg.EnableAST {
+				parentRef := firstParent(commit)
+				for _, file := range stats.Files {
+					if !shouldAnalyzeAST(file.Path, cfg) {
+						continue
+					}
+					var before []byte
+					if parentRef != "" {
+						before, _ = uc.gitRepo.GetFileAtRef(ctx, parentRef, file.Path)
+					}
+					after, _ := uc.gitRepo.GetFileAtRef(ctx, commit.Hash().String(), file.Path)
+					info.FileDiffs = append(info.FileDiffs, analysis.FileDiff{
+						Path:   file.Path,
+						Before: before,
+						After:  after,
+					})
+				}
+			}
+		}
+
+		if aiAvailable {
+			patch, err := uc.gitRepo.GetCommitPatch(ctx, commit.Hash())
+			if err == nil {
+				info.Diff = patch
+			}
+		}
+
+		infos = append(infos, info)
+	}
+
+	return infos, nil
+}
+
+func classificationToCommit(commit *sourcecontrol.Commit, classification *analysis.CommitClassification) *changes.ConventionalCommit {
+	commitType := classification.Type
+	if commitType == "" {
+		commitType = changes.CommitType("")
+	}
+
+	opts := []changes.ConventionalCommitOption{
+		changes.WithAuthor(commit.Author().Name, commit.Author().Email),
+		changes.WithDate(commit.Date()),
+		changes.WithRawMessage(commit.Message()),
+	}
+
+	if classification.Scope != "" {
+		opts = append(opts, changes.WithScope(classification.Scope))
+	}
+
+	if classification.IsBreaking {
+		reason := classification.BreakingReason
+		if reason == "" {
+			reason = "breaking change detected"
+		}
+		opts = append(opts, changes.WithBreaking(reason))
+	}
+
+	return changes.NewConventionalCommit(
+		string(commit.Hash()),
+		commitType,
+		commit.Subject(),
+		opts...,
+	)
+}
+
+func shouldAnalyzeAST(path string, cfg analysis.AnalyzerConfig) bool {
+	if !cfg.EnableAST {
+		return false
+	}
+	if shouldSkipPath(path, cfg) {
+		return false
+	}
+	lower := strings.ToLower(path)
+	if strings.HasSuffix(lower, "_test.go") {
+		return false
+	}
+	if strings.HasSuffix(lower, ".go") {
+		return languageAllowed("go", cfg.Languages)
+	}
+	return false
+}
+
+func languageAllowed(lang string, allowed []string) bool {
+	if lang == "" || len(allowed) == 0 {
+		return false
+	}
+	for _, entry := range allowed {
+		if strings.EqualFold(entry, lang) {
+			return true
+		}
+	}
+	return false
+}
+
+func shouldSkipPath(path string, cfg analysis.AnalyzerConfig) bool {
+	if len(cfg.SkipPaths) == 0 {
+		return false
+	}
+	normalized := filepath.ToSlash(path)
+	for _, pattern := range cfg.SkipPaths {
+		if matchGlob(normalized, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchGlob(file, pattern string) bool {
+	file = filepath.ToSlash(file)
+	pattern = filepath.ToSlash(pattern)
+
+	if strings.Contains(pattern, "**") {
+		return matchDoubleGlob(file, pattern)
+	}
+
+	matched, err := filepath.Match(pattern, file)
+	if err == nil && matched {
+		return true
+	}
+
+	base := filepath.Base(file)
+	matched, err = filepath.Match(pattern, base)
+	return err == nil && matched
+}
+
+func matchDoubleGlob(file, pattern string) bool {
+	parts := strings.Split(pattern, "**")
+	if len(parts) != 2 {
+		return false
+	}
+
+	prefix := parts[0]
+	suffix := strings.TrimPrefix(parts[1], "/")
+
+	if prefix != "" && !strings.HasPrefix(file, prefix) {
+		return false
+	}
+
+	if suffix == "" {
+		return true
+	}
+
+	remaining := strings.TrimPrefix(file, prefix)
+	pathParts := strings.Split(remaining, "/")
+	for i := range pathParts {
+		testPath := strings.Join(pathParts[i:], "/")
+		if matched, _ := filepath.Match(suffix, testPath); matched {
+			return true
+		}
+		if i == len(pathParts)-1 {
+			if matched, _ := filepath.Match(suffix, pathParts[i]); matched {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func firstParent(commit *sourcecontrol.Commit) string {
+	parents := commit.Parents()
+	if len(parents) == 0 {
+		return ""
+	}
+	return parents[0].String()
 }
 
 // saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.

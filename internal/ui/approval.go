@@ -106,6 +106,14 @@ type approvalStyles struct {
 	statValue lipgloss.Style
 }
 
+type approvalProgramRunner interface {
+	Run() (tea.Model, error)
+}
+
+var newApprovalProgram = func(model ApprovalModel) approvalProgramRunner {
+	return tea.NewProgram(model, tea.WithAltScreen())
+}
+
 func defaultKeyMap() approvalKeyMap {
 	return approvalKeyMap{
 		Approve: key.NewBinding(
@@ -602,7 +610,7 @@ func (m ApprovalModel) Result() ApprovalResult {
 // RunApprovalTUI runs the approval TUI and returns the result.
 func RunApprovalTUI(summary ReleaseSummary) (ApprovalResult, error) {
 	model := NewApprovalModel(summary)
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	p := newApprovalProgram(model)
 
 	finalModel, err := p.Run()
 	if err != nil {

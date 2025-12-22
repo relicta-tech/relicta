@@ -3,9 +3,13 @@ package manager
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -172,6 +176,51 @@ func TestInstaller_GetBinaryName(t *testing.T) {
 	}
 }
 
+func TestInstaller_GetDownloadURL(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+	}
+
+	url := installer.getDownloadURL(info)
+	if !strings.Contains(url, "github.com/relicta-tech/relicta/releases/download/v1.0.0/") {
+		t.Fatalf("getDownloadURL() = %q, want github release URL", url)
+	}
+}
+
+func TestInstaller_DownloadFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("payload"))
+	}))
+	t.Cleanup(server.Close)
+
+	installer := NewInstaller(t.TempDir())
+	var dest bytes.Buffer
+
+	if err := installer.downloadFile(context.Background(), server.URL, &dest); err != nil {
+		t.Fatalf("downloadFile error: %v", err)
+	}
+	if got := dest.String(); got != "payload" {
+		t.Fatalf("downloadFile content = %q, want %q", got, "payload")
+	}
+}
+
+func TestInstaller_DownloadFile_NonOK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+	}))
+	t.Cleanup(server.Close)
+
+	installer := NewInstaller(t.TempDir())
+	var dest bytes.Buffer
+
+	if err := installer.downloadFile(context.Background(), server.URL, &dest); err == nil {
+		t.Fatal("expected downloadFile to fail for non-200 response")
+	}
+}
+
 func TestInstaller_ExtractTarGz(t *testing.T) {
 	installer := NewInstaller(t.TempDir())
 	destDir := t.TempDir()
@@ -198,6 +247,36 @@ func TestInstaller_ExtractTarGz(t *testing.T) {
 	}
 	if string(content) != "binary content" {
 		t.Errorf("Extracted content = %q, want %q", string(content), "binary content")
+	}
+}
+
+func TestInstaller_InstallBinary(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	srcDir := t.TempDir()
+	srcPath := filepath.Join(srcDir, "bin")
+	destPath := filepath.Join(installer.pluginDir, "bin")
+
+	if err := os.WriteFile(srcPath, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if err := installer.installBinary(srcPath, destPath); err != nil {
+		t.Fatalf("installBinary error: %v", err)
+	}
+
+	data, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("ReadFile error: %v", err)
+	}
+	if string(data) != "binary" {
+		t.Fatalf("installBinary content = %q, want %q", string(data), "binary")
+	}
+}
+
+func TestInstaller_InstallBinary_ReadError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	if err := installer.installBinary("does-not-exist", filepath.Join(t.TempDir(), "dest")); err == nil {
+		t.Fatal("expected installBinary to fail for missing source file")
 	}
 }
 
@@ -317,6 +396,219 @@ func TestInstaller_Install_SDKIncompatible(t *testing.T) {
 	}
 }
 
+func TestInstaller_Install_Success(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+
+	archiveData := createTarGzBytes(t, installer.getBinaryName("alpha"), []byte("binary content"))
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(archiveData)),
+				Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
+			}, nil
+		}),
+	}
+
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+	}
+
+	installed, err := installer.Install(context.Background(), info)
+	if err != nil {
+		t.Fatalf("Install error: %v", err)
+	}
+	if installed == nil || installed.BinaryPath == "" {
+		t.Fatalf("Install returned invalid plugin: %+v", installed)
+	}
+	if _, err := os.Stat(installed.BinaryPath); err != nil {
+		t.Fatalf("installed binary missing: %v", err)
+	}
+}
+
+func TestInstaller_Install_ChecksumMismatch(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+
+	archiveData := createTarGzBytes(t, installer.getBinaryName("alpha"), []byte("binary content"))
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(archiveData)),
+				Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
+			}, nil
+		}),
+	}
+
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+		Checksums: map[string]string{
+			GetCurrentPlatform(): "deadbeef",
+		},
+	}
+
+	if _, err := installer.Install(context.Background(), info); err == nil {
+		t.Fatal("expected Install to fail for checksum mismatch")
+	}
+}
+
+func TestInstaller_Install_BinaryNotFound(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+
+	archiveData := createTarGzBytes(t, "not-alpha", []byte("binary content"))
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(archiveData)),
+				Header:     http.Header{"Content-Type": []string{"application/octet-stream"}},
+			}, nil
+		}),
+	}
+
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+	}
+
+	if _, err := installer.Install(context.Background(), info); err == nil {
+		t.Fatal("expected Install to fail when binary not found")
+	}
+}
+
+func TestInstaller_ExtractZip_InvalidArchive(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := t.TempDir()
+
+	archivePath := filepath.Join(t.TempDir(), "invalid.zip")
+	if err := os.WriteFile(archivePath, []byte("not-a-zip"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if err := installer.extractZip(archivePath, destDir); err == nil {
+		t.Fatal("expected extractZip to fail for invalid archive")
+	}
+}
+
+func TestInstaller_ExtractTarGz_InvalidArchive(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := t.TempDir()
+
+	archivePath := filepath.Join(t.TempDir(), "invalid.tar.gz")
+	if err := os.WriteFile(archivePath, []byte("not-a-gzip"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	if err := installer.extractTarGz(archivePath, destDir); err == nil {
+		t.Fatal("expected extractTarGz to fail for invalid archive")
+	}
+}
+
+func TestInstaller_Uninstall_MissingBinary(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	err := installer.Uninstall(InstalledPlugin{
+		Name:       "missing",
+		BinaryPath: filepath.Join(t.TempDir(), "missing"),
+	})
+	if err != nil {
+		t.Fatalf("expected Uninstall to ignore missing file, got %v", err)
+	}
+}
+
+func TestInstaller_Install_DownloadError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	installer.httpClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("network down")
+		}),
+	}
+
+	info := PluginInfo{
+		Name:       "alpha",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/relicta",
+	}
+
+	if _, err := installer.Install(context.Background(), info); err == nil {
+		t.Fatal("expected Install to fail when download fails")
+	}
+}
+
+func TestInstaller_ExtractZipFile_OpenError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test.txt", []byte("content"))
+
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("OpenReader error: %v", err)
+	}
+	f := reader.File[0]
+	if err := reader.Close(); err != nil {
+		t.Fatalf("Close error: %v", err)
+	}
+
+	if err := installer.extractZipFile(f, filepath.Join(t.TempDir(), "out.txt")); err == nil {
+		t.Fatal("expected extractZipFile to fail when archive is closed")
+	}
+}
+
+func TestInstaller_ExtractZipFile_CreateError(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test.txt", []byte("content"))
+
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		t.Fatalf("OpenReader error: %v", err)
+	}
+	t.Cleanup(func() { _ = reader.Close() })
+
+	targetDir := filepath.Join(t.TempDir(), "readonly")
+	if err := os.MkdirAll(targetDir, 0o555); err != nil {
+		t.Fatalf("MkdirAll error: %v", err)
+	}
+
+	if err := installer.extractZipFile(reader.File[0], filepath.Join(targetDir, "out.txt")); err == nil {
+		t.Fatal("expected extractZipFile to fail when target is not writable")
+	}
+}
+
+func TestInstaller_ExtractTarGz_DestDirFile(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := filepath.Join(t.TempDir(), "dest-file")
+	if err := os.WriteFile(destDir, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "test.tar.gz")
+	createTestTarGz(t, archivePath, "test-binary", []byte("binary content"))
+
+	if err := installer.extractTarGz(archivePath, destDir); err == nil {
+		t.Fatal("expected extractTarGz to fail when dest is a file")
+	}
+}
+
+func TestInstaller_ExtractZip_DestDirFile(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	destDir := filepath.Join(t.TempDir(), "dest-file")
+	if err := os.WriteFile(destDir, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	archivePath := filepath.Join(t.TempDir(), "test.zip")
+	createTestZip(t, archivePath, "test-binary.exe", []byte("binary content"))
+
+	if err := installer.extractZip(archivePath, destDir); err == nil {
+		t.Fatal("expected extractZip to fail when dest is a file")
+	}
+}
+
 // Helper functions
 
 func createTestTarGz(t *testing.T, path, filename string, content []byte) {
@@ -366,4 +658,39 @@ func createTestZip(t *testing.T, path, filename string, content []byte) {
 	if _, err := fw.Write(content); err != nil {
 		t.Fatalf("Failed to write zip content: %v", err)
 	}
+}
+
+func createTarGzBytes(t *testing.T, filename string, content []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	header := &tar.Header{
+		Name: filename,
+		Mode: 0o755,
+		Size: int64(len(content)),
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		t.Fatalf("Failed to write tar header: %v", err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		t.Fatalf("Failed to write tar content: %v", err)
+	}
+
+	if err := tw.Close(); err != nil {
+		t.Fatalf("Failed to close tar writer: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("Failed to close gzip writer: %v", err)
+	}
+
+	return buf.Bytes()
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

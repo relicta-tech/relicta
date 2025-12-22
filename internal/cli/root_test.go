@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"testing"
 )
 
@@ -182,6 +183,28 @@ func TestExecute_FunctionExists(t *testing.T) {
 func TestExecuteContext_FunctionExists(t *testing.T) {
 	// Just verify the function exists
 	t.Log("ExecuteContext function exists and is exported")
+}
+
+func TestExecute_HelpCommandSucceeds(t *testing.T) {
+	origArgs := rootCmd.Args
+	rootCmd.SetArgs([]string{"help"})
+	defer rootCmd.SetArgs(nil)
+	if err := Execute(); err != nil {
+		t.Fatalf("root Execute failed: %v", err)
+	}
+	rootCmd.SetArgs(nil)
+	rootCmd.Args = origArgs
+}
+
+func TestExecuteContext_HelpCommandSucceeds(t *testing.T) {
+	origArgs := rootCmd.Args
+	rootCmd.SetArgs([]string{"help"})
+	defer rootCmd.SetArgs(nil)
+	if err := ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("root ExecuteContext failed: %v", err)
+	}
+	rootCmd.SetArgs(nil)
+	rootCmd.Args = origArgs
 }
 
 func TestSetVersionInfo_Function(t *testing.T) {

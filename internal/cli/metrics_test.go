@@ -2,7 +2,10 @@
 package cli
 
 import (
+	"context"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestMetricsCommand_Configuration(t *testing.T) {
@@ -101,5 +104,27 @@ func TestMetricsCommand_IsAddedToRoot(t *testing.T) {
 	}
 	if !found {
 		t.Error("metrics command should be added to root command")
+	}
+}
+
+func TestRunMetrics_ContextCanceled(t *testing.T) {
+	origPort := metricsPort
+	origHost := metricsHost
+	defer func() {
+		metricsPort = origPort
+		metricsHost = origHost
+	}()
+
+	metricsPort = 0
+	metricsHost = "127.0.0.1"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+
+	if err := runMetrics(cmd, nil); err != nil {
+		t.Fatalf("runMetrics error: %v", err)
 	}
 }

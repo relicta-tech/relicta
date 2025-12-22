@@ -2,9 +2,12 @@
 package fileutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -102,9 +105,67 @@ func TestReadFileLimited_Directory(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	_, err := ReadFileLimited(tmpDir, 100)
+	_, err := ReadFileLimited(tmpDir, 1024*1024)
 	if err == nil {
 		t.Error("expected error when reading directory, got nil")
+	}
+}
+
+func TestReadFileLimited_PermissionDenied(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("permissions behave differently on windows")
+	}
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "secret.txt")
+	if err := os.WriteFile(filePath, []byte("secret"), 0600); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	if err := os.Chmod(filePath, 0000); err != nil {
+		t.Fatalf("failed to chmod: %v", err)
+	}
+
+	_, err := ReadFileLimited(filePath, 10)
+	if err == nil {
+		t.Fatal("expected permission error")
+	}
+}
+
+func TestReadFileLimited_FIFOExceedsLimit(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("mkfifo not supported on windows")
+	}
+
+	tmpDir := t.TempDir()
+	fifoPath := filepath.Join(tmpDir, "fifo")
+	if err := syscall.Mkfifo(fifoPath, 0600); err != nil {
+		t.Fatalf("failed to create fifo: %v", err)
+	}
+
+	maxSize := int64(5)
+	done := make(chan error, 1)
+
+	go func() {
+		w, err := os.OpenFile(fifoPath, os.O_WRONLY, 0600)
+		if err != nil {
+			done <- err
+			return
+		}
+		_, err = w.Write([]byte("1234567"))
+		_ = w.Close()
+		done <- err
+	}()
+
+	_, err := ReadFileLimited(fifoPath, maxSize)
+	if err == nil {
+		t.Fatal("expected size error for fifo content")
+	}
+	if werr := <-done; werr != nil {
+		t.Fatalf("fifo writer error: %v", werr)
 	}
 }
 
@@ -245,6 +306,15 @@ func TestAtomicWriteFile_InvalidDirectory(t *testing.T) {
 	}
 }
 
+func TestAtomicWriteFile_RenameToExistingDirFails(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	if err := AtomicWriteFile(tmpDir, []byte("content"), 0600); err == nil {
+		t.Fatal("expected error when renaming over existing directory")
+	}
+}
+
 func TestAtomicWriteFile_ConcurrentWrites(t *testing.T) {
 	t.Parallel()
 
@@ -308,5 +378,133 @@ func TestReadFileLimited_Integration(t *testing.T) {
 
 	if string(data) != content {
 		t.Errorf("content mismatch: got %q, want %q", string(data), content)
+	}
+}
+
+type stubTempFile struct {
+	name     string
+	chmodErr error
+	writeErr error
+	syncErr  error
+	closeErr error
+}
+
+func (s *stubTempFile) Name() string {
+	return s.name
+}
+
+func (s *stubTempFile) Chmod(os.FileMode) error {
+	return s.chmodErr
+}
+
+func (s *stubTempFile) Write(p []byte) (int, error) {
+	if s.writeErr != nil {
+		return 0, s.writeErr
+	}
+	return len(p), nil
+}
+
+func (s *stubTempFile) Sync() error {
+	return s.syncErr
+}
+
+func (s *stubTempFile) Close() error {
+	return s.closeErr
+}
+
+func TestAtomicWriteFile_CreateTempError(t *testing.T) {
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) {
+			return nil, errors.New("boom")
+		},
+		rename: func(oldpath, newpath string) error { return nil },
+		remove: func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to create temp file") {
+		t.Fatalf("expected create temp error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_ChmodError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		chmodErr: errors.New("chmod fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to set file permissions") {
+		t.Fatalf("expected chmod error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_WriteError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		writeErr: errors.New("write fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to write data") {
+		t.Fatalf("expected write error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_SyncError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:    "temp",
+		syncErr: errors.New("sync fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to sync file") {
+		t.Fatalf("expected sync error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_CloseError(t *testing.T) {
+	tmp := &stubTempFile{
+		name:     "temp",
+		closeErr: errors.New("close fail"),
+	}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return nil },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to close file") {
+		t.Fatalf("expected close error, got %v", err)
+	}
+}
+
+func TestAtomicWriteFile_RenameError(t *testing.T) {
+	tmp := &stubTempFile{name: "temp"}
+	ops := fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) { return tmp, nil },
+		rename:     func(oldpath, newpath string) error { return errors.New("rename fail") },
+		remove:     func(path string) error { return nil },
+	}
+
+	err := atomicWriteFile("path.txt", []byte("data"), 0o600, ops)
+	if err == nil || !strings.Contains(err.Error(), "failed to rename temp file") {
+		t.Fatalf("expected rename error, got %v", err)
 	}
 }

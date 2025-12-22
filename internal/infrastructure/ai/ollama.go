@@ -143,6 +143,11 @@ func (s *ollamaService) SummarizeChanges(ctx context.Context, changes *git.Categ
 	return s.complete(ctx, systemPrompt, userPrompt)
 }
 
+// Complete generates a raw completion from prompts.
+func (s *ollamaService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	return s.complete(ctx, systemPrompt, userPrompt)
+}
+
 // IsAvailable returns true if the Ollama service is available.
 func (s *ollamaService) IsAvailable() bool {
 	return s.client != nil

@@ -145,7 +145,7 @@ func init() {
 func runPluginList(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -319,7 +319,7 @@ func runPluginInstall(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -344,7 +344,7 @@ func runPluginUninstall(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -364,7 +364,7 @@ func runPluginEnable(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -386,7 +386,7 @@ func runPluginDisable(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -404,7 +404,7 @@ func runPluginInfo(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -500,7 +500,7 @@ func runPluginUpdate(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
@@ -549,7 +549,7 @@ func runPluginConfigure(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	pluginName := args[0]
 
-	mgr, err := manager.NewManager()
+	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}

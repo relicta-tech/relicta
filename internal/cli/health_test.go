@@ -2,7 +2,11 @@
 package cli
 
 import (
+	"context"
+	"os/exec"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestHealthCommand_Configuration(t *testing.T) {
@@ -125,6 +129,28 @@ func TestHealthReport_MultipleComponents(t *testing.T) {
 	}
 	if len(report.Environment) != 1 {
 		t.Errorf("Environment length = %d, want 1", len(report.Environment))
+	}
+}
+
+func TestRunHealthJSONProducesReport(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	origOutput := outputJSON
+	outputJSON = true
+	defer func() { outputJSON = origOutput }()
+
+	origExitHook := exitWithHealthStatusHook
+	exitWithHealthStatusHook = func(status HealthStatus) error {
+		return nil
+	}
+	defer func() { exitWithHealthStatusHook = origExitHook }()
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+	if err := runHealth(cmd, nil); err != nil {
+		t.Fatalf("runHealth failed: %v", err)
 	}
 }
 

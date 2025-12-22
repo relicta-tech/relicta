@@ -62,6 +62,18 @@ func (m *mockGitRepository) GetLatestCommit(ctx context.Context, branch string) 
 	return m.latestCommit, m.latestCommitErr
 }
 
+func (m *mockGitRepository) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
+	return nil, nil
+}
+
+func (m *mockGitRepository) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
+	return "", nil
+}
+
+func (m *mockGitRepository) GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error) {
+	return nil, nil
+}
+
 func (m *mockGitRepository) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
 	return nil, nil
 }

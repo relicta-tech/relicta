@@ -8,6 +8,30 @@ import (
 	"path/filepath"
 )
 
+type tempFile interface {
+	Name() string
+	Chmod(os.FileMode) error
+	Write([]byte) (int, error)
+	Sync() error
+	Close() error
+}
+
+type fsOps struct {
+	createTemp func(dir, pattern string) (tempFile, error)
+	rename     func(oldpath, newpath string) error
+	remove     func(path string) error
+}
+
+func defaultFSOps() fsOps {
+	return fsOps{
+		createTemp: func(dir, pattern string) (tempFile, error) {
+			return os.CreateTemp(dir, pattern)
+		},
+		rename: os.Rename,
+		remove: os.Remove,
+	}
+}
+
 // ReadFileLimited reads a file up to maxSize bytes.
 // Returns an error if the file exceeds the maximum size.
 // This prevents denial of service from maliciously crafted large files.
@@ -43,11 +67,15 @@ func ReadFileLimited(path string, maxSize int64) ([]byte, error) {
 // AtomicWriteFile writes data to a file atomically by writing to a temp file
 // and then renaming it. This ensures the file is never in a partially written state.
 func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
+	return atomicWriteFile(path, data, perm, defaultFSOps())
+}
+
+func atomicWriteFile(path string, data []byte, perm os.FileMode, ops fsOps) error {
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
 	// Create temp file in same directory (required for atomic rename)
-	tmpFile, err := os.CreateTemp(dir, base+".tmp")
+	tmpFile, err := ops.createTemp(dir, base+".tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -57,7 +85,7 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 	defer func() {
 		if tmpFile != nil {
 			_ = tmpFile.Close()
-			_ = os.Remove(tmpPath)
+			_ = ops.remove(tmpPath)
 		}
 	}()
 
@@ -83,7 +111,7 @@ func AtomicWriteFile(path string, data []byte, perm os.FileMode) error {
 	tmpFile = nil // Prevent cleanup defer from closing/removing again
 
 	// Atomic rename
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := ops.rename(tmpPath, path); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 

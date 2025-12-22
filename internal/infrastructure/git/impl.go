@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -893,6 +894,146 @@ func (s *ServiceImpl) GetDiffStats(_ context.Context, from, to string) (*DiffSta
 	}
 
 	return stats, nil
+}
+
+// GetCommitDiffStats returns statistics about changes in a single commit.
+func (s *ServiceImpl) GetCommitDiffStats(ctx context.Context, hash string) (*DiffStats, error) {
+	const op = "git.GetCommitDiffStats"
+
+	commitHash, err := s.resolveRef(hash)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve commit %s", hash))
+	}
+
+	commitObj, err := s.repo.CommitObject(commitHash)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to get commit")
+	}
+
+	var parent *object.Commit
+	if commitObj.NumParents() > 0 {
+		parent, err = commitObj.Parent(0)
+		if err != nil {
+			return nil, rperrors.GitWrap(err, op, "failed to get commit parent")
+		}
+	}
+
+	patch, err := commitObj.PatchContext(ctx, parent)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to compute commit diff")
+	}
+
+	stats := &DiffStats{}
+	fileStatuses := make(map[string]FileStats)
+	for _, fp := range patch.FilePatches() {
+		from, to := fp.Files()
+		switch {
+		case from == nil && to != nil:
+			fileStatuses[to.Path()] = FileStats{
+				Path:   to.Path(),
+				Status: "added",
+			}
+		case from != nil && to == nil:
+			fileStatuses[from.Path()] = FileStats{
+				Path:   from.Path(),
+				Status: "deleted",
+			}
+		case from != nil && to != nil:
+			status := "modified"
+			oldPath := ""
+			if from.Path() != to.Path() {
+				status = "renamed"
+				oldPath = from.Path()
+			}
+			fileStatuses[to.Path()] = FileStats{
+				Path:    to.Path(),
+				Status:  status,
+				OldPath: oldPath,
+			}
+		}
+	}
+
+	patchStats := patch.Stats()
+	stats.FilesChanged = len(patchStats)
+	for _, fileStat := range patchStats {
+		stats.Insertions += fileStat.Addition
+		stats.Deletions += fileStat.Deletion
+		fs := fileStatuses[fileStat.Name]
+		fs.Path = fileStat.Name
+		fs.Insertions = fileStat.Addition
+		fs.Deletions = fileStat.Deletion
+		stats.Files = append(stats.Files, fs)
+	}
+
+	return stats, nil
+}
+
+// GetCommitPatch returns the unified diff patch for a commit.
+func (s *ServiceImpl) GetCommitPatch(ctx context.Context, hash string) (string, error) {
+	const op = "git.GetCommitPatch"
+
+	commitHash, err := s.resolveRef(hash)
+	if err != nil {
+		return "", rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve commit %s", hash))
+	}
+
+	commitObj, err := s.repo.CommitObject(commitHash)
+	if err != nil {
+		return "", rperrors.GitWrap(err, op, "failed to get commit")
+	}
+
+	var parent *object.Commit
+	if commitObj.NumParents() > 0 {
+		parent, err = commitObj.Parent(0)
+		if err != nil {
+			return "", rperrors.GitWrap(err, op, "failed to get commit parent")
+		}
+	}
+
+	patch, err := commitObj.PatchContext(ctx, parent)
+	if err != nil {
+		return "", rperrors.GitWrap(err, op, "failed to compute commit patch")
+	}
+
+	return patch.String(), nil
+}
+
+// GetFileAtRef returns file contents at a specific ref (commit, tag, branch).
+func (s *ServiceImpl) GetFileAtRef(_ context.Context, ref, path string) ([]byte, error) {
+	const op = "git.GetFileAtRef"
+
+	refHash, err := s.resolveRef(ref)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve ref %s", ref))
+	}
+
+	commitObj, err := s.repo.CommitObject(refHash)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to get commit")
+	}
+
+	tree, err := commitObj.Tree()
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to get tree")
+	}
+
+	file, err := tree.File(path)
+	if err != nil {
+		return nil, err
+	}
+
+	reader, err := file.Reader()
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to read file")
+	}
+	defer reader.Close()
+
+	contents, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to read file contents")
+	}
+
+	return contents, nil
 }
 
 // ParseConventionalCommit parses a commit message as a conventional commit.

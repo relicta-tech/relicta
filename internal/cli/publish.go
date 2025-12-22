@@ -14,7 +14,6 @@ import (
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
@@ -161,11 +160,11 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize container
-	app, err := container.NewInitialized(ctx, cfg)
+	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
-	defer app.Close()
+	defer closeApp(app)
 
 	// Get latest release (reuse helper from approve.go)
 	rel, err := getLatestRelease(ctx, app)
@@ -239,7 +238,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 }
 
 // evaluateGovernanceForPublish evaluates the release for governance tracking.
-func evaluateGovernanceForPublish(ctx context.Context, app *container.App, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
@@ -264,7 +263,7 @@ func evaluateGovernanceForPublish(ctx context.Context, app *container.App, rel *
 }
 
 // recordPublishOutcome records the actual publish outcome to Release Memory.
-func recordPublishOutcome(ctx context.Context, app *container.App, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
+func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return

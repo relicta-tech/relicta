@@ -58,6 +58,13 @@ type mockService struct {
 	// Diff
 	diffStats    *DiffStats
 	diffStatsErr error
+
+	commitDiffStats    *DiffStats
+	commitDiffStatsErr error
+	commitPatch        string
+	commitPatchErr     error
+	fileAtRefData      []byte
+	fileAtRefErr       error
 }
 
 func (m *mockService) GetRepositoryRoot(ctx context.Context) (string, error) {
@@ -156,6 +163,18 @@ func (m *mockService) GetDiffStats(ctx context.Context, from, to string) (*DiffS
 	return m.diffStats, m.diffStatsErr
 }
 
+func (m *mockService) GetCommitDiffStats(ctx context.Context, hash string) (*DiffStats, error) {
+	return m.commitDiffStats, m.commitDiffStatsErr
+}
+
+func (m *mockService) GetCommitPatch(ctx context.Context, hash string) (string, error) {
+	return m.commitPatch, m.commitPatchErr
+}
+
+func (m *mockService) GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error) {
+	return m.fileAtRefData, m.fileAtRefErr
+}
+
 func (m *mockService) ParseConventionalCommit(message string) (*ConventionalCommit, error) {
 	return nil, nil
 }
@@ -184,6 +203,60 @@ func TestNewAdapter(t *testing.T) {
 	}
 	if adapter.svc != mock {
 		t.Error("adapter service not set correctly")
+	}
+}
+
+func TestAdapter_GetCommitDiffStats(t *testing.T) {
+	mock := &mockService{
+		commitDiffStats: &DiffStats{
+			FilesChanged: 1,
+			Insertions:   2,
+			Deletions:    1,
+			Files: []FileStats{
+				{
+					Path:       "file.txt",
+					Insertions: 2,
+					Deletions:  1,
+					Status:     "modified",
+				},
+			},
+		},
+	}
+	adapter := NewAdapter(mock)
+
+	stats, err := adapter.GetCommitDiffStats(context.Background(), "abc123")
+	if err != nil {
+		t.Fatalf("GetCommitDiffStats error: %v", err)
+	}
+	if stats == nil || stats.FilesChanged != 1 {
+		t.Fatal("expected diff stats")
+	}
+	if len(stats.Files) != 1 || stats.Files[0].Path != "file.txt" {
+		t.Fatalf("unexpected file stats: %#v", stats.Files)
+	}
+}
+
+func TestAdapter_GetCommitPatchAndFileAtRef(t *testing.T) {
+	mock := &mockService{
+		commitPatch:   "diff --git a/file.txt b/file.txt",
+		fileAtRefData: []byte("content"),
+	}
+	adapter := NewAdapter(mock)
+
+	patch, err := adapter.GetCommitPatch(context.Background(), "abc123")
+	if err != nil {
+		t.Fatalf("GetCommitPatch error: %v", err)
+	}
+	if patch == "" {
+		t.Fatal("expected patch content")
+	}
+
+	data, err := adapter.GetFileAtRef(context.Background(), "HEAD", "file.txt")
+	if err != nil {
+		t.Fatalf("GetFileAtRef error: %v", err)
+	}
+	if string(data) != "content" {
+		t.Fatalf("unexpected file contents: %s", string(data))
 	}
 }
 

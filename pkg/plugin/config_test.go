@@ -76,6 +76,34 @@ func TestConfigParser_GetString(t *testing.T) {
 	}
 }
 
+func TestConfigParser_GetStringDefault(t *testing.T) {
+	p := NewConfigParser(map[string]any{})
+	got := p.GetStringDefault("missing", "default")
+	if got != "default" {
+		t.Fatalf("GetStringDefault = %q, want default", got)
+	}
+
+	os.Setenv("PLUGIN_NAME", "env")
+	defer os.Unsetenv("PLUGIN_NAME")
+	got = p.GetStringDefault("missing", "default", "PLUGIN_NAME")
+	if got != "env" {
+		t.Fatalf("GetStringDefault env = %q, want env", got)
+	}
+}
+
+func TestValidationBuilder_Warnings(t *testing.T) {
+	vb := NewValidationBuilder()
+	vb.AddWarning("field", "something off")
+
+	warnings := vb.Warnings()
+	if len(warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %d", len(warnings))
+	}
+	if warnings[0] != "field: something off" {
+		t.Fatalf("unexpected warning: %q", warnings[0])
+	}
+}
+
 func TestConfigParser_GetBool(t *testing.T) {
 	tests := []struct {
 		name   string

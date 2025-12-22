@@ -167,6 +167,34 @@ func (a *Adapter) GetLatestCommit(ctx context.Context, branch string) (*sourceco
 	return convertCommit(commit), nil
 }
 
+// GetCommitDiffStats retrieves diff stats for a specific commit.
+func (a *Adapter) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
+	ctx, cancel := withLocalTimeout(ctx)
+	defer cancel()
+
+	stats, err := a.svc.GetCommitDiffStats(ctx, string(hash))
+	if err != nil {
+		return nil, err
+	}
+	return convertDiffStats(stats), nil
+}
+
+// GetCommitPatch retrieves the unified diff patch for a commit.
+func (a *Adapter) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
+	ctx, cancel := withLocalTimeout(ctx)
+	defer cancel()
+
+	return a.svc.GetCommitPatch(ctx, string(hash))
+}
+
+// GetFileAtRef returns file contents at a specific ref.
+func (a *Adapter) GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error) {
+	ctx, cancel := withLocalTimeout(ctx)
+	defer cancel()
+
+	return a.svc.GetFileAtRef(ctx, ref, path)
+}
+
 // GetTags retrieves all tags.
 func (a *Adapter) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
 	tags, err := a.svc.ListTags(ctx)
@@ -310,6 +338,13 @@ func convertCommit(c *Commit) *sourcecontrol.Commit {
 		c.Date,
 	)
 	commit.SetCommitter(sourcecontrol.Author{Name: c.Committer.Name, Email: c.Committer.Email})
+	if len(c.Parents) > 0 {
+		parents := make([]sourcecontrol.CommitHash, len(c.Parents))
+		for i, p := range c.Parents {
+			parents[i] = sourcecontrol.CommitHash(p)
+		}
+		commit.SetParents(parents)
+	}
 	return commit
 }
 
@@ -318,6 +353,34 @@ func convertCommits(commits []Commit) []*sourcecontrol.Commit {
 	for i := range commits {
 		result[i] = convertCommit(&commits[i])
 	}
+	return result
+}
+
+func convertDiffStats(stats *DiffStats) *sourcecontrol.DiffStats {
+	if stats == nil {
+		return nil
+	}
+
+	result := &sourcecontrol.DiffStats{
+		FilesChanged: stats.FilesChanged,
+		Additions:    stats.Insertions,
+		Deletions:    stats.Deletions,
+	}
+	if len(stats.Files) == 0 {
+		return result
+	}
+
+	result.Files = make([]sourcecontrol.FileStats, len(stats.Files))
+	for i, fs := range stats.Files {
+		result.Files[i] = sourcecontrol.FileStats{
+			Path:      fs.Path,
+			Additions: fs.Insertions,
+			Deletions: fs.Deletions,
+			Status:    sourcecontrol.FileStatus(fs.Status),
+			OldPath:   fs.OldPath,
+		}
+	}
+
 	return result
 }
 

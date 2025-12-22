@@ -328,7 +328,7 @@ func outputHealthText(report *HealthReport) error {
 	return exitWithHealthStatus(report.Status)
 }
 
-func exitWithHealthStatus(status HealthStatus) error {
+var exitWithHealthStatusHook = func(status HealthStatus) error {
 	switch status {
 	case HealthStatusHealthy:
 		return nil
@@ -338,4 +338,8 @@ func exitWithHealthStatus(status HealthStatus) error {
 		os.Exit(2)
 	}
 	return nil
+}
+
+func exitWithHealthStatus(status HealthStatus) error {
+	return exitWithHealthStatusHook(status)
 }

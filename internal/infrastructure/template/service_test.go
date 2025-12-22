@@ -2,8 +2,12 @@
 package template
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/version"
@@ -199,6 +203,88 @@ func TestServiceImpl_LoadTemplate_NotFound(t *testing.T) {
 	_, err = svc.LoadTemplate("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent template")
+	}
+}
+
+func TestServiceImpl_RenderFile(t *testing.T) {
+	svc, err := NewService()
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "greeting.tmpl")
+	if err := os.WriteFile(path, []byte("Hi {{.Name}}"), 0600); err != nil {
+		t.Fatalf("failed to write template: %v", err)
+	}
+
+	out, err := svc.RenderFile(path, map[string]string{"Name": "Relicta"})
+	if err != nil {
+		t.Fatalf("RenderFile error: %v", err)
+	}
+	if out != "Hi Relicta" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+}
+
+func TestServiceImpl_LoadCustomTemplates(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "custom.tmpl"), []byte("Custom {{.Value}}"), 0600); err != nil {
+		t.Fatalf("failed to write custom template: %v", err)
+	}
+
+	svc, err := NewService(WithCustomDir(tmpDir))
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	out, err := svc.Render("custom", map[string]string{"Value": "Template"})
+	if err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	if out != "Custom Template" {
+		t.Fatalf("unexpected output: %q", out)
+	}
+}
+
+func TestExecuteWithTimeout_Timeout(t *testing.T) {
+	svc, err := NewService()
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	stall := make(chan struct{})
+	tmpl, err := template.New("stall").Funcs(template.FuncMap{
+		"stall": func() string {
+			<-stall
+			return "done"
+		},
+	}).Parse("{{stall}}")
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	defer cancel()
+
+	time.Sleep(2 * time.Millisecond)
+	_, err = svc.executeWithTimeout(ctx, "template.Render", tmpl, nil)
+	close(stall)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+}
+
+func TestFormatVersionAndNindent(t *testing.T) {
+	if got := formatVersionFunc(nil); got != "" {
+		t.Fatalf("expected empty version string, got %q", got)
+	}
+	ver := version.MustParse("1.2.3")
+	if got := formatVersionFunc(&ver); got != "1.2.3" {
+		t.Fatalf("unexpected version string: %q", got)
+	}
+	if got := nindentFunc(2, "a\nb"); got != "\n  a\n  b" {
+		t.Fatalf("unexpected nindent output: %q", got)
 	}
 }
 
@@ -453,6 +539,49 @@ func TestTemplateFunctions_StringFunctions(t *testing.T) {
 				t.Errorf("RenderString = %q, want %q", result, tt.want)
 			}
 		})
+	}
+}
+
+func TestTemplateHelperUtilities(t *testing.T) {
+	now := time.Date(2024, time.March, 10, 0, 0, 0, 0, time.UTC)
+	if got := formatDate("Jan 2", now); got != "Mar 10" {
+		t.Errorf("formatDate = %s, want Mar 10", got)
+	}
+	if got := dateISO(now); got != "2024-03-10" {
+		t.Errorf("dateISO = %s, want 2024-03-10", got)
+	}
+	if got := defaultFunc("def", ""); got != "def" {
+		t.Errorf("defaultFunc empty = %v", got)
+	}
+	if got := coalesceFunc(nil, "", "first", "second"); got != "first" {
+		t.Errorf("coalesceFunc = %v", got)
+	}
+	if got := ternaryFunc(false, "yes", "no"); got != "no" {
+		t.Errorf("ternaryFunc = %v", got)
+	}
+	if got := indentFunc(2, "a\nb"); !strings.HasPrefix(got, "  ") {
+		t.Errorf("indentFunc = %q", got)
+	}
+	if got := wrapFunc(3, "one two"); strings.Contains(got, " ") {
+		t.Errorf("wrapFunc should break lines, got %q", got)
+	}
+	if got := listFunc(1, 2); len(got) != 2 {
+		t.Errorf("listFunc length = %d", len(got))
+	}
+	if firstFunc(listFunc(1, 2)) != 1 {
+		t.Error("firstFunc returned wrong element")
+	}
+	if lenFunc(map[string]any{"a": 1}) != 1 {
+		t.Error("lenFunc map should return 1")
+	}
+	if !emptyFunc([]any{}) {
+		t.Error("emptyFunc should detect empty slice")
+	}
+	if got := appendFunc([]any{1}, 2); len(got) != 2 {
+		t.Errorf("appendFunc = %v", got)
+	}
+	if got := mdQuoteFunc("line"); !strings.HasPrefix(got, ">") {
+		t.Errorf("mdQuoteFunc = %q", got)
 	}
 }
 

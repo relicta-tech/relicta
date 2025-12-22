@@ -214,6 +214,63 @@ func TestCategorizedChangesProto_AllCategories(t *testing.T) {
 	}
 }
 
+func TestProtoMessageHelpers(t *testing.T) {
+	req := &ExecuteRequestProto{Hook: HookProto_HOOK_PRE_PLAN}
+	req.Reset()
+	_ = req.String()
+	req.ProtoMessage()
+
+	resp := &ExecuteResponseProto{Success: true}
+	resp.Reset()
+	_ = resp.String()
+	resp.ProtoMessage()
+
+	ctx := &ReleaseContextProto{Version: "1.0.0"}
+	ctx.Reset()
+	_ = ctx.String()
+	ctx.ProtoMessage()
+
+	changes := &CategorizedChangesProto{}
+	changes.Reset()
+	_ = changes.String()
+	changes.ProtoMessage()
+
+	commit := &ConventionalCommitProto{Type: "feat", Description: "add"}
+	commit.Reset()
+	_ = commit.String()
+	commit.ProtoMessage()
+
+	artifact := &ArtifactProto{Name: "file"}
+	artifact.Reset()
+	_ = artifact.String()
+	artifact.ProtoMessage()
+
+	valReq := &ValidateRequestProto{Config: "{}"}
+	valReq.Reset()
+	_ = valReq.String()
+	valReq.ProtoMessage()
+
+	valResp := &ValidateResponseProto{Valid: true}
+	valResp.Reset()
+	_ = valResp.String()
+	valResp.ProtoMessage()
+
+	valErr := &ValidationErrorProto{Field: "f", Message: "m"}
+	valErr.Reset()
+	_ = valErr.String()
+	valErr.ProtoMessage()
+
+	empty := &Empty{}
+	empty.Reset()
+	_ = empty.String()
+	empty.ProtoMessage()
+
+	info := &PluginInfo{Name: "p", Version: "1.0.0"}
+	info.Reset()
+	_ = info.String()
+	info.ProtoMessage()
+}
+
 func TestConventionalCommitProto_AllFields(t *testing.T) {
 	commit := ConventionalCommitProto{
 		Hash:                "abc123",

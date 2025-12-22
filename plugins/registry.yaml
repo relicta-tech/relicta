@@ -1,5 +1,5 @@
 version: "1.0"
-updated_at: 2025-12-18T12:00:00Z
+updated_at: 2025-12-22T22:00:00Z
 
 plugins:
   - name: github
@@ -770,6 +770,507 @@ plugins:
         required: false
         default: "mix.exs"
         description: "Path to mix.exs file"
+
+  # Tier 1 Plugins - Container Registries
+
+  - name: acr
+    description: Push container images to Azure Container Registry
+    repository: relicta-tech/plugin-acr
+    version: v1.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-acr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "ACR registry name (without .azurecr.io suffix)"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      repository:
+        type: string
+        required: false
+        description: "Repository/namespace within ACR"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+      auth_method:
+        type: string
+        required: false
+        default: "azure_cli"
+        options: ["azure_cli", "service_principal", "admin", "managed_identity"]
+        description: "Authentication method"
+      client_id:
+        type: string
+        required: false
+        env: AZURE_CLIENT_ID
+        description: "Azure client ID (for service_principal)"
+      client_secret:
+        type: string
+        required: false
+        env: AZURE_CLIENT_SECRET
+        description: "Azure client secret (for service_principal)"
+      tenant_id:
+        type: string
+        required: false
+        env: AZURE_TENANT_ID
+        description: "Azure tenant ID (for service_principal)"
+
+  - name: ecr
+    description: Push container images to Amazon ECR
+    repository: relicta-tech/plugin-ecr
+    version: v1.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-ecr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "ECR registry URL (account.dkr.ecr.region.amazonaws.com)"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      region:
+        type: string
+        required: false
+        env: AWS_REGION
+        description: "AWS region"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+
+  - name: gcr
+    description: Push container images to Google Artifact Registry
+    repository: relicta-tech/plugin-gcr
+    version: v1.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-gcr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "GAR/GCR registry URL"
+      project:
+        type: string
+        required: true
+        env: GCP_PROJECT
+        description: "GCP project ID"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      location:
+        type: string
+        required: false
+        default: "us"
+        description: "Artifact Registry location"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+
+  # Tier 1 Plugins - Package Managers
+
+  - name: helm
+    description: Package and publish Helm charts
+    repository: relicta-tech/plugin-helm
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-helm
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      chart_path:
+        type: string
+        required: true
+        description: "Path to chart directory"
+      repository_type:
+        type: string
+        required: false
+        default: "oci"
+        options: ["oci", "http", "chartmuseum"]
+        description: "Repository type"
+      repository_url:
+        type: string
+        required: true
+        description: "Repository URL"
+      username:
+        type: string
+        required: false
+        env: HELM_REPO_USERNAME
+        description: "Repository username"
+      password:
+        type: string
+        required: false
+        env: HELM_REPO_PASSWORD
+        description: "Repository password"
+      update_chart_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Update version in Chart.yaml"
+      lint:
+        type: boolean
+        required: false
+        default: true
+        description: "Lint chart before publishing"
+
+  - name: pub
+    description: Publish Dart/Flutter packages to pub.dev
+    repository: relicta-tech/plugin-pub
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-pub
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      pubspec_path:
+        type: string
+        required: false
+        default: "pubspec.yaml"
+        description: "Path to pubspec.yaml"
+      update_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Update version in pubspec.yaml"
+      run_tests:
+        type: boolean
+        required: false
+        default: true
+        description: "Run tests before publishing"
+      dry_run:
+        type: boolean
+        required: false
+        default: false
+        description: "Validate without publishing"
+
+  - name: swift-pm
+    description: Publish Swift packages
+    repository: relicta-tech/plugin-swift-pm
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-swift-pm
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      package_path:
+        type: string
+        required: false
+        default: "."
+        description: "Path to Package.swift"
+      registry_url:
+        type: string
+        required: false
+        description: "Swift Package Registry URL"
+      build:
+        type: boolean
+        required: false
+        default: true
+        description: "Build package before publishing"
+      test:
+        type: boolean
+        required: false
+        default: true
+        description: "Run tests before publishing"
+
+  - name: winget
+    description: Publish packages to Windows Package Manager
+    repository: relicta-tech/plugin-winget
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-winget
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+    config_schema:
+      package_id:
+        type: string
+        required: true
+        description: "Package identifier (e.g., Publisher.AppName)"
+      github_token:
+        type: string
+        required: true
+        env: GITHUB_TOKEN
+        description: "GitHub token for PR creation"
+      installer_url:
+        type: string
+        required: true
+        description: "URL template for installer download"
+      installer_type:
+        type: string
+        required: false
+        default: "exe"
+        options: ["exe", "msi", "msix", "zip"]
+        description: "Installer type"
+      create_pr:
+        type: boolean
+        required: false
+        default: true
+        description: "Create PR to winget-pkgs repository"
+
+  # Tier 1 Plugins - Communication & Notifications
+
+  - name: telegram
+    description: Send release notifications to Telegram
+    repository: relicta-tech/plugin-telegram
+    version: v1.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-telegram
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+      - on_success
+      - on_error
+    config_schema:
+      bot_token:
+        type: string
+        required: true
+        env: TELEGRAM_BOT_TOKEN
+        description: "Telegram bot token from @BotFather"
+      chat_id:
+        type: string
+        required: true
+        env: TELEGRAM_CHAT_ID
+        description: "Chat ID or @channel_username"
+      message_thread_id:
+        type: integer
+        required: false
+        description: "Thread ID for topic-based groups"
+      parse_mode:
+        type: string
+        required: false
+        default: "MarkdownV2"
+        options: ["MarkdownV2", "HTML", ""]
+        description: "Message format"
+      disable_web_page_preview:
+        type: boolean
+        required: false
+        default: true
+        description: "Disable link previews"
+      notify_on_success:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on success"
+      notify_on_error:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on error"
+      include_changelog:
+        type: boolean
+        required: false
+        default: false
+        description: "Include changelog in message"
+
+  - name: linear
+    description: Track releases and update issues in Linear
+    repository: relicta-tech/plugin-linear
+    version: v1.0.0
+    category: project_management
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-linear
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_plan
+      - post_publish
+      - on_error
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: LINEAR_API_KEY
+        description: "Linear API key"
+      team_id:
+        type: string
+        required: false
+        description: "Linear team UUID"
+      team_key:
+        type: string
+        required: false
+        description: "Linear team key (e.g., ENG)"
+      project_id:
+        type: string
+        required: false
+        description: "Linear project UUID"
+      issue_prefix:
+        type: string
+        required: false
+        description: "Issue prefix pattern in commits"
+      released_state:
+        type: string
+        required: false
+        default: "Done"
+        description: "State to move issues to after release"
+      create_release_issue:
+        type: boolean
+        required: false
+        default: true
+        description: "Create a release tracking issue"
+      update_linked_issues:
+        type: boolean
+        required: false
+        default: true
+        description: "Update linked issues after release"
+
+  # Tier 1 Plugins - Monitoring & Observability
+
+  - name: sentry
+    description: Track releases and deployments in Sentry
+    repository: relicta-tech/plugin-sentry
+    version: v1.0.0
+    category: monitoring
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-sentry
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: pending
+      darwin_x86_64: pending
+      linux_aarch64: pending
+      linux_x86_64: pending
+      windows_x86_64: pending
+    hooks:
+      - post_publish
+      - on_error
+    config_schema:
+      auth_token:
+        type: string
+        required: true
+        env: SENTRY_AUTH_TOKEN
+        description: "Sentry auth token"
+      org:
+        type: string
+        required: true
+        env: SENTRY_ORG
+        description: "Sentry organization slug"
+      project:
+        type: string
+        required: true
+        env: SENTRY_PROJECT
+        description: "Sentry project slug"
+      url:
+        type: string
+        required: false
+        default: "https://sentry.io"
+        description: "Sentry instance URL (for self-hosted)"
+      environment:
+        type: string
+        required: false
+        description: "Deployment environment"
+      finalize:
+        type: boolean
+        required: false
+        default: true
+        description: "Finalize release after creation"
+      set_commits:
+        type: boolean
+        required: false
+        default: true
+        description: "Associate commits with release"
 
   - name: packagist
     description: Publish packages to Packagist

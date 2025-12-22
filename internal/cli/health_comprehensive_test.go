@@ -128,9 +128,16 @@ func TestCheckPluginsDir_MissingDirectory(t *testing.T) {
 	// Create a temp directory without plugins
 	tmpDir := t.TempDir()
 
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("USERPROFILE", tmpDir)
+
 	origDir, _ := os.Getwd()
 	defer os.Chdir(origDir)
 	os.Chdir(tmpDir)
+
+	if info, err := os.Stat("/usr/local/lib/relicta/plugins"); err == nil && info.IsDir() {
+		t.Skip("system plugin directory exists; skipping deterministic empty-dir check")
+	}
 
 	ctx := context.Background()
 	health := checkPluginsDir(ctx)
