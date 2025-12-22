@@ -109,6 +109,10 @@ func TestEvaluateGovernanceForPublishError(t *testing.T) {
 }
 
 func TestRecordReleaseOutcomeAndPublishOutcome(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
 	rel := newTestRelease(t, "gov-6")
 	govSvc := newGovernanceService(t)
 	app := govTestApp{

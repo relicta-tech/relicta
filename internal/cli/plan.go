@@ -19,6 +19,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 var (
@@ -68,6 +69,16 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to initialize container: %w", err)
 	}
 	defer closeApp(app)
+
+	// Check for tag-push mode (HEAD is already tagged)
+	mode, existingVersion, err := detectReleaseMode(ctx, app, cfg.Versioning.TagPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to detect release mode: %w", err)
+	}
+
+	if mode == releaseModeTagPush && existingVersion != nil {
+		return runPlanTagPush(ctx, app, *existingVersion)
+	}
 
 	// Get repository info for the path
 	gitAdapter := app.GitAdapter()
@@ -144,6 +155,175 @@ func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bo
 	}
 
 	return cfg, updated
+}
+
+// runPlanTagPush handles the tag-push scenario where HEAD is already tagged.
+// It executes the plan use case with the existing tag to create release state,
+// enabling subsequent commands (notes, approve, publish) to work.
+func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
+	tagName := cfg.Versioning.TagPrefix + ver.String()
+
+	printInfo(fmt.Sprintf("HEAD is already tagged: %s", tagName))
+	printInfo("Running in tag-push mode")
+	fmt.Println()
+
+	// Get repository info
+	gitAdapter := app.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	// Find previous version tag
+	tags, err := gitAdapter.GetTags(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get tags: %w", err)
+	}
+
+	var prevTagName string
+	var prevVersion *version.SemanticVersion
+	for _, t := range tags.FilterByPrefix(cfg.Versioning.TagPrefix).VersionTags() {
+		tagVer := t.Version()
+		if tagVer != nil && tagVer.LessThan(ver) {
+			if prevVersion == nil || tagVer.GreaterThan(*prevVersion) {
+				prevTagName = t.Name()
+				prevVersion = tagVer
+			}
+		}
+	}
+
+	// Execute plan use case to create release state
+	planInput := apprelease.PlanReleaseInput{
+		RepositoryPath: repoInfo.Path,
+		Branch:         repoInfo.CurrentBranch,
+		FromRef:        prevTagName,
+		ToRef:          tagName,
+		DryRun:         dryRun,
+		TagPrefix:      cfg.Versioning.TagPrefix,
+	}
+
+	// Execute with spinner (unless JSON output)
+	var spinner *Spinner
+	if !outputJSON {
+		spinner = NewSpinner("Analyzing commits...")
+		spinner.Start()
+	}
+
+	output, err := app.PlanRelease().Execute(ctx, planInput)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to plan release: %w", err)
+	}
+
+	// Override next version to match existing tag
+	output.NextVersion = ver
+
+	// Get governance risk preview if enabled
+	var riskPreview *governanceRiskPreview
+	if app.HasGovernance() {
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
+	}
+
+	// Output results
+	if outputJSON {
+		return outputPlanTagPushJSON(output, riskPreview)
+	}
+
+	return outputPlanTagPushText(output, riskPreview)
+}
+
+// outputPlanTagPushJSON outputs the tag-push plan as JSON.
+func outputPlanTagPushJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+	cats := output.ChangeSet.Categories()
+	result := map[string]any{
+		"mode":            "tag-push",
+		"release_id":      string(output.ReleaseID),
+		"current_version": output.CurrentVersion.String(),
+		"next_version":    output.NextVersion.String(),
+		"release_type":    output.ReleaseType.String(),
+		"repository_name": output.RepositoryName,
+		"branch":          output.Branch,
+		"summary": map[string]int{
+			"total":            output.ChangeSet.CommitCount(),
+			"features":         len(cats.Features),
+			"fixes":            len(cats.Fixes),
+			"breaking_changes": len(cats.Breaking),
+		},
+	}
+
+	if riskPreview != nil {
+		result["governance"] = map[string]any{
+			"risk_score":       riskPreview.RiskScore,
+			"severity":         riskPreview.Severity,
+			"decision":         riskPreview.Decision,
+			"can_auto_approve": riskPreview.CanAutoApprove,
+			"risk_factors":     riskPreview.RiskFactors,
+		}
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(result)
+}
+
+// outputPlanTagPushText outputs the tag-push plan as text.
+func outputPlanTagPushText(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+	// Summary
+	printTitle("Tag-Push Mode Summary")
+	fmt.Println()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "  Previous version:\t%s\n", output.CurrentVersion.String())
+	fmt.Fprintf(w, "  Current version:\t%s\n", output.NextVersion.String())
+	fmt.Fprintf(w, "  Total commits:\t%d\n", output.ChangeSet.CommitCount())
+	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
+	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
+	_ = w.Flush()
+
+	fmt.Println()
+
+	// Governance risk preview (if enabled)
+	if riskPreview != nil {
+		printTitle("Governance Risk Preview")
+		fmt.Println()
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintf(w, "  Risk Score:\t%s\n", formatRiskScoreDisplay(riskPreview.RiskScore, riskPreview.Severity))
+		fmt.Fprintf(w, "  Decision:\t%s\n", formatDecisionDisplay(riskPreview.Decision))
+		fmt.Fprintf(w, "  Auto-Approve:\t%s\n", formatAutoApproveDisplay(riskPreview.CanAutoApprove))
+		_ = w.Flush()
+
+		if len(riskPreview.RiskFactors) > 0 {
+			fmt.Println()
+			fmt.Println("  Risk Factors:")
+			for _, factor := range riskPreview.RiskFactors {
+				fmt.Printf("    - %s\n", factor)
+			}
+		}
+
+		fmt.Println()
+	}
+
+	// Next steps for tag-push mode
+	printTitle("Next Steps")
+	fmt.Println()
+	fmt.Println("  Since HEAD is already tagged, bump is not needed:")
+	fmt.Println("  1. Run 'relicta notes' to generate release notes")
+	fmt.Println("  2. Run 'relicta approve --yes' to approve the release")
+	fmt.Println("  3. Run 'relicta publish --skip-push' to execute the release")
+	fmt.Println()
+	fmt.Println("  Or use 'relicta release --yes' to run all steps automatically.")
+	fmt.Println()
+
+	if !dryRun {
+		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", output.ReleaseID))
+	}
+
+	return nil
 }
 
 func runPlanAnalyze(ctx context.Context, app cliApp, input apprelease.PlanReleaseInput) error {

@@ -48,6 +48,10 @@ func (r releaseTestApp) HasGovernance() bool                       { return fals
 func (r releaseTestApp) GovernanceService() *governance.Service    { return nil }
 
 func TestRunReleasePlanExecutesUseCase(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
 	planned := newPlanOutput()
 
 	app := releaseTestApp{
@@ -55,7 +59,12 @@ func TestRunReleasePlanExecutesUseCase(t *testing.T) {
 		plan:    &fakePlanUseCase{executeOutput: planned},
 	}
 
-	out, err := runReleasePlan(context.Background(), app)
+	// Create a workflow context for the test (normal release mode)
+	wfCtx := &releaseWorkflowContext{
+		mode: releaseModeNew,
+	}
+
+	out, err := runReleasePlan(context.Background(), app, wfCtx)
 	if err != nil {
 		t.Fatalf("runReleasePlan error: %v", err)
 	}
@@ -87,7 +96,12 @@ func TestRunReleaseBumpUsesForcedVersion(t *testing.T) {
 		},
 	}
 
-	out, err := runReleaseBump(context.Background(), app, plan)
+	// Create a workflow context for the test (normal release mode)
+	wfCtx := &releaseWorkflowContext{
+		mode: releaseModeNew,
+	}
+
+	out, err := runReleaseBump(context.Background(), app, wfCtx, plan)
 	if err != nil {
 		t.Fatalf("runReleaseBump error: %v", err)
 	}
