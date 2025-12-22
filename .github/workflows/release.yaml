@@ -89,82 +89,25 @@ jobs:
           tar -xzf dist/github_linux_x86_64.tar.gz -C bin 2>/dev/null || true
           ls -la bin/
 
-      # Detect if we're triggered by a tag push or manual dispatch
-      - name: Detect release mode
-        id: detect
+      # Run relicta release workflow
+      # The release command auto-detects if HEAD is tagged (tag-push mode)
+      # and handles both new releases and tag-push scenarios intelligently
+      - name: Run relicta release
+        if: ${{ !inputs.dry-run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Run release workflow - auto-detects tag-push mode
+          bin/relicta release --yes --skip-push
+
+          # Get the version from the tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            # Triggered by tag push - use the tag directly
             VERSION="${{ github.ref_name }}"
-            echo "mode=tag-push" >> $GITHUB_OUTPUT
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "Detected tag push trigger: $VERSION"
           else
-            # Manual dispatch - check if there are commits to release
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            if [[ -n "$LATEST_TAG" ]]; then
-              COMMITS_SINCE=$(git rev-list ${LATEST_TAG}..HEAD --count)
-              if [[ "$COMMITS_SINCE" -eq 0 ]]; then
-                # No new commits - use existing tag for release
-                echo "mode=existing-tag" >> $GITHUB_OUTPUT
-                echo "version=$LATEST_TAG" >> $GITHUB_OUTPUT
-                echo "No new commits since $LATEST_TAG - will create release for existing tag"
-              else
-                echo "mode=new-release" >> $GITHUB_OUTPUT
-                echo "Found $COMMITS_SINCE commits since $LATEST_TAG - will create new release"
-              fi
-            else
-              echo "mode=new-release" >> $GITHUB_OUTPUT
-              echo "No existing tags - will create first release"
-            fi
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           fi
-
-      # Check if GitHub release already exists
-      - name: Check existing release
-        id: check-release
-        if: steps.detect.outputs.mode != 'new-release'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.detect.outputs.version }}"
-          if gh release view "$VERSION" &>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "GitHub release $VERSION already exists"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "GitHub release $VERSION does not exist - will create it"
-          fi
-
-      # Run full relicta workflow for new releases
-      - name: Run relicta release workflow
-        if: steps.detect.outputs.mode == 'new-release' && !inputs.dry-run
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Plan the release
-          bin/relicta plan
-
-          # Bump version (--json outputs JSON after creating the tag)
-          BUMP_OUTPUT=$(bin/relicta bump --json)
-          echo "Bump output: $BUMP_OUTPUT"
-          VERSION=$(echo "$BUMP_OUTPUT" | grep -A100 '^{' | jq -r '.tag_name')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "New version: $VERSION"
-
-          # Generate notes
-          bin/relicta notes
-
-          # Approve
-          bin/relicta approve --yes
-
-          # Push the tag
-          git push origin $VERSION || true
-
-      # Set version from detected tag (for tag-push or existing-tag modes)
-      - name: Set version from tag
-        if: steps.detect.outputs.mode != 'new-release'
-        run: |
-          echo "VERSION=${{ steps.detect.outputs.version }}" >> $GITHUB_ENV
+          echo "Release version: $VERSION"
 
       - name: Generate checksums
         if: ${{ !inputs.dry-run }}
@@ -185,12 +128,23 @@ jobs:
             dist/relicta_Linux_x86_64.tar.gz
             dist/relicta_Windows_x86_64.zip
 
+      - name: Check if release exists
+        if: ${{ !inputs.dry-run }}
+        id: check-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$VERSION" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         if: ${{ !inputs.dry-run && steps.check-release.outputs.exists != 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create release with binaries
           gh release create $VERSION \
             --title "Relicta $VERSION" \
             --generate-notes \
@@ -207,7 +161,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Release $VERSION already exists - uploading/updating assets"
-          # Delete existing assets if they exist, then upload new ones
           for asset in relicta_Darwin_aarch64.tar.gz relicta_Darwin_x86_64.tar.gz relicta_Linux_aarch64.tar.gz relicta_Linux_x86_64.tar.gz relicta_Windows_x86_64.zip checksums.txt; do
             gh release delete-asset $VERSION $asset --yes 2>/dev/null || true
           done
@@ -225,11 +178,10 @@ jobs:
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "- **Mode:** ${{ steps.detect.outputs.mode }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Release URL:** https://github.com/${{ github.repository }}/releases/tag/$VERSION" >> $GITHUB_STEP_SUMMARY
 
       - name: Dry run
         if: ${{ inputs.dry-run }}
         run: |
-          bin/relicta plan --dry-run
+          bin/relicta release --yes --dry-run
           echo "Dry run complete - no release created"
