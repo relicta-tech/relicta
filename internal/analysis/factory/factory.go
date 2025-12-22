@@ -21,7 +21,9 @@ type Factory struct {
 func NewFactory(aiService ai.Service) *Factory {
 	return &Factory{
 		astAnalyzers: map[string]analysis.ASTAnalyzer{
-			"go": ast.NewGoAnalyzer(),
+			"go":         ast.NewGoAnalyzer(),
+			"typescript": ast.NewTypeScriptAnalyzer(),
+			"python":     ast.NewPythonAnalyzer(),
 		},
 		aiService: aiService,
 		logger:    slog.Default().With("component", "analysis_factory"),
