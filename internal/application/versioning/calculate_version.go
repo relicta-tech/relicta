@@ -180,6 +180,24 @@ func (uc *SetVersionUseCase) Execute(ctx context.Context, input SetVersionInput)
 	}
 
 	if input.CreateTag {
+		// Check if tag already exists (common in CI when triggered by tag push)
+		existingTag, _ := uc.gitRepo.GetTag(ctx, tagName)
+		if existingTag != nil {
+			// Tag exists, skip creation but still push if requested
+			output.TagCreated = false
+			if input.PushTag {
+				remote := input.Remote
+				if remote == "" {
+					remote = "origin"
+				}
+				if err := uc.gitRepo.PushTag(ctx, tagName, remote); err != nil {
+					return nil, fmt.Errorf("failed to push tag: %w", err)
+				}
+				output.TagPushed = true
+			}
+			return output, nil
+		}
+
 		// Get latest commit
 		repoInfo, err := uc.gitRepo.GetInfo(ctx)
 		if err != nil {

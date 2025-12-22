@@ -25,6 +25,7 @@ type mockGitRepository struct {
 	latestCommit     *sourcecontrol.Commit
 	latestCommitErr  error
 	pushTagErr       error
+	existingTag      *sourcecontrol.Tag // Tag returned by GetTag (for existing tag check)
 }
 
 func (m *mockGitRepository) GetInfo(ctx context.Context) (*sourcecontrol.RepositoryInfo, error) {
@@ -79,7 +80,7 @@ func (m *mockGitRepository) GetTags(ctx context.Context) (sourcecontrol.TagList,
 }
 
 func (m *mockGitRepository) GetTag(ctx context.Context, name string) (*sourcecontrol.Tag, error) {
-	return nil, nil
+	return m.existingTag, nil
 }
 
 func (m *mockGitRepository) GetLatestVersionTag(ctx context.Context, prefix string) (*sourcecontrol.Tag, error) {
@@ -542,6 +543,38 @@ func TestSetVersionUseCase_Execute(t *testing.T) {
 			wantTagName: "v1.0.0",
 			wantCreated: false,
 			wantPushed:  false,
+		},
+		{
+			name: "tag already exists - skips creation",
+			input: SetVersionInput{
+				Version:   version.MustParse("1.0.0"),
+				CreateTag: true,
+				PushTag:   false,
+				DryRun:    false,
+			},
+			gitRepo: &mockGitRepository{
+				existingTag: &sourcecontrol.Tag{}, // Tag already exists
+			},
+			wantErr:     false,
+			wantTagName: "v1.0.0",
+			wantCreated: false, // Should NOT create since tag exists
+			wantPushed:  false,
+		},
+		{
+			name: "tag already exists - push requested",
+			input: SetVersionInput{
+				Version:   version.MustParse("1.0.0"),
+				CreateTag: true,
+				PushTag:   true,
+				DryRun:    false,
+			},
+			gitRepo: &mockGitRepository{
+				existingTag: &sourcecontrol.Tag{}, // Tag already exists
+			},
+			wantErr:     false,
+			wantTagName: "v1.0.0",
+			wantCreated: false, // Should NOT create since tag exists
+			wantPushed:  true,  // Should still push existing tag
 		},
 	}
 
