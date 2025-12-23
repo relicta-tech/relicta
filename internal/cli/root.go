@@ -92,7 +92,7 @@ Key features:
 Get started with 'relicta init' to set up your project.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't need it
-		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "plugin" || cmd.Parent() != nil && cmd.Parent().Name() == "plugin" {
+		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp") {
 			return nil
 		}
 		return initConfig()
@@ -144,6 +144,7 @@ func init() {
 	rootCmd.AddCommand(approveCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(releaseCmd)
+	rootCmd.AddCommand(mcpCmd)
 }
 
 // loadAndValidateConfig loads and validates the configuration.

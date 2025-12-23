@@ -1,22 +1,22 @@
 version: "1.0"
-updated_at: 2025-12-22T22:00:00Z
+updated_at: 2025-12-23T09:15:00Z
 
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
     repository: relicta-tech/plugin-github
-    version: v2.0.0
+    version: v2.0.3
     category: vcs
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-github
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: a2120fd328e610d5fec37eaa9bdfcd0653643741b5c924b1a9c8c4a066ca05f7
-      darwin_x86_64: e2f5db3a79cfb958ec894b813aa440b710a38e09354bacf3ea5ce0de687362c5
-      linux_aarch64: 4c9e113719bedd3065fc44ed84704673d275160dd59e8d4c764c0912b0789945
-      linux_x86_64: dbf02e9094266cde0484f4ac8c1ce0a6319fff19398ae0c482dfdc2790a6777a
-      windows_x86_64: 89231ca3c5b1ce9a3841097a7d1d2abc641948a77e1fb621915f384d3bfb0426
+      darwin_aarch64: 2003ba8575830aff35ed8abb8649f35e5b2cb9171a9b202171ca5956b534de6e
+      darwin_x86_64: c11641e59753d271d12846d55ba0e711b1e8a8f409b3b9e54d583e86203693f4
+      linux_aarch64: 8c64c6485df1deb36a7ba11ec378f10d128cf31fe1da5c305ddc9f7287986617
+      linux_x86_64: 15c6006d999c0c868cb523b7b572bac33e4286ae40cf4eb6e7bdcc8b5ec2d736
+      windows_x86_64: cfdbb252846e1357586b4d755bed2f815106ac2c5e05c1536ec40f5702e21a8c
     hooks:
       - post_publish
       - on_success
