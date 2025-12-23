@@ -122,11 +122,15 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 		return nil
 	}
 
-	// Show plan summary
+	// Show plan summary - use effective bump type for display when ReleaseType is "none"
+	bumpTypeDisplay := planOutput.ReleaseType.String()
+	if bumpTypeDisplay == "none" {
+		bumpTypeDisplay = effectiveBumpType(planOutput.CurrentVersion, planOutput.NextVersion)
+	}
 	fmt.Printf("  Version: %s → %s (%s)\n",
 		planOutput.CurrentVersion.String(),
 		planOutput.NextVersion.String(),
-		planOutput.ReleaseType)
+		bumpTypeDisplay)
 	fmt.Printf("  Commits: %d\n", commitCount)
 	fmt.Println()
 
@@ -489,4 +493,19 @@ func detectReleaseMode(ctx context.Context, c cliApp, tagPrefix string) (release
 	}
 
 	return releaseModeNew, nil, nil
+}
+
+// effectiveBumpType derives the actual bump type from comparing two versions.
+// This is used for display when ReleaseType is "none" but a version bump still occurs.
+func effectiveBumpType(current, next version.SemanticVersion) string {
+	if next.Major() > current.Major() {
+		return "major"
+	}
+	if next.Minor() > current.Minor() {
+		return "minor"
+	}
+	if next.Patch() > current.Patch() {
+		return "patch"
+	}
+	return "none"
 }
