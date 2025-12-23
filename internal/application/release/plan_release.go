@@ -237,11 +237,10 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, fmt.Errorf("failed to set release plan: %w", err)
 	}
 
-	// Save release using UnitOfWork if available
-	if !input.DryRun {
-		if err := uc.saveRelease(ctx, rel); err != nil {
-			return nil, err
-		}
+	// Always save release for workflow state tracking.
+	// DryRun affects external actions (tags, pushes), not internal state.
+	if err := uc.saveRelease(ctx, rel); err != nil {
+		return nil, err
 	}
 
 	return &PlanReleaseOutput{

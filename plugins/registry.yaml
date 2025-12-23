@@ -1,22 +1,22 @@
 version: "1.0"
-updated_at: 2025-12-22T22:00:00Z
+updated_at: 2025-12-23T15:30:00Z
 
 plugins:
   - name: github
     description: Create GitHub releases and upload assets
     repository: relicta-tech/plugin-github
-    version: v2.0.0
+    version: v2.0.3
     category: vcs
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-github
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: a2120fd328e610d5fec37eaa9bdfcd0653643741b5c924b1a9c8c4a066ca05f7
-      darwin_x86_64: e2f5db3a79cfb958ec894b813aa440b710a38e09354bacf3ea5ce0de687362c5
-      linux_aarch64: 4c9e113719bedd3065fc44ed84704673d275160dd59e8d4c764c0912b0789945
-      linux_x86_64: dbf02e9094266cde0484f4ac8c1ce0a6319fff19398ae0c482dfdc2790a6777a
-      windows_x86_64: 89231ca3c5b1ce9a3841097a7d1d2abc641948a77e1fb621915f384d3bfb0426
+      darwin_aarch64: 2003ba8575830aff35ed8abb8649f35e5b2cb9171a9b202171ca5956b534de6e
+      darwin_x86_64: c11641e59753d271d12846d55ba0e711b1e8a8f409b3b9e54d583e86203693f4
+      linux_aarch64: 8c64c6485df1deb36a7ba11ec378f10d128cf31fe1da5c305ddc9f7287986617
+      linux_x86_64: 15c6006d999c0c868cb523b7b572bac33e4286ae40cf4eb6e7bdcc8b5ec2d736
+      windows_x86_64: cfdbb252846e1357586b4d755bed2f815106ac2c5e05c1536ec40f5702e21a8c
     hooks:
       - post_publish
       - on_success
@@ -776,18 +776,18 @@ plugins:
   - name: acr
     description: Push container images to Azure Container Registry
     repository: relicta-tech/plugin-acr
-    version: v1.0.0
+    version: v1.0.6
     category: container
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-acr
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: b52314f285594218832873094683e468d46e235fa5697a4bc9672ae9bf703588
-      darwin_x86_64: bc9e221176041ef6df4d82df2839f212a4ee4110ff8bdc54e8a8c2bdbafa53a4
-      linux_aarch64: d1b56b9b0a030789a9a8722d9cb6f6394c8744953fdf5c01a1476ef7071ab1f5
-      linux_x86_64: 030741a3e62cbf0ad5c0635fc692465bccd674fc5b66b89b2cf10b3737a31b07
-      windows_x86_64: acd5e5cff2251dfcbffd6552041053bf6ba7088057d272075fd9adcf62e6db05
+      darwin_aarch64: b2e6fb7b5b423fde40d9578b61a5a746ca16d2954b45f7ec5e22459bf35680ad
+      darwin_x86_64: 0d1906254b96ccbebb1a986639a47603a18b611452a01b75312fdf64aa7f8716
+      linux_aarch64: afb1b08871887acd27dff67947354dc730db5ae305a23dc01cc6afbc0e453355
+      linux_x86_64: f47616c3f41eb8bf33808c8a3b58cfc64ea53225d77868fbf7e4288bc2493255
+      windows_x86_64: c132731a488c3d76eebe04f7bf44f3d83b3c14f1953a0138e31ee5b5ab8d8547
     hooks:
       - post_publish
     config_schema:

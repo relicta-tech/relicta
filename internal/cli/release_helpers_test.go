@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
@@ -48,6 +49,10 @@ func (r releaseTestApp) HasGovernance() bool                       { return fals
 func (r releaseTestApp) GovernanceService() *governance.Service    { return nil }
 
 func TestRunReleasePlanExecutesUseCase(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
 	planned := newPlanOutput()
 
 	app := releaseTestApp{
@@ -55,7 +60,12 @@ func TestRunReleasePlanExecutesUseCase(t *testing.T) {
 		plan:    &fakePlanUseCase{executeOutput: planned},
 	}
 
-	out, err := runReleasePlan(context.Background(), app)
+	// Create a workflow context for the test (normal release mode)
+	wfCtx := &releaseWorkflowContext{
+		mode: releaseModeNew,
+	}
+
+	out, err := runReleasePlan(context.Background(), app, wfCtx)
 	if err != nil {
 		t.Fatalf("runReleasePlan error: %v", err)
 	}
@@ -87,7 +97,12 @@ func TestRunReleaseBumpUsesForcedVersion(t *testing.T) {
 		},
 	}
 
-	out, err := runReleaseBump(context.Background(), app, plan)
+	// Create a workflow context for the test (normal release mode)
+	wfCtx := &releaseWorkflowContext{
+		mode: releaseModeNew,
+	}
+
+	out, err := runReleaseBump(context.Background(), app, wfCtx, plan)
 	if err != nil {
 		t.Fatalf("runReleaseBump error: %v", err)
 	}
@@ -200,5 +215,264 @@ func TestRunReleasePublishInvokesUseCase(t *testing.T) {
 	}
 	if !fakePub.executeCalled {
 		t.Fatal("expected publish execute called")
+	}
+}
+
+// tagAwareGitRepo is a stub that can return specific tags and commits for testing.
+type tagAwareGitRepo struct {
+	stubGitRepo
+	tags       sourcecontrol.TagList
+	headCommit *sourcecontrol.Commit
+	tagsErr    error
+	commitErr  error
+}
+
+func (r tagAwareGitRepo) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
+	if r.tagsErr != nil {
+		return nil, r.tagsErr
+	}
+	return r.tags, nil
+}
+
+func (r tagAwareGitRepo) GetLatestCommit(ctx context.Context, branch string) (*sourcecontrol.Commit, error) {
+	if r.commitErr != nil {
+		return nil, r.commitErr
+	}
+	return r.headCommit, nil
+}
+
+func newTestCommit(hash sourcecontrol.CommitHash) *sourcecontrol.Commit {
+	return sourcecontrol.NewCommit(hash, "Test commit", sourcecontrol.Author{}, time.Now())
+}
+
+func TestDetectReleaseModeNewRelease(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	headHash := sourcecontrol.CommitHash("abc123")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			headCommit: newTestCommit(headHash),
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("other")),
+				sourcecontrol.NewTag("v1.1.0", sourcecontrol.CommitHash("different")),
+			},
+		},
+	}
+
+	mode, ver, err := detectReleaseMode(context.Background(), app, "v")
+	if err != nil {
+		t.Fatalf("detectReleaseMode error: %v", err)
+	}
+	if mode != releaseModeNew {
+		t.Fatalf("expected releaseModeNew, got %v", mode)
+	}
+	if ver != nil {
+		t.Fatalf("expected nil version, got %v", ver)
+	}
+}
+
+func TestDetectReleaseModeTagPush(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	headHash := sourcecontrol.CommitHash("abc123")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			headCommit: newTestCommit(headHash),
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("other")),
+				sourcecontrol.NewTag("v2.0.0", headHash), // This tag points to HEAD
+			},
+		},
+	}
+
+	mode, ver, err := detectReleaseMode(context.Background(), app, "v")
+	if err != nil {
+		t.Fatalf("detectReleaseMode error: %v", err)
+	}
+	if mode != releaseModeTagPush {
+		t.Fatalf("expected releaseModeTagPush, got %v", mode)
+	}
+	if ver == nil {
+		t.Fatal("expected version, got nil")
+	}
+	if ver.String() != "2.0.0" {
+		t.Fatalf("expected version 2.0.0, got %s", ver.String())
+	}
+}
+
+func TestDetectReleaseModeHandlesGetTagsError(t *testing.T) {
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			headCommit: newTestCommit("abc"),
+			tagsErr:    os.ErrNotExist,
+		},
+	}
+
+	mode, ver, err := detectReleaseMode(context.Background(), app, "v")
+	if err != nil {
+		t.Fatalf("detectReleaseMode error: %v", err)
+	}
+	// Should fall back to new release mode on error
+	if mode != releaseModeNew {
+		t.Fatalf("expected releaseModeNew on error, got %v", mode)
+	}
+	if ver != nil {
+		t.Fatalf("expected nil version on error, got %v", ver)
+	}
+}
+
+func TestDetectReleaseModeHandlesGetCommitError(t *testing.T) {
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			commitErr: os.ErrNotExist,
+		},
+	}
+
+	mode, ver, err := detectReleaseMode(context.Background(), app, "v")
+	if err != nil {
+		t.Fatalf("detectReleaseMode error: %v", err)
+	}
+	if mode != releaseModeNew {
+		t.Fatalf("expected releaseModeNew on error, got %v", mode)
+	}
+	if ver != nil {
+		t.Fatalf("expected nil version on error, got %v", ver)
+	}
+}
+
+func TestFindPreviousVersionTag(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	currentVer := version.MustParse("2.0.0")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("a")),
+				sourcecontrol.NewTag("v1.5.0", sourcecontrol.CommitHash("b")),
+				sourcecontrol.NewTag("v1.9.0", sourcecontrol.CommitHash("c")),
+				sourcecontrol.NewTag("v2.0.0", sourcecontrol.CommitHash("d")),
+				sourcecontrol.NewTag("v2.1.0", sourcecontrol.CommitHash("e")),
+			},
+		},
+	}
+
+	prevTag, err := findPreviousVersionTag(context.Background(), app, &currentVer)
+	if err != nil {
+		t.Fatalf("findPreviousVersionTag error: %v", err)
+	}
+	if prevTag != "v1.9.0" {
+		t.Fatalf("expected v1.9.0, got %s", prevTag)
+	}
+}
+
+func TestFindPreviousVersionTagNoPrevious(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	currentVer := version.MustParse("1.0.0")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("a")),
+				sourcecontrol.NewTag("v2.0.0", sourcecontrol.CommitHash("b")),
+			},
+		},
+	}
+
+	prevTag, err := findPreviousVersionTag(context.Background(), app, &currentVer)
+	if err != nil {
+		t.Fatalf("findPreviousVersionTag error: %v", err)
+	}
+	if prevTag != "" {
+		t.Fatalf("expected empty string, got %s", prevTag)
+	}
+}
+
+func TestFindPreviousVersionTagHandlesError(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	currentVer := version.MustParse("2.0.0")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			tagsErr: os.ErrNotExist,
+		},
+	}
+
+	_, err := findPreviousVersionTag(context.Background(), app, &currentVer)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestDetectWorkflowContextNewRelease(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	headHash := sourcecontrol.CommitHash("abc123")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			headCommit: newTestCommit(headHash),
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("other")),
+			},
+		},
+	}
+
+	wfCtx, err := detectWorkflowContext(context.Background(), app)
+	if err != nil {
+		t.Fatalf("detectWorkflowContext error: %v", err)
+	}
+	if wfCtx.mode != releaseModeNew {
+		t.Fatalf("expected releaseModeNew, got %v", wfCtx.mode)
+	}
+	if wfCtx.existingVersion != nil {
+		t.Fatalf("expected nil existingVersion, got %v", wfCtx.existingVersion)
+	}
+	if wfCtx.prevTagName != "" {
+		t.Fatalf("expected empty prevTagName, got %s", wfCtx.prevTagName)
+	}
+}
+
+func TestDetectWorkflowContextTagPush(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = config.DefaultConfig()
+
+	headHash := sourcecontrol.CommitHash("abc123")
+	app := releaseTestApp{
+		gitRepo: tagAwareGitRepo{
+			headCommit: newTestCommit(headHash),
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("prev")),
+				sourcecontrol.NewTag("v2.0.0", headHash), // HEAD is tagged
+			},
+		},
+	}
+
+	wfCtx, err := detectWorkflowContext(context.Background(), app)
+	if err != nil {
+		t.Fatalf("detectWorkflowContext error: %v", err)
+	}
+	if wfCtx.mode != releaseModeTagPush {
+		t.Fatalf("expected releaseModeTagPush, got %v", wfCtx.mode)
+	}
+	if wfCtx.existingVersion == nil {
+		t.Fatal("expected existingVersion, got nil")
+	}
+	if wfCtx.existingVersion.String() != "2.0.0" {
+		t.Fatalf("expected version 2.0.0, got %s", wfCtx.existingVersion.String())
+	}
+	if wfCtx.prevTagName != "v1.0.0" {
+		t.Fatalf("expected prevTagName v1.0.0, got %s", wfCtx.prevTagName)
 	}
 }

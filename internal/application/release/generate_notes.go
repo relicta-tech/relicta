@@ -103,6 +103,14 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	plan := rel.Plan()
 	changeSet := plan.GetChangeSet()
 
+	// Use actual release version if set (by SetVersion in bump step),
+	// otherwise fall back to planned version. This handles tag-push mode
+	// where the existing tag version may differ from the calculated one.
+	releaseVersion := plan.NextVersion
+	if rel.Version() != nil {
+		releaseVersion = *rel.Version()
+	}
+
 	var notes *communication.ReleaseNotes
 	var changelog *communication.Changelog
 
@@ -120,17 +128,17 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 				"error", err,
 				"release_id", rel.ID())
 			// Fall back to standard generation
-			notes = communication.CreateFromChangeSet(plan.NextVersion, changeSet)
+			notes = communication.CreateFromChangeSet(releaseVersion, changeSet)
 		}
 	} else {
 		// Standard generation from changeset
-		notes = communication.CreateFromChangeSet(plan.NextVersion, changeSet)
+		notes = communication.CreateFromChangeSet(releaseVersion, changeSet)
 	}
 
 	// Generate changelog if requested
 	if input.IncludeChangelog {
 		changelog = communication.NewChangelog("Changelog", communication.FormatKeepAChangelog)
-		entry := communication.CreateEntryFromChangeSet(plan.NextVersion, changeSet, input.RepositoryURL)
+		entry := communication.CreateEntryFromChangeSet(releaseVersion, changeSet, input.RepositoryURL)
 		changelog.AddEntry(entry)
 	}
 

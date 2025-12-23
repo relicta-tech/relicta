@@ -177,6 +177,16 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 	defer closeApp(app)
 
+	// Check for tag-push mode (HEAD is already tagged)
+	mode, existingVersion, err := detectReleaseMode(ctx, app, cfg.Versioning.TagPrefix)
+	if err != nil {
+		return fmt.Errorf("failed to detect release mode: %w", err)
+	}
+
+	if mode == releaseModeTagPush && existingVersion != nil {
+		return runBumpTagPush(ctx, app, *existingVersion)
+	}
+
 	// Parse bump type from flag
 	bumpType, auto, err := parseBumpLevel(bumpLevel)
 	if err != nil {
@@ -230,6 +240,102 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	printBumpNextSteps()
+	return nil
+}
+
+// runBumpTagPush handles the tag-push scenario where HEAD is already tagged.
+// If the calculated version matches the existing tag, it skips creating a new tag.
+// If the calculated version is different, it proceeds with the new version.
+func runBumpTagPush(ctx context.Context, app cliApp, existingVer version.SemanticVersion) error {
+	existingTag := cfg.Versioning.TagPrefix + existingVer.String()
+
+	printInfo(fmt.Sprintf("HEAD is already tagged: %s", existingTag))
+
+	// Calculate what version would be needed based on commits
+	calcInput := buildCalculateVersionInput(version.BumpType(""), true)
+	calcOutput, err := app.CalculateVersion().Execute(ctx, calcInput)
+	if err != nil {
+		// Can't calculate - use existing version
+		printInfo("Could not calculate version, using existing tag")
+		return finishBumpTagPush(ctx, app, existingVer, existingVer, false)
+	}
+
+	// Compare calculated version with existing tag
+	if calcOutput.NextVersion.Compare(existingVer) == 0 {
+		// Versions match - skip creating new tag
+		printInfo("Calculated version matches existing tag - skipping bump")
+		return finishBumpTagPush(ctx, app, existingVer, existingVer, false)
+	}
+
+	// Versions differ - proceed with new version
+	printWarning(fmt.Sprintf("Calculated version %s differs from existing tag %s",
+		calcOutput.NextVersion.String(), existingVer.String()))
+	printInfo(fmt.Sprintf("Proceeding with calculated version: %s", calcOutput.NextVersion.String()))
+
+	return finishBumpTagPush(ctx, app, existingVer, calcOutput.NextVersion, true)
+}
+
+// finishBumpTagPush completes the tag-push bump operation.
+func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer version.SemanticVersion, createNewTag bool) error {
+	tagName := cfg.Versioning.TagPrefix + targetVer.String()
+	existingTagName := cfg.Versioning.TagPrefix + existingVer.String()
+
+	// Create new tag and delete old one if needed
+	if createNewTag && !dryRun {
+		// Delete the old tag first
+		gitAdapter := app.GitAdapter()
+		if err := gitAdapter.DeleteTag(ctx, existingTagName); err != nil {
+			printWarning(fmt.Sprintf("Could not delete old tag %s: %v", existingTagName, err))
+		} else {
+			printInfo(fmt.Sprintf("Deleted old tag %s", existingTagName))
+		}
+
+		// Create new tag
+		setInput := buildSetVersionInput(targetVer, bumpCreateTag, bumpPush, dryRun)
+		setOutput, err := app.SetVersion().Execute(ctx, setInput)
+		if err != nil {
+			return fmt.Errorf("failed to create version tag: %w", err)
+		}
+		if setOutput.TagCreated {
+			printSuccess(fmt.Sprintf("Created tag %s", setOutput.TagName))
+		}
+		if setOutput.TagPushed {
+			printSuccess("Tag pushed to remote")
+		}
+	}
+
+	// Update release state
+	if !dryRun {
+		if err := updateReleaseVersion(ctx, app, targetVer); err != nil {
+			printInfo("No active release to update")
+		} else {
+			printSuccess(fmt.Sprintf("Release state updated with version %s", targetVer.String()))
+		}
+	}
+
+	if outputJSON {
+		output := map[string]any{
+			"mode":            "tag-push",
+			"existing_tag":    cfg.Versioning.TagPrefix + existingVer.String(),
+			"current_version": existingVer.String(),
+			"next_version":    targetVer.String(),
+			"tag_name":        tagName,
+			"tag_created":     createNewTag,
+		}
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(output)
+	}
+
+	// Show next steps
+	fmt.Println()
+	printTitle("Next Steps")
+	fmt.Println()
+	fmt.Println("  1. Run 'relicta notes' to generate release notes")
+	fmt.Println("  2. Run 'relicta approve --yes' to approve the release")
+	fmt.Println("  3. Run 'relicta publish --skip-push' to execute the release")
+	fmt.Println()
+
 	return nil
 }
 

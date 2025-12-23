@@ -5,13 +5,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
@@ -30,6 +28,17 @@ const (
 	// releaseModeTagPush is triggered when HEAD is already tagged (e.g., tag push in CI).
 	releaseModeTagPush
 )
+
+// releaseWorkflowSteps is the total number of steps in the release workflow.
+const releaseWorkflowSteps = 5
+
+// releaseWorkflowContext holds shared state for the release workflow.
+// This ensures mode detection happens once and state is shared between steps.
+type releaseWorkflowContext struct {
+	mode            releaseMode
+	existingVersion *version.SemanticVersion
+	prevTagName     string // Previous version tag for commit range
+}
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
@@ -64,6 +73,8 @@ func init() {
 }
 
 // runRelease implements the release command - full workflow in one step.
+// The helper functions (runReleasePlan, runReleaseBump) detect and handle
+// tag-push mode internally, so no explicit mode detection is needed here.
 func runRelease(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
@@ -81,26 +92,22 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	}
 	defer closeApp(app)
 
-	// Detect release mode (normal vs tag-push)
-	mode, existingVersion, err := detectReleaseMode(ctx, app, cfg.Versioning.TagPrefix)
+	// Run the release workflow - helpers detect tag-push mode internally
+	return runReleaseWorkflow(ctx, app)
+}
+
+// runReleaseWorkflow executes the 5-step release workflow using helper functions.
+// Mode detection happens once at the start and is shared via releaseWorkflowContext.
+func runReleaseWorkflow(ctx context.Context, app cliApp) error {
+	// Detect release mode once at the start
+	wfCtx, err := detectWorkflowContext(ctx, app)
 	if err != nil {
 		return fmt.Errorf("failed to detect release mode: %w", err)
 	}
 
-	// Handle tag-push mode (HEAD is already tagged)
-	if mode == releaseModeTagPush && existingVersion != nil {
-		return runReleaseTagPush(ctx, app, *existingVersion)
-	}
-
-	// Normal release flow
-	return runReleaseNew(ctx, app)
-}
-
-// runReleaseNew runs the normal release workflow for new commits.
-func runReleaseNew(ctx context.Context, app cliApp) error {
 	// Step 1: Plan
-	printStep(1, 5, "Planning release")
-	planOutput, err := runReleasePlan(ctx, app)
+	printStep(1, releaseWorkflowSteps, "Planning release")
+	planOutput, err := runReleasePlan(ctx, app, wfCtx)
 	if err != nil {
 		return fmt.Errorf("plan failed: %w", err)
 	}
@@ -124,16 +131,20 @@ func runReleaseNew(ctx context.Context, app cliApp) error {
 	fmt.Println()
 
 	// Step 2: Bump version
-	printStep(2, 5, "Bumping version")
-	bumpOutput, err := runReleaseBump(ctx, app, planOutput)
+	printStep(2, releaseWorkflowSteps, "Bumping version")
+	bumpOutput, err := runReleaseBump(ctx, app, wfCtx, planOutput)
 	if err != nil {
 		return fmt.Errorf("bump failed: %w", err)
 	}
-	fmt.Printf("  Created tag: %s\n", bumpOutput.TagName)
+	if bumpOutput.TagCreated {
+		fmt.Printf("  Created tag: %s\n", bumpOutput.TagName)
+	} else {
+		fmt.Printf("  Using tag: %s\n", bumpOutput.TagName)
+	}
 	fmt.Println()
 
 	// Step 3: Generate notes
-	printStep(3, 5, "Generating release notes")
+	printStep(3, releaseWorkflowSteps, "Generating release notes")
 	notesOutput, err := runReleaseNotes(ctx, app, planOutput)
 	if err != nil {
 		return fmt.Errorf("notes failed: %w", err)
@@ -144,7 +155,7 @@ func runReleaseNew(ctx context.Context, app cliApp) error {
 	fmt.Println()
 
 	// Step 4: Approve
-	printStep(4, 5, "Reviewing release")
+	printStep(4, releaseWorkflowSteps, "Reviewing release")
 	approved, err := runReleaseApprove(ctx, app, planOutput, notesOutput, releaseAutoApprove)
 	if err != nil {
 		return fmt.Errorf("approval failed: %w", err)
@@ -156,7 +167,7 @@ func runReleaseNew(ctx context.Context, app cliApp) error {
 	fmt.Println()
 
 	// Step 5: Publish
-	printStep(5, 5, "Publishing release")
+	printStep(5, releaseWorkflowSteps, "Publishing release")
 	if dryRun {
 		printInfo("Dry run - skipping actual publish")
 		printSuccess("Release workflow completed (dry run)")
@@ -195,166 +206,53 @@ func runReleaseNew(ctx context.Context, app cliApp) error {
 	return nil
 }
 
-// runReleaseTagPush handles the tag-push scenario where HEAD is already tagged.
-// This is common in CI/CD when the workflow is triggered by a tag push.
-func runReleaseTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
-	tagName := cfg.Versioning.TagPrefix + ver.String()
-
-	printInfo(fmt.Sprintf("Detected existing tag: %s", tagName))
-	printInfo("Running in tag-push mode - skipping plan and bump")
-	fmt.Println()
-
-	// Step 1: Get commits for the existing tag to generate notes
-	printStep(1, 3, "Analyzing changes for existing tag")
-	gitAdapter := app.GitAdapter()
-	repoInfo, err := gitAdapter.GetInfo(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get repository info: %w", err)
-	}
-
-	// Get previous version tag to find commits between
-	tags, err := gitAdapter.GetTags(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get tags: %w", err)
-	}
-
-	// Find the previous version tag (the highest version that is less than current)
-	var prevTagName string
-	var prevVersion *version.SemanticVersion
-	versionTags := tags.FilterByPrefix(cfg.Versioning.TagPrefix).VersionTags()
-	for _, t := range versionTags {
-		tagVer := t.Version()
-		if tagVer != nil && tagVer.LessThan(ver) {
-			if prevVersion == nil || tagVer.GreaterThan(*prevVersion) {
-				prevTagName = t.Name()
-				prevVersion = tagVer
-			}
-		}
-	}
-
-	// Get commits between previous tag and current
-	var commitCount int
-	if prevTagName != "" {
-		commits, err := gitAdapter.GetCommitsBetween(ctx, prevTagName, tagName)
-		if err != nil {
-			printWarning(fmt.Sprintf("Could not get commits: %v", err))
-		} else {
-			commitCount = len(commits)
-		}
-	}
-
-	fmt.Printf("  Found %d commits since %s\n", commitCount, prevTagName)
-	fmt.Println()
-
-	// Create a plan for the existing tag
-	planInput := apprelease.PlanReleaseInput{
-		RepositoryPath: repoInfo.Path,
-		Branch:         repoInfo.CurrentBranch,
-		FromRef:        prevTagName,
-		ToRef:          tagName,
-		DryRun:         dryRun,
-		TagPrefix:      cfg.Versioning.TagPrefix,
-	}
-
-	planOutput, err := app.PlanRelease().Execute(ctx, planInput)
-	if err != nil {
-		// If plan fails (e.g., no commits), create a minimal plan
-		printWarning(fmt.Sprintf("Plan failed: %v - using minimal plan", err))
-		planOutput = &apprelease.PlanReleaseOutput{
-			ReleaseID:      release.ReleaseID(fmt.Sprintf("rel-%d", time.Now().UnixNano())),
-			CurrentVersion: ver, // Use same as next for existing tag
-			NextVersion:    ver,
-			ReleaseType:    "patch",
-		}
-	}
-
-	// Override with the actual version from the tag
-	planOutput.NextVersion = ver
-
-	// Step 2: Generate notes
-	printStep(2, 3, "Generating release notes")
-	notesOutput, err := runReleaseNotes(ctx, app, planOutput)
-	if err != nil {
-		printWarning(fmt.Sprintf("Notes generation failed: %v", err))
-		// Continue anyway - we can publish without notes
-	} else if notesOutput.ReleaseNotes != nil {
-		fmt.Printf("  Generated release notes: %s\n", notesOutput.ReleaseNotes.Title())
-	}
-	fmt.Println()
-
-	// Auto-approve in tag-push mode (the tag exists, user already approved by pushing)
-	if !releaseAutoApprove {
-		printInfo("Auto-approving (tag already exists)")
-	}
-	approveInput := apprelease.ApproveReleaseInput{
-		ReleaseID:  planOutput.ReleaseID,
-		ApprovedBy: "tag-push-auto",
-	}
-	_, _ = app.ApproveRelease().Execute(ctx, approveInput)
-
-	// Step 3: Publish
-	printStep(3, 3, "Publishing release")
-	if dryRun {
-		printInfo("Dry run - skipping actual publish")
-		printSuccess(fmt.Sprintf("Release workflow completed for %s (dry run)", tagName))
-		return nil
-	}
-
-	// Publish - tag already exists, just run plugins
-	publishInput := apprelease.PublishReleaseInput{
-		ReleaseID: planOutput.ReleaseID,
-		DryRun:    dryRun,
-		CreateTag: false, // Tag already exists
-		PushTag:   false, // Tag already pushed (triggered by tag push)
-		TagPrefix: cfg.Versioning.TagPrefix,
-		Remote:    "origin",
-	}
-
-	publishOutput, err := app.PublishRelease().Execute(ctx, publishInput)
-	if err != nil {
-		return fmt.Errorf("publish failed: %w", err)
-	}
-
-	fmt.Println()
-	printSuccess(fmt.Sprintf("Released %s successfully!", ver.String()))
-
-	if publishOutput.TagName != "" {
-		fmt.Printf("  ✓ Tag: %s\n", publishOutput.TagName)
-	}
-	if publishOutput.ReleaseURL != "" {
-		fmt.Printf("  ✓ URL: %s\n", publishOutput.ReleaseURL)
-	}
-	for _, pr := range publishOutput.PluginResults {
-		if pr.Success {
-			fmt.Printf("  ✓ Plugin %s: %s\n", pr.PluginName, pr.Message)
-		}
-	}
-
-	return nil
-}
-
-// runReleasePlan executes the plan step.
-func runReleasePlan(ctx context.Context, c cliApp) (*apprelease.PlanReleaseOutput, error) {
+// runReleasePlan executes the plan step using the shared workflow context.
+// In tag-push mode, it plans for the existing tag instead of HEAD.
+func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext) (*apprelease.PlanReleaseOutput, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
+	// Use pre-detected mode from workflow context
+	var fromRef, toRef string
+	if wfCtx.mode == releaseModeTagPush && wfCtx.existingVersion != nil {
+		// In tag-push mode, plan for the existing tag
+		tagName := cfg.Versioning.TagPrefix + wfCtx.existingVersion.String()
+		toRef = tagName
+		fromRef = wfCtx.prevTagName // Use pre-computed previous tag
+	} else {
+		fromRef = "" // Use latest tag
+		toRef = "HEAD"
+	}
+
 	input := apprelease.PlanReleaseInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
-		FromRef:        "", // Use latest tag
-		ToRef:          "HEAD",
+		FromRef:        fromRef,
+		ToRef:          toRef,
 		DryRun:         dryRun,
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
-	return c.PlanRelease().Execute(ctx, input)
+	output, err := c.PlanRelease().Execute(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute plan: %w", err)
+	}
+
+	// In tag-push mode, ensure next version matches the existing tag
+	if wfCtx.mode == releaseModeTagPush && wfCtx.existingVersion != nil {
+		output.NextVersion = *wfCtx.existingVersion
+	}
+
+	return output, nil
 }
 
-// runReleaseBump executes the bump step.
-func runReleaseBump(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
+// runReleaseBump executes the bump step using the shared workflow context.
+// In tag-push mode, it skips tag creation since the tag already exists.
+// Tag creation is handled here; publish step does not create tags.
+func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
 	var ver version.SemanticVersion
 	if releaseForce != "" {
 		parsed, err := version.Parse(releaseForce)
@@ -366,10 +264,16 @@ func runReleaseBump(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseO
 		ver = plan.NextVersion
 	}
 
+	// Use pre-detected mode: skip tag creation if tag already exists
+	createTag := cfg.Versioning.GitTag
+	if wfCtx.mode == releaseModeTagPush && wfCtx.existingVersion != nil && wfCtx.existingVersion.Compare(ver) == 0 {
+		createTag = false // Tag already exists
+	}
+
 	input := versioning.SetVersionInput{
 		Version:    ver,
 		TagPrefix:  cfg.Versioning.TagPrefix,
-		CreateTag:  cfg.Versioning.GitTag,
+		CreateTag:  createTag,
 		PushTag:    cfg.Versioning.GitPush && !releaseSkipPush,
 		Remote:     "origin",
 		TagMessage: fmt.Sprintf("Release %s", ver.String()),
@@ -378,11 +282,13 @@ func runReleaseBump(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseO
 
 	output, err := c.SetVersion().Execute(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set version: %w", err)
 	}
 
-	// Update release state (same as bump command - non-fatal if fails)
-	_ = updateReleaseVersion(ctx, c, output.Version)
+	// Update release state - MUST succeed for workflow to continue
+	if err := updateReleaseVersion(ctx, c, output.Version); err != nil {
+		return nil, fmt.Errorf("failed to update release state: %w", err)
+	}
 
 	return output, nil
 }
@@ -398,7 +304,11 @@ func runReleaseNotes(ctx context.Context, c cliApp, plan *apprelease.PlanRelease
 		RepositoryURL:    cfg.Changelog.RepositoryURL,
 	}
 
-	return c.GenerateNotes().Execute(ctx, input)
+	output, err := c.GenerateNotes().Execute(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate notes: %w", err)
+	}
+	return output, nil
 }
 
 // runReleaseApprove handles the approval step.
@@ -469,17 +379,22 @@ func runReleaseApprove(ctx context.Context, c cliApp, plan *apprelease.PlanRelea
 }
 
 // runReleasePublish executes the publish step.
+// Tag creation is handled by runReleaseBump; this step only publishes.
 func runReleasePublish(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
 	input := apprelease.PublishReleaseInput{
 		ReleaseID: plan.ReleaseID,
 		DryRun:    dryRun,
-		CreateTag: cfg.Versioning.GitTag && !releaseSkipPush,
-		PushTag:   cfg.Versioning.GitPush && !releaseSkipPush,
+		CreateTag: false, // Tag created by bump step
+		PushTag:   false, // Tag pushed by bump step
 		TagPrefix: cfg.Versioning.TagPrefix,
 		Remote:    "origin",
 	}
 
-	return c.PublishRelease().Execute(ctx, input)
+	output, err := c.PublishRelease().Execute(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to publish release: %w", err)
+	}
+	return output, nil
 }
 
 // Helper functions
@@ -495,6 +410,55 @@ func printSubtitle(s string) {
 func isTerminal() bool {
 	fileInfo, _ := os.Stdout.Stat()
 	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
+
+// detectWorkflowContext creates a releaseWorkflowContext by detecting the mode once.
+// This includes finding the existing version if HEAD is tagged, and the previous tag for commit range.
+func detectWorkflowContext(ctx context.Context, c cliApp) (*releaseWorkflowContext, error) {
+	mode, existingVer, err := detectReleaseMode(ctx, c, cfg.Versioning.TagPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	wfCtx := &releaseWorkflowContext{
+		mode:            mode,
+		existingVersion: existingVer,
+	}
+
+	// In tag-push mode, find the previous tag for commit range
+	if mode == releaseModeTagPush && existingVer != nil {
+		prevTag, err := findPreviousVersionTag(ctx, c, existingVer)
+		if err == nil && prevTag != "" {
+			wfCtx.prevTagName = prevTag
+		}
+	}
+
+	return wfCtx, nil
+}
+
+// findPreviousVersionTag finds the highest version tag that is less than the given version.
+func findPreviousVersionTag(ctx context.Context, c cliApp, currentVer *version.SemanticVersion) (string, error) {
+	tags, err := c.GitAdapter().GetTags(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	var prevTagName string
+	var prevVer version.SemanticVersion
+
+	for _, t := range tags.FilterByPrefix(cfg.Versioning.TagPrefix).VersionTags() {
+		tagVer := t.Version()
+		if tagVer == nil || !tagVer.LessThan(*currentVer) {
+			continue
+		}
+		// Find the highest version less than current
+		if prevTagName == "" || tagVer.GreaterThan(prevVer) {
+			prevTagName = t.Name()
+			prevVer = *tagVer
+		}
+	}
+
+	return prevTagName, nil
 }
 
 // detectReleaseMode determines if this is a tag-push scenario.
