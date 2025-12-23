@@ -30,6 +30,9 @@ type Server struct {
 	riskCalc     *risk.Calculator
 	evaluator    *evaluator.Evaluator
 
+	// Application layer adapter
+	adapter *Adapter
+
 	// Tool and resource handlers
 	tools     map[string]ToolHandler
 	resources map[string]ResourceHandler
@@ -94,6 +97,13 @@ func WithRiskCalculator(rc *risk.Calculator) ServerOption {
 func WithEvaluator(ev *evaluator.Evaluator) ServerOption {
 	return func(s *Server) {
 		s.evaluator = ev
+	}
+}
+
+// WithAdapter sets the application layer adapter.
+func WithAdapter(adapter *Adapter) ServerOption {
+	return func(s *Server) {
+		s.adapter = adapter
 	}
 }
 
@@ -393,6 +403,30 @@ func (s *Server) registerPrompts() {
 // Tool implementations
 
 func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return NewToolResult("No active release found. Run 'relicta plan' to start a new release."), nil
+		}
+
+		result := map[string]any{
+			"release_id":  status.ReleaseID,
+			"state":       status.State,
+			"version":     status.Version,
+			"created":     status.CreatedAt,
+			"updated":     status.UpdatedAt,
+			"can_approve": status.CanApprove,
+		}
+
+		if status.ApprovalMsg != "" {
+			result["approval_message"] = status.ApprovalMsg
+		}
+
+		return NewToolResultJSON(result)
+	}
+
+	// Fallback to direct repository access
 	if s.releaseRepo == nil {
 		return NewToolResult("No release repository configured. Run 'relicta plan' first."), nil
 	}
@@ -418,7 +452,42 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 }
 
 func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-	return NewToolResult("Plan tool called - integration with PlanRelease use case pending"), nil
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasPlanUseCase() {
+		fromRef := ""
+		if v, ok := args["from"].(string); ok && v != "auto" {
+			fromRef = v
+		}
+		analyze := false
+		if v, ok := args["analyze"].(bool); ok {
+			analyze = v
+		}
+		_ = analyze // analyze flag used for detailed commit analysis
+
+		input := PlanInput{
+			FromRef: fromRef,
+		}
+
+		output, err := s.adapter.Plan(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Plan failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"release_id":      output.ReleaseID,
+			"current_version": output.CurrentVersion,
+			"next_version":    output.NextVersion,
+			"release_type":    output.ReleaseType,
+			"commit_count":    output.CommitCount,
+			"has_breaking":    output.HasBreaking,
+			"has_features":    output.HasFeatures,
+			"has_fixes":       output.HasFixes,
+		}
+
+		return NewToolResultJSON(result)
+	}
+
+	return NewToolResult("Plan tool called - run 'relicta mcp serve' with configured dependencies"), nil
 }
 
 func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolResult, error) {
@@ -431,10 +500,37 @@ func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolRe
 		version = v
 	}
 
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasCalculateVersionUseCase() {
+		input := BumpInput{
+			BumpType: bumpType,
+			Version:  version,
+		}
+
+		output, err := s.adapter.Bump(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Bump failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"current_version": output.CurrentVersion,
+			"next_version":    output.NextVersion,
+			"bump_type":       output.BumpType,
+			"auto_detected":   output.AutoDetected,
+		}
+
+		if output.TagName != "" {
+			result["tag_name"] = output.TagName
+			result["tag_created"] = output.TagCreated
+		}
+
+		return NewToolResultJSON(result)
+	}
+
 	result := map[string]any{
 		"bump_type": bumpType,
 		"version":   version,
-		"status":    "pending implementation",
+		"status":    "run 'relicta mcp serve' with configured dependencies",
 	}
 
 	return NewToolResultJSON(result)
@@ -446,15 +542,78 @@ func (s *Server) toolNotes(ctx context.Context, args map[string]any) (*CallToolR
 		useAI = v
 	}
 
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasGenerateNotesUseCase() && s.adapter.HasReleaseRepository() {
+		// Get active release ID
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+		}
+
+		input := NotesInput{
+			ReleaseID:        status.ReleaseID,
+			UseAI:            useAI,
+			IncludeChangelog: true,
+		}
+
+		output, err := s.adapter.Notes(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Notes generation failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"summary":      output.Summary,
+			"ai_generated": output.AIGenerated,
+		}
+
+		if output.Changelog != "" {
+			result["changelog"] = output.Changelog
+		}
+
+		return NewToolResultJSON(result)
+	}
+
 	result := map[string]any{
 		"use_ai": useAI,
-		"status": "pending implementation",
+		"status": "run 'relicta mcp serve' with configured dependencies",
 	}
 
 	return NewToolResultJSON(result)
 }
 
 func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+	// Use adapter for full governance evaluation if available
+	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseRepository() {
+		// Get active release ID
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+		}
+
+		input := EvaluateInput{
+			ReleaseID:      status.ReleaseID,
+			IncludeHistory: true,
+		}
+
+		output, err := s.adapter.Evaluate(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Evaluation failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"decision":         output.Decision,
+			"risk_score":       output.RiskScore,
+			"severity":         output.Severity,
+			"can_auto_approve": output.CanAutoApprove,
+			"required_actions": output.RequiredActions,
+			"risk_factors":     output.RiskFactors,
+			"rationale":        output.Rationale,
+		}
+
+		return NewToolResultJSON(result)
+	}
+
+	// Fallback to basic risk calculation
 	if s.riskCalc == nil {
 		return NewToolResultError("Risk calculator not configured"), nil
 	}
@@ -496,9 +655,38 @@ func (s *Server) toolApprove(ctx context.Context, args map[string]any) (*CallToo
 		notes = v
 	}
 
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasApproveUseCase() && s.adapter.HasReleaseRepository() {
+		// Get active release ID
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+		}
+
+		input := ApproveInput{
+			ReleaseID:   status.ReleaseID,
+			ApprovedBy:  "mcp-agent",
+			AutoApprove: true,
+			EditedNotes: notes,
+		}
+
+		output, err := s.adapter.Approve(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Approval failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"approved":    output.Approved,
+			"approved_by": output.ApprovedBy,
+			"version":     output.Version,
+		}
+
+		return NewToolResultJSON(result)
+	}
+
 	result := map[string]any{
 		"notes":  notes,
-		"status": "pending implementation",
+		"status": "run 'relicta mcp serve' with configured dependencies",
 	}
 
 	return NewToolResultJSON(result)
@@ -510,9 +698,51 @@ func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToo
 		dryRun = v
 	}
 
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasPublishUseCase() && s.adapter.HasReleaseRepository() {
+		// Get active release ID
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+		}
+
+		input := PublishInput{
+			ReleaseID: status.ReleaseID,
+			DryRun:    dryRun,
+			CreateTag: true,
+			PushTag:   !dryRun,
+		}
+
+		output, err := s.adapter.Publish(ctx, input)
+		if err != nil {
+			return NewToolResultError(fmt.Sprintf("Publish failed: %v", err)), nil
+		}
+
+		result := map[string]any{
+			"tag_name":    output.TagName,
+			"release_url": output.ReleaseURL,
+			"dry_run":     dryRun,
+		}
+
+		if len(output.PluginResults) > 0 {
+			plugins := make([]map[string]any, 0, len(output.PluginResults))
+			for _, pr := range output.PluginResults {
+				plugins = append(plugins, map[string]any{
+					"plugin":  pr.PluginName,
+					"hook":    pr.Hook,
+					"success": pr.Success,
+					"message": pr.Message,
+				})
+			}
+			result["plugin_results"] = plugins
+		}
+
+		return NewToolResultJSON(result)
+	}
+
 	result := map[string]any{
 		"dry_run": dryRun,
-		"status":  "pending implementation",
+		"status":  "run 'relicta mcp serve' with configured dependencies",
 	}
 
 	return NewToolResultJSON(result)
