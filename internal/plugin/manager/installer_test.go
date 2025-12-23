@@ -349,7 +349,7 @@ func TestInstaller_FindBinary(t *testing.T) {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
 
-	found := installer.findBinary(extractDir, "github")
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
 
 	if found == "" {
 		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
@@ -369,7 +369,7 @@ func TestInstaller_FindBinary_SimpleName(t *testing.T) {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
 
-	found := installer.findBinary(extractDir, "github")
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
 
 	if found == "" {
 		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
@@ -392,8 +392,9 @@ func TestInstaller_FindBinary_RepoBasedName(t *testing.T) {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
 
-	// Search for "github" - it should still find "plugin-github_*"
-	found := installer.findBinary(extractDir, "github")
+	// Search for "github" with repository "relicta-tech/plugin-github"
+	// It should find "plugin-github_*" by extracting repo name from the registry
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
 
 	if found == "" {
 		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)

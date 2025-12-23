@@ -104,7 +104,8 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 	}
 
 	// Find the binary in the extracted directory
-	extractedBinary := i.findBinary(extractDir, pluginInfo.Name)
+	// Pass both plugin name and repository so we can search for all valid naming conventions
+	extractedBinary := i.findBinary(extractDir, pluginInfo.Name, pluginInfo.Repository)
 	if extractedBinary == "" {
 		return nil, fmt.Errorf("binary not found in archive")
 	}
@@ -362,7 +363,9 @@ func (i *Installer) extractZipFile(f *zip.File, target string) error {
 }
 
 // findBinary searches for the plugin binary in the extracted directory.
-func (i *Installer) findBinary(extractDir, pluginName string) string {
+// It accepts both the plugin name (e.g., "github") and repository (e.g., "relicta-tech/plugin-github")
+// to search for all valid binary naming conventions used by release workflows.
+func (i *Installer) findBinary(extractDir, pluginName, repository string) string {
 	// Build list of possible binary names
 	possibleNames := []string{pluginName}
 
@@ -378,20 +381,21 @@ func (i *Installer) findBinary(extractDir, pluginName string) string {
 	platformName := fmt.Sprintf("%s_%s_%s", pluginName, goos, goarch)
 	possibleNames = append(possibleNames, platformName)
 
-	// Also look for repo-based names (e.g., plugin-github, plugin-github_darwin_aarch64)
-	// This handles the case where archives use the full repo name for binaries
-	repoBasedName := "plugin-" + pluginName
-	repoBasedPlatformName := fmt.Sprintf("%s_%s_%s", repoBasedName, goos, goarch)
-	possibleNames = append(possibleNames, repoBasedName, repoBasedPlatformName)
+	// Extract repo name from repository field (e.g., "relicta-tech/plugin-github" -> "plugin-github")
+	// This is the source of truth for binary naming in release archives
+	if parts := strings.Split(repository, "/"); len(parts) == 2 {
+		repoName := parts[1]
+		repoBasedPlatformName := fmt.Sprintf("%s_%s_%s", repoName, goos, goarch)
+		possibleNames = append(possibleNames, repoName, repoBasedPlatformName)
+	}
 
 	// Add .exe suffix for Windows
 	if runtime.GOOS == "windows" {
-		possibleNames = []string{
-			pluginName + ".exe",
-			platformName + ".exe",
-			repoBasedName + ".exe",
-			repoBasedPlatformName + ".exe",
+		var windowsNames []string
+		for _, name := range possibleNames {
+			windowsNames = append(windowsNames, name+".exe")
 		}
+		possibleNames = windowsNames
 	}
 
 	var foundPath string
