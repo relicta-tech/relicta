@@ -136,8 +136,9 @@ func TestInstaller_GetArchiveName(t *testing.T) {
 	installer := NewInstaller(t.TempDir())
 
 	info := PluginInfo{
-		Name:    "github",
-		Version: "v1.0.0",
+		Name:       "github",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/plugin-github",
 	}
 
 	archiveName := installer.getArchiveName(info)
@@ -147,9 +148,9 @@ func TestInstaller_GetArchiveName(t *testing.T) {
 		t.Errorf("getArchiveName() = %q, should end with .tar.gz or .zip", archiveName)
 	}
 
-	// Should start with plugin name
-	if !strings.HasPrefix(archiveName, "github_") {
-		t.Errorf("getArchiveName() = %q, should start with %q", archiveName, "github_")
+	// Should start with repo name (extracted from Repository field)
+	if !strings.HasPrefix(archiveName, "plugin-github_") {
+		t.Errorf("getArchiveName() = %q, should start with %q", archiveName, "plugin-github_")
 	}
 }
 
@@ -348,7 +349,7 @@ func TestInstaller_FindBinary(t *testing.T) {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
 
-	found := installer.findBinary(extractDir, "github")
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
 
 	if found == "" {
 		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
@@ -368,7 +369,32 @@ func TestInstaller_FindBinary_SimpleName(t *testing.T) {
 		t.Fatalf("Failed to create test binary: %v", err)
 	}
 
-	found := installer.findBinary(extractDir, "github")
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
+
+	if found == "" {
+		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
+	}
+	if found != binaryPath {
+		t.Errorf("findBinary() = %q, want %q", found, binaryPath)
+	}
+}
+
+func TestInstaller_FindBinary_RepoBasedName(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	extractDir := t.TempDir()
+
+	// Create a test binary with repo-based name (e.g., plugin-github_darwin_aarch64)
+	// This matches how our release workflows build binaries
+	platform := GetCurrentPlatform()
+	binaryName := "plugin-github_" + platform
+	binaryPath := filepath.Join(extractDir, binaryName)
+	if err := os.WriteFile(binaryPath, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("Failed to create test binary: %v", err)
+	}
+
+	// Search for "github" with repository "relicta-tech/plugin-github"
+	// It should find "plugin-github_*" by extracting repo name from the registry
+	found := installer.findBinary(extractDir, "github", "relicta-tech/plugin-github")
 
 	if found == "" {
 		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)

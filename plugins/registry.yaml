@@ -1,5 +1,5 @@
 version: "1.0"
-updated_at: 2025-12-23T09:15:00Z
+updated_at: 2025-12-23T15:30:00Z
 
 plugins:
   - name: github
@@ -776,18 +776,18 @@ plugins:
   - name: acr
     description: Push container images to Azure Container Registry
     repository: relicta-tech/plugin-acr
-    version: v1.0.0
+    version: v1.0.6
     category: container
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-acr
     license: MIT
     min_sdk_version: 1
     checksums:
-      darwin_aarch64: b52314f285594218832873094683e468d46e235fa5697a4bc9672ae9bf703588
-      darwin_x86_64: bc9e221176041ef6df4d82df2839f212a4ee4110ff8bdc54e8a8c2bdbafa53a4
-      linux_aarch64: d1b56b9b0a030789a9a8722d9cb6f6394c8744953fdf5c01a1476ef7071ab1f5
-      linux_x86_64: 030741a3e62cbf0ad5c0635fc692465bccd674fc5b66b89b2cf10b3737a31b07
-      windows_x86_64: acd5e5cff2251dfcbffd6552041053bf6ba7088057d272075fd9adcf62e6db05
+      darwin_aarch64: b2e6fb7b5b423fde40d9578b61a5a746ca16d2954b45f7ec5e22459bf35680ad
+      darwin_x86_64: 0d1906254b96ccbebb1a986639a47603a18b611452a01b75312fdf64aa7f8716
+      linux_aarch64: afb1b08871887acd27dff67947354dc730db5ae305a23dc01cc6afbc0e453355
+      linux_x86_64: f47616c3f41eb8bf33808c8a3b58cfc64ea53225d77868fbf7e4288bc2493255
+      windows_x86_64: c132731a488c3d76eebe04f7bf44f3d83b3c14f1953a0138e31ee5b5ab8d8547
     hooks:
       - post_publish
     config_schema:
