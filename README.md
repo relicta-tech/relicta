@@ -23,6 +23,7 @@
 - **Approval Workflow**: Review and approve releases before publishing
 - **Interactive CLI**: Guided setup and approval process with beautiful terminal output
 - **Dry Run Mode**: Preview changes without making any modifications
+- **MCP Server**: Model Context Protocol integration for AI agents (Claude, GPT, etc.)
 
 ## Installation
 
@@ -182,6 +183,7 @@ workflow:
 | `notes` | Generate changelog and release notes |
 | `approve` | Review and approve the release |
 | `publish` | Execute the release (create tag, run plugins) |
+| `mcp serve` | Start MCP server for AI agent integration |
 
 ### Global Flags
 
@@ -267,20 +269,100 @@ plugins:
       notify_on_error: true
 ```
 
+## MCP Integration
+
+Relicta includes a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server, enabling AI agents like Claude and GPT to manage releases directly.
+
+### Starting the MCP Server
+
+```bash
+# Stdio transport (default, for Claude Desktop)
+relicta mcp serve
+
+# HTTP transport (for custom integrations)
+relicta mcp serve --port 8080
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `relicta.status` | Get current release state and pending actions |
+| `relicta.plan` | Analyze commits and plan the next release |
+| `relicta.bump` | Calculate and set the next version |
+| `relicta.notes` | Generate changelog and release notes |
+| `relicta.evaluate` | Evaluate risk using CGP (Change Governance Protocol) |
+| `relicta.approve` | Approve the release for publishing |
+| `relicta.publish` | Execute the release (create tags, run plugins) |
+
+### Resources
+
+| Resource | Description |
+|----------|-------------|
+| `relicta://state` | Current release state machine status |
+| `relicta://config` | Relicta configuration |
+| `relicta://commits` | Recent commits since last release |
+| `relicta://changelog` | Generated changelog |
+| `relicta://risk-report` | CGP risk assessment |
+
+### Claude Desktop Integration
+
+Add to your Claude Desktop `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "relicta": {
+      "command": "relicta",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
+```
+
+### Client SDK
+
+For AI agent developers, Relicta provides a Go client SDK:
+
+```go
+import "github.com/relicta-tech/relicta/internal/mcp"
+
+// Create client with stdio transport
+transport := mcp.NewStdioClientTransport(reader, writer)
+client := mcp.NewClient(transport)
+
+// Initialize and use
+client.Initialize(ctx)
+
+// Plan a release
+plan, err := client.Plan(ctx, true, "")
+
+// Get status
+status, err := client.Status(ctx)
+```
+
+### Features
+
+- **Streaming Support**: Progress updates for long-running operations
+- **Multi-Repository**: Manage releases across multiple repositories
+- **Plugin Integration**: List, inspect, and execute plugins via MCP
+
 ## Architecture
 
 Relicta is built with Domain-Driven Design principles:
 
 ```
-├── cmd/relicta/     # CLI entry point
+├── cmd/relicta/          # CLI entry point
 ├── internal/
-│   ├── application/       # Use cases
+│   ├── application/      # Use cases
 │   ├── domain/           # Business logic
 │   │   ├── changes/      # Commit analysis
 │   │   ├── release/      # Release aggregate
 │   │   └── version/      # Semantic versioning
 │   ├── infrastructure/   # External adapters
 │   ├── cli/              # Command implementations
+│   ├── mcp/              # MCP server & client SDK
+│   ├── cgp/              # Change Governance Protocol
 │   └── service/          # Application services
 ├── pkg/plugin/           # Plugin interface
 └── plugins/              # Official plugins
