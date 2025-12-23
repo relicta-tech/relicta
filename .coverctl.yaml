@@ -47,6 +47,10 @@ policy:
       match:
         - ./internal/infrastructure/...
       min: null
+    - name: mcp
+      match:
+        - ./internal/mcp/...
+      min: null
     - name: observability
       match:
         - ./internal/observability/...
