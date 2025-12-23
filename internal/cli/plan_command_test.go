@@ -660,3 +660,244 @@ func TestGetGovernanceRiskPreview_NoService(t *testing.T) {
 		t.Fatalf("expected nil risk preview when service missing, got %v", got)
 	}
 }
+
+// planTagAwareGitRepo is a stub that returns specific tags and commits for plan tests.
+type planTagAwareGitRepo struct {
+	stubGitRepo
+	tags       sourcecontrol.TagList
+	headCommit *sourcecontrol.Commit
+	tagsErr    error
+	commitErr  error
+}
+
+func (r planTagAwareGitRepo) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
+	if r.tagsErr != nil {
+		return nil, r.tagsErr
+	}
+	return r.tags, nil
+}
+
+func (r planTagAwareGitRepo) GetLatestCommit(ctx context.Context, branch string) (*sourcecontrol.Commit, error) {
+	if r.commitErr != nil {
+		return nil, r.commitErr
+	}
+	return r.headCommit, nil
+}
+
+func TestRunPlanTagPush_Success(t *testing.T) {
+	origCfg := cfg
+	origOutputJSON := outputJSON
+	defer func() {
+		cfg = origCfg
+		outputJSON = origOutputJSON
+	}()
+
+	cfg = &config.Config{Versioning: config.VersioningConfig{TagPrefix: "v"}}
+	outputJSON = true
+
+	fakePlan := &fakePlanUseCase{
+		executeOutput: newPlanOutput(),
+	}
+
+	app := testCLIApp{
+		plan: fakePlan,
+		gitRepo: planTagAwareGitRepo{
+			tags: sourcecontrol.TagList{
+				sourcecontrol.NewTag("v1.0.0", sourcecontrol.CommitHash("prev")),
+				sourcecontrol.NewTag("v1.1.0", sourcecontrol.CommitHash("current")),
+			},
+		},
+	}
+
+	ver := domainversion.MustParse("2.0.0")
+	out := captureStdout(func() {
+		if err := runPlanTagPush(context.Background(), app, ver); err != nil {
+			t.Fatalf("runPlanTagPush error: %v", err)
+		}
+	})
+
+	if !fakePlan.executeCalled {
+		t.Fatal("expected plan execute to be called")
+	}
+
+	// Extract JSON portion from output (skip info lines before JSON)
+	jsonStart := strings.Index(out, "{")
+	if jsonStart == -1 {
+		t.Fatalf("no JSON found in output: %q", out)
+	}
+	jsonOutput := out[jsonStart:]
+
+	// Verify JSON output contains mode: tag-push
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(jsonOutput), &decoded); err != nil {
+		t.Fatalf("json unmarshal error: %v\nJSON: %q", err, jsonOutput)
+	}
+	if decoded["mode"] != "tag-push" {
+		t.Fatalf("expected mode=tag-push, got %v", decoded["mode"])
+	}
+}
+
+func TestRunPlanTagPush_GetInfoError(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = &config.Config{Versioning: config.VersioningConfig{TagPrefix: "v"}}
+
+	app := testCLIApp{
+		gitRepo: errorGitRepo{infoErr: assertErr("get info failed")},
+	}
+
+	ver := domainversion.MustParse("1.0.0")
+	if err := runPlanTagPush(context.Background(), app, ver); err == nil {
+		t.Fatal("expected error from GetInfo failure")
+	}
+}
+
+func TestRunPlanTagPush_GetTagsError(t *testing.T) {
+	origCfg := cfg
+	defer func() { cfg = origCfg }()
+	cfg = &config.Config{Versioning: config.VersioningConfig{TagPrefix: "v"}}
+
+	app := testCLIApp{
+		gitRepo: planTagAwareGitRepo{tagsErr: assertErr("get tags failed")},
+	}
+
+	ver := domainversion.MustParse("1.0.0")
+	if err := runPlanTagPush(context.Background(), app, ver); err == nil {
+		t.Fatal("expected error from GetTags failure")
+	}
+}
+
+func TestRunPlanTagPush_PlanExecuteError(t *testing.T) {
+	origCfg := cfg
+	origOutputJSON := outputJSON
+	defer func() {
+		cfg = origCfg
+		outputJSON = origOutputJSON
+	}()
+
+	cfg = &config.Config{Versioning: config.VersioningConfig{TagPrefix: "v"}}
+	outputJSON = true
+
+	app := testCLIApp{
+		plan:    stubPlanUseCase{executeErr: assertErr("plan failed")},
+		gitRepo: planTagAwareGitRepo{tags: sourcecontrol.TagList{}},
+	}
+
+	ver := domainversion.MustParse("1.0.0")
+	if err := runPlanTagPush(context.Background(), app, ver); err == nil {
+		t.Fatal("expected error from plan execute failure")
+	}
+}
+
+func TestOutputPlanTagPushJSON(t *testing.T) {
+	output := newPlanOutput()
+	out := captureStdout(func() {
+		if err := outputPlanTagPushJSON(output, nil); err != nil {
+			t.Fatalf("outputPlanTagPushJSON error: %v", err)
+		}
+	})
+
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
+		t.Fatalf("json unmarshal error: %v", err)
+	}
+	if decoded["mode"] != "tag-push" {
+		t.Fatalf("expected mode=tag-push, got %v", decoded["mode"])
+	}
+	if decoded["release_id"] == nil {
+		t.Fatal("expected release_id field")
+	}
+	if decoded["next_version"] == nil {
+		t.Fatal("expected next_version field")
+	}
+}
+
+func TestOutputPlanTagPushJSON_WithGovernance(t *testing.T) {
+	output := newPlanOutput()
+	risk := &governanceRiskPreview{
+		RiskScore:      0.5,
+		Severity:       "medium",
+		Decision:       "approve",
+		CanAutoApprove: true,
+		RiskFactors:    []string{"breaking changes"},
+	}
+
+	out := captureStdout(func() {
+		if err := outputPlanTagPushJSON(output, risk); err != nil {
+			t.Fatalf("outputPlanTagPushJSON error: %v", err)
+		}
+	})
+
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
+		t.Fatalf("json unmarshal error: %v", err)
+	}
+	gov, ok := decoded["governance"].(map[string]any)
+	if !ok {
+		t.Fatal("expected governance field")
+	}
+	if gov["risk_score"] != 0.5 {
+		t.Fatalf("expected risk_score=0.5, got %v", gov["risk_score"])
+	}
+}
+
+func TestOutputPlanTagPushText(t *testing.T) {
+	output := newPlanOutput()
+	out := captureStdout(func() {
+		if err := outputPlanTagPushText(output, nil); err != nil {
+			t.Fatalf("outputPlanTagPushText error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Tag-Push Mode Summary") {
+		t.Fatalf("expected Tag-Push Mode Summary header, got %q", out)
+	}
+	if !strings.Contains(out, "Previous version") {
+		t.Fatalf("expected Previous version label, got %q", out)
+	}
+	if !strings.Contains(out, "Current version") {
+		t.Fatalf("expected Current version label, got %q", out)
+	}
+}
+
+func TestOutputPlanTagPushText_WithGovernance(t *testing.T) {
+	output := newPlanOutput()
+	risk := &governanceRiskPreview{
+		RiskScore:      0.7,
+		Severity:       "high",
+		Decision:       "review",
+		CanAutoApprove: false,
+		RiskFactors:    []string{"many files changed", "breaking API"},
+	}
+
+	out := captureStdout(func() {
+		if err := outputPlanTagPushText(output, risk); err != nil {
+			t.Fatalf("outputPlanTagPushText error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Governance Risk Preview") {
+		t.Fatalf("expected Governance Risk Preview header, got %q", out)
+	}
+	if !strings.Contains(out, "Risk Factors") {
+		t.Fatalf("expected Risk Factors section, got %q", out)
+	}
+}
+
+// errorGitRepo is a stub that returns errors for specific operations.
+type errorGitRepo struct {
+	stubGitRepo
+	infoErr error
+}
+
+func (r errorGitRepo) GetInfo(ctx context.Context) (*sourcecontrol.RepositoryInfo, error) {
+	if r.infoErr != nil {
+		return nil, r.infoErr
+	}
+	return &sourcecontrol.RepositoryInfo{
+		Path:          ".",
+		Name:          "repo",
+		CurrentBranch: "main",
+		RemoteURL:     "https://example.com",
+	}, nil
+}
