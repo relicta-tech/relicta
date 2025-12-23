@@ -379,6 +379,30 @@ func TestInstaller_FindBinary_SimpleName(t *testing.T) {
 	}
 }
 
+func TestInstaller_FindBinary_RepoBasedName(t *testing.T) {
+	installer := NewInstaller(t.TempDir())
+	extractDir := t.TempDir()
+
+	// Create a test binary with repo-based name (e.g., plugin-github_darwin_aarch64)
+	// This matches how our release workflows build binaries
+	platform := GetCurrentPlatform()
+	binaryName := "plugin-github_" + platform
+	binaryPath := filepath.Join(extractDir, binaryName)
+	if err := os.WriteFile(binaryPath, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("Failed to create test binary: %v", err)
+	}
+
+	// Search for "github" - it should still find "plugin-github_*"
+	found := installer.findBinary(extractDir, "github")
+
+	if found == "" {
+		t.Errorf("findBinary() returned empty string, expected to find binary at %q", binaryPath)
+	}
+	if found != binaryPath {
+		t.Errorf("findBinary() = %q, want %q", found, binaryPath)
+	}
+}
+
 func TestInstaller_Install_SDKIncompatible(t *testing.T) {
 	installer := NewInstaller(t.TempDir())
 

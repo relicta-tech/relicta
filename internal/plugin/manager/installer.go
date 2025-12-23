@@ -378,11 +378,19 @@ func (i *Installer) findBinary(extractDir, pluginName string) string {
 	platformName := fmt.Sprintf("%s_%s_%s", pluginName, goos, goarch)
 	possibleNames = append(possibleNames, platformName)
 
+	// Also look for repo-based names (e.g., plugin-github, plugin-github_darwin_aarch64)
+	// This handles the case where archives use the full repo name for binaries
+	repoBasedName := "plugin-" + pluginName
+	repoBasedPlatformName := fmt.Sprintf("%s_%s_%s", repoBasedName, goos, goarch)
+	possibleNames = append(possibleNames, repoBasedName, repoBasedPlatformName)
+
 	// Add .exe suffix for Windows
 	if runtime.GOOS == "windows" {
 		possibleNames = []string{
 			pluginName + ".exe",
 			platformName + ".exe",
+			repoBasedName + ".exe",
+			repoBasedPlatformName + ".exe",
 		}
 	}
 
