@@ -466,7 +466,7 @@ func TestPlanReleaseUseCase_Execute(t *testing.T) {
 			wantSaved:      true,
 		},
 		{
-			name: "dry run does not save",
+			name: "dry run still saves for workflow tracking",
 			input: PlanReleaseInput{
 				DryRun: true,
 			},
@@ -486,7 +486,7 @@ func TestPlanReleaseUseCase_Execute(t *testing.T) {
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        false,
 			wantVersion:    "0.1.1", // version.Initial is 0.1.0, patch bump -> 0.1.1
-			wantSaved:      false,
+			wantSaved:      true,    // Always save for workflow state tracking
 		},
 		{
 			name: "dirty working tree blocks release",
@@ -532,7 +532,7 @@ func TestPlanReleaseUseCase_Execute(t *testing.T) {
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        false,
 			wantVersion:    "0.2.0", // version.Initial is 0.1.0, minor bump -> 0.2.0
-			wantSaved:      false,
+			wantSaved:      true,    // Always save for workflow state tracking
 		},
 		{
 			name: "no commits found",
