@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2025-12-23
+
+### Features
+
+- **mcp:** add plugin integration via MCP protocol (27a10a4)
+- **mcp:** add multi-repository support for MCP (aa9961e)
+- **mcp:** add streaming support for long operations (90a73a9)
+- **mcp:** add Client SDK for AI agents (61674a1)
+
+
 ## [2.5.0] - 2025-12-18
 
 ### Features
