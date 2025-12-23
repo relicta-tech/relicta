@@ -41,7 +41,7 @@ define get_os_name
 $(if $(filter linux,$(1)),Linux,$(if $(filter darwin,$(1)),Darwin,$(if $(filter windows,$(1)),Windows,$(1))))
 endef
 
-.PHONY: all build install clean clean-dist test test-race test-coverage lint fmt fmt-check vet \
+.PHONY: all build install clean clean-dist test test-race test-coverage coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick help release-build release-binaries release-plugins \
         release-archives release-checksums release-snapshot check install-hooks
@@ -113,13 +113,23 @@ test-race:
 	@echo "Running tests with race detection..."
 	$(GOTEST) -race -v ./internal/... ./pkg/...
 
-# Run tests with coverage
+# Run tests with coverage (simple)
 test-coverage:
 	@echo "Running tests with coverage..."
 	@mkdir -p $(BIN_DIR)
 	$(GOTEST) -coverprofile=$(BIN_DIR)/coverage.out -covermode=atomic ./internal/... ./pkg/...
 	$(GOCMD) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "Coverage report generated at $(BIN_DIR)/coverage.html"
+
+# Run tests with coverage enforcement via coverctl
+coverage:
+	@echo "Running coverage checks with coverctl..."
+	go run github.com/felixgeelhaar/coverctl@v1.4.0 check --race -v
+
+# Run coverage with integration tests
+coverage-integration:
+	@echo "Running coverage with integration tests..."
+	go run github.com/felixgeelhaar/coverctl@v1.4.0 check --race --tags integration -v
 
 # Run integration tests
 test-integration:
@@ -322,14 +332,16 @@ help:
 	@echo "  make release-checksums Generate checksums"
 	@echo ""
 	@echo "Test:"
-	@echo "  make test           Run unit tests"
-	@echo "  make test-race      Run tests with race detection"
-	@echo "  make test-coverage  Run tests with coverage report"
-	@echo "  make test-integration Run integration tests"
-	@echo "  make test-e2e       Run end-to-end tests"
-	@echo "  make bench          Run all benchmarks"
-	@echo "  make bench-save     Run benchmarks and save results"
-	@echo "  make bench-quick    Run quick benchmarks (critical paths)"
+	@echo "  make test              Run unit tests"
+	@echo "  make test-race         Run tests with race detection"
+	@echo "  make test-coverage     Run tests with coverage report"
+	@echo "  make coverage          Run coverage with policy enforcement (coverctl)"
+	@echo "  make coverage-integration  Run coverage including integration tests"
+	@echo "  make test-integration  Run integration tests"
+	@echo "  make test-e2e          Run end-to-end tests"
+	@echo "  make bench             Run all benchmarks"
+	@echo "  make bench-save        Run benchmarks and save results"
+	@echo "  make bench-quick       Run quick benchmarks (critical paths)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint           Run golangci-lint"

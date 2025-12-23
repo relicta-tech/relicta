@@ -65,3 +65,4 @@ temp/
 .claude/settings.local.json
 bin/
 .playwright-mcp/
+.cover/
