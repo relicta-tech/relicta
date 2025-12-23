@@ -285,10 +285,9 @@ func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 		return nil, fmt.Errorf("failed to set version: %w", err)
 	}
 
-	// Update release state (non-fatal if fails)
+	// Update release state - MUST succeed for workflow to continue
 	if err := updateReleaseVersion(ctx, c, output.Version); err != nil {
-		// Log but don't fail - there may be no active release to update
-		printInfo("No active release to update")
+		return nil, fmt.Errorf("failed to update release state: %w", err)
 	}
 
 	return output, nil
