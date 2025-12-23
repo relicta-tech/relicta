@@ -136,8 +136,9 @@ func TestInstaller_GetArchiveName(t *testing.T) {
 	installer := NewInstaller(t.TempDir())
 
 	info := PluginInfo{
-		Name:    "github",
-		Version: "v1.0.0",
+		Name:       "github",
+		Version:    "v1.0.0",
+		Repository: "relicta-tech/plugin-github",
 	}
 
 	archiveName := installer.getArchiveName(info)
@@ -147,9 +148,9 @@ func TestInstaller_GetArchiveName(t *testing.T) {
 		t.Errorf("getArchiveName() = %q, should end with .tar.gz or .zip", archiveName)
 	}
 
-	// Should start with plugin name
-	if !strings.HasPrefix(archiveName, "github_") {
-		t.Errorf("getArchiveName() = %q, should start with %q", archiveName, "github_")
+	// Should start with repo name (extracted from Repository field)
+	if !strings.HasPrefix(archiveName, "plugin-github_") {
+		t.Errorf("getArchiveName() = %q, should start with %q", archiveName, "plugin-github_")
 	}
 }
 

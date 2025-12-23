@@ -171,16 +171,22 @@ func (i *Installer) getArchiveName(pluginInfo PluginInfo) string {
 		goarch = "aarch64"
 	}
 
-	if goos == "windows" {
-		return fmt.Sprintf("%s_%s_%s.zip", pluginInfo.Name, goos, goarch)
+	// Extract the repo name from repository (e.g., "relicta-tech/plugin-github" -> "plugin-github")
+	repoName := pluginInfo.Name
+	if parts := strings.Split(pluginInfo.Repository, "/"); len(parts) == 2 {
+		repoName = parts[1]
 	}
-	return fmt.Sprintf("%s_%s_%s.tar.gz", pluginInfo.Name, goos, goarch)
+
+	if goos == "windows" {
+		return fmt.Sprintf("%s_%s_%s.zip", repoName, goos, goarch)
+	}
+	return fmt.Sprintf("%s_%s_%s.tar.gz", repoName, goos, goarch)
 }
 
 // getDownloadURL constructs the GitHub release download URL for the plugin.
 func (i *Installer) getDownloadURL(pluginInfo PluginInfo) string {
-	// Format: https://github.com/{owner}/{repo}/releases/download/{version}/{plugin}_{os}_{arch}.tar.gz
-	// Example: https://github.com/relicta-tech/relicta/releases/download/v2.2.0/github_darwin_aarch64.tar.gz
+	// Format: https://github.com/{owner}/{repo}/releases/download/{version}/{repo}_{os}_{arch}.tar.gz
+	// Example: https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/plugin-github_darwin_aarch64.tar.gz
 
 	archiveName := i.getArchiveName(pluginInfo)
 
