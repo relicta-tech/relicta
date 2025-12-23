@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
-	github.com/felixgeelhaar/fortify v1.1.1
+	github.com/felixgeelhaar/fortify v1.1.2
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/google/uuid v1.6.0
@@ -25,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.19.0
 	golang.org/x/text v0.32.0
-	google.golang.org/genai v1.39.0
+	google.golang.org/genai v1.40.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
