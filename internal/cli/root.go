@@ -76,18 +76,22 @@ func SetVersionInfo(version, commit, date string) {
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "relicta",
-	Short: "AI-powered release management for modern software teams",
-	Long: `Relicta is a CLI tool that streamlines software release management.
+	Short: "The governance layer for software change",
+	Long: `Relicta is the governance layer for software change.
 
-It automates versioning, changelog generation, and release communication
-using AI and a plugin-based integration system.
+As AI agents and CI systems generate more code, deciding what should ship
+becomes the hardest problem. Relicta governs change — before it reaches
+production.
 
-Key features:
-  • Conventional commit parsing for automatic version detection
-  • AI-powered changelog and release notes generation
-  • Plugin ecosystem for GitHub, npm, Slack, and more
-  • Interactive approval workflows
-  • Dry-run support for safe operation
+The Change Governance Protocol (CGP):
+  • Risk assessment — Analyze blast radius and impact of every change
+  • Audit trails — Complete history of approvals and decisions
+  • Approval workflows — Gate releases with configurable policies
+  • AI-powered insights — Intelligent release notes and risk analysis
+
+Today, it's a production-ready CLI for semantic versioning, changelogs,
+and release automation. Tomorrow, it's the decision layer for risk-aware
+releases in an AI-driven world.
 
 Get started with 'relicta init' to set up your project.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
