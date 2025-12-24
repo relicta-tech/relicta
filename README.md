@@ -5,7 +5,7 @@
     <img alt="Relicta" src="brand/relicta-logo-light.svg" width="280">
   </picture>
 
-  <p><strong>AI-powered release management for modern software teams</strong></p>
+  <p><strong>The governance layer for software change</strong></p>
 
   <p>
     <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
@@ -14,16 +14,20 @@
   </p>
 </div>
 
+As AI agents and CI systems generate more code, deciding what should ship becomes the hardest problem. Relicta governs change — before it reaches production.
+
 ## Features
 
-- **Automatic Version Calculation**: Determines semantic version bumps from conventional commits
-- **Smart Commit Intelligence**: Supports conventional commits and infers intent from unstructured histories via heuristics, AST analysis, and optional AI
-- **AI-Powered Release Notes**: Generates professional changelogs and release notes (supports OpenAI, Anthropic, Google Gemini, Azure OpenAI, and Ollama)
-- **Plugin System**: Extensible via gRPC plugins (GitHub releases, npm publish, Slack notifications)
-- **Approval Workflow**: Review and approve releases before publishing
-- **Interactive CLI**: Guided setup and approval process with beautiful terminal output
-- **Dry Run Mode**: Preview changes without making any modifications
-- **MCP Server**: Model Context Protocol integration for AI agents (Claude, GPT, etc.)
+### Governance
+- **Risk-Aware Decisions**: Change Governance Protocol (CGP) for assessing blast radius, actor trust, and security impact
+- **Approval Workflow**: Review and approve releases before publishing with full audit trails
+- **Agent Integration**: MCP server enables AI agents (Claude, GPT) to manage releases with human oversight
+
+### Release Automation
+- **Automatic Version Calculation**: Semantic version bumps from conventional commits
+- **Smart Commit Intelligence**: Infers intent from unstructured histories via heuristics and optional AI
+- **AI-Powered Release Notes**: Professional changelogs (OpenAI, Anthropic, Gemini, Azure, Ollama)
+- **Plugin System**: Extensible via gRPC plugins (GitHub, npm, Slack, Docker, and more)
 
 ## Installation
 

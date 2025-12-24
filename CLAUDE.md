@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Relicta is a CLI tool for streamlined software release management. It automates versioning, changelog generation, and release communication using AI and a plugin-based integration system. Built in Go for security, performance, and single-binary distribution.
+Relicta is the governance layer for software change. As AI agents and CI systems generate more code, deciding what should ship becomes the hardest problem. Relicta governs change — before it reaches production.
+
+**Today**, it's a production-ready CLI that automates semantic versioning, release notes, approvals, and publishing. **Tomorrow**, it's the decision layer for risk-aware releases in an AI-driven world.
+
+Built in Go for security, performance, and single-binary distribution. Features the Change Governance Protocol (CGP) for risk assessment, audit trails, and approval workflows.
 
 ## Build Commands
 
@@ -61,11 +65,12 @@ plugins/                    # Official plugins (github, slack, etc.)
 | Command | Purpose |
 |---------|---------|
 | `relicta init` | Set up config and default options |
-| `relicta plan` | Analyze changes since last release |
-| `relicta version` | Calculate and apply semver bump |
-| `relicta notes` | Generate internal changelog and public notes |
-| `relicta approve` | Review/edit notes for final approval |
+| `relicta plan` | Analyze changes and assess risk since last release |
+| `relicta bump` | Calculate and apply semver version |
+| `relicta notes` | Generate AI-powered release notes |
+| `relicta approve` | Governance gate with audit trail |
 | `relicta publish` | Execute release: tag, changelog, notify, publish |
+| `relicta release` | Complete workflow (plan → bump → notes → approve → publish) |
 
 ## Plugin System
 
