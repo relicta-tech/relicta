@@ -25,6 +25,8 @@ type Config struct {
 	Telemetry TelemetryConfig `mapstructure:"telemetry" json:"telemetry"`
 	// Governance configures Change Governance Protocol (CGP) settings.
 	Governance GovernanceConfig `mapstructure:"governance" json:"governance"`
+	// Webhooks configures webhook notifications for release events.
+	Webhooks []WebhookConfig `mapstructure:"webhooks" json:"webhooks,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -331,7 +333,10 @@ type GovernanceConfig struct {
 	// MemoryPath is the path to the Release Memory storage file.
 	// Defaults to ".relicta/governance/memory.json" in the repository root.
 	MemoryPath string `mapstructure:"memory_path" json:"memory_path,omitempty"`
-	// Policies is a list of custom policy rules.
+	// PolicyDir is the directory containing policy DSL files (.policy).
+	// Defaults to ".relicta/policies" in the repository root.
+	PolicyDir string `mapstructure:"policy_dir" json:"policy_dir,omitempty"`
+	// Policies is a list of custom policy rules defined inline in YAML.
 	Policies []GovernancePolicyConfig `mapstructure:"policies" json:"policies,omitempty"`
 }
 
@@ -641,6 +646,41 @@ type JiraPluginConfig struct {
 	VersionPrefix string `mapstructure:"version_prefix" json:"version_prefix,omitempty"`
 	// VersionDescription is a description template for the Jira version.
 	VersionDescription string `mapstructure:"version_description" json:"version_description,omitempty"`
+}
+
+// WebhookConfig configures a webhook endpoint for release event notifications.
+type WebhookConfig struct {
+	// Name is a friendly name for this webhook.
+	Name string `mapstructure:"name" json:"name"`
+	// URL is the webhook endpoint URL.
+	URL string `mapstructure:"url" json:"url"`
+	// Secret is an optional HMAC secret for signing payloads.
+	// When set, payloads are signed with X-Relicta-Signature header.
+	Secret string `mapstructure:"secret" json:"secret,omitempty"`
+	// Events is a list of event names to send (empty = all events).
+	// Event names: release.initialized, release.planned, release.versioned,
+	// release.notes_generated, release.approved, release.published,
+	// release.failed, release.canceled, release.plugin_executed
+	// Supports wildcards like "release.*" for all release events.
+	Events []string `mapstructure:"events" json:"events,omitempty"`
+	// Headers are custom headers to include in the request.
+	Headers map[string]string `mapstructure:"headers" json:"headers,omitempty"`
+	// Timeout is the HTTP request timeout (default: 10s).
+	Timeout time.Duration `mapstructure:"timeout" json:"timeout,omitempty"`
+	// RetryCount is the number of retries for failed requests (default: 3).
+	RetryCount int `mapstructure:"retry_count" json:"retry_count,omitempty"`
+	// RetryDelay is the delay between retries (default: 1s).
+	RetryDelay time.Duration `mapstructure:"retry_delay" json:"retry_delay,omitempty"`
+	// Enabled indicates whether this webhook is active (default: true).
+	Enabled *bool `mapstructure:"enabled" json:"enabled,omitempty"`
+}
+
+// IsWebhookEnabled returns whether the webhook is enabled.
+func (w *WebhookConfig) IsWebhookEnabled() bool {
+	if w.Enabled == nil {
+		return true
+	}
+	return *w.Enabled
 }
 
 // ConfigFile names to search for.
