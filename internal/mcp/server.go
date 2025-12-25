@@ -417,10 +417,16 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 			"created":     status.CreatedAt,
 			"updated":     status.UpdatedAt,
 			"can_approve": status.CanApprove,
+			"next_action": status.NextAction,
 		}
 
 		if status.ApprovalMsg != "" {
 			result["approval_message"] = status.ApprovalMsg
+		}
+
+		if status.Stale {
+			result["stale"] = true
+			result["warning"] = status.Warning
 		}
 
 		return NewToolResultJSON(result)
@@ -462,10 +468,10 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 		if v, ok := args["analyze"].(bool); ok {
 			analyze = v
 		}
-		_ = analyze // analyze flag used for detailed commit analysis
 
 		input := PlanInput{
 			FromRef: fromRef,
+			Analyze: analyze,
 		}
 
 		output, err := s.adapter.Plan(ctx, input)
@@ -482,6 +488,24 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			"has_breaking":    output.HasBreaking,
 			"has_features":    output.HasFeatures,
 			"has_fixes":       output.HasFixes,
+		}
+
+		// Include commit details when analyze=true
+		if analyze && len(output.Commits) > 0 {
+			commits := make([]map[string]any, 0, len(output.Commits))
+			for _, c := range output.Commits {
+				commit := map[string]any{
+					"sha":     c.SHA,
+					"type":    c.Type,
+					"message": c.Message,
+					"author":  c.Author,
+				}
+				if c.Scope != "" {
+					commit["scope"] = c.Scope
+				}
+				commits = append(commits, commit)
+			}
+			result["commits"] = commits
 		}
 
 		return NewToolResultJSON(result)

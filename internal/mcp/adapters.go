@@ -4,6 +4,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/release"
@@ -110,6 +111,15 @@ type PlanInput struct {
 	DryRun         bool
 }
 
+// CommitInfo represents a single commit's details.
+type CommitInfo struct {
+	SHA     string `json:"sha"`
+	Type    string `json:"type"`
+	Scope   string `json:"scope,omitempty"`
+	Message string `json:"message"`
+	Author  string `json:"author"`
+}
+
 // PlanOutput represents output from the Plan operation.
 type PlanOutput struct {
 	ReleaseID      string
@@ -120,6 +130,7 @@ type PlanOutput struct {
 	HasBreaking    bool
 	HasFeatures    bool
 	HasFixes       bool
+	Commits        []CommitInfo // Populated when analyze=true
 }
 
 // Plan executes the plan release use case via MCP.
@@ -153,6 +164,19 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 		result.HasBreaking = len(cats.Breaking) > 0
 		result.HasFeatures = len(cats.Features) > 0
 		result.HasFixes = len(cats.Fixes) > 0
+
+		// Include commit details when analyze=true
+		if input.Analyze {
+			for _, c := range output.ChangeSet.Commits() {
+				result.Commits = append(result.Commits, CommitInfo{
+					SHA:     c.Hash(),
+					Type:    string(c.Type()),
+					Scope:   c.Scope(),
+					Message: c.Subject(),
+					Author:  c.Author(),
+				})
+			}
+		}
 	}
 
 	return result, nil
@@ -480,6 +504,9 @@ type GetStatusOutput struct {
 	UpdatedAt   string
 	CanApprove  bool
 	ApprovalMsg string
+	NextAction  string // Suggested next step in the workflow
+	Stale       bool   // True if release may be stale (old and not terminal)
+	Warning     string // Warning message if any
 }
 
 // GetStatus retrieves the current release status.
@@ -516,7 +543,47 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 	result.CanApprove = status.CanApprove
 	result.ApprovalMsg = status.Reason
 
+	// Set next action based on current state
+	result.NextAction = nextActionForState(rel.State().String())
+
+	// Check for stale release (not updated in over 1 hour and not in terminal state)
+	stateStr := rel.State().String()
+	isTerminal := stateStr == "published" || stateStr == "canceled"
+	if !isTerminal {
+		staleThreshold := time.Now().Add(-1 * time.Hour)
+		if rel.UpdatedAt().Before(staleThreshold) {
+			result.Stale = true
+			result.Warning = "Release was last updated over 1 hour ago. Consider running 'relicta plan' to refresh state."
+		}
+	}
+
 	return result, nil
+}
+
+// nextActionForState returns the suggested next action based on release state.
+func nextActionForState(state string) string {
+	switch state {
+	case "initialized":
+		return "plan"
+	case "planned":
+		return "bump"
+	case "versioned":
+		return "notes"
+	case "notes_generated":
+		return "approve"
+	case "approved":
+		return "publish"
+	case "publishing":
+		return "wait"
+	case "published":
+		return "done"
+	case "failed":
+		return "retry or cancel"
+	case "canceled":
+		return "plan"
+	default:
+		return ""
+	}
 }
 
 // HasPlanUseCase returns true if the plan use case is configured.
