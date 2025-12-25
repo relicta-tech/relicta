@@ -239,19 +239,25 @@ func (s *ServiceImpl) GetCommit(_ context.Context, hash string) (*Commit, error)
 }
 
 // GetCommitsSince returns all commits since the given reference.
+// If ref is empty, returns all commits from HEAD (for first release scenarios).
 func (s *ServiceImpl) GetCommitsSince(ctx context.Context, ref string) ([]Commit, error) {
 	const op = "git.GetCommitsSince"
-
-	// Get the reference commit
-	refHash, err := s.resolveRef(ref)
-	if err != nil {
-		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve reference %s", ref))
-	}
 
 	// Get HEAD
 	head, err := s.repo.Head()
 	if err != nil {
 		return nil, rperrors.GitWrap(err, op, "failed to get HEAD")
+	}
+
+	// If no ref provided, return all commits from HEAD (first release scenario)
+	if ref == "" {
+		return s.getAllCommitsFromHead(ctx, head.Hash())
+	}
+
+	// Get the reference commit
+	refHash, err := s.resolveRef(ref)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve reference %s", ref))
 	}
 
 	return s.getCommitsBetweenHashes(ctx, refHash, head.Hash())
@@ -303,6 +309,44 @@ func (s *ServiceImpl) getCommitsBetweenHashes(ctx context.Context, from, to plum
 	})
 	if err != nil && !errors.Is(err, errStopIteration) {
 		// Return context error with proper wrapping
+		if ctx.Err() != nil {
+			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
+		}
+		return nil, rperrors.GitWrap(err, op, "failed to iterate commits")
+	}
+
+	return commits, nil
+}
+
+// getAllCommitsFromHead returns all commits from HEAD (for first release scenarios).
+// This is used when there are no previous tags in the repository.
+func (s *ServiceImpl) getAllCommitsFromHead(ctx context.Context, head plumbing.Hash) ([]Commit, error) {
+	const op = "git.getAllCommitsFromHead"
+	const maxCommits = 1000 // Safety limit for very large repositories
+
+	iter, err := s.repo.Log(&git.LogOptions{
+		From:  head,
+		Order: git.LogOrderCommitterTime,
+	})
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to get log iterator")
+	}
+	defer iter.Close()
+
+	commits := make([]Commit, 0, 100) // Reasonable initial capacity
+	err = iter.ForEach(func(c *object.Commit) error {
+		// Check for context cancellation during iteration
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		// Safety limit to prevent memory issues on huge repos
+		if len(commits) >= maxCommits {
+			return errStopIteration
+		}
+		commits = append(commits, *s.convertCommit(c))
+		return nil
+	})
+	if err != nil && !errors.Is(err, errStopIteration) {
 		if ctx.Err() != nil {
 			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
 		}
