@@ -12,6 +12,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/integration"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
@@ -21,6 +22,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 	"github.com/relicta-tech/relicta/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/internal/infrastructure/webhook"
 	"github.com/relicta-tech/relicta/internal/plugin"
 )
 
@@ -41,14 +43,16 @@ type App struct {
 	closed bool
 
 	// Infrastructure layer
-	gitAdapter        *git.Adapter
-	releaseRepo       *persistence.FileReleaseRepository
-	eventPublisher    *persistence.InMemoryEventPublisher
-	unitOfWorkFactory *persistence.FileUnitOfWorkFactory
-	versionCalc       version.VersionCalculator
-	pluginRegistry    integration.PluginRegistry
-	pluginExecutor    integration.PluginExecutor
-	pluginManager     *plugin.Manager
+	gitAdapter         *git.Adapter
+	releaseRepo        *persistence.FileReleaseRepository
+	baseEventPublisher *persistence.InMemoryEventPublisher
+	eventPublisher     domainrelease.EventPublisher // Composed publisher chain
+	unitOfWorkFactory  *persistence.FileUnitOfWorkFactory
+	versionCalc        version.VersionCalculator
+	pluginRegistry     integration.PluginRegistry
+	pluginExecutor     integration.PluginExecutor
+	pluginManager      *plugin.Manager
+	memoryStore        memory.Store
 
 	// Services (existing infrastructure)
 	gitService git.Service
@@ -135,11 +139,35 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 		return errors.StateWrap(err, "initInfrastructure", "failed to initialize release repository")
 	}
 
-	// Initialize event publisher
-	c.eventPublisher = persistence.NewInMemoryEventPublisher()
+	// Initialize event publisher chain:
+	// OutcomeTracker → WebhookPublisher → InMemoryEventPublisher
+	c.baseEventPublisher = persistence.NewInMemoryEventPublisher()
+
+	// Start with base publisher
+	var publisher domainrelease.EventPublisher = c.baseEventPublisher
+
+	// Add webhook publisher if webhooks are configured
+	if len(c.config.Webhooks) > 0 {
+		publisher = webhook.NewPublisher(c.config.Webhooks, publisher)
+		c.logger.Debug("webhook publisher initialized", "webhook_count", len(c.config.Webhooks))
+	}
+
+	// Add outcome tracker if governance memory is enabled
+	if c.config.Governance.MemoryEnabled {
+		memoryPath := ".relicta/memory"
+		c.memoryStore, err = memory.NewFileStore(memoryPath)
+		if err != nil {
+			c.logger.Warn("failed to initialize memory store", "error", err)
+		} else {
+			publisher = memory.NewOutcomeTracker(c.memoryStore, publisher)
+			c.logger.Debug("outcome tracker initialized", "path", memoryPath)
+		}
+	}
+
+	c.eventPublisher = publisher
 
 	// Initialize UnitOfWork factory for transactional operations
-	c.unitOfWorkFactory = persistence.NewFileUnitOfWorkFactory(c.releaseRepo, c.eventPublisher)
+	c.unitOfWorkFactory = persistence.NewFileUnitOfWorkFactory(c.releaseRepo, c.baseEventPublisher)
 
 	// Initialize version calculator
 	c.versionCalc = version.NewDefaultVersionCalculator()
@@ -417,6 +445,21 @@ func (c *App) HasGovernance() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.governanceService != nil
+}
+
+// MemoryStore returns the CGP memory store for release history.
+// Returns nil if memory is not enabled.
+func (c *App) MemoryStore() memory.Store {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.memoryStore
+}
+
+// HasMemory returns true if CGP memory is enabled and initialized.
+func (c *App) HasMemory() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.memoryStore != nil
 }
 
 // Infrastructure layer accessors
