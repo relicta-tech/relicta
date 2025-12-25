@@ -203,6 +203,10 @@ type BumpOutput struct {
 }
 
 // Bump executes the bump version use case via MCP.
+// This mirrors the CLI's runReleaseBump pattern exactly:
+// 1. Calculate version using CalculateVersionUseCase
+// 2. Set version using SetVersionUseCase (handles git tag)
+// 3. Update release aggregate state using updateReleaseVersion
 func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error) {
 	// Parse and validate bump type first (fail-fast on invalid input)
 	var bumpType version.BumpType
@@ -224,6 +228,7 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 		return nil, fmt.Errorf("calculate version use case not configured")
 	}
 
+	// Step 1: Calculate version (same as CLI)
 	calcInput := versioning.CalculateVersionInput{
 		RepositoryPath: input.RepositoryPath,
 		BumpType:       bumpType,
@@ -243,12 +248,21 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 		AutoDetected:   calcOutput.AutoDetected,
 	}
 
-	// Create tag if requested and set version UC is available
-	if input.CreateTag && a.setVersionUC != nil && !input.DryRun {
+	// For dry run, return early without making changes
+	if input.DryRun {
+		result.TagName = "v" + calcOutput.NextVersion.String()
+		return result, nil
+	}
+
+	// Step 2: Set version using SetVersionUseCase (same as CLI's SetVersion().Execute())
+	// This handles git tag creation - mirrors runReleaseBump pattern
+	if a.setVersionUC != nil {
 		setInput := versioning.SetVersionInput{
-			Version:   calcOutput.NextVersion,
-			CreateTag: true,
-			DryRun:    input.DryRun,
+			Version:    calcOutput.NextVersion,
+			TagPrefix:  "v",
+			CreateTag:  input.CreateTag,
+			TagMessage: fmt.Sprintf("Release %s", calcOutput.NextVersion.String()),
+			DryRun:     input.DryRun,
 		}
 
 		setOutput, err := a.setVersionUC.Execute(ctx, setInput)
@@ -258,9 +272,44 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 
 		result.TagName = setOutput.TagName
 		result.TagCreated = setOutput.TagCreated
+	} else {
+		result.TagName = "v" + calcOutput.NextVersion.String()
+	}
+
+	// Step 3: Update release aggregate state (same as CLI's updateReleaseVersion)
+	// This transitions the release from StatePlanned to StateVersioned
+	if a.releaseRepo != nil {
+		if err := a.updateReleaseVersion(ctx, input.RepositoryPath, calcOutput.NextVersion); err != nil {
+			return nil, fmt.Errorf("failed to update release state: %w", err)
+		}
 	}
 
 	return result, nil
+}
+
+// updateReleaseVersion updates the latest release with the bumped version.
+// This is the same logic as CLI's updateReleaseVersion function in bump.go:357-376.
+// It transitions the release aggregate from StatePlanned to StateVersioned.
+func (a *Adapter) updateReleaseVersion(ctx context.Context, repoPath string, ver version.SemanticVersion) error {
+	// Use FindLatest like CLI does, not FindActive
+	rel, err := a.releaseRepo.FindLatest(ctx, repoPath)
+	if err != nil {
+		return fmt.Errorf("failed to find latest release: %w", err)
+	}
+
+	tagName := "v" + ver.String()
+
+	// Same as rel.SetVersion() call in CLI's updateReleaseVersion
+	if err := rel.SetVersion(ver, tagName); err != nil {
+		return fmt.Errorf("failed to set version on release: %w", err)
+	}
+
+	// Same as releaseRepo.Save() call in CLI's updateReleaseVersion
+	if err := a.releaseRepo.Save(ctx, rel); err != nil {
+		return fmt.Errorf("failed to save release: %w", err)
+	}
+
+	return nil
 }
 
 // NotesInput represents input for the Notes operation.
