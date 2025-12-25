@@ -135,6 +135,16 @@ func (c *Compiler) compileConditions(expr Expression) ([]policy.Condition, error
 		}}, nil
 	case *CallExpr:
 		return c.compileCallCondition(e)
+	case *LiteralExpr:
+		// Boolean literal as condition (e.g., "when { true }")
+		if b, ok := e.Value.(bool); ok {
+			return []policy.Condition{{
+				Field:    "_always",
+				Operator: policy.OperatorEqual,
+				Value:    b,
+			}}, nil
+		}
+		return nil, fmt.Errorf("literal in condition must be boolean, got %T", e.Value)
 	default:
 		return nil, fmt.Errorf("unsupported expression type: %T", expr)
 	}
@@ -285,13 +295,8 @@ func (c *Compiler) compileAction(node *ActionNode) (*policy.Action, error) {
 	// Map DSL action names to policy action types
 	actionType := mapActionName(node.Name)
 
-	// Validate action type
-	switch actionType {
-	case policy.ActionSetDecision, policy.ActionRequireApproval,
-		policy.ActionAddReviewer, policy.ActionBlock,
-		policy.ActionAddRationale, policy.ActionAddCondition:
-		// Valid action
-	default:
+	// All mapped action types are valid
+	if actionType == "" {
 		return nil, fmt.Errorf("unknown action: %s", node.Name)
 	}
 
@@ -345,8 +350,18 @@ func mapActionName(name string) string {
 		return policy.ActionAddRationale
 	case "add_condition", "addCondition":
 		return policy.ActionAddCondition
+	case "approve":
+		return policy.ActionSetDecision // approve() sets decision to approved
+	case "add_label", "addLabel":
+		return "add_label" // Custom action for adding labels
+	case "notify":
+		return "notify" // Custom action for notifications
+	case "warn", "warning":
+		return "warn" // Custom action for warnings
+	case "log":
+		return "log" // Custom action for logging
 	default:
-		return name
+		return "" // Unknown action returns empty string
 	}
 }
 

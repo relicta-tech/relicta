@@ -86,12 +86,15 @@ type Action struct {
 
 // ActionType constants define supported actions.
 const (
-	ActionSetDecision     = "set_decision"
-	ActionRequireApproval = "require_approval"
-	ActionAddReviewer     = "add_reviewer"
-	ActionBlock           = "block"
-	ActionAddRationale    = "add_rationale"
-	ActionAddCondition    = "add_condition"
+	ActionSetDecision       = "set_decision"
+	ActionRequireApproval   = "require_approval"
+	ActionAddReviewer       = "add_reviewer"
+	ActionBlock             = "block"
+	ActionAddRationale      = "add_rationale"
+	ActionAddCondition      = "add_condition"
+	ActionRequireTeamReview = "require_team_review"
+	ActionRequireRoleReview = "require_role_review"
+	ActionRequireTeamLead   = "require_team_lead"
 )
 
 // OperatorType constants define supported operators.
@@ -211,7 +214,8 @@ func isValidOperator(op string) bool {
 func isValidAction(a string) bool {
 	switch a {
 	case ActionSetDecision, ActionRequireApproval, ActionAddReviewer,
-		ActionBlock, ActionAddRationale, ActionAddCondition:
+		ActionBlock, ActionAddRationale, ActionAddCondition,
+		ActionRequireTeamReview, ActionRequireRoleReview, ActionRequireTeamLead:
 		return true
 	default:
 		return false

@@ -2,7 +2,6 @@
 package release
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
@@ -242,7 +241,7 @@ func (r *Release) SetRepositoryName(name string) {
 // SetPlan sets the release plan and transitions to StatePlanned.
 func (r *Release) SetPlan(plan *ReleasePlan) error {
 	if !r.state.CanTransitionTo(StatePlanned) {
-		return fmt.Errorf("%w: cannot set plan in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "set plan")
 	}
 
 	if plan == nil {
@@ -270,7 +269,7 @@ func (r *Release) SetPlan(plan *ReleasePlan) error {
 // SetVersion sets the release version and transitions to StateVersioned.
 func (r *Release) SetVersion(ver version.SemanticVersion, tagName string) error {
 	if !r.state.CanTransitionTo(StateVersioned) {
-		return fmt.Errorf("%w: cannot set version in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "set version")
 	}
 
 	r.version = &ver
@@ -286,7 +285,7 @@ func (r *Release) SetVersion(ver version.SemanticVersion, tagName string) error 
 // SetNotes sets the release notes and transitions to StateNotesGenerated.
 func (r *Release) SetNotes(notes *ReleaseNotes) error {
 	if !r.state.CanTransitionTo(StateNotesGenerated) {
-		return fmt.Errorf("%w: cannot set notes in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "generate notes")
 	}
 
 	if notes == nil {
@@ -306,8 +305,7 @@ func (r *Release) SetNotes(notes *ReleaseNotes) error {
 // This can only be called in StateNotesGenerated to allow editing before approval.
 func (r *Release) UpdateNotes(changelog string) error {
 	if r.state != StateNotesGenerated {
-		return fmt.Errorf("%w: can only update notes in state %s, current state is %s",
-			ErrInvalidStateTransition, StateNotesGenerated, r.state)
+		return NewStateTransitionError(r.state, "update notes")
 	}
 
 	if r.notes == nil {
@@ -330,7 +328,7 @@ func (r *Release) UpdateNotes(changelog string) error {
 // Approve approves the release and transitions to StateApproved.
 func (r *Release) Approve(approvedBy string, autoApproved bool) error {
 	if !r.state.CanTransitionTo(StateApproved) {
-		return fmt.Errorf("%w: cannot approve in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "approve")
 	}
 
 	r.approval = &Approval{
@@ -349,7 +347,7 @@ func (r *Release) Approve(approvedBy string, autoApproved bool) error {
 // StartPublishing transitions to StatePublishing.
 func (r *Release) StartPublishing(plugins []string) error {
 	if !r.state.CanTransitionTo(StatePublishing) {
-		return fmt.Errorf("%w: cannot start publishing in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "start publishing")
 	}
 
 	r.state = StatePublishing
@@ -363,7 +361,7 @@ func (r *Release) StartPublishing(plugins []string) error {
 // MarkPublished marks the release as published.
 func (r *Release) MarkPublished(releaseURL string) error {
 	if !r.state.CanTransitionTo(StatePublished) {
-		return fmt.Errorf("%w: cannot mark published in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "publish")
 	}
 
 	now := time.Now()
@@ -379,7 +377,7 @@ func (r *Release) MarkPublished(releaseURL string) error {
 // MarkFailed marks the release as failed.
 func (r *Release) MarkFailed(reason string, recoverable bool) error {
 	if !r.state.CanTransitionTo(StateFailed) {
-		return fmt.Errorf("%w: cannot mark failed in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "mark as failed")
 	}
 
 	previousState := r.state
@@ -395,7 +393,7 @@ func (r *Release) MarkFailed(reason string, recoverable bool) error {
 // Cancel cancels the release.
 func (r *Release) Cancel(reason, canceledBy string) error {
 	if !r.state.CanTransitionTo(StateCanceled) {
-		return fmt.Errorf("%w: cannot cancel in state %s", ErrInvalidStateTransition, r.state)
+		return NewStateTransitionError(r.state, "cancel")
 	}
 
 	r.state = StateCanceled
@@ -410,7 +408,7 @@ func (r *Release) Cancel(reason, canceledBy string) error {
 // Retry resets the release to allow retrying from a failed state.
 func (r *Release) Retry() error {
 	if r.state != StateFailed && r.state != StateCanceled {
-		return fmt.Errorf("%w: can only retry from failed or canceled state", ErrInvalidStateTransition)
+		return NewStateTransitionError(r.state, "retry")
 	}
 
 	previousState := r.state

@@ -13,8 +13,10 @@ import (
 
 // Engine evaluates policies against proposals.
 type Engine struct {
-	policies []Policy
-	logger   *slog.Logger
+	policies    []Policy
+	logger      *slog.Logger
+	timeContext *TimeContext
+	teamContext *TeamContext
 }
 
 // Result contains the outcome of policy evaluation.
@@ -59,9 +61,68 @@ func NewEngine(policies []Policy, logger *slog.Logger) *Engine {
 		logger = slog.Default()
 	}
 	return &Engine{
-		policies: policies,
-		logger:   logger,
+		policies:    policies,
+		logger:      logger,
+		timeContext: DefaultTimeContext(),
+		teamContext: DefaultTeamContext(),
 	}
+}
+
+// WithTimeContext sets the time context for policy evaluation.
+func (e *Engine) WithTimeContext(tc *TimeContext) *Engine {
+	e.timeContext = tc
+	return e
+}
+
+// SetBusinessHours configures business hours for the engine.
+func (e *Engine) SetBusinessHours(config BusinessHoursConfig) *Engine {
+	if e.timeContext == nil {
+		e.timeContext = DefaultTimeContext()
+	}
+	e.timeContext.BusinessHours = config
+	return e
+}
+
+// AddFreezePeriod adds a freeze period to the engine.
+func (e *Engine) AddFreezePeriod(freeze FreezePeriod) *Engine {
+	if e.timeContext == nil {
+		e.timeContext = DefaultTimeContext()
+	}
+	e.timeContext.FreezePeriods = append(e.timeContext.FreezePeriods, freeze)
+	return e
+}
+
+// WithTeamContext sets the team context for policy evaluation.
+func (e *Engine) WithTeamContext(tc *TeamContext) *Engine {
+	e.teamContext = tc
+	return e
+}
+
+// AddTeam adds a team to the engine's team context.
+func (e *Engine) AddTeam(team *Team) *Engine {
+	if e.teamContext == nil {
+		e.teamContext = DefaultTeamContext()
+	}
+	e.teamContext.AddTeam(team)
+	return e
+}
+
+// AddRole adds a role to the engine's team context.
+func (e *Engine) AddRole(role *Role) *Engine {
+	if e.teamContext == nil {
+		e.teamContext = DefaultTeamContext()
+	}
+	e.teamContext.AddRole(role)
+	return e
+}
+
+// AssignActorRole assigns a role to an actor.
+func (e *Engine) AssignActorRole(actorID, roleName string) *Engine {
+	if e.teamContext == nil {
+		e.teamContext = DefaultTeamContext()
+	}
+	e.teamContext.AssignRole(actorID, roleName)
+	return e
 }
 
 // AddPolicy adds a policy to the engine.
@@ -104,8 +165,14 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 		return allRules[i].rule.Priority > allRules[j].rule.Priority
 	})
 
+	// Get actor ID for team context
+	var actorID string
+	if proposal != nil {
+		actorID = proposal.Actor.ID
+	}
+
 	// Build evaluation context
-	evalCtx := buildEvalContext(proposal, analysis, riskScore)
+	evalCtx := buildEvalContext(proposal, analysis, riskScore, e.timeContext, e.teamContext, actorID)
 
 	// Evaluate each rule
 	for _, rp := range allRules {
@@ -120,7 +187,7 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 
 		if matched {
 			result.MatchedRules = append(result.MatchedRules, rp.rule.ID)
-			e.applyActions(result, rp.rule.Actions)
+			e.applyActions(result, rp.rule.Actions, e.teamContext)
 			if rp.rule.Description != "" {
 				result.Rationale = append(result.Rationale,
 					fmt.Sprintf("Rule '%s': %s", rp.rule.Name, rp.rule.Description))
@@ -179,7 +246,7 @@ func (e *Engine) evaluateCondition(cond Condition, evalCtx map[string]any) (bool
 }
 
 // applyActions applies rule actions to the result.
-func (e *Engine) applyActions(result *Result, actions []Action) {
+func (e *Engine) applyActions(result *Result, actions []Action, teamCtx *TeamContext) {
 	for _, action := range actions {
 		switch action.Type {
 		case ActionSetDecision:
@@ -242,25 +309,116 @@ func (e *Engine) applyActions(result *Result, actions []Action) {
 					Value: condValue,
 				})
 			}
+
+		case ActionRequireTeamReview:
+			result.Decision = cgp.DecisionApprovalRequired
+			if teamName, ok := action.Params["team"].(string); ok {
+				// Add team members as required reviewers
+				if teamCtx != nil {
+					members := teamCtx.GetTeamMembers(teamName)
+					result.Reviewers = append(result.Reviewers, members...)
+				}
+				// Set minimum approvers from team
+				if count, ok := action.Params["count"].(float64); ok {
+					if int(count) > result.RequiredApprovers {
+						result.RequiredApprovers = int(count)
+					}
+				} else {
+					// Default to 1 team member
+					if result.RequiredApprovers < 1 {
+						result.RequiredApprovers = 1
+					}
+				}
+				result.RequiredActions = append(result.RequiredActions, cgp.RequiredAction{
+					Type:        "team_approval",
+					Description: fmt.Sprintf("Requires approval from team '%s'", teamName),
+				})
+			}
+
+		case ActionRequireRoleReview:
+			result.Decision = cgp.DecisionApprovalRequired
+			if roleName, ok := action.Params["role"].(string); ok {
+				// Add actors with this role as required reviewers
+				if teamCtx != nil {
+					for actorID, roles := range teamCtx.ActorRoles {
+						for _, r := range roles {
+							if r == roleName {
+								result.Reviewers = append(result.Reviewers, actorID)
+								break
+							}
+						}
+					}
+				}
+				// Set minimum approvers
+				if count, ok := action.Params["count"].(float64); ok {
+					if int(count) > result.RequiredApprovers {
+						result.RequiredApprovers = int(count)
+					}
+				} else {
+					if result.RequiredApprovers < 1 {
+						result.RequiredApprovers = 1
+					}
+				}
+				result.RequiredActions = append(result.RequiredActions, cgp.RequiredAction{
+					Type:        "role_approval",
+					Description: fmt.Sprintf("Requires approval from role '%s'", roleName),
+				})
+			}
+
+		case ActionRequireTeamLead:
+			result.Decision = cgp.DecisionApprovalRequired
+			if teamName, ok := action.Params["team"].(string); ok {
+				// Add team leads as required reviewers
+				if teamCtx != nil {
+					leads := teamCtx.GetTeamLeads(teamName)
+					result.Reviewers = append(result.Reviewers, leads...)
+				}
+				if result.RequiredApprovers < 1 {
+					result.RequiredApprovers = 1
+				}
+				result.RequiredActions = append(result.RequiredActions, cgp.RequiredAction{
+					Type:        "team_lead_approval",
+					Description: fmt.Sprintf("Requires approval from lead of team '%s'", teamName),
+				})
+			}
 		}
 	}
 }
 
 // buildEvalContext creates the context for rule evaluation.
-func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis, riskScore float64) map[string]any {
+func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis, riskScore float64, timeCtx *TimeContext, teamCtx *TeamContext, actorID string) map[string]any {
 	ctx := map[string]any{
 		"risk": map[string]any{
 			"score": riskScore,
 		},
 	}
 
+	// Add time context if available
+	if timeCtx != nil {
+		ctx["time"] = timeCtx.ToEvalContext()
+	}
+
+	// Add team context if available
+	if teamCtx != nil {
+		ctx["team"] = teamCtx.ToEvalContext(actorID)
+	}
+
 	// Actor context
 	if proposal != nil {
-		ctx["actor"] = map[string]any{
+		actorCtx := map[string]any{
 			"kind": string(proposal.Actor.Kind),
 			"id":   proposal.Actor.ID,
 			"name": proposal.Actor.Name,
 		}
+		// Add team/role info to actor context
+		if teamCtx != nil {
+			actorCtx["teams"] = teamCtx.GetActorTeams(actorID)
+			actorCtx["roles"] = teamCtx.GetActorRoles(actorID)
+			actorCtx["canApprove"] = teamCtx.CanApprove(actorID)
+			actorCtx["canPublish"] = teamCtx.CanPublish(actorID)
+			actorCtx["isTeamLead"] = teamCtx.isAnyTeamLead(actorID)
+		}
+		ctx["actor"] = actorCtx
 		ctx["intent"] = map[string]any{
 			"summary":       proposal.Intent.Summary,
 			"suggestedBump": string(proposal.Intent.SuggestedBump),

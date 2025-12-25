@@ -10,6 +10,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/internal/cgp/policy/dsl"
 	"github.com/relicta-tech/relicta/internal/config"
 )
 
@@ -32,6 +33,10 @@ func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger 
 
 	// Build policies from config
 	policies := buildPolicies(cfg.Policies, logger)
+
+	// Load policies from DSL files
+	dslPolicies := loadDSLPolicies(cfg.PolicyDir, repoPath, logger)
+	policies = append(policies, dslPolicies...)
 
 	// Create policy engine with policies
 	policyEngine := policy.NewEngine(policies, logger)
@@ -177,4 +182,78 @@ func EvaluatorConfigFromGovernance(cfg *config.GovernanceConfig) evaluator.Confi
 		RequireHumanForSecurity: cfg.RequireHumanForSecurity,
 		MaxAutoApproveRisk:      cfg.MaxAutoApproveRisk,
 	}
+}
+
+// loadDSLPolicies loads policy files from the configured policy directory.
+// It searches for .policy and .cgp files in the policy directory and
+// all default policy paths.
+func loadDSLPolicies(policyDir, repoPath string, logger *slog.Logger) []policy.Policy {
+	var allPolicies []policy.Policy
+
+	loader := dsl.NewLoader(dsl.LoaderOptions{
+		IgnoreErrors: true, // Continue loading even if some files fail
+		Recursive:    true, // Search subdirectories
+	})
+
+	// Collect all paths to search
+	var searchPaths []string
+
+	// Add configured policy directory
+	if policyDir != "" {
+		searchPaths = append(searchPaths, policyDir)
+	}
+
+	// Add default policy paths
+	searchPaths = append(searchPaths, dsl.DefaultPolicyPaths()...)
+
+	// Search each path
+	seenPaths := make(map[string]bool)
+	for _, dir := range searchPaths {
+		// Make path absolute if relative
+		absDir := dir
+		if !filepath.IsAbs(absDir) && repoPath != "" {
+			absDir = filepath.Join(repoPath, dir)
+		}
+
+		// Skip if already searched
+		if seenPaths[absDir] {
+			continue
+		}
+		seenPaths[absDir] = true
+
+		// Load policies from this directory
+		result, err := loader.LoadDir(absDir)
+		if err != nil {
+			logger.Debug("failed to load policies from directory",
+				"path", absDir,
+				"error", err,
+			)
+			continue
+		}
+
+		// Log any errors from individual files
+		for _, loadErr := range result.Errors {
+			logger.Warn("failed to load policy file",
+				"file", loadErr.File,
+				"error", loadErr.Error,
+			)
+		}
+
+		// Add successfully loaded policies
+		for _, pol := range result.Policies {
+			allPolicies = append(allPolicies, *pol)
+			logger.Debug("loaded policy from DSL file",
+				"name", pol.Name,
+				"rules", len(pol.Rules),
+			)
+		}
+	}
+
+	if len(allPolicies) > 0 {
+		logger.Info("loaded DSL policies",
+			"count", len(allPolicies),
+		)
+	}
+
+	return allPolicies
 }
