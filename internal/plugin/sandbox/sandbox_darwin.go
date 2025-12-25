@@ -70,3 +70,14 @@ func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 
 	return nil
 }
+
+// ApplyResourceLimits is a no-op on macOS.
+// macOS does not support prlimit(2) - resource limits must be set before process starts
+// via setrlimit in applyProcessLimits above, which has limited effectiveness.
+// The timeout mechanism in the plugin manager is the primary protection on macOS.
+func (s *Sandbox) ApplyResourceLimits(pid int) error {
+	// On macOS, resource limits are applied at process start time via setrlimit.
+	// There's no prlimit equivalent to modify limits of a running process.
+	// This is intentionally a no-op - limits were already applied in applyProcessLimits.
+	return nil
+}

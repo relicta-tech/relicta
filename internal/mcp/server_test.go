@@ -156,7 +156,7 @@ func TestHandleRequest(t *testing.T) {
 
 		result, ok := resp.Result.(ListPromptsResult)
 		require.True(t, ok)
-		assert.Len(t, result.Prompts, 2) // 2 prompts registered
+		assert.Len(t, result.Prompts, 7) // 7 prompts registered
 	})
 }
 

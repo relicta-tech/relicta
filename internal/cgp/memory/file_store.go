@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/fileutil"
 )
 
@@ -22,9 +23,11 @@ type FileStore struct {
 	mu       sync.RWMutex
 
 	// In-memory cache for fast reads
-	releases  map[string][]*ReleaseRecord  // keyed by repository
-	incidents map[string][]*IncidentRecord // keyed by repository
-	actors    map[string]*ActorMetrics     // keyed by actor ID
+	releases       map[string][]*ReleaseRecord            // keyed by repository
+	incidents      map[string][]*IncidentRecord           // keyed by repository
+	actors         map[string]*ActorMetrics               // keyed by actor ID
+	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
+	authorizations map[string]*cgp.ExecutionAuthorization // keyed by authorization ID
 
 	// Track if data has been loaded
 	loaded bool
@@ -38,10 +41,12 @@ func NewFileStore(basePath string) (*FileStore, error) {
 	}
 
 	store := &FileStore{
-		basePath:  basePath,
-		releases:  make(map[string][]*ReleaseRecord),
-		incidents: make(map[string][]*IncidentRecord),
-		actors:    make(map[string]*ActorMetrics),
+		basePath:       basePath,
+		releases:       make(map[string][]*ReleaseRecord),
+		incidents:      make(map[string][]*IncidentRecord),
+		actors:         make(map[string]*ActorMetrics),
+		decisions:      make(map[string]*cgp.GovernanceDecision),
+		authorizations: make(map[string]*cgp.ExecutionAuthorization),
 	}
 
 	// Load existing data
@@ -54,10 +59,12 @@ func NewFileStore(basePath string) (*FileStore, error) {
 
 // fileData represents the JSON structure for persistence.
 type fileData struct {
-	Releases  map[string][]*ReleaseRecord  `json:"releases"`
-	Incidents map[string][]*IncidentRecord `json:"incidents"`
-	Actors    map[string]*ActorMetrics     `json:"actors"`
-	UpdatedAt time.Time                    `json:"updatedAt"`
+	Releases       map[string][]*ReleaseRecord            `json:"releases"`
+	Incidents      map[string][]*IncidentRecord           `json:"incidents"`
+	Actors         map[string]*ActorMetrics               `json:"actors"`
+	Decisions      map[string]*cgp.GovernanceDecision     `json:"decisions,omitempty"`
+	Authorizations map[string]*cgp.ExecutionAuthorization `json:"authorizations,omitempty"`
+	UpdatedAt      time.Time                              `json:"updatedAt"`
 }
 
 // dataFilePath returns the path to the main data file.
@@ -96,6 +103,12 @@ func (s *FileStore) load() error {
 	if fd.Actors != nil {
 		s.actors = fd.Actors
 	}
+	if fd.Decisions != nil {
+		s.decisions = fd.Decisions
+	}
+	if fd.Authorizations != nil {
+		s.authorizations = fd.Authorizations
+	}
 
 	s.loaded = true
 	return nil
@@ -104,10 +117,12 @@ func (s *FileStore) load() error {
 // save persists data to disk.
 func (s *FileStore) save() error {
 	fd := fileData{
-		Releases:  s.releases,
-		Incidents: s.incidents,
-		Actors:    s.actors,
-		UpdatedAt: time.Now(),
+		Releases:       s.releases,
+		Incidents:      s.incidents,
+		Actors:         s.actors,
+		Decisions:      s.decisions,
+		Authorizations: s.authorizations,
+		UpdatedAt:      time.Now(),
 	}
 
 	data, err := json.MarshalIndent(fd, "", "  ")
@@ -410,17 +425,159 @@ func (s *FileStore) Stats() StoreStats {
 	}
 
 	return StoreStats{
-		Repositories:   len(s.releases),
-		TotalReleases:  totalReleases,
-		TotalIncidents: totalIncidents,
-		TrackedActors:  len(s.actors),
+		Repositories:        len(s.releases),
+		TotalReleases:       totalReleases,
+		TotalIncidents:      totalIncidents,
+		TrackedActors:       len(s.actors),
+		TotalDecisions:      len(s.decisions),
+		TotalAuthorizations: len(s.authorizations),
 	}
 }
 
 // StoreStats contains store statistics.
 type StoreStats struct {
-	Repositories   int `json:"repositories"`
-	TotalReleases  int `json:"totalReleases"`
-	TotalIncidents int `json:"totalIncidents"`
-	TrackedActors  int `json:"trackedActors"`
+	Repositories        int `json:"repositories"`
+	TotalReleases       int `json:"totalReleases"`
+	TotalIncidents      int `json:"totalIncidents"`
+	TrackedActors       int `json:"trackedActors"`
+	TotalDecisions      int `json:"totalDecisions"`
+	TotalAuthorizations int `json:"totalAuthorizations"`
+}
+
+// RecordDecision stores a governance decision.
+func (s *FileStore) RecordDecision(ctx context.Context, decision *cgp.GovernanceDecision) error {
+	if decision == nil {
+		return fmt.Errorf("decision is required")
+	}
+	if decision.ID == "" {
+		return fmt.Errorf("decision ID is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.decisions[decision.ID] = decision
+	return s.save()
+}
+
+// RecordAuthorization stores an execution authorization.
+func (s *FileStore) RecordAuthorization(ctx context.Context, auth *cgp.ExecutionAuthorization) error {
+	if auth == nil {
+		return fmt.Errorf("authorization is required")
+	}
+	if auth.ID == "" {
+		return fmt.Errorf("authorization ID is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.authorizations[auth.ID] = auth
+	return s.save()
+}
+
+// GetDecision returns a governance decision by ID.
+func (s *FileStore) GetDecision(ctx context.Context, decisionID string) (*cgp.GovernanceDecision, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	decision, exists := s.decisions[decisionID]
+	if !exists {
+		return nil, fmt.Errorf("decision not found: %s", decisionID)
+	}
+	return decision, nil
+}
+
+// GetDecisionsByProposal returns all decisions for a proposal.
+func (s *FileStore) GetDecisionsByProposal(ctx context.Context, proposalID string) ([]*cgp.GovernanceDecision, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var decisions []*cgp.GovernanceDecision
+	for _, d := range s.decisions {
+		if d.ProposalID == proposalID {
+			decisions = append(decisions, d)
+		}
+	}
+	return decisions, nil
+}
+
+// GetAuthorization returns an execution authorization by ID.
+func (s *FileStore) GetAuthorization(ctx context.Context, authID string) (*cgp.ExecutionAuthorization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	auth, exists := s.authorizations[authID]
+	if !exists {
+		return nil, fmt.Errorf("authorization not found: %s", authID)
+	}
+	return auth, nil
+}
+
+// GetAuthorizationsByDecision returns all authorizations for a decision.
+func (s *FileStore) GetAuthorizationsByDecision(ctx context.Context, decisionID string) ([]*cgp.ExecutionAuthorization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var auths []*cgp.ExecutionAuthorization
+	for _, a := range s.authorizations {
+		if a.DecisionID == decisionID {
+			auths = append(auths, a)
+		}
+	}
+	return auths, nil
+}
+
+// GetAuditTrail returns the complete audit trail for a proposal.
+func (s *FileStore) GetAuditTrail(ctx context.Context, proposalID string) (*AuditTrail, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Gather all decisions for this proposal
+	var decisions []*cgp.GovernanceDecision
+	for _, d := range s.decisions {
+		if d.ProposalID == proposalID {
+			decisions = append(decisions, d)
+		}
+	}
+
+	if len(decisions) == 0 {
+		return nil, fmt.Errorf("no audit trail found for proposal: %s", proposalID)
+	}
+
+	// Gather all authorizations for these decisions
+	var auths []*cgp.ExecutionAuthorization
+	decisionIDs := make(map[string]bool)
+	for _, d := range decisions {
+		decisionIDs[d.ID] = true
+	}
+	for _, a := range s.authorizations {
+		if decisionIDs[a.DecisionID] {
+			auths = append(auths, a)
+		}
+	}
+
+	// Find earliest and latest timestamps
+	var earliest, latest time.Time
+	for i, d := range decisions {
+		if i == 0 || d.Timestamp.Before(earliest) {
+			earliest = d.Timestamp
+		}
+		if i == 0 || d.Timestamp.After(latest) {
+			latest = d.Timestamp
+		}
+	}
+	for _, a := range auths {
+		if a.Timestamp.After(latest) {
+			latest = a.Timestamp
+		}
+	}
+
+	return &AuditTrail{
+		ProposalID:     proposalID,
+		Decisions:      decisions,
+		Authorizations: auths,
+		CreatedAt:      earliest,
+		UpdatedAt:      latest,
+	}, nil
 }

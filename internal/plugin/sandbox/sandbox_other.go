@@ -21,3 +21,12 @@ func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 
 	return nil
 }
+
+// ApplyResourceLimits is a no-op on unsupported platforms.
+// Windows and other platforms don't have a prlimit equivalent.
+// Resource limiting relies on the plugin manager's timeout mechanism.
+func (s *Sandbox) ApplyResourceLimits(pid int) error {
+	// On Windows and other platforms, there's no prlimit equivalent.
+	// True resource limiting would require Job objects on Windows.
+	return nil
+}

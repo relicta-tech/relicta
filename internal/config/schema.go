@@ -196,6 +196,12 @@ type PluginCapabilities struct {
 	MaxMemoryMB int64 `mapstructure:"max_memory_mb" json:"max_memory_mb"`
 	// MaxCPUPercent is the maximum CPU percentage (0 = unlimited).
 	MaxCPUPercent int `mapstructure:"max_cpu_percent" json:"max_cpu_percent"`
+	// MaxFileDescriptors is the maximum number of open files (0 = unlimited).
+	// On Linux, this is enforced via RLIMIT_NOFILE.
+	MaxFileDescriptors int `mapstructure:"max_file_descriptors" json:"max_file_descriptors"`
+	// MaxCPUSeconds is the maximum CPU time in seconds (0 = unlimited).
+	// On Linux, this is enforced via RLIMIT_CPU. Note this is CPU time, not wall-clock time.
+	MaxCPUSeconds int `mapstructure:"max_cpu_seconds" json:"max_cpu_seconds"`
 }
 
 // PluginConfig configures a single plugin.

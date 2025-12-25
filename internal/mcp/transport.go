@@ -121,6 +121,12 @@ func (t *StdioTransport) Close() error {
 	return nil
 }
 
+// WriteProgress sends a progress notification to stdout.
+// This implements the ProgressWriter interface for MCP progress tracking.
+func (t *StdioTransport) WriteProgress(notification *ProgressNotification) error {
+	return t.WriteNotification("notifications/progress", notification)
+}
+
 // MessageLoop runs the main message processing loop.
 type MessageLoop struct {
 	transport Transport

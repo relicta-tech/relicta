@@ -170,10 +170,31 @@ type ListToolsResult struct {
 	Tools []Tool `json:"tools"`
 }
 
+// RequestMeta contains metadata for a request, including progress tracking.
+type RequestMeta struct {
+	// ProgressToken identifies a progress tracking session.
+	// If provided, the server may send progress notifications using this token.
+	ProgressToken string `json:"progressToken,omitempty"`
+}
+
 // CallToolParams contains parameters for calling a tool.
 type CallToolParams struct {
 	Name      string         `json:"name"`
 	Arguments map[string]any `json:"arguments,omitempty"`
+	// Meta contains request metadata including optional progress token.
+	Meta *RequestMeta `json:"_meta,omitempty"`
+}
+
+// ProgressNotification is sent to report progress on long-running operations.
+type ProgressNotification struct {
+	// ProgressToken must match the token from the original request.
+	ProgressToken string `json:"progressToken"`
+	// Progress is the current progress value (must increase with each notification).
+	Progress float64 `json:"progress"`
+	// Total is the total expected progress value (optional).
+	Total float64 `json:"total,omitempty"`
+	// Message provides human-readable progress information (optional).
+	Message string `json:"message,omitempty"`
 }
 
 // CallToolResult contains the result of a tool call.

@@ -22,11 +22,29 @@ type Store interface {
 	// RecordIncident stores an incident record.
 	RecordIncident(ctx context.Context, incident *IncidentRecord) error
 
+	// RecordDecision stores a governance decision for audit trail.
+	RecordDecision(ctx context.Context, decision *cgp.GovernanceDecision) error
+
+	// RecordAuthorization stores an execution authorization for audit trail.
+	RecordAuthorization(ctx context.Context, auth *cgp.ExecutionAuthorization) error
+
 	// GetReleaseHistory returns release records for a repository.
 	GetReleaseHistory(ctx context.Context, repository string, limit int) ([]*ReleaseRecord, error)
 
 	// GetIncidentHistory returns incident records for a repository.
 	GetIncidentHistory(ctx context.Context, repository string, limit int) ([]*IncidentRecord, error)
+
+	// GetDecision returns a governance decision by ID.
+	GetDecision(ctx context.Context, decisionID string) (*cgp.GovernanceDecision, error)
+
+	// GetDecisionsByProposal returns all decisions for a proposal.
+	GetDecisionsByProposal(ctx context.Context, proposalID string) ([]*cgp.GovernanceDecision, error)
+
+	// GetAuthorization returns an execution authorization by ID.
+	GetAuthorization(ctx context.Context, authID string) (*cgp.ExecutionAuthorization, error)
+
+	// GetAuthorizationsByDecision returns all authorizations for a decision.
+	GetAuthorizationsByDecision(ctx context.Context, decisionID string) ([]*cgp.ExecutionAuthorization, error)
 
 	// GetActorMetrics returns behavior metrics for an actor.
 	GetActorMetrics(ctx context.Context, actorID string) (*ActorMetrics, error)
@@ -36,6 +54,33 @@ type Store interface {
 
 	// UpdateActorMetrics updates metrics for an actor based on a release outcome.
 	UpdateActorMetrics(ctx context.Context, actorID string, outcome ReleaseOutcome) error
+
+	// GetAuditTrail returns the complete audit trail for a proposal.
+	GetAuditTrail(ctx context.Context, proposalID string) (*AuditTrail, error)
+}
+
+// AuditTrail provides a complete governance history for a release proposal.
+type AuditTrail struct {
+	// ProposalID is the identifier of the original proposal.
+	ProposalID string `json:"proposalId"`
+
+	// Decisions are all governance decisions made for this proposal.
+	Decisions []*cgp.GovernanceDecision `json:"decisions"`
+
+	// Authorizations are all execution authorizations granted.
+	Authorizations []*cgp.ExecutionAuthorization `json:"authorizations"`
+
+	// Release is the final release record (if published).
+	Release *ReleaseRecord `json:"release,omitempty"`
+
+	// Incidents are any incidents associated with this release.
+	Incidents []*IncidentRecord `json:"incidents,omitempty"`
+
+	// CreatedAt is when the first decision was made.
+	CreatedAt time.Time `json:"createdAt"`
+
+	// UpdatedAt is when the trail was last updated.
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // ReleaseRecord stores information about a completed release.
@@ -343,18 +388,22 @@ type IncidentCorrelation struct {
 // InMemoryStore provides an in-memory implementation of the Store interface.
 // This is useful for testing and short-lived processes.
 type InMemoryStore struct {
-	mu        sync.RWMutex
-	releases  map[string][]*ReleaseRecord  // keyed by repository
-	incidents map[string][]*IncidentRecord // keyed by repository
-	actors    map[string]*ActorMetrics     // keyed by actor ID
+	mu             sync.RWMutex
+	releases       map[string][]*ReleaseRecord            // keyed by repository
+	incidents      map[string][]*IncidentRecord           // keyed by repository
+	actors         map[string]*ActorMetrics               // keyed by actor ID
+	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
+	authorizations map[string]*cgp.ExecutionAuthorization // keyed by authorization ID
 }
 
 // NewInMemoryStore creates a new in-memory store.
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		releases:  make(map[string][]*ReleaseRecord),
-		incidents: make(map[string][]*IncidentRecord),
-		actors:    make(map[string]*ActorMetrics),
+		releases:       make(map[string][]*ReleaseRecord),
+		incidents:      make(map[string][]*IncidentRecord),
+		actors:         make(map[string]*ActorMetrics),
+		decisions:      make(map[string]*cgp.GovernanceDecision),
+		authorizations: make(map[string]*cgp.ExecutionAuthorization),
 	}
 }
 
@@ -623,4 +672,142 @@ func (s *InMemoryStore) UpdateActorMetrics(ctx context.Context, actorID string, 
 	metrics.UpdatedAt = time.Now()
 
 	return nil
+}
+
+// RecordDecision stores a governance decision.
+func (s *InMemoryStore) RecordDecision(ctx context.Context, decision *cgp.GovernanceDecision) error {
+	if decision == nil {
+		return fmt.Errorf("decision is required")
+	}
+	if decision.ID == "" {
+		return fmt.Errorf("decision ID is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.decisions[decision.ID] = decision
+	return nil
+}
+
+// RecordAuthorization stores an execution authorization.
+func (s *InMemoryStore) RecordAuthorization(ctx context.Context, auth *cgp.ExecutionAuthorization) error {
+	if auth == nil {
+		return fmt.Errorf("authorization is required")
+	}
+	if auth.ID == "" {
+		return fmt.Errorf("authorization ID is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.authorizations[auth.ID] = auth
+	return nil
+}
+
+// GetDecision returns a governance decision by ID.
+func (s *InMemoryStore) GetDecision(ctx context.Context, decisionID string) (*cgp.GovernanceDecision, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	decision, exists := s.decisions[decisionID]
+	if !exists {
+		return nil, fmt.Errorf("decision not found: %s", decisionID)
+	}
+	return decision, nil
+}
+
+// GetDecisionsByProposal returns all decisions for a proposal.
+func (s *InMemoryStore) GetDecisionsByProposal(ctx context.Context, proposalID string) ([]*cgp.GovernanceDecision, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var decisions []*cgp.GovernanceDecision
+	for _, d := range s.decisions {
+		if d.ProposalID == proposalID {
+			decisions = append(decisions, d)
+		}
+	}
+	return decisions, nil
+}
+
+// GetAuthorization returns an execution authorization by ID.
+func (s *InMemoryStore) GetAuthorization(ctx context.Context, authID string) (*cgp.ExecutionAuthorization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	auth, exists := s.authorizations[authID]
+	if !exists {
+		return nil, fmt.Errorf("authorization not found: %s", authID)
+	}
+	return auth, nil
+}
+
+// GetAuthorizationsByDecision returns all authorizations for a decision.
+func (s *InMemoryStore) GetAuthorizationsByDecision(ctx context.Context, decisionID string) ([]*cgp.ExecutionAuthorization, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var auths []*cgp.ExecutionAuthorization
+	for _, a := range s.authorizations {
+		if a.DecisionID == decisionID {
+			auths = append(auths, a)
+		}
+	}
+	return auths, nil
+}
+
+// GetAuditTrail returns the complete audit trail for a proposal.
+func (s *InMemoryStore) GetAuditTrail(ctx context.Context, proposalID string) (*AuditTrail, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Gather all decisions for this proposal
+	var decisions []*cgp.GovernanceDecision
+	for _, d := range s.decisions {
+		if d.ProposalID == proposalID {
+			decisions = append(decisions, d)
+		}
+	}
+
+	if len(decisions) == 0 {
+		return nil, fmt.Errorf("no audit trail found for proposal: %s", proposalID)
+	}
+
+	// Gather all authorizations for these decisions
+	var auths []*cgp.ExecutionAuthorization
+	decisionIDs := make(map[string]bool)
+	for _, d := range decisions {
+		decisionIDs[d.ID] = true
+	}
+	for _, a := range s.authorizations {
+		if decisionIDs[a.DecisionID] {
+			auths = append(auths, a)
+		}
+	}
+
+	// Find earliest and latest timestamps
+	var earliest, latest time.Time
+	for i, d := range decisions {
+		if i == 0 || d.Timestamp.Before(earliest) {
+			earliest = d.Timestamp
+		}
+		if i == 0 || d.Timestamp.After(latest) {
+			latest = d.Timestamp
+		}
+	}
+	for _, a := range auths {
+		if a.Timestamp.After(latest) {
+			latest = a.Timestamp
+		}
+	}
+
+	return &AuditTrail{
+		ProposalID:     proposalID,
+		Decisions:      decisions,
+		Authorizations: auths,
+		CreatedAt:      earliest,
+		UpdatedAt:      latest,
+	}, nil
 }

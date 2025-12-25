@@ -222,11 +222,23 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 
 	const op = "plugin.Load"
 
-	// Connect to the plugin
+	// Connect to the plugin (this starts the process)
 	rpcClient, err := client.Client()
 	if err != nil {
 		client.Kill()
 		return errors.PluginWrap(err, op, "failed to connect to plugin")
+	}
+
+	// Apply resource limits to the running plugin process (Linux only)
+	// This uses prlimit to set memory, file descriptor, and CPU limits
+	if reattach := client.ReattachConfig(); reattach != nil && reattach.Pid > 0 {
+		if err := sb.ApplyResourceLimits(reattach.Pid); err != nil {
+			// Log warning but don't fail - resource limits are best-effort
+			m.logger.Warn("failed to apply resource limits to plugin",
+				"plugin", cfg.Name,
+				"pid", reattach.Pid,
+				"error", err)
+		}
 	}
 
 	// Get the plugin implementation

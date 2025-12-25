@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sync"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
@@ -16,6 +17,96 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
+
+// Context keys for progress tracking.
+type ctxKey string
+
+const (
+	ctxKeyProgressToken   ctxKey = "progressToken"
+	ctxKeyProgressWriter  ctxKey = "progressWriter"
+	ctxKeyProgressCounter ctxKey = "progressCounter"
+)
+
+// ProgressWriter is used by tool handlers to send progress notifications.
+type ProgressWriter interface {
+	WriteProgress(notification *ProgressNotification) error
+}
+
+// ContextWithProgress adds progress tracking to a context.
+func ContextWithProgress(ctx context.Context, token string, writer ProgressWriter) context.Context {
+	ctx = context.WithValue(ctx, ctxKeyProgressToken, token)
+	ctx = context.WithValue(ctx, ctxKeyProgressWriter, writer)
+	ctx = context.WithValue(ctx, ctxKeyProgressCounter, &progressCounter{})
+	return ctx
+}
+
+// progressCounter tracks the current progress value to ensure it increases.
+type progressCounter struct {
+	mu      sync.Mutex
+	current float64
+}
+
+func (c *progressCounter) next(delta float64) float64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.current += delta
+	return c.current
+}
+
+// SendProgress sends a progress notification if a progress token is present in the context.
+// Returns silently if no progress tracking is configured.
+func SendProgress(ctx context.Context, message string, total float64) error {
+	token, ok := ctx.Value(ctxKeyProgressToken).(string)
+	if !ok || token == "" {
+		return nil // No progress tracking, silently succeed
+	}
+
+	writer, ok := ctx.Value(ctxKeyProgressWriter).(ProgressWriter)
+	if !ok || writer == nil {
+		return nil
+	}
+
+	counter, ok := ctx.Value(ctxKeyProgressCounter).(*progressCounter)
+	if !ok {
+		return nil
+	}
+
+	notification := &ProgressNotification{
+		ProgressToken: token,
+		Progress:      counter.next(1),
+		Total:         total,
+		Message:       message,
+	}
+
+	return writer.WriteProgress(notification)
+}
+
+// SendProgressPercent sends a progress notification with a percentage value.
+func SendProgressPercent(ctx context.Context, message string, percent float64) error {
+	token, ok := ctx.Value(ctxKeyProgressToken).(string)
+	if !ok || token == "" {
+		return nil
+	}
+
+	writer, ok := ctx.Value(ctxKeyProgressWriter).(ProgressWriter)
+	if !ok || writer == nil {
+		return nil
+	}
+
+	counter, ok := ctx.Value(ctxKeyProgressCounter).(*progressCounter)
+	if !ok {
+		return nil
+	}
+
+	notification := &ProgressNotification{
+		ProgressToken: token,
+		Progress:      counter.next(percent),
+		Total:         100,
+		Message:       message,
+	}
+
+	return writer.WriteProgress(notification)
+}
 
 // Server implements the MCP server for Relicta.
 type Server struct {
@@ -37,6 +128,12 @@ type Server struct {
 	tools     map[string]ToolHandler
 	resources map[string]ResourceHandler
 	prompts   map[string]PromptHandler
+
+	// Progress notification writer (set during ServeStdio)
+	progressWriter ProgressWriter
+
+	// Resource cache for improved read performance
+	cache *ResourceCache
 }
 
 // ToolHandler handles a tool call.
@@ -107,6 +204,20 @@ func WithAdapter(adapter *Adapter) ServerOption {
 	}
 }
 
+// WithCache sets a custom resource cache.
+func WithCache(cache *ResourceCache) ServerOption {
+	return func(s *Server) {
+		s.cache = cache
+	}
+}
+
+// WithCacheDisabled disables resource caching.
+func WithCacheDisabled() ServerOption {
+	return func(s *Server) {
+		s.cache = nil
+	}
+}
+
 // NewServer creates a new MCP server for Relicta.
 func NewServer(version string, opts ...ServerOption) (*Server, error) {
 	s := &Server{
@@ -115,6 +226,7 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 		tools:     make(map[string]ToolHandler),
 		resources: make(map[string]ResourceHandler),
 		prompts:   make(map[string]PromptHandler),
+		cache:     NewResourceCache(), // Enable caching by default
 	}
 
 	// Apply options
@@ -144,6 +256,9 @@ func (s *Server) ServeStdio() error {
 func (s *Server) Serve(reader io.Reader, writer io.Writer) error {
 	transport := NewStdioTransport(reader, writer)
 	loop := NewMessageLoop(transport, s)
+
+	// Set progress writer for streaming progress notifications
+	s.progressWriter = transport
 
 	s.logger.Info("MCP server started", "version", s.version)
 	return loop.Run(context.Background())
@@ -298,6 +413,11 @@ func (s *Server) handleCallTool(ctx context.Context, req *Request) *Response {
 		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Tool not found", params.Name)
 	}
 
+	// Inject progress tracking into context if a progress token was provided
+	if params.Meta != nil && params.Meta.ProgressToken != "" && s.progressWriter != nil {
+		ctx = ContextWithProgress(ctx, params.Meta.ProgressToken, s.progressWriter)
+	}
+
 	result, err := handler(ctx, params.Arguments)
 	if err != nil {
 		return NewErrorResponse(req.ID, ErrCodeInternalError, "Tool execution failed", err.Error())
@@ -329,9 +449,22 @@ func (s *Server) handleReadResource(ctx context.Context, req *Request) *Response
 		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Resource not found", params.URI)
 	}
 
+	// Check cache first
+	if s.cache != nil {
+		if cached := s.cache.Get(params.URI); cached != nil {
+			s.logger.Debug("cache hit", "uri", params.URI)
+			return NewResponse(req.ID, cached)
+		}
+	}
+
 	result, err := handler(ctx, params.URI)
 	if err != nil {
 		return NewErrorResponse(req.ID, ErrCodeInternalError, "Resource read failed", err.Error())
+	}
+
+	// Cache the result
+	if s.cache != nil {
+		s.cache.Set(params.URI, result)
 	}
 
 	return NewResponse(req.ID, result)
@@ -349,6 +482,35 @@ func (s *Server) handleListPrompts(req *Request) *Response {
 		{
 			Name:        "risk-analysis",
 			Description: "Analyze and explain the risk factors for the current release",
+		},
+		{
+			Name:        "commit-review",
+			Description: "Review commits for conventional commit compliance and quality",
+			Arguments: []PromptArgument{
+				{Name: "focus", Description: "Review focus: compliance, quality, or security"},
+			},
+		},
+		{
+			Name:        "breaking-changes",
+			Description: "Document breaking changes and their impact on users",
+		},
+		{
+			Name:        "migration-guide",
+			Description: "Generate migration instructions for upgrading to this release",
+			Arguments: []PromptArgument{
+				{Name: "audience", Description: "Target audience: developer, operator, or end-user"},
+			},
+		},
+		{
+			Name:        "release-announcement",
+			Description: "Generate a release announcement for publishing",
+			Arguments: []PromptArgument{
+				{Name: "channel", Description: "Target channel: github, blog, social, or email"},
+			},
+		},
+		{
+			Name:        "approval-decision",
+			Description: "Help make an informed approval decision based on CGP analysis",
 		},
 	}
 
@@ -398,6 +560,19 @@ func (s *Server) registerResources() {
 func (s *Server) registerPrompts() {
 	s.prompts["release-summary"] = s.promptReleaseSummary
 	s.prompts["risk-analysis"] = s.promptRiskAnalysis
+	s.prompts["commit-review"] = s.promptCommitReview
+	s.prompts["breaking-changes"] = s.promptBreakingChanges
+	s.prompts["migration-guide"] = s.promptMigrationGuide
+	s.prompts["release-announcement"] = s.promptReleaseAnnouncement
+	s.prompts["approval-decision"] = s.promptApprovalDecision
+}
+
+// invalidateCache invalidates state-dependent resources in the cache.
+// Called after tools that modify release state.
+func (s *Server) invalidateCache() {
+	if s.cache != nil {
+		s.cache.InvalidateStateDependent()
+	}
 }
 
 // Tool implementations
@@ -474,10 +649,16 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			Analyze: analyze,
 		}
 
+		// Send progress: starting plan
+		_ = SendProgress(ctx, "Analyzing commit history...", 3)
+
 		output, err := s.adapter.Plan(ctx, input)
 		if err != nil {
 			return NewToolResultError(fmt.Sprintf("Plan failed: %v", err)), nil
 		}
+
+		// Send progress: plan complete
+		_ = SendProgress(ctx, "Computing version bump...", 3)
 
 		result := map[string]any{
 			"release_id":      output.ReleaseID,
@@ -507,6 +688,12 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			}
 			result["commits"] = commits
 		}
+
+		// Send progress: complete
+		_ = SendProgress(ctx, "Plan complete", 3)
+
+		// Invalidate cache since plan modifies state
+		s.invalidateCache()
 
 		return NewToolResultJSON(result)
 	}
@@ -548,6 +735,9 @@ func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolRe
 			result["tag_created"] = output.TagCreated
 		}
 
+		// Invalidate cache since bump modifies state
+		s.invalidateCache()
+
 		return NewToolResultJSON(result)
 	}
 
@@ -574,16 +764,31 @@ func (s *Server) toolNotes(ctx context.Context, args map[string]any) (*CallToolR
 			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
 		}
 
+		// Send progress: starting notes generation
+		totalSteps := float64(3)
+		if useAI {
+			totalSteps = 5 // AI adds extra steps
+		}
+		_ = SendProgress(ctx, "Loading release context...", totalSteps)
+
 		input := NotesInput{
 			ReleaseID:        status.ReleaseID,
 			UseAI:            useAI,
 			IncludeChangelog: true,
 		}
 
+		if useAI {
+			_ = SendProgress(ctx, "Generating AI-enhanced release notes...", totalSteps)
+		} else {
+			_ = SendProgress(ctx, "Generating changelog from commits...", totalSteps)
+		}
+
 		output, err := s.adapter.Notes(ctx, input)
 		if err != nil {
 			return NewToolResultError(fmt.Sprintf("Notes generation failed: %v", err)), nil
 		}
+
+		_ = SendProgress(ctx, "Formatting release notes...", totalSteps)
 
 		result := map[string]any{
 			"summary":      output.Summary,
@@ -593,6 +798,11 @@ func (s *Server) toolNotes(ctx context.Context, args map[string]any) (*CallToolR
 		if output.Changelog != "" {
 			result["changelog"] = output.Changelog
 		}
+
+		_ = SendProgress(ctx, "Notes generation complete", totalSteps)
+
+		// Invalidate cache since notes modifies changelog
+		s.invalidateCache()
 
 		return NewToolResultJSON(result)
 	}
@@ -614,15 +824,22 @@ func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallTo
 			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
 		}
 
+		// Send progress: starting evaluation
+		_ = SendProgress(ctx, "Loading release data...", 4)
+
 		input := EvaluateInput{
 			ReleaseID:      status.ReleaseID,
 			IncludeHistory: true,
 		}
 
+		_ = SendProgress(ctx, "Calculating risk factors...", 4)
+
 		output, err := s.adapter.Evaluate(ctx, input)
 		if err != nil {
 			return NewToolResultError(fmt.Sprintf("Evaluation failed: %v", err)), nil
 		}
+
+		_ = SendProgress(ctx, "Applying governance policies...", 4)
 
 		result := map[string]any{
 			"decision":         output.Decision,
@@ -633,6 +850,8 @@ func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallTo
 			"risk_factors":     output.RiskFactors,
 			"rationale":        output.Rationale,
 		}
+
+		_ = SendProgress(ctx, "Evaluation complete", 4)
 
 		return NewToolResultJSON(result)
 	}
@@ -705,6 +924,9 @@ func (s *Server) toolApprove(ctx context.Context, args map[string]any) (*CallToo
 			"version":     output.Version,
 		}
 
+		// Invalidate cache since approve modifies state
+		s.invalidateCache()
+
 		return NewToolResultJSON(result)
 	}
 
@@ -730,6 +952,10 @@ func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToo
 			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
 		}
 
+		// Send progress: starting publish
+		totalSteps := float64(5)
+		_ = SendProgress(ctx, "Preparing release...", totalSteps)
+
 		input := PublishInput{
 			ReleaseID: status.ReleaseID,
 			DryRun:    dryRun,
@@ -737,10 +963,18 @@ func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToo
 			PushTag:   !dryRun,
 		}
 
+		if dryRun {
+			_ = SendProgress(ctx, "Validating release (dry run)...", totalSteps)
+		} else {
+			_ = SendProgress(ctx, "Creating git tag...", totalSteps)
+		}
+
 		output, err := s.adapter.Publish(ctx, input)
 		if err != nil {
 			return NewToolResultError(fmt.Sprintf("Publish failed: %v", err)), nil
 		}
+
+		_ = SendProgress(ctx, "Running plugins...", totalSteps)
 
 		result := map[string]any{
 			"tag_name":    output.TagName,
@@ -760,6 +994,11 @@ func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToo
 			}
 			result["plugin_results"] = plugins
 		}
+
+		_ = SendProgress(ctx, "Publish complete", totalSteps)
+
+		// Invalidate cache since publish modifies state
+		s.invalidateCache()
 
 		return NewToolResultJSON(result)
 	}
@@ -837,23 +1076,228 @@ func (s *Server) resourceConfig(ctx context.Context, uri string) (*ReadResourceR
 }
 
 func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResourceResult, error) {
+	if s.releaseRepo == nil {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, `{"status": "no release repository configured"}`),
+			},
+		}, nil
+	}
+
+	releases, err := s.releaseRepo.FindActive(ctx)
+	if err != nil || len(releases) == 0 {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, `{"status": "no active release", "commits": []}`),
+			},
+		}, nil
+	}
+
+	rel := releases[0]
+	plan := rel.Plan()
+	if plan == nil {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, `{"status": "no plan available", "commits": []}`),
+			},
+		}, nil
+	}
+
+	// Check if changeset is loaded
+	if !plan.HasChangeSet() {
+		// Return plan metadata without commits
+		content := fmt.Sprintf(`{
+  "status": "changeset not loaded",
+  "changeset_id": %q,
+  "release_type": %q,
+  "current_version": %q,
+  "next_version": %q,
+  "commits": []
+}`, plan.ChangeSetID, plan.ReleaseType, plan.CurrentVersion.String(), plan.NextVersion.String())
+		return &ReadResourceResult{
+			Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: content}},
+		}, nil
+	}
+
+	// Get commits from changeset
+	changeSet := plan.GetChangeSet()
+	commits := changeSet.Commits()
+
+	// Build commits array
+	commitList := make([]map[string]any, 0, len(commits))
+	for _, c := range commits {
+		commit := map[string]any{
+			"sha":      c.ShortHash(),
+			"full_sha": c.Hash(),
+			"type":     string(c.Type()),
+			"subject":  c.Subject(),
+			"author":   c.Author(),
+			"date":     c.Date().Format("2006-01-02T15:04:05Z07:00"),
+			"breaking": c.IsBreaking(),
+		}
+		if c.Scope() != "" {
+			commit["scope"] = c.Scope()
+		}
+		commitList = append(commitList, commit)
+	}
+
+	result := map[string]any{
+		"status":          "ok",
+		"changeset_id":    string(plan.ChangeSetID),
+		"release_type":    string(plan.ReleaseType),
+		"current_version": plan.CurrentVersion.String(),
+		"next_version":    plan.NextVersion.String(),
+		"commit_count":    len(commits),
+		"commits":         commitList,
+	}
+
+	jsonBytes, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, fmt.Sprintf(`{"status": "error", "error": %q}`, err.Error())),
+			},
+		}, nil
+	}
+
 	return &ReadResourceResult{
-		Contents: []ResourceContent{
-			NewTextResourceContent(uri, `{"status": "commit history pending implementation"}`),
-		},
+		Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
 	}, nil
 }
 
 func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResourceResult, error) {
+	if s.releaseRepo == nil {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: "# Changelog\n\nNo release repository configured."}},
+		}, nil
+	}
+
+	releases, err := s.releaseRepo.FindActive(ctx)
+	if err != nil || len(releases) == 0 {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: "# Changelog\n\nNo active release found. Run `relicta plan` to start a new release."}},
+		}, nil
+	}
+
+	rel := releases[0]
+	notes := rel.Notes()
+
+	if notes == nil {
+		// No notes generated yet - provide helpful message
+		version := ""
+		if rel.Version() != nil {
+			version = rel.Version().String()
+		} else if rel.Plan() != nil {
+			version = rel.Plan().NextVersion.String()
+		}
+
+		content := fmt.Sprintf("# Changelog\n\nNo changelog generated yet for version %s.\n\nRun `relicta notes` to generate release notes.", version)
+		return &ReadResourceResult{
+			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: content}},
+		}, nil
+	}
+
+	// Return the actual changelog
+	changelog := notes.Changelog
+	if changelog == "" {
+		// Fall back to summary if changelog is empty
+		changelog = fmt.Sprintf("# Release Notes\n\n%s", notes.Summary)
+	}
+
 	return &ReadResourceResult{
-		Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: "# Changelog\n\nNo changelog generated yet."}},
+		Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: changelog}},
 	}, nil
 }
 
 func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResourceResult, error) {
+	if s.releaseRepo == nil {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, `{"status": "no release repository configured"}`),
+			},
+		}, nil
+	}
+
+	releases, err := s.releaseRepo.FindActive(ctx)
+	if err != nil || len(releases) == 0 {
+		return &ReadResourceResult{
+			Contents: []ResourceContent{
+				NewTextResourceContent(uri, `{"status": "no active release"}`),
+			},
+		}, nil
+	}
+
+	rel := releases[0]
+
+	// Try to get risk assessment from adapter if available
+	if s.adapter != nil && s.adapter.HasGovernanceService() {
+		evalInput := EvaluateInput{
+			ReleaseID:      string(rel.ID()),
+			IncludeHistory: false,
+		}
+
+		output, err := s.adapter.Evaluate(ctx, evalInput)
+		if err == nil {
+			result := map[string]any{
+				"status":           "ok",
+				"decision":         output.Decision,
+				"risk_score":       output.RiskScore,
+				"severity":         output.Severity,
+				"can_auto_approve": output.CanAutoApprove,
+				"required_actions": output.RequiredActions,
+				"risk_factors":     output.RiskFactors,
+				"rationale":        output.Rationale,
+			}
+
+			jsonBytes, err := json.MarshalIndent(result, "", "  ")
+			if err == nil {
+				return &ReadResourceResult{
+					Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
+				}, nil
+			}
+		}
+	}
+
+	// Fallback: Use basic risk calculation if available
+	if s.riskCalc != nil {
+		proposal := cgp.NewProposal(
+			cgp.Actor{
+				Kind: cgp.ActorKindAgent,
+				ID:   "mcp-resource-reader",
+				Name: "MCP Resource Reader",
+			},
+			cgp.ProposalScope{
+				Repository:  rel.RepositoryName(),
+				CommitRange: "HEAD~5..HEAD",
+			},
+			cgp.ProposalIntent{
+				Summary:    "Risk assessment for active release",
+				Confidence: 0.8,
+			},
+		)
+
+		assessment, err := s.riskCalc.Calculate(ctx, proposal, nil)
+		if err == nil {
+			result := map[string]any{
+				"status":   "ok",
+				"score":    assessment.Score,
+				"severity": string(assessment.Severity),
+				"summary":  assessment.Summary,
+				"factors":  assessment.Factors,
+			}
+
+			jsonBytes, err := json.MarshalIndent(result, "", "  ")
+			if err == nil {
+				return &ReadResourceResult{
+					Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
+				}, nil
+			}
+		}
+	}
+
 	return &ReadResourceResult{
 		Contents: []ResourceContent{
-			NewTextResourceContent(uri, `{"status": "no risk assessment performed"}`),
+			NewTextResourceContent(uri, `{"status": "no risk assessment available", "hint": "Run 'relicta evaluate' to perform risk assessment"}`),
 		},
 	}, nil
 }
@@ -913,6 +1357,268 @@ Base your analysis on the commit history, change analysis, and CGP policies.`
 
 	return &GetPromptResult{
 		Description: "Risk analysis prompt",
+		Messages:    []PromptMessage{NewPromptMessage(content)},
+	}, nil
+}
+
+func (s *Server) promptCommitReview(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+	focus := "compliance"
+	if f, ok := args["focus"]; ok {
+		focus = f
+	}
+
+	var content string
+	switch focus {
+	case "quality":
+		content = `You are a code review expert analyzing commit messages and changes.
+
+Review the commits in this release for quality:
+1. Commit message clarity and completeness
+2. Logical grouping of changes (atomic commits)
+3. Code change quality indicators
+4. Documentation updates for significant changes
+5. Test coverage implications
+
+For each issue found, suggest specific improvements.`
+	case "security":
+		content = `You are a security analyst reviewing commits for potential security implications.
+
+Analyze commits for security concerns:
+1. Sensitive data handling changes
+2. Authentication/authorization modifications
+3. Input validation changes
+4. Dependency updates with known vulnerabilities
+5. Configuration changes affecting security posture
+6. Cryptographic code changes
+
+Flag any commits that require security review before release.`
+	default: // compliance
+		content = `You are a release compliance officer reviewing commits for conventional commit standards.
+
+Analyze each commit for compliance with Conventional Commits specification:
+1. Format: <type>(<scope>): <subject>
+2. Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
+3. Breaking changes properly marked with ! or BREAKING CHANGE footer
+4. Scope relevance and consistency
+5. Subject line length and imperative mood
+
+List non-compliant commits with specific corrections needed.`
+	}
+
+	return &GetPromptResult{
+		Description: "Commit review prompt",
+		Messages:    []PromptMessage{NewPromptMessage(content)},
+	}, nil
+}
+
+func (s *Server) promptBreakingChanges(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+	content := `You are a technical writer documenting breaking changes for users.
+
+For each breaking change in this release, provide:
+
+1. **Change Summary**: One-line description of what changed
+2. **Reason**: Why this breaking change was necessary
+3. **Impact**: Who is affected and how
+4. **Migration Path**: Step-by-step instructions to adapt
+5. **Code Examples**: Before/after code snippets where applicable
+
+Format the output as a structured breaking changes document suitable for inclusion in release notes.
+
+If there are no breaking changes, confirm this and explain what safeguards prevented them.`
+
+	return &GetPromptResult{
+		Description: "Breaking changes documentation prompt",
+		Messages:    []PromptMessage{NewPromptMessage(content)},
+	}, nil
+}
+
+func (s *Server) promptMigrationGuide(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+	audience := "developer"
+	if a, ok := args["audience"]; ok {
+		audience = a
+	}
+
+	var content string
+	switch audience {
+	case "operator":
+		content = `You are a DevOps engineer writing migration instructions for system operators.
+
+Create a migration guide covering:
+1. **Pre-migration Checklist**
+   - Backup procedures
+   - Downtime requirements
+   - Rollback plan
+
+2. **Infrastructure Changes**
+   - Configuration file updates
+   - Environment variable changes
+   - Database migrations
+
+3. **Deployment Steps**
+   - Ordered deployment sequence
+   - Health check verification
+   - Monitoring updates
+
+4. **Post-migration Verification**
+   - Smoke tests to run
+   - Metrics to monitor
+   - Common issues and solutions
+
+Use clear, actionable language suitable for runbooks.`
+	case "end-user":
+		content = `You are a product manager writing migration notes for end users.
+
+Create user-friendly upgrade instructions:
+1. **What's New**: Key benefits of upgrading
+2. **What's Changed**: User-facing changes to expect
+3. **Action Required**: Steps users need to take
+4. **Getting Help**: Support resources and FAQ
+
+Keep technical jargon minimal. Focus on the user experience impact.`
+	default: // developer
+		content = `You are a senior developer writing migration instructions for other developers.
+
+Create a developer migration guide covering:
+1. **Dependency Updates**
+   - Version requirements
+   - Package manager commands
+
+2. **API Changes**
+   - Changed endpoints/methods
+   - Parameter modifications
+   - Response format changes
+   - Deprecation timeline
+
+3. **Code Migration**
+   - Find/replace patterns
+   - Refactoring steps
+   - Type definition updates
+
+4. **Testing Updates**
+   - Test changes needed
+   - New test patterns
+
+Include code examples for all significant changes.`
+	}
+
+	return &GetPromptResult{
+		Description: "Migration guide prompt",
+		Messages:    []PromptMessage{NewPromptMessage(content)},
+	}, nil
+}
+
+func (s *Server) promptReleaseAnnouncement(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+	channel := "github"
+	if c, ok := args["channel"]; ok {
+		channel = c
+	}
+
+	var content string
+	switch channel {
+	case "blog":
+		content = `You are a technical writer crafting a blog post for a software release.
+
+Write a blog post announcement including:
+1. **Headline**: Compelling title highlighting the main theme
+2. **Introduction**: Context and significance of this release
+3. **Key Features**: Detailed coverage of major additions
+4. **Improvements**: Notable fixes and enhancements
+5. **Technical Deep-dive**: One feature explained in depth
+6. **Getting Started**: How to upgrade or try it
+7. **What's Next**: Roadmap preview
+8. **Acknowledgments**: Contributor recognition
+
+Tone: Professional but engaging, 800-1200 words.`
+	case "social":
+		content = `You are a developer advocate crafting social media announcements.
+
+Create announcements for different platforms:
+
+**Twitter/X (280 chars)**:
+- Hook + key feature + link
+
+**LinkedIn (longer form)**:
+- Professional summary
+- 3 key highlights
+- Call to action
+
+**Mastodon/Dev Community**:
+- Technical focus
+- Code snippet if relevant
+- Community engagement
+
+Use appropriate hashtags and emoji sparingly.`
+	case "email":
+		content = `You are writing a release announcement email for subscribers.
+
+Structure the email:
+1. **Subject Line**: Clear, action-oriented
+2. **Preview Text**: Compelling summary
+3. **Header**: Version number and release date
+4. **Executive Summary**: 2-3 sentence overview
+5. **Highlights**: Bullet points of key changes
+6. **Upgrade Instructions**: Brief steps
+7. **Full Changelog Link**: For detailed information
+8. **Feedback Request**: How to provide input
+
+Keep it scannable with clear visual hierarchy.`
+	default: // github
+		content = `You are writing release notes for a GitHub release.
+
+Structure the release notes:
+1. **Title**: Version number with optional codename
+2. **Summary**: 2-3 sentence release overview
+3. **Highlights**: Top 3-5 changes as bullet points
+4. **What's Changed**: Categorized changes
+   - ✨ Features
+   - 🐛 Bug Fixes
+   - 📚 Documentation
+   - ⚠️ Breaking Changes
+5. **Upgrade Notes**: Critical information for upgrading
+6. **Contributors**: @mention contributors
+
+Use GitHub-flavored markdown with appropriate emoji.`
+	}
+
+	return &GetPromptResult{
+		Description: "Release announcement prompt",
+		Messages:    []PromptMessage{NewPromptMessage(content)},
+	}, nil
+}
+
+func (s *Server) promptApprovalDecision(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+	content := `You are a release governance advisor helping make approval decisions.
+
+Based on the Change Governance Protocol (CGP) analysis, provide:
+
+1. **Decision Recommendation**: APPROVE, REQUEST_CHANGES, or BLOCK
+   - Clear rationale for your recommendation
+   - Confidence level (high/medium/low)
+
+2. **Risk Assessment Summary**
+   - Overall risk level and score
+   - Top 3 risk factors to consider
+   - Mitigating factors present
+
+3. **Approval Conditions** (if recommending approval)
+   - Required reviewers and their focus areas
+   - Pre-release checks to complete
+   - Monitoring requirements post-release
+
+4. **Blocking Issues** (if recommending block)
+   - Specific issues that must be resolved
+   - Suggested remediation steps
+   - Criteria for re-evaluation
+
+5. **Audit Trail Entry**
+   - Structured summary for governance records
+   - Key decision factors
+   - Timestamp and context
+
+Provide actionable guidance that enables confident decision-making.`
+
+	return &GetPromptResult{
+		Description: "Approval decision prompt",
 		Messages:    []PromptMessage{NewPromptMessage(content)},
 	}, nil
 }
