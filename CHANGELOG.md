@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2025-12-25
+
+### Features
+
+- **cgp:** wire event publisher chain and add policy CLI tests (c59c63e)
+- **cgp:** add team-based approval policies with time context (46dd87f)
+- **cgp:** add release outcome tracking, history CLI, and event webhooks (ace12ec)
+- **cgp:** add policy DSL, audit trail persistence, and MCP improvements (6e21f3e)
+- **mcp:** improve MCP tools with better workflow guidance (70bac17)
+
+
 ## [2.9.0] - 2025-12-23
 
 ### Features
