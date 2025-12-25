@@ -2,7 +2,10 @@
 package cli
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 func TestApproveCommand_FlagsExist(t *testing.T) {
@@ -101,5 +104,18 @@ func TestAllowedEditors_Count(t *testing.T) {
 	}
 	if count > 20 {
 		t.Errorf("allowedEditors has %d editors, this seems excessive", count)
+	}
+}
+
+func TestValidateReleaseStateForApproval_Initialized(t *testing.T) {
+	// Test that an initialized release (no plan) returns an error
+	rel := release.NewRelease("test-id", "main", "/test/repo")
+
+	err := validateReleaseStateForApproval(rel)
+	if err == nil {
+		t.Error("validateReleaseStateForApproval() should return error for initialized state")
+	}
+	if err != nil && !strings.Contains(err.Error(), "cannot be approved") {
+		t.Errorf("expected error to mention 'cannot be approved', got: %v", err)
 	}
 }

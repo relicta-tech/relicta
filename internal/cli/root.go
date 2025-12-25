@@ -148,6 +148,8 @@ func init() {
 	rootCmd.AddCommand(approveCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(releaseCmd)
+	rootCmd.AddCommand(cancelCmd)
+	rootCmd.AddCommand(resetCmd)
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(policyCmd)
 }

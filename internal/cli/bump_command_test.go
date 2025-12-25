@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/relicta-tech/relicta/internal/application/versioning"
@@ -68,7 +67,7 @@ func TestHandleForcedVersion_Succeeds(t *testing.T) {
 	app := testCLIApp{
 		gitRepo:      stubGitRepo{},
 		setVersionUC: fake,
-		releaseRepo:  stubReleaseRepo{findLatestErr: errors.New("not found")},
+		releaseRepo:  stubReleaseRepo{findLatestErr: release.ErrReleaseNotFound},
 	}
 
 	if err := handleForcedVersion(context.Background(), app, "1.2.3"); err != nil {

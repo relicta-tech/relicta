@@ -66,6 +66,41 @@ func isReleaseAlreadyApproved(rel *release.Release) bool {
 	return false
 }
 
+// validateReleaseStateForApproval checks if the release is in a valid state for approval.
+// Returns an error with guidance if the state is invalid.
+func validateReleaseStateForApproval(rel *release.Release) error {
+	state := rel.State()
+
+	switch state {
+	case release.StateNotesGenerated:
+		// Ideal state - ready for approval
+		return nil
+	case release.StatePlanned, release.StateVersioned:
+		// Allow but warn about missing notes
+		printWarning("Release notes have not been generated")
+		printInfo("Consider running 'relicta notes' first for better release documentation")
+		return nil
+	case release.StateInitialized:
+		printError("Release has not been planned yet")
+		printInfo("Run 'relicta plan' to analyze commits and prepare the release")
+		return fmt.Errorf("release in state '%s' cannot be approved - run 'relicta plan' first", state)
+	case release.StatePublishing:
+		printError("Release is currently being published")
+		printInfo("Wait for the publish operation to complete")
+		return fmt.Errorf("release in state '%s' cannot be approved - publication in progress", state)
+	case release.StatePublished:
+		printInfo("Release has already been published")
+		printInfo("Nothing to approve - this release is complete")
+		return fmt.Errorf("release in state '%s' is already complete", state)
+	case release.StateFailed:
+		printError("Previous release attempt failed")
+		printInfo("Run 'relicta plan' to start a fresh release")
+		return fmt.Errorf("release in state '%s' cannot be approved - start fresh with 'relicta plan'", state)
+	default:
+		return fmt.Errorf("release in unexpected state '%s'", state)
+	}
+}
+
 // shouldUseInteractiveApproval returns true if interactive TUI should be used.
 func shouldUseInteractiveApproval() bool {
 	return approveInteractive && !ciMode && !approveYes
@@ -165,6 +200,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	// Check if already approved
 	if isReleaseAlreadyApproved(rel) {
 		return nil
+	}
+
+	// Validate release is in a valid state for approval
+	if err := validateReleaseStateForApproval(rel); err != nil {
+		return err
 	}
 
 	// Output JSON if requested

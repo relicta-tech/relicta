@@ -4,12 +4,14 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
@@ -26,7 +28,8 @@ func init() {
 	bumpCmd.Flags().StringVar(&bumpLevel, "level", "", "bump level (major, minor, patch) - overrides auto-detection")
 	bumpCmd.Flags().StringVar(&bumpPrerelease, "prerelease", "", "prerelease identifier (e.g., alpha, beta, rc.1)")
 	bumpCmd.Flags().StringVar(&bumpBuild, "build", "", "build metadata")
-	bumpCmd.Flags().StringVar(&bumpForce, "force", "", "force a specific version (e.g., 2.0.0)")
+	bumpCmd.Flags().StringVar(&bumpForce, "force", "", "set a specific version (e.g., 2.0.0), bypasses commit analysis")
+	bumpCmd.Flags().StringVar(&bumpForce, "version", "", "alias for --force: set a specific version")
 	bumpCmd.Flags().BoolVar(&bumpCreateTag, "tag", true, "create git tag")
 	bumpCmd.Flags().BoolVar(&bumpPush, "push", false, "push tag to remote")
 }
@@ -86,9 +89,13 @@ func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr strin
 	}
 
 	// Update release state if there's an active release (same as normal bump flow)
-	// Not fatal if it fails - just means there's no release to update
+	// ErrReleaseNotFound is expected when bump runs standalone without prior plan
 	if !dryRun {
-		_ = updateReleaseVersion(ctx, app, forcedVersion)
+		if err := updateReleaseVersion(ctx, app, forcedVersion); err != nil {
+			if !errors.Is(err, release.ErrReleaseNotFound) {
+				return fmt.Errorf("failed to update release state: %w", err)
+			}
+		}
 	}
 
 	if outputJSON {
@@ -230,9 +237,12 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update release state if there's an active release
-	// Not fatal if it fails - just means there's no release to update
-	// This can happen when bump is run standalone
-	_ = updateReleaseVersion(ctx, app, nextVersion)
+	// ErrReleaseNotFound is expected when bump runs standalone without prior plan
+	if err := updateReleaseVersion(ctx, app, nextVersion); err != nil {
+		if !errors.Is(err, release.ErrReleaseNotFound) {
+			return fmt.Errorf("failed to update release state: %w", err)
+		}
+	}
 
 	// Output JSON after operations complete
 	if outputJSON {
@@ -307,7 +317,11 @@ func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer v
 	// Update release state
 	if !dryRun {
 		if err := updateReleaseVersion(ctx, app, targetVer); err != nil {
-			printInfo("No active release to update")
+			if errors.Is(err, release.ErrReleaseNotFound) {
+				printInfo("No active release to update")
+			} else {
+				return fmt.Errorf("failed to update release state: %w", err)
+			}
 		} else {
 			printSuccess(fmt.Sprintf("Release state updated with version %s", targetVer.String()))
 		}
