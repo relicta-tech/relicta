@@ -23,6 +23,8 @@ As AI agents and CI systems generate more code, deciding what should ship become
 - **Approval Workflow**: Review and approve releases before publishing with full audit trails
 - **Agent Integration**: MCP server enables AI agents (Claude, GPT) to manage releases with human oversight
 
+See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows.
+
 ### Release Automation
 - **Automatic Version Calculation**: Semantic version bumps from conventional commits
 - **Smart Commit Intelligence**: Infers intent from unstructured histories via heuristics and optional AI
@@ -275,7 +277,7 @@ plugins:
 
 ## MCP Integration
 
-Relicta includes a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server, enabling AI agents like Claude and GPT to manage releases directly.
+Relicta includes a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server, enabling AI agents like Claude and GPT to manage releases directly. See the [MCP Guide](docs/mcp.md) for detailed integration instructions.
 
 ### Starting the MCP Server
 
