@@ -466,13 +466,14 @@ func (d *Detector) detectGit(detection *Detection) error {
 // detectTools identifies package managers and build tools.
 func (d *Detector) detectTools(detection *Detection) error {
 	// Detect CI/CD
-	if d.dirExists(".github/workflows") {
+	switch {
+	case d.dirExists(".github/workflows"):
 		detection.HasCI = true
 		detection.CIProvider = "github-actions"
-	} else if d.fileExists(".gitlab-ci.yml") {
+	case d.fileExists(".gitlab-ci.yml"):
 		detection.HasCI = true
 		detection.CIProvider = "gitlab-ci"
-	} else if d.fileExists(".circleci/config.yml") {
+	case d.fileExists(".circleci/config.yml"):
 		detection.HasCI = true
 		detection.CIProvider = "circleci"
 	}
@@ -485,19 +486,21 @@ func (d *Detector) detectTools(detection *Detection) error {
 			detection.BuildTool = "make"
 		}
 	case LanguageNode:
-		if d.fileExists("pnpm-lock.yaml") {
+		switch {
+		case d.fileExists("pnpm-lock.yaml"):
 			detection.PackageManager = "pnpm"
-		} else if d.fileExists("yarn.lock") {
+		case d.fileExists("yarn.lock"):
 			detection.PackageManager = "yarn"
-		} else {
+		default:
 			detection.PackageManager = "npm"
 		}
 	case LanguagePython:
-		if d.fileExists("poetry.lock") {
+		switch {
+		case d.fileExists("poetry.lock"):
 			detection.PackageManager = "poetry"
-		} else if d.fileExists("Pipfile") {
+		case d.fileExists("Pipfile"):
 			detection.PackageManager = "pipenv"
-		} else {
+		default:
 			detection.PackageManager = "pip"
 		}
 	case LanguageRust:
