@@ -306,6 +306,9 @@ func TestManager_LoadPlugin_Success(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("plugin build test not supported on Windows")
 	}
+	if testing.Short() {
+		t.Skip("skipping plugin process test in short mode")
+	}
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -363,6 +366,9 @@ func TestManager_LoadPlugin_ValidateError(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("plugin build test not supported on Windows")
 	}
+	if testing.Short() {
+		t.Skip("skipping plugin process test in short mode")
+	}
 
 	workDir, err := os.Getwd()
 	if err != nil {
@@ -406,6 +412,9 @@ func TestManager_LoadPlugin_ValidateError(t *testing.T) {
 func TestManager_LoadPlugin_InvalidConfig(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("plugin build test not supported on Windows")
+	}
+	if testing.Short() {
+		t.Skip("skipping plugin process test in short mode")
 	}
 
 	workDir, err := os.Getwd()

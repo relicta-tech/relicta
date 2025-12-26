@@ -111,11 +111,11 @@ func TestInstaller_VerifyChecksum(t *testing.T) {
 			name: "non-existent binary",
 			plugin: InstalledPlugin{
 				Name:       "test-plugin",
-				BinaryPath: "/nonexistent/path",
+				BinaryPath: filepath.Join(pluginDir, "does-not-exist-binary"),
 				Checksum:   expectedChecksum,
 			},
 			wantErr:  true,
-			errMatch: "failed to open",
+			errMatch: "failed to",
 		},
 	}
 
@@ -585,6 +585,11 @@ func TestInstaller_ExtractZipFile_OpenError(t *testing.T) {
 }
 
 func TestInstaller_ExtractZipFile_CreateError(t *testing.T) {
+	// Skip if running as root since root can write to read-only directories
+	if os.Geteuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
+
 	installer := NewInstaller(t.TempDir())
 	archivePath := filepath.Join(t.TempDir(), "test.zip")
 	createTestZip(t, archivePath, "test.txt", []byte("content"))

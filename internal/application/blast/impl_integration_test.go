@@ -26,10 +26,11 @@ func setupTestGitRepo(t *testing.T) string {
 		t.Fatalf("Failed to init git: %v", err)
 	}
 
-	// Configure git user for commits
+	// Configure git user for commits and disable signing
 	configCmds := [][]string{
 		{"git", "config", "user.email", "test@example.com"},
 		{"git", "config", "user.name", "Test User"},
+		{"git", "config", "commit.gpgsign", "false"},
 	}
 	for _, args := range configCmds {
 		cmd := exec.Command(args[0], args[1:]...)
@@ -70,8 +71,9 @@ func commitFile(t *testing.T, repoPath, filePath, content, message string) {
 	// Git commit
 	cmd = exec.Command("git", "commit", "-m", message)
 	cmd.Dir = repoPath
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Failed to git commit: %v", err)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to git commit: %v, output: %s", err, string(output))
 	}
 }
 
