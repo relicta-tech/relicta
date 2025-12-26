@@ -70,19 +70,8 @@ func (s *FileEventStore) Append(ctx context.Context, runID domain.RunID, events 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Get the repo root from the first event (all events should be from the same run)
-	repoRoot := ""
-	for _, e := range events {
-		if created, ok := e.(*domain.RunCreatedEvent); ok {
-			// RunCreated events don't have repoRoot, so we need to infer from context
-			// For now, use a relative path approach
-			_ = created
-		}
-	}
-
 	// For file-based storage, we need the repo root from context
-	// This is typically passed through the context or inferred
-	repoRoot = getRepoRootFromContext(ctx)
+	repoRoot := getRepoRootFromContext(ctx)
 	if repoRoot == "" {
 		return fmt.Errorf("repo root not found in context")
 	}

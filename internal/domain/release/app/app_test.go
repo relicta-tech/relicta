@@ -47,7 +47,7 @@ func (m *mockRepository) Load(_ context.Context, runID domain.RunID) (*domain.Re
 	return run, nil
 }
 
-func (m *mockRepository) LoadLatest(_ context.Context, repoRoot string) (*domain.ReleaseRun, error) {
+func (m *mockRepository) LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error) {
 	if m.loadErr != nil {
 		return nil, m.loadErr
 	}
@@ -55,7 +55,7 @@ func (m *mockRepository) LoadLatest(_ context.Context, repoRoot string) (*domain
 	if !ok {
 		return nil, errors.New("no latest run")
 	}
-	return m.Load(context.Background(), runID)
+	return m.Load(ctx, runID)
 }
 
 func (m *mockRepository) SetLatest(_ context.Context, repoRoot string, runID domain.RunID) error {

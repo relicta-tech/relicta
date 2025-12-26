@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/felixgeelhaar/statekit"
+
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 

@@ -2,7 +2,6 @@ package domain
 
 import (
 	"testing"
-	"time"
 )
 
 func TestAndSpecification_IsSatisfiedBy(t *testing.T) {
@@ -450,16 +449,4 @@ func TestComplexSpecificationCombinations(t *testing.T) {
 			t.Error("Double negation should preserve original value")
 		}
 	})
-}
-
-// Helper to create a notes-ready run for specification tests
-func newSpecNotesReadyRun() *ReleaseRun {
-	run := newVersionedRun()
-	notes := &ReleaseNotes{
-		Text:        "## Release Notes",
-		Provider:    "test",
-		GeneratedAt: time.Now(),
-	}
-	_ = run.GenerateNotes(notes, "input-hash", "test-actor")
-	return run
 }
