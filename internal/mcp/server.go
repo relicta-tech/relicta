@@ -644,9 +644,18 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			analyze = v
 		}
 
+		// Get repository path from git service (required for release tracking)
+		repoPath := ""
+		if s.gitService != nil {
+			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
+				repoPath = path
+			}
+		}
+
 		input := PlanInput{
-			FromRef: fromRef,
-			Analyze: analyze,
+			RepositoryPath: repoPath,
+			FromRef:        fromRef,
+			Analyze:        analyze,
 		}
 
 		// Send progress: starting plan
@@ -713,9 +722,18 @@ func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolRe
 
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasCalculateVersionUseCase() {
+		// Get repository path from git service (required for release state update)
+		repoPath := ""
+		if s.gitService != nil {
+			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
+				repoPath = path
+			}
+		}
+
 		input := BumpInput{
-			BumpType: bumpType,
-			Version:  version,
+			RepositoryPath: repoPath,
+			BumpType:       bumpType,
+			Version:        version,
 		}
 
 		output, err := s.adapter.Bump(ctx, input)
