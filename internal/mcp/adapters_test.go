@@ -837,3 +837,140 @@ var (
 	_ domainrelease.Repository = (*mockReleaseRepository)(nil)
 	_ domainrelease.Repository = (*mockErrorReleaseRepository)(nil)
 )
+
+// Test nextActionForState function for all states
+func TestNextActionForState(t *testing.T) {
+	tests := []struct {
+		state    string
+		expected string
+	}{
+		{"initialized", "plan"},
+		{"planned", "bump"},
+		{"versioned", "notes"},
+		{"notes_generated", "approve"},
+		{"approved", "publish"},
+		{"publishing", "wait"},
+		{"published", "done"},
+		{"failed", "retry or cancel"},
+		{"canceled", "plan"},
+		{"unknown", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.state, func(t *testing.T) {
+			result := nextActionForState(tt.state)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test GetStatus with stale release
+func TestAdapterGetStatusWithStaleRelease(t *testing.T) {
+	// Create a release that was last updated more than 1 hour ago
+	rel := domainrelease.NewRelease("stale-release-test", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+
+	output, err := adapter.GetStatus(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	// Check that NextAction is populated
+	assert.NotEmpty(t, output.NextAction)
+}
+
+// Test GetStatus output fields for various states
+func TestAdapterGetStatusNextAction(t *testing.T) {
+	// Create a release in planned state
+	rel := domainrelease.NewRelease("next-action-test", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+
+	output, err := adapter.GetStatus(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.Equal(t, "bump", output.NextAction)
+}
+
+// Test GetStatus with warning flag
+func TestGetStatusOutputWarningField(t *testing.T) {
+	output := GetStatusOutput{
+		ReleaseID:   "warning-test",
+		State:       "planned",
+		Version:     "1.0.0",
+		NextAction:  "bump",
+		Stale:       true,
+		Warning:     "Release was last updated over 1 hour ago",
+	}
+
+	assert.Equal(t, "warning-test", output.ReleaseID)
+	assert.True(t, output.Stale)
+	assert.NotEmpty(t, output.Warning)
+}
+
+// Test CommitInfo struct
+func TestCommitInfoFields(t *testing.T) {
+	info := CommitInfo{
+		SHA:     "abc123",
+		Type:    "feat",
+		Scope:   "api",
+		Message: "add new endpoint",
+		Author:  "test@example.com",
+	}
+
+	assert.Equal(t, "abc123", info.SHA)
+	assert.Equal(t, "feat", info.Type)
+	assert.Equal(t, "api", info.Scope)
+	assert.Equal(t, "add new endpoint", info.Message)
+	assert.Equal(t, "test@example.com", info.Author)
+}
+
+// Test PluginResultInfo struct
+func TestPluginResultInfoFields(t *testing.T) {
+	info := PluginResultInfo{
+		PluginName: "github",
+		Hook:       "PostPublish",
+		Success:    true,
+		Message:    "Release created successfully",
+	}
+
+	assert.Equal(t, "github", info.PluginName)
+	assert.Equal(t, "PostPublish", info.Hook)
+	assert.True(t, info.Success)
+	assert.Equal(t, "Release created successfully", info.Message)
+}
+
+// Test PlanOutput with Commits field
+func TestPlanOutputWithCommits(t *testing.T) {
+	output := PlanOutput{
+		ReleaseID:      "plan-with-commits",
+		CurrentVersion: "1.0.0",
+		NextVersion:    "1.1.0",
+		ReleaseType:    "minor",
+		CommitCount:    2,
+		HasFeatures:    true,
+		Commits: []CommitInfo{
+			{SHA: "abc123", Type: "feat", Message: "add feature"},
+			{SHA: "def456", Type: "fix", Message: "fix bug"},
+		},
+	}
+
+	assert.Equal(t, "plan-with-commits", output.ReleaseID)
+	assert.Len(t, output.Commits, 2)
+	assert.Equal(t, "abc123", output.Commits[0].SHA)
+	assert.Equal(t, "def456", output.Commits[1].SHA)
+}

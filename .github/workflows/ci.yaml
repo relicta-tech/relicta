@@ -69,15 +69,6 @@ jobs:
             --race \
             -v
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./.cover/coverage.out
-          fail_ci_if_error: false
-          verbose: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest

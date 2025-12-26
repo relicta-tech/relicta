@@ -19,6 +19,10 @@ var (
 	historyRepo     string
 	historyActorID  string
 	historyShowRisk bool
+
+	// getMemoryStoreFunc is the function used to get the memory store.
+	// It can be overridden in tests.
+	getMemoryStoreFunc = getMemoryStore
 )
 
 var historyCmd = &cobra.Command{
@@ -105,7 +109,7 @@ func runHistory(cmd *cobra.Command, args []string) error {
 
 func runHistoryReleases(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStore()
+	store, err := getMemoryStoreFunc()
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
@@ -165,7 +169,7 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 
 func runHistoryActor(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStore()
+	store, err := getMemoryStoreFunc()
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
@@ -221,7 +225,7 @@ func runHistoryActor(cmd *cobra.Command, args []string) error {
 
 func runHistoryRisk(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStore()
+	store, err := getMemoryStoreFunc()
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
