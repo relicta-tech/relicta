@@ -76,8 +76,9 @@ func createApprovedRelease(id release.ReleaseID, branch, repoPath string) *relea
 	)
 	_ = release.SetPlan(r, plan)
 
-	// Set version
+	// Set version and bump to transition to Versioned state
 	_ = r.SetVersion(nextVersion, "v1.1.0")
+	_ = r.Bump("test-actor")
 
 	// Set notes
 	notes := &release.ReleaseNotes{
@@ -700,8 +701,9 @@ func TestPublishReleaseUseCase_ReleaseContextBuilding(t *testing.T) {
 	}
 
 	// Verify repository info
-	if releaseCtx.RepositoryName != "test-repo" {
-		t.Errorf("RepositoryName = %s, want test-repo", releaseCtx.RepositoryName)
+	// In the new DDD model, RepositoryName comes from the repository path
+	if releaseCtx.RepositoryName != "/path/to/repo" {
+		t.Errorf("RepositoryName = %s, want /path/to/repo", releaseCtx.RepositoryName)
 	}
 	if releaseCtx.Branch != "main" {
 		t.Errorf("Branch = %s, want main", releaseCtx.Branch)

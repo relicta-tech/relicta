@@ -4,9 +4,9 @@ package adapters
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 )
 
 // GitRepoInspector adapts the sourcecontrol.GitRepository interface to ports.RepoInspector.

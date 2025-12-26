@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
@@ -28,11 +29,11 @@ type PublishReleaseOutput struct {
 
 // StepResult contains the result of executing a step.
 type StepResult struct {
-	StepName    string
-	Success     bool
-	Skipped     bool // True if step was already done (idempotency)
-	Output      string
-	Error       string
+	StepName string
+	Success  bool
+	Skipped  bool // True if step was already done (idempotency)
+	Output   string
+	Error    string
 }
 
 // PublishReleaseUseCase handles the publish release use case.
@@ -133,7 +134,7 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 				Published:   false,
 				StepResults: stepResults,
 				VersionNext: run.VersionNext().String(),
-			}, fmt.Errorf("step %s failed: %v", step.Name, err)
+			}, fmt.Errorf("step %s failed: %w", step.Name, err)
 		}
 
 		// Save after each successful step for resumability
@@ -205,16 +206,16 @@ func (uc *PublishReleaseUseCase) executeStep(ctx context.Context, run *domain.Re
 	stepResult, err := uc.publisher.ExecuteStep(ctx, run, step)
 	if err != nil {
 		if markErr := run.MarkStepFailed(step.Name, err); markErr != nil {
-			return result, fmt.Errorf("step failed: %w; also failed to mark: %v", err, markErr)
+			return result, errors.Join(fmt.Errorf("step failed: %w", err), fmt.Errorf("failed to mark step: %w", markErr))
 		}
 		result.Error = err.Error()
 		return result, err
 	}
 
 	if !stepResult.Success {
-		stepErr := fmt.Errorf("step returned failure: %s", stepResult.Error)
+		stepErr := fmt.Errorf("step returned failure: %w", stepResult.Error)
 		if markErr := run.MarkStepFailed(step.Name, stepErr); markErr != nil {
-			return result, fmt.Errorf("step failed: %w; also failed to mark: %v", stepErr, markErr)
+			return result, errors.Join(fmt.Errorf("step failed: %w", stepErr), fmt.Errorf("failed to mark step: %w", markErr))
 		}
 		result.Error = stepResult.Error.Error()
 		return result, stepErr

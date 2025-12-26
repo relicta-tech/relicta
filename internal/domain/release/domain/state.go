@@ -32,8 +32,8 @@ const (
 	// StateFailed indicates the release failed during publishing.
 	StateFailed RunState = "failed"
 
-	// StateCancelled indicates the release was cancelled.
-	StateCancelled RunState = "cancelled"
+	// StateCanceled indicates the release was canceled.
+	StateCanceled RunState = "canceled"
 )
 
 // AllStates returns all valid run states.
@@ -47,7 +47,7 @@ func AllStates() []RunState {
 		StatePublishing,
 		StatePublished,
 		StateFailed,
-		StateCancelled,
+		StateCanceled,
 	}
 }
 
@@ -60,7 +60,7 @@ func (s RunState) String() string {
 func (s RunState) IsValid() bool {
 	switch s {
 	case StateDraft, StatePlanned, StateVersioned, StateNotesReady, StateApproved,
-		StatePublishing, StatePublished, StateFailed, StateCancelled:
+		StatePublishing, StatePublished, StateFailed, StateCanceled:
 		return true
 	default:
 		return false
@@ -69,7 +69,7 @@ func (s RunState) IsValid() bool {
 
 // IsFinal returns true if this is a terminal state.
 func (s RunState) IsFinal() bool {
-	return s == StatePublished || s == StateFailed || s == StateCancelled
+	return s == StatePublished || s == StateFailed || s == StateCanceled
 }
 
 // IsActive returns true if the run is actively in progress.
@@ -96,15 +96,15 @@ func (s RunState) CanTransitionTo(target RunState) bool {
 // validTransitions defines the state machine transitions.
 func validTransitions() map[RunState][]RunState {
 	return map[RunState][]RunState{
-		StateDraft:      {StatePlanned, StateCancelled},
-		StatePlanned:    {StateVersioned, StateCancelled},                   // Plan -> Bump
-		StateVersioned:  {StateNotesReady, StatePlanned, StateCancelled},    // Bump -> Notes (can go back to re-plan)
-		StateNotesReady: {StateApproved, StateVersioned, StateCancelled},    // Can go back to Versioned to regenerate notes
-		StateApproved:   {StatePublishing, StateCancelled},
+		StateDraft:      {StatePlanned, StateCanceled},
+		StatePlanned:    {StateVersioned, StateCanceled},                // Plan -> Bump
+		StateVersioned:  {StateNotesReady, StatePlanned, StateCanceled}, // Bump -> Notes (can go back to re-plan)
+		StateNotesReady: {StateApproved, StateVersioned, StateCanceled}, // Can go back to Versioned to regenerate notes
+		StateApproved:   {StatePublishing, StateCanceled},
 		StatePublishing: {StatePublished, StateFailed},
 		StatePublished:  {},                            // Terminal - no transitions
 		StateFailed:     {StatePublishing, StateDraft}, // Can retry or start over
-		StateCancelled:  {StateDraft},                  // Can restart
+		StateCanceled:   {StateDraft},                  // Can restart
 	}
 }
 
@@ -145,8 +145,8 @@ func (s RunState) Description() string {
 		return "Release successfully published"
 	case StateFailed:
 		return "Release failed during publishing"
-	case StateCancelled:
-		return "Release was cancelled"
+	case StateCanceled:
+		return "Release was canceled"
 	default:
 		return "Unknown state"
 	}
@@ -171,8 +171,8 @@ func (s RunState) Icon() string {
 		return "[PUBLISHED]"
 	case StateFailed:
 		return "[FAILED]"
-	case StateCancelled:
-		return "[CANCELLED]"
+	case StateCanceled:
+		return "[CANCELED]"
 	default:
 		return "[?]"
 	}

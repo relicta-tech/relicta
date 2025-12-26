@@ -24,8 +24,8 @@ type LockManager interface {
 
 // LockInfo contains information about a held lock.
 type LockInfo struct {
-	RunID     domain.RunID
-	HolderPID int
+	RunID      domain.RunID
+	HolderPID  int
 	AcquiredAt string
-	Hostname  string
+	Hostname   string
 }

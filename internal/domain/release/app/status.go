@@ -145,7 +145,7 @@ func determineNextAction(state domain.RunState) string {
 		return "done"
 	case domain.StateFailed:
 		return "retry or cancel"
-	case domain.StateCancelled:
+	case domain.StateCanceled:
 		return "plan"
 	default:
 		return ""

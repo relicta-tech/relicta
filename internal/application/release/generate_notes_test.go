@@ -46,6 +46,7 @@ func createReleaseWithPlan(id release.ReleaseID, branch, repoPath string) *relea
 	)
 	_ = release.SetPlan(r, plan)
 	_ = r.SetVersion(nextVersion, "v1.1.0")
+	_ = r.Bump("test-actor")
 
 	return r
 }
@@ -164,14 +165,14 @@ func TestGenerateNotesUseCase_Execute(t *testing.T) {
 				UseAI:     false,
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
-				// Create release without plan
+				// Create release without plan - state is Draft, not Versioned
 				r := release.NewRelease("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			aiGenerator:    nil,
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        true,
-			errMsg:         "plan cannot be nil",
+			errMsg:         "can only generate notes from Versioned state",
 		},
 		{
 			name: "repository save fails",

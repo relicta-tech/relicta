@@ -119,8 +119,9 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 	)
 	_ = release.SetPlan(rel, plan)
 
-	// Set version
+	// Set version and bump
 	_ = rel.SetVersion(version.MustParse("2.0.0"), "v2.0.0")
+	_ = rel.Bump("test-actor")
 
 	// Set notes
 	notes := &release.ReleaseNotes{
@@ -502,6 +503,7 @@ func TestFileReleaseRepository_PublishedRelease(t *testing.T) {
 	)
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = rel.Bump("test-actor")
 	_ = rel.SetNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()})
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")
@@ -540,6 +542,7 @@ func TestFileReleaseRepository_FailedRelease(t *testing.T) {
 	)
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = rel.Bump("test-actor")
 	_ = rel.SetNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()})
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")

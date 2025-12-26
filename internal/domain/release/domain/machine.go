@@ -49,7 +49,7 @@ var (
 	StateIDPublishing statekit.StateID = statekit.StateID(StatePublishing)
 	StateIDPublished  statekit.StateID = statekit.StateID(StatePublished)
 	StateIDFailed     statekit.StateID = statekit.StateID(StateFailed)
-	StateIDCancelled  statekit.StateID = statekit.StateID(StateCancelled)
+	StateIDCanceled   statekit.StateID = statekit.StateID(StateCanceled)
 )
 
 // ReleaseRunMachine wraps the Statekit state machine for release runs.
@@ -67,50 +67,50 @@ func NewReleaseRunMachine() (*ReleaseRunMachine, error) {
 		WithGuard(GuardAllStepsSucceeded, guardAllStepsSucceeded).
 		// Draft state
 		State(StateIDDraft).
-			On(EventPlan).Target(StateIDPlanned).
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventPlan).Target(StateIDPlanned).
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
 		// Planned state
 		State(StateIDPlanned).
-			On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
 		// Versioned state (version calculated and applied)
 		State(StateIDVersioned).
-			On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches).
-			On(EventPlan).Target(StateIDPlanned).Guard(GuardHeadMatches). // Can go back to re-plan
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches).
+		On(EventPlan).Target(StateIDPlanned).Guard(GuardHeadMatches). // Can go back to re-plan
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
 		// NotesReady state
 		State(StateIDNotesReady).
-			On(EventApprove).Target(StateIDApproved).Guard(GuardHeadMatches).
-			On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches). // Regenerate notes
-			On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).           // Can go back to versioned
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventApprove).Target(StateIDApproved).Guard(GuardHeadMatches).
+		On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches). // Regenerate notes
+		On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).           // Can go back to versioned
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
 		// Approved state
 		State(StateIDApproved).
-			On(EventStartPublish).Target(StateIDPublishing).Guard(GuardHeadMatches).
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventStartPublish).Target(StateIDPublishing).Guard(GuardHeadMatches).
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
 		// Publishing state (compound state with sub-steps handled externally)
 		State(StateIDPublishing).
-			On(EventStepOK).Target(StateIDPublishing).   // Stay in publishing, step completed
-			On(EventStepFail).Target(StateIDFailed).     // Step failed
-			On(EventPublishDone).Target(StateIDPublished).Guard(GuardAllStepsSucceeded).
+		On(EventStepOK).Target(StateIDPublishing). // Stay in publishing, step completed
+		On(EventStepFail).Target(StateIDFailed).   // Step failed
+		On(EventPublishDone).Target(StateIDPublished).Guard(GuardAllStepsSucceeded).
 		Done().
 		// Published state (terminal)
 		State(StateIDPublished).
-			Final().
+		Final().
 		Done().
 		// Failed state
 		State(StateIDFailed).
-			On(EventRetryPublish).Target(StateIDPublishing).
-			On(EventCancel).Target(StateIDCancelled).
+		On(EventRetryPublish).Target(StateIDPublishing).
+		On(EventCancel).Target(StateIDCanceled).
 		Done().
-		// Cancelled state (terminal)
-		State(StateIDCancelled).
-			Final().
+		// Canceled state (terminal)
+		State(StateIDCanceled).
+		Final().
 		Done().
 		Build()
 
@@ -212,20 +212,20 @@ func (m *ReleaseRunMachine) ExportXStateJSON() ([]byte, error) {
 			string(StateDraft): {
 				On: map[string]XStateTransition{
 					string(EventPlan):   {Target: string(StatePlanned)},
-					string(EventCancel): {Target: string(StateCancelled)},
+					string(EventCancel): {Target: string(StateCanceled)},
 				},
 			},
 			string(StatePlanned): {
 				On: map[string]XStateTransition{
 					string(EventBump):   {Target: string(StateVersioned), Guard: string(GuardHeadMatches)},
-					string(EventCancel): {Target: string(StateCancelled)},
+					string(EventCancel): {Target: string(StateCanceled)},
 				},
 			},
 			string(StateVersioned): {
 				On: map[string]XStateTransition{
 					string(EventGenerateNotes): {Target: string(StateNotesReady), Guard: string(GuardHeadMatches)},
 					string(EventPlan):          {Target: string(StatePlanned), Guard: string(GuardHeadMatches)},
-					string(EventCancel):        {Target: string(StateCancelled)},
+					string(EventCancel):        {Target: string(StateCanceled)},
 				},
 			},
 			string(StateNotesReady): {
@@ -233,13 +233,13 @@ func (m *ReleaseRunMachine) ExportXStateJSON() ([]byte, error) {
 					string(EventApprove):       {Target: string(StateApproved), Guard: string(GuardHeadMatches)},
 					string(EventGenerateNotes): {Target: string(StateNotesReady), Guard: string(GuardHeadMatches)},
 					string(EventBump):          {Target: string(StateVersioned), Guard: string(GuardHeadMatches)},
-					string(EventCancel):        {Target: string(StateCancelled)},
+					string(EventCancel):        {Target: string(StateCanceled)},
 				},
 			},
 			string(StateApproved): {
 				On: map[string]XStateTransition{
 					string(EventStartPublish): {Target: string(StatePublishing), Guard: string(GuardHeadMatches)},
-					string(EventCancel):       {Target: string(StateCancelled)},
+					string(EventCancel):       {Target: string(StateCanceled)},
 				},
 			},
 			string(StatePublishing): {
@@ -255,10 +255,10 @@ func (m *ReleaseRunMachine) ExportXStateJSON() ([]byte, error) {
 			string(StateFailed): {
 				On: map[string]XStateTransition{
 					string(EventRetryPublish): {Target: string(StatePublishing)},
-					string(EventCancel):       {Target: string(StateCancelled)},
+					string(EventCancel):       {Target: string(StateCanceled)},
 				},
 			},
-			string(StateCancelled): {
+			string(StateCanceled): {
 				Type: "final",
 			},
 		},
@@ -324,7 +324,7 @@ func ValidateTransition(run *ReleaseRun, event statekit.EventType, currentHead C
 	case EventRetryPublish:
 		targetState = StatePublishing
 	case EventCancel:
-		targetState = StateCancelled
+		targetState = StateCanceled
 	default:
 		return fmt.Errorf("unknown event: %s", event)
 	}
@@ -391,7 +391,7 @@ func (s *StateMachineService) ValidateAndTransition(
 	case EventRetryPublish:
 		return run.RetryPublish(actor)
 	case EventCancel:
-		return run.Cancel("Cancelled by user", actor)
+		return run.Cancel("Canceled by user", actor)
 	case EventFail:
 		return run.MarkFailed("Failed", actor)
 	default:

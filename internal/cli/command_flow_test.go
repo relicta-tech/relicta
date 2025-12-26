@@ -103,13 +103,13 @@ func TestRunVersionExecutesLicensing(t *testing.T) {
 
 	fakeCalc := &fakeCalculateVersionUseCase{}
 	fakeSet := &fakeSetVersionUseCase{}
-	release := newTestRelease(t, "version-1")
+	rel := newPlannedRelease(t, "version-1")
 
 	app := commandTestApp{
 		gitRepo:     stubGitRepo{},
 		calculate:   fakeCalc,
 		setVersion:  fakeSet,
-		releaseRepo: testReleaseRepo{latest: release},
+		releaseRepo: testReleaseRepo{latest: rel},
 	}
 
 	withStubContainerApp(t, app)
@@ -159,7 +159,7 @@ func TestRunVersionDryRunJSON(t *testing.T) {
 		calculate:  fakeCalc,
 		setVersion: &fakeSetVersionUseCase{},
 		releaseRepo: testReleaseRepo{
-			latest: newTestRelease(t, "version-dry-run"),
+			latest: newPlannedRelease(t, "version-dry-run"),
 		},
 	}
 
@@ -216,7 +216,7 @@ func TestRunVersionAppliesTag(t *testing.T) {
 		setVersion: setVersion,
 		gitRepo:    stubGitRepo{},
 		releaseRepo: testReleaseRepo{
-			latest: newTestRelease(t, "version-tag"),
+			latest: newPlannedRelease(t, "version-tag"),
 		},
 	}
 
@@ -506,6 +506,7 @@ func (testReleaseRepo) FindBySpecification(ctx context.Context, spec release.Spe
 }
 func (testReleaseRepo) Delete(ctx context.Context, id release.ReleaseID) error { return nil }
 
+// newTestRelease creates a release in StateNotesReady (ready for approval).
 func newTestRelease(t *testing.T, id string) *release.Release {
 	t.Helper()
 	rel := release.NewRelease(release.ReleaseID(id), "main", ".")
@@ -518,6 +519,9 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 	if err := rel.SetVersion(plan.NextVersion, cfg.Versioning.TagPrefix+plan.NextVersion.String()); err != nil {
 		t.Fatalf("SetVersion failed: %v", err)
 	}
+	if err := rel.Bump("test-actor"); err != nil {
+		t.Fatalf("Bump failed: %v", err)
+	}
 	notes := &release.ReleaseNotes{
 		Text:        "changelog",
 		Provider:    "test",
@@ -525,6 +529,19 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 	}
 	if err := rel.SetNotes(notes); err != nil {
 		t.Fatalf("SetNotes failed: %v", err)
+	}
+	return rel
+}
+
+// newPlannedRelease creates a release in StatePlanned (ready for bump/version command).
+func newPlannedRelease(t *testing.T, id string) *release.Release {
+	t.Helper()
+	rel := release.NewRelease(release.ReleaseID(id), "main", ".")
+	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
+	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
+	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)
+	if err := release.SetPlan(rel, plan); err != nil {
+		t.Fatalf("SetPlan failed: %v", err)
 	}
 	return rel
 }

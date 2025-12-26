@@ -432,7 +432,7 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 		&release.RunPublishingStartedEvent{RunID: releaseID, Steps: []string{"github", "slack"}, At: time.Now()},
 		&release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.1.0"), At: time.Now()},
 		&release.RunFailedEvent{RunID: releaseID, Reason: "test failure", At: time.Now()},
-		&release.RunCancelledEvent{RunID: releaseID, Reason: "user request", By: "admin", At: time.Now()},
+		&release.RunCanceledEvent{RunID: releaseID, Reason: "user request", By: "admin", At: time.Now()},
 		&release.PluginExecutedEvent{RunID: releaseID, PluginName: "github", Hook: "PostPublish", Success: true, Message: "success", Duration: 2 * time.Second, At: time.Now()},
 		&release.RunRetriedEvent{RunID: releaseID, At: time.Now()},
 	}
@@ -467,7 +467,7 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 		"run.publishing_started",
 		"run.published",
 		"run.failed",
-		"run.cancelled",
+		"run.canceled",
 		"run.plugin_executed",
 		"run.retried",
 	}

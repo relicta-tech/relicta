@@ -14,8 +14,8 @@ type ApproveReleaseInput struct {
 	RepoRoot    string
 	RunID       domain.RunID // If empty, uses latest
 	Actor       ports.ActorInfo
-	AutoApprove bool   // CI/--yes mode
-	Force       bool   // Force approval even if HEAD changed
+	AutoApprove bool // CI/--yes mode
+	Force       bool // Force approval even if HEAD changed
 }
 
 // ApproveReleaseOutput contains the output from approving a release.

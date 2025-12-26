@@ -248,7 +248,7 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 	// Create an active (planned) release
 	active := createPlannedRelease("base-active", "main", "/repo1")
 
-	// Create a final (cancelled) release
+	// Create a final (canceled) release
 	final := release.NewRelease("base-final", "main", "/repo2")
 	_ = final.Cancel("test", "user")
 

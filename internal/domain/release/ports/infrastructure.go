@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // Clock provides time-related functionality.

@@ -32,8 +32,9 @@ func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *rele
 	)
 	_ = release.SetPlan(r, plan)
 
-	// Set version
+	// Set version and bump to transition to Versioned state
 	_ = r.SetVersion(nextVersion, "v1.1.0")
+	_ = r.Bump("test-actor")
 
 	// Set notes to move to NotesGenerated state
 	notes := &release.ReleaseNotes{

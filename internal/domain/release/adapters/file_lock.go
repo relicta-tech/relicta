@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	lockFileName     = "lock"
+	lockFileName      = "lock"
 	lockStaleDuration = 10 * time.Minute
 )
 

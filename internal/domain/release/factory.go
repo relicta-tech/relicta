@@ -3,11 +3,11 @@
 package release
 
 import (
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/release/adapters"
 	"github.com/relicta-tech/relicta/internal/domain/release/app"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 )
 
 // Services provides access to all release governance use cases.
@@ -21,7 +21,7 @@ type Services struct {
 	GetStatus      *app.GetStatusUseCase
 
 	// Infrastructure
-	Repository   ports.ReleaseRunRepository
+	Repository    ports.ReleaseRunRepository
 	RepoInspector ports.RepoInspector
 	LockManager   ports.LockManager
 	StateMachine  *domain.StateMachineService

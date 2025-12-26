@@ -88,8 +88,8 @@ func (e *StateTransitionError) getGuidance() string {
 			return "Version is already set. Use 'relicta release' for a new release."
 		case StateFailed:
 			return "Release failed. Use 'relicta retry' or start a new release."
-		case StateCancelled:
-			return "Release was cancelled. Start a new release."
+		case StateCanceled:
+			return "Release was canceled. Start a new release."
 		}
 	case "generate notes", "set notes":
 		switch e.CurrentState {
@@ -137,8 +137,8 @@ func (e *StateTransitionError) getGuidance() string {
 			return "Release failed. Use 'relicta retry' to resume publishing."
 		}
 	case "retry":
-		if e.CurrentState != StateFailed && e.CurrentState != StateCancelled {
-			return "Only failed or cancelled releases can be retried."
+		if e.CurrentState != StateFailed && e.CurrentState != StateCanceled {
+			return "Only failed or canceled releases can be retried."
 		}
 	case "cancel":
 		switch e.CurrentState {
@@ -146,8 +146,8 @@ func (e *StateTransitionError) getGuidance() string {
 			return "Cannot cancel a published release."
 		case StatePublishing:
 			return "Cannot cancel during publishing. Wait for completion or let it fail."
-		case StateCancelled:
-			return "Release is already cancelled."
+		case StateCanceled:
+			return "Release is already canceled."
 		}
 	case "update notes":
 		if e.CurrentState != StateNotesReady {

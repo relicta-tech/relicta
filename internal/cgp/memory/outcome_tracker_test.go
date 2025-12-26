@@ -134,7 +134,7 @@ func TestOutcomeTracker_CanceledEvent(t *testing.T) {
 	)
 
 	// Publish canceled event
-	canceledEvent := &release.RunCancelledEvent{
+	canceledEvent := &release.RunCanceledEvent{
 		RunID:  releaseID,
 		Reason: "user requested cancellation",
 		By:     "admin",

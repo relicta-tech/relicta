@@ -4,12 +4,18 @@ package release
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+// planCache stores release plans with their changesets by run ID.
+// This provides a bridge between the old API (which passed changesets through plans)
+// and the new DDD model (which doesn't store changesets in the aggregate).
+var planCache sync.Map
 
 // ReleasePlan holds the planned release information.
 // This type provides backwards compatibility with the old Release aggregate.
@@ -67,9 +73,9 @@ func (p *ReleasePlan) CommitCount() int {
 }
 
 // NewRelease creates a new Release (ReleaseRun) for backwards compatibility.
-// The id parameter is ignored as the new aggregate generates IDs from the plan hash.
+// The provided id parameter is used to maintain compatibility with existing code.
 func NewRelease(id ReleaseID, branch, repoPath string) *ReleaseRun {
-	return domain.NewReleaseRun(
+	run := domain.NewReleaseRun(
 		repoPath, // repoID - use path as ID
 		repoPath, // repoRoot
 		branch,   // baseRef
@@ -78,10 +84,51 @@ func NewRelease(id ReleaseID, branch, repoPath string) *ReleaseRun {
 		"",       // configHash
 		"",       // pluginPlanHash
 	)
+
+	// Override the auto-generated ID with the provided ID for backwards compatibility
+	run.ReconstructState(
+		domain.RunID(id),                    // use provided id
+		"",                                  // planHash
+		repoPath,                            // repoID
+		repoPath,                            // repoRoot
+		branch,                              // baseRef
+		"",                                  // headSHA
+		nil,                                 // commits
+		"",                                  // configHash
+		"",                                  // pluginPlanHash
+		version.SemanticVersion{},           // versionCurrent
+		version.SemanticVersion{},           // versionNext
+		domain.BumpNone,                     // bumpKind
+		0.0,                                 // confidence
+		0.0,                                 // riskScore
+		nil,                                 // reasons
+		domain.ActorHuman,                   // actorType
+		"",                                  // actorID
+		domain.PolicyThresholds{},           // thresholds
+		"",                                  // tagName
+		nil,                                 // notes
+		"",                                  // notesInputsHash
+		nil,                                 // approval
+		nil,                                 // steps
+		make(map[string]*domain.StepStatus), // stepStatus
+		domain.StateDraft,                   // state
+		nil,                                 // history
+		"",                                  // lastError
+		"",                                  // changesetID
+		run.CreatedAt(),                     // createdAt
+		run.UpdatedAt(),                     // updatedAt
+		nil,                                 // publishedAt
+	)
+
+	// Emit creation event (ReconstructState clears events, so we emit after)
+	run.EmitCreatedEvent()
+
+	return run
 }
 
 // SetPlan sets the release plan on a ReleaseRun for backwards compatibility.
 // It extracts version info from the ReleasePlan and calls the appropriate methods.
+// The plan (including its changeset) is cached for later retrieval by GetPlan.
 func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 	if plan == nil {
 		return domain.ErrVersionNotSet
@@ -100,7 +147,15 @@ func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 	}
 
 	// Transition to planned state
-	return r.Plan("system")
+	if err := r.Plan("system"); err != nil {
+		return err
+	}
+
+	// Cache the plan with its changeset for later retrieval
+	// The run ID is generated during Plan(), so we cache after planning
+	planCache.Store(string(r.ID()), plan)
+
+	return nil
 }
 
 // SetRepositoryName is a no-op for backwards compatibility.
@@ -110,16 +165,35 @@ func SetRepositoryName(r *ReleaseRun, name string) {
 }
 
 // GetPlan extracts a ReleasePlan from a ReleaseRun for backwards compatibility.
+// If the plan was previously set via SetPlan, it returns the cached plan with its changeset.
+// Otherwise, it reconstructs a plan from the run's version info (without changeset).
 func GetPlan(r *ReleaseRun) *ReleasePlan {
 	if r == nil {
 		return nil
 	}
+
+	// Try to retrieve cached plan with changeset
+	if cached, ok := planCache.Load(string(r.ID())); ok {
+		if plan, ok := cached.(*ReleasePlan); ok {
+			return plan
+		}
+	}
+
+	// Fall back to reconstructing plan from run data (without changeset)
 	return &ReleasePlan{
 		CurrentVersion: r.VersionCurrent(),
 		NextVersion:    r.VersionNext(),
 		ReleaseType:    changes.ReleaseType(r.BumpKind()),
 		DryRun:         false,
 	}
+}
+
+// ClearPlanCache clears the plan cache. Used for testing.
+func ClearPlanCache() {
+	planCache.Range(func(key, value interface{}) bool {
+		planCache.Delete(key)
+		return true
+	})
 }
 
 // Re-export core aggregate and value objects
@@ -196,23 +270,23 @@ type (
 	RunPublishingStartedEvent = domain.RunPublishingStartedEvent
 	RunPublishedEvent         = domain.RunPublishedEvent
 	RunFailedEvent            = domain.RunFailedEvent
-	RunCancelledEvent         = domain.RunCancelledEvent
+	RunCanceledEvent          = domain.RunCanceledEvent
 	RunRetriedEvent           = domain.RunRetriedEvent
 	StepCompletedEvent        = domain.StepCompletedEvent
 	PluginExecutedEvent       = domain.PluginExecutedEvent
 
 	// Backwards-compatible event type aliases (old names -> new names)
-	ReleaseInitializedEvent    = domain.RunCreatedEvent
-	ReleasePlannedEvent        = domain.RunPlannedEvent
-	ReleaseVersionedEvent      = domain.RunVersionedEvent
-	ReleaseNotesGeneratedEvent = domain.RunNotesGeneratedEvent
-	ReleaseNotesUpdatedEvent   = domain.RunNotesUpdatedEvent
-	ReleaseApprovedEvent       = domain.RunApprovedEvent
+	ReleaseInitializedEvent       = domain.RunCreatedEvent
+	ReleasePlannedEvent           = domain.RunPlannedEvent
+	ReleaseVersionedEvent         = domain.RunVersionedEvent
+	ReleaseNotesGeneratedEvent    = domain.RunNotesGeneratedEvent
+	ReleaseNotesUpdatedEvent      = domain.RunNotesUpdatedEvent
+	ReleaseApprovedEvent          = domain.RunApprovedEvent
 	ReleasePublishingStartedEvent = domain.RunPublishingStartedEvent
-	ReleasePublishedEvent      = domain.RunPublishedEvent
-	ReleaseFailedEvent         = domain.RunFailedEvent
-	ReleaseCanceledEvent       = domain.RunCancelledEvent
-	ReleaseRetriedEvent        = domain.RunRetriedEvent
+	ReleasePublishedEvent         = domain.RunPublishedEvent
+	ReleaseFailedEvent            = domain.RunFailedEvent
+	ReleaseCanceledEvent          = domain.RunCanceledEvent
+	ReleaseRetriedEvent           = domain.RunRetriedEvent
 
 	// ReleaseSummary alias for backwards compatibility
 	ReleaseSummary = domain.RunSummary
@@ -256,14 +330,14 @@ const (
 	StatePublishing = domain.StatePublishing
 	StatePublished  = domain.StatePublished
 	StateFailed     = domain.StateFailed
-	StateCancelled  = domain.StateCancelled
+	StateCanceled   = domain.StateCanceled
 )
 
 // Backwards-compatible state constants (old names -> new names)
 const (
 	StateInitialized    = domain.StateDraft      // Old name for StateDraft
 	StateNotesGenerated = domain.StateNotesReady // Old name for StateNotesReady
-	StateCanceled       = domain.StateCancelled  // American spelling alias
+	StateCancelled      = domain.StateCanceled   // British spelling alias (deprecated)
 )
 
 // Actor type constants
@@ -304,12 +378,12 @@ const (
 
 // Constructor functions
 var (
-	NewReleaseRun         = domain.NewReleaseRun
-	BuildIdempotencyKey   = domain.BuildIdempotencyKey
-	ParseBumpKind         = domain.ParseBumpKind
+	NewReleaseRun           = domain.NewReleaseRun
+	BuildIdempotencyKey     = domain.BuildIdempotencyKey
+	ParseBumpKind           = domain.ParseBumpKind
 	BumpKindFromReleaseType = domain.BumpKindFromReleaseType
-	AllStates             = domain.AllStates
-	ParseRunState         = domain.ParseRunState
+	AllStates               = domain.AllStates
+	ParseRunState           = domain.ParseRunState
 	NewStateTransitionError = domain.NewStateTransitionError
 )
 
@@ -402,45 +476,50 @@ func ReconstructFromLegacy(
 ) {
 	// Extract version info from plan if available
 	var versionCurrent, versionNext version.SemanticVersion
-	var bumpKind BumpKind = BumpNone
+	bumpKind := BumpNone
 	if plan != nil {
 		versionCurrent = plan.CurrentVersion
 		versionNext = plan.NextVersion
 		bumpKind = BumpKindFromReleaseType(plan.ReleaseType)
 	}
 
+	// Use explicitly provided version if available (may have build metadata)
+	if ver != nil {
+		versionNext = *ver
+	}
+
 	// Use ReconstructState with defaults for new fields
 	rel.ReconstructState(
-		rel.ID(),           // id
-		"",                 // planHash
+		rel.ID(),             // id
+		"",                   // planHash
 		rel.RepositoryPath(), // repoID
 		rel.RepositoryPath(), // repoRoot
-		rel.Branch(),       // baseRef
-		"",                 // headSHA
-		nil,                // commits
-		"",                 // configHash
-		"",                 // pluginPlanHash
-		versionCurrent,     // versionCurrent
-		versionNext,        // versionNext
-		bumpKind,           // bumpKind
-		1.0,                // confidence
-		0.0,                // riskScore
-		nil,                // reasons
-		ActorHuman,         // actorType
-		"",                 // actorID
-		PolicyThresholds{}, // thresholds
-		tagName,            // tagName
-		notes,              // notes
-		"",                 // notesInputsHash
-		approval,           // approval
-		nil,                // steps
-		nil,                // stepStatus
-		state,              // state
-		nil,                // history
-		lastError,          // lastError
-		"",                 // changesetID
-		createdAt,          // createdAt
-		updatedAt,          // updatedAt
-		publishedAt,        // publishedAt
+		rel.Branch(),         // baseRef
+		"",                   // headSHA
+		nil,                  // commits
+		"",                   // configHash
+		"",                   // pluginPlanHash
+		versionCurrent,       // versionCurrent
+		versionNext,          // versionNext
+		bumpKind,             // bumpKind
+		1.0,                  // confidence
+		0.0,                  // riskScore
+		nil,                  // reasons
+		ActorHuman,           // actorType
+		"",                   // actorID
+		PolicyThresholds{},   // thresholds
+		tagName,              // tagName
+		notes,                // notes
+		"",                   // notesInputsHash
+		approval,             // approval
+		nil,                  // steps
+		nil,                  // stepStatus
+		state,                // state
+		nil,                  // history
+		lastError,            // lastError
+		"",                   // changesetID
+		createdAt,            // createdAt
+		updatedAt,            // updatedAt
+		publishedAt,          // publishedAt
 	)
 }

@@ -431,6 +431,17 @@ func (r *ReleaseRun) ClearDomainEvents() {
 	r.domainEvents = make([]DomainEvent, 0, 5)
 }
 
+// EmitCreatedEvent emits a RunCreatedEvent.
+// This is used when a run is created with a custom ID via ReconstructState.
+func (r *ReleaseRun) EmitCreatedEvent() {
+	r.addEvent(&RunCreatedEvent{
+		RunID:   r.id,
+		RepoID:  r.repoID,
+		HeadSHA: r.headSHA,
+		At:      r.createdAt,
+	})
+}
+
 // addEvent adds a domain event.
 func (r *ReleaseRun) addEvent(event DomainEvent) {
 	r.domainEvents = append(r.domainEvents, event)
@@ -461,9 +472,9 @@ func (r *ReleaseRun) SetVersionProposal(current, next version.SemanticVersion, b
 	r.bumpKind = bumpKind
 	r.confidence = confidence
 
-	// Recompute plan hash after version is set
+	// Update plan hash but keep ID stable
+	// Aggregate identity is immutable after creation
 	r.planHash = r.computePlanHash()
-	r.id = RunID("run-" + r.planHash[:16])
 
 	r.updatedAt = time.Now()
 	return nil
@@ -547,9 +558,9 @@ func (r *ReleaseRun) SetVersion(next version.SemanticVersion, tagName string) er
 	r.versionNext = next
 	r.tagName = tagName
 
-	// Recompute plan hash now that version is finalized
+	// Update plan hash to reflect version, but keep ID stable
+	// Aggregate identity should not change after creation
 	r.planHash = r.computePlanHash()
-	r.id = RunID("run-" + r.planHash[:16])
 
 	r.updatedAt = time.Now()
 	return nil
@@ -687,7 +698,7 @@ func (r *ReleaseRun) ApprovalStatus() ApprovalStatus {
 			CanApprove: false,
 			Reason:     "Release has already progressed past approval",
 		}
-	case StateFailed, StateCancelled:
+	case StateFailed, StateCanceled:
 		return ApprovalStatus{
 			CanApprove: false,
 			Reason:     "Release is in a terminal state: " + string(r.state),
@@ -893,14 +904,14 @@ func (r *ReleaseRun) Cancel(reason, actor string) error {
 
 	r.lastError = reason
 
-	r.addEvent(&RunCancelledEvent{
+	r.addEvent(&RunCanceledEvent{
 		RunID:  r.id,
 		Reason: reason,
 		By:     actor,
 		At:     time.Now(),
 	})
 
-	return r.TransitionTo(StateCancelled, "CANCEL", actor, reason, nil)
+	return r.TransitionTo(StateCanceled, "CANCEL", actor, reason, nil)
 }
 
 // RetryPublish prepares the run for retry by resetting failed steps.
@@ -975,9 +986,10 @@ func (r *ReleaseRun) Summary() RunSummary {
 	stepsDone := 0
 	stepsFailed := 0
 	for _, status := range r.stepStatus {
-		if status.State == StepDone || status.State == StepSkipped {
+		switch status.State {
+		case StepDone, StepSkipped:
 			stepsDone++
-		} else if status.State == StepFailed {
+		case StepFailed:
 			stepsFailed++
 		}
 	}

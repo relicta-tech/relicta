@@ -157,9 +157,12 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 
 			// For approved state, approve the release
 			if tt.state == release.StateApproved {
-				// First set version and notes to allow approval
+				// First set version and bump to transition to Versioned state
 				if err := rel.SetVersion(v2, "v1.1.0"); err != nil {
 					t.Fatalf("failed to set version: %v", err)
+				}
+				if err := rel.Bump("test-actor"); err != nil {
+					t.Fatalf("failed to bump: %v", err)
 				}
 
 				notes := &release.ReleaseNotes{

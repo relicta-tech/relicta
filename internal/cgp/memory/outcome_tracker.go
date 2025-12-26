@@ -91,7 +91,7 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 		return t.handlePublished(ctx, e)
 	case *release.RunFailedEvent:
 		return t.handleFailed(ctx, e)
-	case *release.RunCancelledEvent:
+	case *release.RunCanceledEvent:
 		return t.handleCanceled(ctx, e)
 	default:
 		// Other events don't affect outcome tracking
@@ -166,7 +166,7 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedE
 }
 
 // handleCanceled records a canceled release outcome.
-func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCancelledEvent) error {
+func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCanceledEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
 	// Cancellation is treated as a partial outcome (not success, not failure)

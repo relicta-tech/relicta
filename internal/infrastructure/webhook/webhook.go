@@ -169,7 +169,7 @@ func (p *Publisher) buildPayload(event release.DomainEvent) *WebhookPayload {
 	case *release.RunFailedEvent:
 		payload.Data["reason"] = e.Reason
 
-	case *release.RunCancelledEvent:
+	case *release.RunCanceledEvent:
 		payload.Data["reason"] = e.Reason
 		payload.Data["canceled_by"] = e.By
 

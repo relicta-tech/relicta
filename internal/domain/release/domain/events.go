@@ -22,7 +22,7 @@ type RunCreatedEvent struct {
 	At      time.Time
 }
 
-func (e *RunCreatedEvent) EventName() string    { return "run.created" }
+func (e *RunCreatedEvent) EventName() string     { return "run.created" }
 func (e *RunCreatedEvent) OccurredAt() time.Time { return e.At }
 
 // StateTransitionedEvent is emitted on any state transition.
@@ -35,7 +35,7 @@ type StateTransitionedEvent struct {
 	At    time.Time
 }
 
-func (e *StateTransitionedEvent) EventName() string    { return "run.state_transitioned" }
+func (e *StateTransitionedEvent) EventName() string     { return "run.state_transitioned" }
 func (e *StateTransitionedEvent) OccurredAt() time.Time { return e.At }
 
 // RunApprovedEvent is emitted when a run is approved.
@@ -47,7 +47,7 @@ type RunApprovedEvent struct {
 	At           time.Time
 }
 
-func (e *RunApprovedEvent) EventName() string    { return "run.approved" }
+func (e *RunApprovedEvent) EventName() string     { return "run.approved" }
 func (e *RunApprovedEvent) OccurredAt() time.Time { return e.At }
 
 // StepCompletedEvent is emitted when a publishing step completes.
@@ -59,7 +59,7 @@ type StepCompletedEvent struct {
 	At       time.Time
 }
 
-func (e *StepCompletedEvent) EventName() string    { return "run.step_completed" }
+func (e *StepCompletedEvent) EventName() string     { return "run.step_completed" }
 func (e *StepCompletedEvent) OccurredAt() time.Time { return e.At }
 
 // RunPublishedEvent is emitted when a run is successfully published.
@@ -69,7 +69,7 @@ type RunPublishedEvent struct {
 	At      time.Time
 }
 
-func (e *RunPublishedEvent) EventName() string    { return "run.published" }
+func (e *RunPublishedEvent) EventName() string     { return "run.published" }
 func (e *RunPublishedEvent) OccurredAt() time.Time { return e.At }
 
 // RunFailedEvent is emitted when a run fails.
@@ -79,19 +79,19 @@ type RunFailedEvent struct {
 	At     time.Time
 }
 
-func (e *RunFailedEvent) EventName() string    { return "run.failed" }
+func (e *RunFailedEvent) EventName() string     { return "run.failed" }
 func (e *RunFailedEvent) OccurredAt() time.Time { return e.At }
 
-// RunCancelledEvent is emitted when a run is cancelled.
-type RunCancelledEvent struct {
+// RunCanceledEvent is emitted when a run is canceled.
+type RunCanceledEvent struct {
 	RunID  RunID
 	Reason string
 	By     string
 	At     time.Time
 }
 
-func (e *RunCancelledEvent) EventName() string     { return "run.cancelled" }
-func (e *RunCancelledEvent) OccurredAt() time.Time { return e.At }
+func (e *RunCanceledEvent) EventName() string     { return "run.canceled" }
+func (e *RunCanceledEvent) OccurredAt() time.Time { return e.At }
 
 // RunVersionedEvent is emitted when a version is applied to the run.
 type RunVersionedEvent struct {
@@ -182,17 +182,17 @@ func (e *PluginExecutedEvent) EventName() string     { return "run.plugin_execut
 func (e *PluginExecutedEvent) OccurredAt() time.Time { return e.At }
 
 // AggregateID returns the aggregate ID for events that need it.
-func (e *RunCreatedEvent) AggregateID() RunID        { return e.RunID }
-func (e *StateTransitionedEvent) AggregateID() RunID { return e.RunID }
-func (e *RunApprovedEvent) AggregateID() RunID       { return e.RunID }
-func (e *StepCompletedEvent) AggregateID() RunID     { return e.RunID }
-func (e *RunPublishedEvent) AggregateID() RunID      { return e.RunID }
-func (e *RunFailedEvent) AggregateID() RunID         { return e.RunID }
-func (e *RunCancelledEvent) AggregateID() RunID      { return e.RunID }
-func (e *RunVersionedEvent) AggregateID() RunID      { return e.RunID }
-func (e *RunRetriedEvent) AggregateID() RunID        { return e.RunID }
-func (e *RunPlannedEvent) AggregateID() RunID        { return e.RunID }
-func (e *RunNotesGeneratedEvent) AggregateID() RunID { return e.RunID }
-func (e *RunNotesUpdatedEvent) AggregateID() RunID   { return e.RunID }
+func (e *RunCreatedEvent) AggregateID() RunID           { return e.RunID }
+func (e *StateTransitionedEvent) AggregateID() RunID    { return e.RunID }
+func (e *RunApprovedEvent) AggregateID() RunID          { return e.RunID }
+func (e *StepCompletedEvent) AggregateID() RunID        { return e.RunID }
+func (e *RunPublishedEvent) AggregateID() RunID         { return e.RunID }
+func (e *RunFailedEvent) AggregateID() RunID            { return e.RunID }
+func (e *RunCanceledEvent) AggregateID() RunID          { return e.RunID }
+func (e *RunVersionedEvent) AggregateID() RunID         { return e.RunID }
+func (e *RunRetriedEvent) AggregateID() RunID           { return e.RunID }
+func (e *RunPlannedEvent) AggregateID() RunID           { return e.RunID }
+func (e *RunNotesGeneratedEvent) AggregateID() RunID    { return e.RunID }
+func (e *RunNotesUpdatedEvent) AggregateID() RunID      { return e.RunID }
 func (e *RunPublishingStartedEvent) AggregateID() RunID { return e.RunID }
-func (e *PluginExecutedEvent) AggregateID() RunID    { return e.RunID }
+func (e *PluginExecutedEvent) AggregateID() RunID       { return e.RunID }

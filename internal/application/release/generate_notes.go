@@ -102,6 +102,9 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	}
 
 	changeSet := plan.GetChangeSet()
+	if changeSet == nil {
+		return nil, fmt.Errorf("changeset not available: run 'relicta plan' first to analyze commits")
+	}
 
 	// Use actual release version if set (by SetVersion in bump step),
 	// otherwise fall back to planned version. This handles tag-push mode
@@ -143,11 +146,15 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	}
 
 	// Update release with notes
-	// Use RenderEntries() to get just the version entry without the "# Changelog" header
-	// This is important because when updating an existing file, we don't want duplicate headers
-	var changelogContent string
+	// Use notes.Render() for the full content, or changelog entries if changelog was generated
+	var notesText string
 	if changelog != nil {
-		changelogContent = changelog.RenderEntries()
+		// Use RenderEntries() to get just the version entry without the "# Changelog" header
+		// This is important because when updating an existing file, we don't want duplicate headers
+		notesText = changelog.RenderEntries()
+	} else {
+		// Use the generated release notes content
+		notesText = notes.Render()
 	}
 
 	provider := ""
@@ -155,7 +162,7 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 		provider = "ai"
 	}
 	releaseNotes := &release.ReleaseNotes{
-		Text:        changelogContent,
+		Text:        notesText,
 		Provider:    provider,
 		GeneratedAt: notes.GeneratedAt(),
 	}

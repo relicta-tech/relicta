@@ -13,15 +13,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 const (
-	runsDir       = ".relicta/runs"
-	latestFile    = "latest"
-	runFileSuffix = ".json"
+	runsDir           = ".relicta/runs"
+	latestFile        = "latest"
+	runFileSuffix     = ".json"
 	machineFileSuffix = ".machine.json"
 	stateFileSuffix   = ".state.json"
 )
@@ -72,37 +72,37 @@ func ensureDir(repoRoot string) error {
 
 // ReleaseRunDTO is the data transfer object for serialization.
 type ReleaseRunDTO struct {
-	ID             string              `json:"id"`
-	PlanHash       string              `json:"plan_hash"`
-	RepoID         string              `json:"repo_id"`
-	RepoRoot       string              `json:"repo_root"`
-	BaseRef        string              `json:"base_ref"`
-	HeadSHA        string              `json:"head_sha"`
-	Commits        []string            `json:"commits"`
-	ConfigHash     string              `json:"config_hash"`
-	PluginPlanHash string              `json:"plugin_plan_hash"`
-	VersionCurrent string              `json:"version_current"`
-	VersionNext    string              `json:"version_next"`
-	BumpKind       string              `json:"bump_kind"`
-	Confidence     float64             `json:"confidence"`
-	RiskScore      float64             `json:"risk_score"`
-	Reasons        []string            `json:"reasons"`
-	ActorType      string              `json:"actor_type"`
-	ActorID        string              `json:"actor_id"`
-	Thresholds     PolicyThresholdsDTO `json:"thresholds"`
-	TagName        string              `json:"tag_name,omitempty"`
-	Notes          *ReleaseNotesDTO    `json:"notes,omitempty"`
-	NotesInputHash string              `json:"notes_inputs_hash,omitempty"`
-	Approval       *ApprovalDTO        `json:"approval,omitempty"`
-	Steps          []StepPlanDTO       `json:"steps"`
+	ID             string                   `json:"id"`
+	PlanHash       string                   `json:"plan_hash"`
+	RepoID         string                   `json:"repo_id"`
+	RepoRoot       string                   `json:"repo_root"`
+	BaseRef        string                   `json:"base_ref"`
+	HeadSHA        string                   `json:"head_sha"`
+	Commits        []string                 `json:"commits"`
+	ConfigHash     string                   `json:"config_hash"`
+	PluginPlanHash string                   `json:"plugin_plan_hash"`
+	VersionCurrent string                   `json:"version_current"`
+	VersionNext    string                   `json:"version_next"`
+	BumpKind       string                   `json:"bump_kind"`
+	Confidence     float64                  `json:"confidence"`
+	RiskScore      float64                  `json:"risk_score"`
+	Reasons        []string                 `json:"reasons"`
+	ActorType      string                   `json:"actor_type"`
+	ActorID        string                   `json:"actor_id"`
+	Thresholds     PolicyThresholdsDTO      `json:"thresholds"`
+	TagName        string                   `json:"tag_name,omitempty"`
+	Notes          *ReleaseNotesDTO         `json:"notes,omitempty"`
+	NotesInputHash string                   `json:"notes_inputs_hash,omitempty"`
+	Approval       *ApprovalDTO             `json:"approval,omitempty"`
+	Steps          []StepPlanDTO            `json:"steps"`
 	StepStatus     map[string]StepStatusDTO `json:"step_status"`
-	State          string              `json:"state"`
-	History        []TransitionRecordDTO `json:"history"`
-	LastError      string              `json:"last_error,omitempty"`
-	ChangesetID    string              `json:"changeset_id,omitempty"`
-	CreatedAt      time.Time           `json:"created_at"`
-	UpdatedAt      time.Time           `json:"updated_at"`
-	PublishedAt    *time.Time          `json:"published_at,omitempty"`
+	State          string                   `json:"state"`
+	History        []TransitionRecordDTO    `json:"history"`
+	LastError      string                   `json:"last_error,omitempty"`
+	ChangesetID    string                   `json:"changeset_id,omitempty"`
+	CreatedAt      time.Time                `json:"created_at"`
+	UpdatedAt      time.Time                `json:"updated_at"`
+	PublishedAt    *time.Time               `json:"published_at,omitempty"`
 }
 
 // PolicyThresholdsDTO is the DTO for policy thresholds.
