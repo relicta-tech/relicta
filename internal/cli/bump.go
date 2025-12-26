@@ -372,6 +372,11 @@ func updateReleaseVersion(ctx context.Context, app cliApp, ver version.SemanticV
 		return err
 	}
 
+	// Transition from Planned to Versioned state
+	if err := rel.Bump("cli"); err != nil {
+		return err
+	}
+
 	return releaseRepo.Save(ctx, rel)
 }
 
