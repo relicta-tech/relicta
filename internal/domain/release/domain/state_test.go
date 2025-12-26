@@ -245,7 +245,7 @@ func TestParseRunState(t *testing.T) {
 		{"failed", StateFailed, false},
 		{"canceled", StateCanceled, false},
 		{"invalid", "", true},
-		{"DRAFT", "", true},  // Case sensitive
+		{"DRAFT", "", true}, // Case sensitive
 		{"", "", true},
 	}
 

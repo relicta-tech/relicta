@@ -27,12 +27,12 @@ type EventStore interface {
 
 // StoredEvent represents a persisted domain event with metadata.
 type StoredEvent struct {
-	ID          string              `json:"id"`
-	RunID       domain.RunID        `json:"run_id"`
-	EventName   string              `json:"event_name"`
-	OccurredAt  time.Time           `json:"occurred_at"`
-	StoredAt    time.Time           `json:"stored_at"`
-	SequenceNum int64               `json:"sequence_num"`
-	Payload     domain.DomainEvent  `json:"-"` // Actual event (serialized separately)
-	PayloadJSON string              `json:"payload"`
+	ID          string             `json:"id"`
+	RunID       domain.RunID       `json:"run_id"`
+	EventName   string             `json:"event_name"`
+	OccurredAt  time.Time          `json:"occurred_at"`
+	StoredAt    time.Time          `json:"stored_at"`
+	SequenceNum int64              `json:"sequence_num"`
+	Payload     domain.DomainEvent `json:"-"` // Actual event (serialized separately)
+	PayloadJSON string             `json:"payload"`
 }

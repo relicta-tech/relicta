@@ -145,13 +145,13 @@ const (
 
 // Approval holds release approval information.
 type Approval struct {
-	ApprovedBy    string    // Who approved the release
-	ApprovedAt    time.Time // When it was approved
-	AutoApproved  bool      // If auto-approved (risk below threshold)
-	PlanHash      string    // The plan hash that was approved
-	RiskScore     float64   // Risk score at time of approval
-	ApproverType  ActorType // Type of approver (human, ci, agent)
-	Justification string    // Optional justification for approval
+	ApprovedBy    string        // Who approved the release
+	ApprovedAt    time.Time     // When it was approved
+	AutoApproved  bool          // If auto-approved (risk below threshold)
+	PlanHash      string        // The plan hash that was approved
+	RiskScore     float64       // Risk score at time of approval
+	ApproverType  ActorType     // Type of approver (human, ci, agent)
+	Justification string        // Optional justification for approval
 	Level         ApprovalLevel // The level of this approval
 }
 
@@ -176,7 +176,7 @@ type ApprovalPolicy struct {
 
 // MultiLevelApproval tracks multiple approvals for a release.
 type MultiLevelApproval struct {
-	Policy    ApprovalPolicy     // The approval policy in effect
+	Policy    ApprovalPolicy              // The approval policy in effect
 	Approvals map[ApprovalLevel]*Approval // Approvals granted at each level
 }
 

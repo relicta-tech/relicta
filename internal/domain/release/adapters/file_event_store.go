@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	eventsDir       = ".relicta/events"
+	eventsDir        = ".relicta/events"
 	eventsFileSuffix = ".events.jsonl"
 )
 
@@ -52,12 +52,12 @@ func ensureEventsDir(repoRoot string) error {
 
 // storedEventDTO is the serialized form of an event.
 type storedEventDTO struct {
-	ID          string    `json:"id"`
-	RunID       string    `json:"run_id"`
-	EventName   string    `json:"event_name"`
-	OccurredAt  time.Time `json:"occurred_at"`
-	StoredAt    time.Time `json:"stored_at"`
-	SequenceNum int64     `json:"sequence_num"`
+	ID          string          `json:"id"`
+	RunID       string          `json:"run_id"`
+	EventName   string          `json:"event_name"`
+	OccurredAt  time.Time       `json:"occurred_at"`
+	StoredAt    time.Time       `json:"stored_at"`
+	SequenceNum int64           `json:"sequence_num"`
 	Payload     json.RawMessage `json:"payload"`
 }
 
@@ -368,4 +368,3 @@ func getRepoRootFromContext(ctx context.Context) string {
 	}
 	return ""
 }
-

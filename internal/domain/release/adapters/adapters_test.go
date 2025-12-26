@@ -1158,12 +1158,12 @@ func TestFileEventStore_AppendAndLoad(t *testing.T) {
 			At:      now,
 		},
 		&domain.StateTransitionedEvent{
-			RunID:  runID,
-			From:   domain.StateDraft,
-			To:     domain.StatePlanned,
-			Event:  "PLAN",
-			Actor:  "test-user",
-			At:     now.Add(time.Second),
+			RunID: runID,
+			From:  domain.StateDraft,
+			To:    domain.StatePlanned,
+			Event: "PLAN",
+			Actor: "test-user",
+			At:    now.Add(time.Second),
 		},
 	}
 

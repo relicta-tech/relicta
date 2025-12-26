@@ -946,7 +946,7 @@ func TestReleaseRun_ValidateApprovalPlanHash(t *testing.T) {
 			run.VersionCurrent(),
 			run.VersionNext(),
 			run.BumpKind(),
-			0.95,           // confidence
+			0.95, // confidence
 			run.RiskScore(),
 			nil,
 			run.ActorType(),
