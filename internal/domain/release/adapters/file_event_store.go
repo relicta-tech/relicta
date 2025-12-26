@@ -86,7 +86,6 @@ func (s *FileEventStore) Append(ctx context.Context, runID domain.RunID, events 
 	if err != nil {
 		return fmt.Errorf("failed to open events file: %w", err)
 	}
-	defer f.Close()
 
 	// Get current sequence number
 	seqNum := s.getNextSequence(path)
@@ -97,6 +96,7 @@ func (s *FileEventStore) Append(ctx context.Context, runID domain.RunID, events 
 	for _, event := range events {
 		payload, err := json.Marshal(event)
 		if err != nil {
+			_ = f.Close() // Best-effort cleanup
 			return fmt.Errorf("failed to marshal event: %w", err)
 		}
 
@@ -111,6 +111,7 @@ func (s *FileEventStore) Append(ctx context.Context, runID domain.RunID, events 
 		}
 
 		if err := encoder.Encode(dto); err != nil {
+			_ = f.Close() // Best-effort cleanup
 			return fmt.Errorf("failed to write event: %w", err)
 		}
 		seqNum++
@@ -118,7 +119,13 @@ func (s *FileEventStore) Append(ctx context.Context, runID domain.RunID, events 
 
 	// Ensure data is written to disk
 	if err := f.Sync(); err != nil {
+		_ = f.Close() // Best-effort cleanup
 		return fmt.Errorf("failed to sync events file: %w", err)
+	}
+
+	// Close file and check for errors (potential data loss if Close fails after Sync)
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close events file: %w", err)
 	}
 
 	return nil

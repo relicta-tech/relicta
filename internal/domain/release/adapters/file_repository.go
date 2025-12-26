@@ -189,7 +189,7 @@ func (r *FileReleaseRunRepository) Save(ctx context.Context, run *domain.Release
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath) // Clean up on failure
+		_ = os.Remove(tmpPath) // Best-effort cleanup on failure
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
@@ -272,7 +272,7 @@ func (r *FileReleaseRunRepository) SetLatest(ctx context.Context, repoRoot strin
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) // Best-effort cleanup on failure
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
@@ -348,9 +348,9 @@ func (r *FileReleaseRunRepository) DeleteFromRepo(ctx context.Context, repoRoot 
 		return fmt.Errorf("failed to delete run file: %w", err)
 	}
 
-	// Also remove state and machine files
-	os.Remove(statePath(repoRoot, runID))
-	os.Remove(machinePath(repoRoot, runID))
+	// Also remove state and machine files (best-effort cleanup)
+	_ = os.Remove(statePath(repoRoot, runID))
+	_ = os.Remove(machinePath(repoRoot, runID))
 
 	return nil
 }

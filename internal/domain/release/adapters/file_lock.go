@@ -92,15 +92,18 @@ func (m *FileLockManager) Acquire(ctx context.Context, repoRoot string, runID do
 	}
 
 	if _, err := f.Write(data); err != nil {
-		f.Close()
-		os.Remove(path)
+		_ = f.Close()
+		_ = os.Remove(path)
 		return nil, fmt.Errorf("failed to write lock file: %w", err)
 	}
-	f.Close()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return nil, fmt.Errorf("failed to close lock file: %w", err)
+	}
 
 	// Return release function
 	release := func() {
-		os.Remove(path)
+		_ = os.Remove(path) // Best-effort cleanup, ignore error
 	}
 
 	return release, nil
