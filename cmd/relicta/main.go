@@ -12,14 +12,22 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/cli"
+	"github.com/relicta-tech/relicta/internal/version"
 )
 
 // Version information set by ldflags during build.
 var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	ver    = "dev"
+	commit = "none"
+	date   = "unknown"
 )
+
+func init() {
+	// Use embedded VERSION file as fallback when ldflags not set
+	if ver == "dev" {
+		ver = version.Get()
+	}
+}
 
 // shutdownTimeout is the maximum time to wait for graceful shutdown.
 const shutdownTimeout = 30 * time.Second
@@ -68,7 +76,7 @@ func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Con
 		}()
 	}
 
-	cli.SetVersionInfo(version, commit, date)
+	cli.SetVersionInfo(ver, commit, date)
 
 	// Run CLI in tracked goroutine for coordinated shutdown
 	var exitCode int

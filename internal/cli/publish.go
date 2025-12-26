@@ -133,7 +133,7 @@ func handleChangelogUpdate(rel *release.Release) {
 }
 
 // printPublishSummary prints the final release summary.
-func printPublishSummary(nextVersion, tagName string) {
+func printPublishSummary(nextVersion, tagName string, remoteURL string) {
 	fmt.Println()
 	printTitle("Release Summary")
 	fmt.Println()
@@ -143,6 +143,19 @@ func printPublishSummary(nextVersion, tagName string) {
 	fmt.Printf("  Published:  %s\n", time.Now().Format(time.RFC3339))
 
 	printSuccess("Release completed successfully!")
+
+	// Show helpful hints for creating platform releases
+	if !hasPlugin(cfg, "github") && isGitHubRemote(remoteURL) {
+		fmt.Println()
+		printInfo("To create a GitHub Release, either:")
+		printSubtle("  • Run: relicta plugin install github")
+		printSubtle("  • Or manually: gh release create " + tagName + " --generate-notes")
+	}
+	if !hasPlugin(cfg, "gitlab") && isGitLabRemote(remoteURL) {
+		fmt.Println()
+		printInfo("To create a GitLab Release, run: relicta plugin install gitlab")
+	}
+
 	fmt.Println()
 	printInfo("Run 'relicta plan' to start a new release.")
 	fmt.Println()
@@ -232,7 +245,13 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	outputPublishResults(output)
 	outputPluginResults(output.PluginResults)
 	handleChangelogUpdate(rel)
-	printPublishSummary(nextVersion.String(), output.TagName)
+
+	// Get remote URL for platform-specific hints
+	remoteURL := ""
+	if repoInfo, err := app.GitAdapter().GetInfo(ctx); err == nil {
+		remoteURL = repoInfo.RemoteURL
+	}
+	printPublishSummary(nextVersion.String(), output.TagName, remoteURL)
 
 	return nil
 }

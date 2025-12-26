@@ -131,7 +131,13 @@ func detectRepoSettings(cfg *config.Config) error {
 	// Try to detect remote URL and extract owner/repo
 	remoteURL, err := gitSvc.GetRemoteURL(ctx, "origin")
 	if err == nil {
-		cfg.Changelog.RepositoryURL = parseGitHubURL(remoteURL)
+		githubURL := parseGitHubURL(remoteURL)
+		cfg.Changelog.RepositoryURL = githubURL
+
+		// Auto-enable GitHub plugin for GitHub repositories
+		if githubURL != "" {
+			ensurePlugin(cfg, "github")
+		}
 	}
 
 	// Set default branch
@@ -161,6 +167,16 @@ func parseGitHubURL(remoteURL string) string {
 	}
 
 	return ""
+}
+
+// isGitHubRemote checks if the remote URL points to GitHub.
+func isGitHubRemote(remoteURL string) bool {
+	return strings.Contains(remoteURL, "github.com")
+}
+
+// isGitLabRemote checks if the remote URL points to GitLab.
+func isGitLabRemote(remoteURL string) bool {
+	return strings.Contains(remoteURL, "gitlab.com") || strings.Contains(remoteURL, "gitlab.")
 }
 
 // hasPlugin checks if a plugin is configured.
