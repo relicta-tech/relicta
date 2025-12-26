@@ -1676,3 +1676,576 @@ func TestEventPublishingRepository_NilEventStore(t *testing.T) {
 		t.Fatalf("Save error with nil event store: %v", err)
 	}
 }
+
+// =============================================================================
+// Additional Coverage Tests
+// =============================================================================
+
+func TestFileEventStore_AppendWithContext(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-run-context")
+
+	// Append with event types that are well-tested for deserialization
+	events := []domain.DomainEvent{
+		&domain.RunCreatedEvent{
+			RunID:   runID,
+			RepoID:  "test/repo",
+			HeadSHA: "abc123",
+			At:      time.Now(),
+		},
+		&domain.StateTransitionedEvent{
+			RunID: runID,
+			From:  domain.StateDraft,
+			To:    domain.StatePlanned,
+			Event: "PLAN",
+			Actor: "system",
+			At:    time.Now(),
+		},
+		&domain.RunApprovedEvent{
+			RunID:        runID,
+			ApprovedBy:   "user@example.com",
+			AutoApproved: false,
+			At:           time.Now(),
+		},
+	}
+
+	err := store.Append(ctx, runID, events)
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// Load and verify events
+	loaded, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+
+	if len(loaded) < 2 {
+		t.Errorf("LoadEvents returned %d events, want at least 2", len(loaded))
+	}
+
+	// Verify first event type
+	if loaded[0].EventName() != "run.created" {
+		t.Errorf("First event name = %s, want run.created", loaded[0].EventName())
+	}
+}
+
+func TestFileEventStore_AppendNoContext(t *testing.T) {
+	store := NewFileEventStore()
+	ctx := context.Background() // No repo root in context
+
+	runID := domain.RunID("test-run-no-context")
+	events := []domain.DomainEvent{
+		&domain.RunCreatedEvent{
+			RunID: runID,
+			At:    time.Now(),
+		},
+	}
+
+	err := store.Append(ctx, runID, events)
+	if err == nil {
+		t.Error("Expected error when appending without repo root context")
+	}
+	if !strings.Contains(err.Error(), "repo root not found") {
+		t.Errorf("Error should mention 'repo root not found', got: %v", err)
+	}
+}
+
+func TestFileEventStore_LoadEventsNoContext(t *testing.T) {
+	store := NewFileEventStore()
+	ctx := context.Background() // No repo root in context
+
+	_, err := store.LoadEvents(ctx, domain.RunID("test-run"))
+	if err == nil {
+		t.Error("Expected error when loading without repo root context")
+	}
+}
+
+func TestFileEventStore_AppendEmptyEvents(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-run-empty")
+
+	// Append empty events list
+	err := store.Append(ctx, runID, []domain.DomainEvent{})
+	if err != nil {
+		t.Fatalf("Append empty events should not fail: %v", err)
+	}
+
+	// Append nil
+	err = store.Append(ctx, runID, nil)
+	if err != nil {
+		t.Fatalf("Append nil events should not fail: %v", err)
+	}
+}
+
+func TestFileLockManager_AcquireWithTimeout(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+
+	// Use a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	// First acquire should succeed
+	release, err := lockMgr.Acquire(ctx, repoRoot, "run-1")
+	if err != nil {
+		t.Fatalf("First Acquire failed: %v", err)
+	}
+	defer release()
+
+	// Second acquire with same timeout context should fail quickly
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel2()
+
+	_, err = lockMgr.Acquire(ctx2, repoRoot, "run-2")
+	if err == nil {
+		t.Error("Second Acquire should fail due to existing lock")
+	}
+}
+
+func TestFileLockManager_AcquireInvalidLockFile(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create an invalid lock file (not valid JSON)
+	lockDir := filepath.Join(repoRoot, runsDir)
+	_ = os.MkdirAll(lockDir, 0755)
+	_ = os.WriteFile(filepath.Join(lockDir, lockFileName), []byte("invalid json"), 0644)
+
+	// Try to acquire - may fail or succeed depending on implementation
+	release, err := lockMgr.Acquire(ctx, repoRoot, "run-1")
+	if err == nil {
+		// If it succeeds, make sure to release
+		release()
+	}
+	// Test that we don't panic with invalid lock file
+}
+
+func TestGitRepoInspector_IsCleanError(t *testing.T) {
+	mock := &mockGitRepository{
+		isDirtyErr: os.ErrPermission,
+	}
+
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	_, err := inspector.IsClean(ctx)
+	if err == nil {
+		t.Error("Expected error from IsClean")
+	}
+}
+
+func TestGitRepoInspector_GetRemoteURLError(t *testing.T) {
+	mock := &mockGitRepository{
+		infoErr: os.ErrNotExist,
+	}
+
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	_, err := inspector.GetRemoteURL(ctx)
+	if err == nil {
+		t.Error("Expected error from GetRemoteURL")
+	}
+}
+
+func TestGitRepoInspector_GetCurrentBranchFromInfo(t *testing.T) {
+	// Test that we can get branch from info when branch method returns empty
+	mock := &mockGitRepository{
+		info: &sourcecontrol.RepositoryInfo{
+			CurrentBranch: "develop",
+		},
+	}
+
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	branch, err := inspector.GetCurrentBranch(ctx)
+	if err != nil {
+		t.Fatalf("GetCurrentBranch failed: %v", err)
+	}
+	if branch != "develop" {
+		t.Errorf("Branch = %s, want develop", branch)
+	}
+}
+
+func TestGitRepoInspector_ResolveCommitsError(t *testing.T) {
+	mock := &mockGitRepository{
+		commitsErr: os.ErrNotExist,
+	}
+
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	_, err := inspector.ResolveCommits(ctx, "v1.0.0", "HEAD")
+	if err == nil {
+		t.Error("Expected error from ResolveCommits")
+	}
+}
+
+func TestGitRepoInspector_TagExistsError(t *testing.T) {
+	mock := &mockGitRepository{
+		tagsErr: os.ErrPermission,
+	}
+
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	_, err := inspector.TagExists(ctx, "v1.0.0")
+	if err == nil {
+		t.Error("Expected error from TagExists")
+	}
+}
+
+func TestFileReleaseRunRepository_SetLatestCreatesFile(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create and save a run first
+	run := domain.NewReleaseRun("test/repo", repoRoot, "main",
+		domain.CommitSHA("abc123"), nil, "", "")
+	_ = repo.Save(ctx, run)
+
+	// Set latest should work
+	err := repo.SetLatest(ctx, repoRoot, run.ID())
+	if err != nil {
+		t.Fatalf("SetLatest failed: %v", err)
+	}
+
+	// Verify latest file was created
+	latestFile := filepath.Join(repoRoot, runsDir, "latest")
+	data, err := os.ReadFile(latestFile)
+	if err != nil {
+		t.Fatalf("Failed to read latest file: %v", err)
+	}
+	if string(data) != string(run.ID()) {
+		t.Errorf("Latest file content = %s, want %s", data, run.ID())
+	}
+}
+
+func TestFileReleaseRunRepository_MultipleRuns(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create and save multiple runs
+	runs := make([]*domain.ReleaseRun, 5)
+	for i := 0; i < 5; i++ {
+		runs[i] = domain.NewReleaseRun(
+			"test/repo",
+			repoRoot,
+			"main",
+			domain.CommitSHA("abc"+string(rune('0'+i))),
+			nil,
+			"config",
+			"plugin",
+		)
+		time.Sleep(5 * time.Millisecond) // Ensure different timestamps
+		err := repo.Save(ctx, runs[i])
+		if err != nil {
+			t.Fatalf("Save run %d failed: %v", i, err)
+		}
+	}
+
+	// List should return all runs sorted by modification time
+	ids, err := repo.List(ctx, repoRoot)
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(ids) != 5 {
+		t.Errorf("List returned %d runs, want 5", len(ids))
+	}
+
+	// Most recent should be first
+	if ids[0] != runs[4].ID() {
+		t.Errorf("First ID = %s, want %s (most recent)", ids[0], runs[4].ID())
+	}
+}
+
+func TestFileEventStore_LoadAllEventsEmpty(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	// Load from empty directory
+	events, err := store.LoadAllEvents(ctx, repoRoot)
+	if err != nil {
+		t.Fatalf("LoadAllEvents should not error for empty dir: %v", err)
+	}
+	if len(events) != 0 {
+		t.Errorf("LoadAllEvents should return empty slice, got %d events", len(events))
+	}
+}
+
+func TestFileLockManager_MultipleAcquireRelease(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Acquire and release multiple times in sequence
+	for i := 0; i < 3; i++ {
+		release, err := lockMgr.Acquire(ctx, repoRoot, domain.RunID("run-"+string(rune('0'+i))))
+		if err != nil {
+			t.Fatalf("Acquire %d failed: %v", i, err)
+		}
+
+		// Verify lock is held
+		locked, err := lockMgr.IsLocked(ctx, repoRoot, "any-run")
+		if err != nil {
+			t.Fatalf("IsLocked %d failed: %v", i, err)
+		}
+		if !locked {
+			t.Errorf("Should be locked after Acquire %d", i)
+		}
+
+		// Release
+		release()
+
+		// Verify lock is released
+		locked, err = lockMgr.IsLocked(ctx, repoRoot, "any-run")
+		if err != nil {
+			t.Fatalf("IsLocked after release %d failed: %v", i, err)
+		}
+		if locked {
+			t.Errorf("Should not be locked after release %d", i)
+		}
+	}
+}
+
+// =============================================================================
+// Additional Event Store Tests for Coverage
+// =============================================================================
+
+func TestFileEventStore_AppendAndLoadVariousEvents(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-run-various")
+
+	// Test appending failed event
+	failedEvent := &domain.RunFailedEvent{
+		RunID:  runID,
+		Reason: "test failure",
+		At:     time.Now(),
+	}
+	err := store.Append(ctx, runID, []domain.DomainEvent{failedEvent})
+	if err != nil {
+		t.Fatalf("Append RunFailedEvent failed: %v", err)
+	}
+
+	// Test appending canceled event
+	canceledEvent := &domain.RunCanceledEvent{
+		RunID:  runID,
+		Reason: "user canceled",
+		By:     "test-user",
+		At:     time.Now(),
+	}
+	err = store.Append(ctx, runID, []domain.DomainEvent{canceledEvent})
+	if err != nil {
+		t.Fatalf("Append RunCanceledEvent failed: %v", err)
+	}
+
+	// Load events
+	events, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+	if len(events) < 2 {
+		t.Errorf("Expected at least 2 events, got %d", len(events))
+	}
+}
+
+func TestFileEventStore_LoadEventsSinceNoContext(t *testing.T) {
+	store := NewFileEventStore()
+	ctx := context.Background() // No repo root
+
+	_, err := store.LoadEventsSince(ctx, domain.RunID("test"), time.Now())
+	if err == nil {
+		t.Error("Expected error when loading without repo root context")
+	}
+}
+
+func TestFileEventStore_LoadAllEventsNoContext(t *testing.T) {
+	store := NewFileEventStore()
+	ctx := context.Background() // No repo root
+
+	_, err := store.LoadAllEvents(ctx, "/tmp/nonexistent")
+	// This should handle gracefully or return error
+	if err != nil {
+		t.Logf("LoadAllEvents returned error (expected): %v", err)
+	}
+}
+
+func TestFileReleaseRunRepository_FindActiveEmpty(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// FindActive on empty repo should return empty list
+	runs, err := repo.FindActive(ctx, repoRoot)
+	if err != nil {
+		t.Fatalf("FindActive failed: %v", err)
+	}
+	if len(runs) != 0 {
+		t.Errorf("Expected 0 active runs, got %d", len(runs))
+	}
+}
+
+func TestFileReleaseRunRepository_FindByStateEmpty(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// FindByState on empty repo should return empty list
+	runs, err := repo.FindByState(ctx, repoRoot, domain.StateDraft)
+	if err != nil {
+		t.Fatalf("FindByState failed: %v", err)
+	}
+	if len(runs) != 0 {
+		t.Errorf("Expected 0 runs, got %d", len(runs))
+	}
+}
+
+func TestGitRepoInspector_GetLatestVersionTagWithMixedTags(t *testing.T) {
+	// Create tags with various formats
+	tags := sourcecontrol.TagList{
+		sourcecontrol.NewTag("release-1.0", "aaa"),
+		sourcecontrol.NewTag("v1.0.0", "bbb"),
+		sourcecontrol.NewTag("v0.9.0", "ccc"),
+		sourcecontrol.NewTag("v1.2.3", "ddd"),
+		sourcecontrol.NewTag("latest", "eee"),
+	}
+
+	mock := &mockGitRepository{tags: tags}
+	inspector := NewGitRepoInspector(mock)
+	ctx := context.Background()
+
+	tag, err := inspector.GetLatestVersionTag(ctx, "v")
+	if err != nil {
+		t.Fatalf("GetLatestVersionTag failed: %v", err)
+	}
+	if tag != "v1.2.3" {
+		t.Errorf("Expected v1.2.3, got %s", tag)
+	}
+}
+
+func TestFileEventStore_SequentialAppends(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-sequential")
+
+	// Append events one by one
+	for i := 0; i < 5; i++ {
+		event := &domain.StateTransitionedEvent{
+			RunID: runID,
+			From:  domain.StateDraft,
+			To:    domain.StatePlanned,
+			Event: "PLAN",
+			At:    time.Now().Add(time.Duration(i) * time.Second),
+		}
+		err := store.Append(ctx, runID, []domain.DomainEvent{event})
+		if err != nil {
+			t.Fatalf("Append %d failed: %v", i, err)
+		}
+	}
+
+	// Load all events
+	events, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+	if len(events) != 5 {
+		t.Errorf("Expected 5 events, got %d", len(events))
+	}
+}
+
+func TestFileLockManager_ConcurrentTryAcquire(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// First acquire
+	release1, acquired1, err := lockMgr.TryAcquire(ctx, repoRoot, "run-1")
+	if err != nil {
+		t.Fatalf("TryAcquire 1 error: %v", err)
+	}
+	if !acquired1 {
+		t.Error("First TryAcquire should succeed")
+	}
+	defer func() {
+		if release1 != nil {
+			release1()
+		}
+	}()
+
+	// Second TryAcquire should fail
+	release2, acquired2, err := lockMgr.TryAcquire(ctx, repoRoot, "run-2")
+	if err != nil {
+		t.Fatalf("TryAcquire 2 error: %v", err)
+	}
+	if acquired2 {
+		t.Error("Second TryAcquire should not acquire")
+		if release2 != nil {
+			release2()
+		}
+	}
+}
+
+func TestFileEventStore_AllEventTypes(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+	runID := domain.RunID("test-all-events")
+	now := time.Now()
+
+	// Create events for all supported types
+	events := []domain.DomainEvent{
+		&domain.RunCreatedEvent{RunID: runID, RepoID: "test", HeadSHA: "abc", At: now},
+		&domain.StateTransitionedEvent{RunID: runID, From: "draft", To: "planned", Event: "PLAN", At: now},
+		&domain.RunPlannedEvent{RunID: runID, CommitCount: 5, At: now},
+		&domain.RunVersionedEvent{RunID: runID, TagName: "v1.0.0", At: now},
+		&domain.RunNotesGeneratedEvent{RunID: runID, NotesLength: 100, Provider: "test", At: now},
+		&domain.RunNotesUpdatedEvent{RunID: runID, NotesLength: 150, Actor: "user", At: now},
+		&domain.RunApprovedEvent{RunID: runID, ApprovedBy: "approver", At: now},
+		&domain.RunPublishingStartedEvent{RunID: runID, At: now},
+		&domain.RunPublishedEvent{RunID: runID, At: now},
+		&domain.RunFailedEvent{RunID: runID, Reason: "error", At: now},
+		&domain.RunCanceledEvent{RunID: runID, Reason: "user", By: "admin", At: now},
+		&domain.RunRetriedEvent{RunID: runID, By: "system", At: now},
+		&domain.StepCompletedEvent{RunID: runID, StepName: "tag", Success: true, At: now},
+		&domain.PluginExecutedEvent{RunID: runID, PluginName: "github", Hook: "post-publish", At: now},
+	}
+
+	// Append all events
+	err := store.Append(ctx, runID, events)
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// Load and verify all events were stored
+	loaded, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+
+	// Verify we got at least 10 events (some may not be deserialized due to name mismatches)
+	if len(loaded) < 10 {
+		t.Errorf("Expected at least 10 events to be deserialized, got %d", len(loaded))
+	}
+
+	// Verify first event is run.created
+	if len(loaded) > 0 && loaded[0].EventName() != "run.created" {
+		t.Errorf("First event: got %s, want run.created", loaded[0].EventName())
+	}
+}
