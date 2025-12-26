@@ -5,7 +5,7 @@ package ports
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/releasegov/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 )
 
 // ReleaseRunRepository defines the interface for persisting and retrieving release runs.

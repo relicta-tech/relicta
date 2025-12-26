@@ -353,6 +353,15 @@ func (r *ReleaseRun) TagName() string {
 	return r.tagName
 }
 
+// Version returns the next version (for backwards compatibility).
+func (r *ReleaseRun) Version() *version.SemanticVersion {
+	ver := r.versionNext
+	if ver.String() == "" || ver.String() == "0.0.0" {
+		return nil
+	}
+	return &ver
+}
+
 // Notes returns the release notes if generated.
 func (r *ReleaseRun) Notes() *ReleaseNotes {
 	return r.notes
@@ -651,6 +660,69 @@ func (r *ReleaseRun) Approval() *Approval {
 // IsApproved returns true if the release has been approved.
 func (r *ReleaseRun) IsApproved() bool {
 	return r.approval != nil
+}
+
+// ApprovalStatus represents the approval readiness of a release.
+type ApprovalStatus struct {
+	CanApprove bool
+	Reason     string
+}
+
+// ApprovalStatus returns the approval readiness status for the release.
+// This encapsulates the domain logic for determining if a release can be approved.
+func (r *ReleaseRun) ApprovalStatus() ApprovalStatus {
+	switch r.state {
+	case StateNotesReady:
+		return ApprovalStatus{
+			CanApprove: true,
+			Reason:     "Release is ready for approval",
+		}
+	case StateApproved:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is already approved",
+		}
+	case StatePublishing, StatePublished:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release has already progressed past approval",
+		}
+	case StateFailed, StateCancelled:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is in a terminal state: " + string(r.state),
+		}
+	default:
+		return ApprovalStatus{
+			CanApprove: false,
+			Reason:     "Release is not ready for approval, current state: " + string(r.state),
+		}
+	}
+}
+
+// CanApprove returns true if the release can be approved.
+func (r *ReleaseRun) CanApprove() bool {
+	return r.state == StateNotesReady
+}
+
+// CanProceedToPublish returns true if the release can proceed to publishing.
+func (r *ReleaseRun) CanProceedToPublish() bool {
+	return r.IsApproved() && r.state == StateApproved
+}
+
+// RepositoryPath returns the repository path (alias for RepoRoot).
+func (r *ReleaseRun) RepositoryPath() string {
+	return r.repoRoot
+}
+
+// RepositoryName returns the repository name (alias for RepoID).
+func (r *ReleaseRun) RepositoryName() string {
+	return r.repoID
+}
+
+// Branch returns the branch name (derived from baseRef if available).
+func (r *ReleaseRun) Branch() string {
+	return r.baseRef
 }
 
 // StartPublishing transitions to Publishing state.
@@ -1214,6 +1286,20 @@ func (r *ReleaseRun) UpdateNotes(notes *ReleaseNotes, actor string) error {
 	})
 
 	return nil
+}
+
+// UpdateNotesText updates the release notes with just the text content.
+// This is a convenience method that creates a ReleaseNotes struct internally.
+func (r *ReleaseRun) UpdateNotesText(text string) error {
+	notes := &ReleaseNotes{
+		Text: text,
+	}
+	return r.UpdateNotes(notes, "system")
+}
+
+// SetNotes sets the release notes (alias for GenerateNotes for backwards compatibility).
+func (r *ReleaseRun) SetNotes(notes *ReleaseNotes) error {
+	return r.GenerateNotes(notes, "", "system")
 }
 
 // RecordPluginExecution records a plugin execution result.

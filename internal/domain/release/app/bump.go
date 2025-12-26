@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/releasegov/domain"
-	"github.com/relicta-tech/relicta/internal/releasegov/ports"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 )
 
 // BumpVersionInput contains the input for bumping the version.

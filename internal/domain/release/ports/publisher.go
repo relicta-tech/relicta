@@ -4,7 +4,7 @@ package ports
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/releasegov/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 )
 
 // StepResult represents the result of executing a publishing step.

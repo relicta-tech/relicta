@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/releasegov/domain"
-	"github.com/relicta-tech/relicta/internal/releasegov/ports"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 )
 
 // RetryPublishInput contains the input for retrying a failed publish.

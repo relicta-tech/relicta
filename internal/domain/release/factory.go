@@ -1,13 +1,13 @@
-// Package releasegov provides the release governance bounded context.
-// This is the entry point for creating and using the new DDD-based release services.
-package releasegov
+// Package release provides the release governance bounded context.
+// This is the entry point for creating and using the DDD-based release services.
+package release
 
 import (
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/releasegov/adapters"
-	"github.com/relicta-tech/relicta/internal/releasegov/app"
-	"github.com/relicta-tech/relicta/internal/releasegov/domain"
-	"github.com/relicta-tech/relicta/internal/releasegov/ports"
+	"github.com/relicta-tech/relicta/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 )
 
 // Services provides access to all release governance use cases.
