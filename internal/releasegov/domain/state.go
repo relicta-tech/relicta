@@ -13,6 +13,9 @@ const (
 	// StatePlanned means the release has been planned with a pinned head_sha.
 	StatePlanned RunState = "planned"
 
+	// StateVersioned means the version has been calculated and applied.
+	StateVersioned RunState = "versioned"
+
 	// StateNotesReady means release notes have been generated.
 	StateNotesReady RunState = "notes_ready"
 
@@ -38,6 +41,7 @@ func AllStates() []RunState {
 	return []RunState{
 		StateDraft,
 		StatePlanned,
+		StateVersioned,
 		StateNotesReady,
 		StateApproved,
 		StatePublishing,
@@ -55,7 +59,7 @@ func (s RunState) String() string {
 // IsValid returns true if the state is a valid run state.
 func (s RunState) IsValid() bool {
 	switch s {
-	case StateDraft, StatePlanned, StateNotesReady, StateApproved,
+	case StateDraft, StatePlanned, StateVersioned, StateNotesReady, StateApproved,
 		StatePublishing, StatePublished, StateFailed, StateCancelled:
 		return true
 	default:
@@ -93,11 +97,12 @@ func (s RunState) CanTransitionTo(target RunState) bool {
 func validTransitions() map[RunState][]RunState {
 	return map[RunState][]RunState{
 		StateDraft:      {StatePlanned, StateCancelled},
-		StatePlanned:    {StateNotesReady, StateCancelled},
-		StateNotesReady: {StateApproved, StatePlanned, StateCancelled}, // Can go back to Planned to regenerate notes
+		StatePlanned:    {StateVersioned, StateCancelled},                   // Plan -> Bump
+		StateVersioned:  {StateNotesReady, StatePlanned, StateCancelled},    // Bump -> Notes (can go back to re-plan)
+		StateNotesReady: {StateApproved, StateVersioned, StateCancelled},    // Can go back to Versioned to regenerate notes
 		StateApproved:   {StatePublishing, StateCancelled},
 		StatePublishing: {StatePublished, StateFailed},
-		StatePublished:  {},                           // Terminal - no transitions
+		StatePublished:  {},                            // Terminal - no transitions
 		StateFailed:     {StatePublishing, StateDraft}, // Can retry or start over
 		StateCancelled:  {StateDraft},                  // Can restart
 	}
@@ -127,7 +132,9 @@ func (s RunState) Description() string {
 	case StateDraft:
 		return "Release run created, awaiting planning"
 	case StatePlanned:
-		return "Release planned with pinned commit range and version"
+		return "Release planned with pinned commit range"
+	case StateVersioned:
+		return "Version calculated and applied"
 	case StateNotesReady:
 		return "Release notes generated and ready for review"
 	case StateApproved:
@@ -152,6 +159,8 @@ func (s RunState) Icon() string {
 		return "[DRAFT]"
 	case StatePlanned:
 		return "[PLANNED]"
+	case StateVersioned:
+		return "[VERSIONED]"
 	case StateNotesReady:
 		return "[NOTES]"
 	case StateApproved:

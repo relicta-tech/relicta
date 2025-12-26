@@ -23,6 +23,7 @@ type GetStatusOutput struct {
 	PlanHash       string
 	VersionCurrent string
 	VersionNext    string
+	TagName        string
 	BumpKind       domain.BumpKind
 	RiskScore      float64
 	CommitCount    int
@@ -31,6 +32,7 @@ type GetStatusOutput struct {
 	StepsFailed    int
 	StepsPending   int
 	NextAction     string
+	CanBump        bool
 	CanApprove     bool
 	CanPublish     bool
 	CanRetry       bool
@@ -102,6 +104,7 @@ func (uc *GetStatusUseCase) Execute(ctx context.Context, input GetStatusInput) (
 		PlanHash:       run.PlanHash(),
 		VersionCurrent: summary.VersionCurrent,
 		VersionNext:    summary.VersionNext,
+		TagName:        run.TagName(),
 		BumpKind:       summary.BumpKind,
 		RiskScore:      summary.RiskScore,
 		CommitCount:    summary.CommitCount,
@@ -110,6 +113,7 @@ func (uc *GetStatusUseCase) Execute(ctx context.Context, input GetStatusInput) (
 		StepsFailed:    summary.StepsFailed,
 		StepsPending:   stepsPending,
 		NextAction:     nextAction,
+		CanBump:        run.State() == domain.StatePlanned,
 		CanApprove:     run.State() == domain.StateNotesReady,
 		CanPublish:     run.State() == domain.StateApproved,
 		CanRetry:       run.State() == domain.StateFailed,
@@ -128,6 +132,8 @@ func determineNextAction(state domain.RunState) string {
 	case domain.StateDraft:
 		return "plan"
 	case domain.StatePlanned:
+		return "bump"
+	case domain.StateVersioned:
 		return "notes"
 	case domain.StateNotesReady:
 		return "approve"

@@ -89,8 +89,21 @@ type RunCancelledEvent struct {
 	At     time.Time
 }
 
-func (e *RunCancelledEvent) EventName() string    { return "run.cancelled" }
+func (e *RunCancelledEvent) EventName() string     { return "run.cancelled" }
 func (e *RunCancelledEvent) OccurredAt() time.Time { return e.At }
+
+// RunVersionedEvent is emitted when a version is applied to the run.
+type RunVersionedEvent struct {
+	RunID       RunID
+	VersionNext version.SemanticVersion
+	BumpKind    BumpKind
+	TagName     string
+	Actor       string
+	At          time.Time
+}
+
+func (e *RunVersionedEvent) EventName() string     { return "run.versioned" }
+func (e *RunVersionedEvent) OccurredAt() time.Time { return e.At }
 
 // RunRetriedEvent is emitted when a failed run is retried.
 type RunRetriedEvent struct {

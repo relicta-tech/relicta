@@ -5,6 +5,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/releasegov/domain"
 )
 
@@ -49,4 +50,13 @@ type StateExporter interface {
 
 	// ExportStateJSON exports the current state snapshot as JSON.
 	ExportStateJSON(run *domain.ReleaseRun) ([]byte, error)
+}
+
+// VersionWriter writes version information to files in the repository.
+type VersionWriter interface {
+	// WriteVersion writes the version to configured files (VERSION, package.json, etc.)
+	WriteVersion(ctx context.Context, ver version.SemanticVersion) error
+
+	// WriteChangelog writes or updates the changelog file.
+	WriteChangelog(ctx context.Context, ver version.SemanticVersion, notes string) error
 }

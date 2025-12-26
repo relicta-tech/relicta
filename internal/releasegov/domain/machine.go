@@ -20,6 +20,7 @@ type RunContext struct {
 // Event names for the state machine.
 const (
 	EventPlan          statekit.EventType = "PLAN"
+	EventBump          statekit.EventType = "BUMP"
 	EventGenerateNotes statekit.EventType = "GENERATE_NOTES"
 	EventApprove       statekit.EventType = "APPROVE"
 	EventStartPublish  statekit.EventType = "START_PUBLISH"
@@ -42,6 +43,7 @@ const (
 var (
 	StateIDDraft      statekit.StateID = statekit.StateID(StateDraft)
 	StateIDPlanned    statekit.StateID = statekit.StateID(StatePlanned)
+	StateIDVersioned  statekit.StateID = statekit.StateID(StateVersioned)
 	StateIDNotesReady statekit.StateID = statekit.StateID(StateNotesReady)
 	StateIDApproved   statekit.StateID = statekit.StateID(StateApproved)
 	StateIDPublishing statekit.StateID = statekit.StateID(StatePublishing)
@@ -70,13 +72,20 @@ func NewReleaseRunMachine() (*ReleaseRunMachine, error) {
 		Done().
 		// Planned state
 		State(StateIDPlanned).
+			On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).
+			On(EventCancel).Target(StateIDCancelled).
+		Done().
+		// Versioned state (version calculated and applied)
+		State(StateIDVersioned).
 			On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches).
+			On(EventPlan).Target(StateIDPlanned).Guard(GuardHeadMatches). // Can go back to re-plan
 			On(EventCancel).Target(StateIDCancelled).
 		Done().
 		// NotesReady state
 		State(StateIDNotesReady).
 			On(EventApprove).Target(StateIDApproved).Guard(GuardHeadMatches).
 			On(EventGenerateNotes).Target(StateIDNotesReady).Guard(GuardHeadMatches). // Regenerate notes
+			On(EventBump).Target(StateIDVersioned).Guard(GuardHeadMatches).           // Can go back to versioned
 			On(EventCancel).Target(StateIDCancelled).
 		Done().
 		// Approved state
@@ -208,7 +217,14 @@ func (m *ReleaseRunMachine) ExportXStateJSON() ([]byte, error) {
 			},
 			string(StatePlanned): {
 				On: map[string]XStateTransition{
+					string(EventBump):   {Target: string(StateVersioned), Guard: string(GuardHeadMatches)},
+					string(EventCancel): {Target: string(StateCancelled)},
+				},
+			},
+			string(StateVersioned): {
+				On: map[string]XStateTransition{
 					string(EventGenerateNotes): {Target: string(StateNotesReady), Guard: string(GuardHeadMatches)},
+					string(EventPlan):          {Target: string(StatePlanned), Guard: string(GuardHeadMatches)},
 					string(EventCancel):        {Target: string(StateCancelled)},
 				},
 			},
@@ -216,6 +232,7 @@ func (m *ReleaseRunMachine) ExportXStateJSON() ([]byte, error) {
 				On: map[string]XStateTransition{
 					string(EventApprove):       {Target: string(StateApproved), Guard: string(GuardHeadMatches)},
 					string(EventGenerateNotes): {Target: string(StateNotesReady), Guard: string(GuardHeadMatches)},
+					string(EventBump):          {Target: string(StateVersioned), Guard: string(GuardHeadMatches)},
 					string(EventCancel):        {Target: string(StateCancelled)},
 				},
 			},
@@ -285,7 +302,7 @@ func ValidateTransition(run *ReleaseRun, event statekit.EventType, currentHead C
 
 	// Check guards based on event
 	switch event {
-	case EventGenerateNotes, EventApprove, EventStartPublish:
+	case EventBump, EventGenerateNotes, EventApprove, EventStartPublish:
 		if !guardHeadMatches(ctx, statekit.Event{}) {
 			return fmt.Errorf("%w: expected %s, got %s", ErrHeadSHAChanged, run.HeadSHA().Short(), currentHead.Short())
 		}
@@ -296,6 +313,8 @@ func ValidateTransition(run *ReleaseRun, event statekit.EventType, currentHead C
 	switch event {
 	case EventPlan:
 		targetState = StatePlanned
+	case EventBump:
+		targetState = StateVersioned
 	case EventGenerateNotes:
 		targetState = StateNotesReady
 	case EventApprove:
@@ -359,6 +378,9 @@ func (s *StateMachineService) ValidateAndTransition(
 	switch event {
 	case EventPlan:
 		return run.Plan(actor)
+	case EventBump:
+		// Version is set separately via SetVersion, this just validates and transitions
+		return run.Bump(actor)
 	case EventGenerateNotes:
 		// Notes are set separately, this just validates the transition is possible
 		return nil

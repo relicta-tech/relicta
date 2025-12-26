@@ -96,6 +96,9 @@ type ReleaseRun struct {
 	actorID    string
 	thresholds PolicyThresholds
 
+	// Version tracking
+	tagName string // The tag name for the release (e.g., "v1.2.3")
+
 	// Notes
 	notes           *ReleaseNotes
 	notesInputsHash string
@@ -340,6 +343,11 @@ func (r *ReleaseRun) ActorID() string {
 	return r.actorID
 }
 
+// TagName returns the tag name for the release.
+func (r *ReleaseRun) TagName() string {
+	return r.tagName
+}
+
 // Notes returns the release notes if generated.
 func (r *ReleaseRun) Notes() *ReleaseNotes {
 	return r.notes
@@ -515,10 +523,54 @@ func (r *ReleaseRun) Plan(actor string) error {
 	return r.TransitionTo(StatePlanned, "PLAN", actor, "Release planned", nil)
 }
 
+// SetVersion sets the calculated version for the release.
+// This should be called while in Planned state, before calling Bump().
+func (r *ReleaseRun) SetVersion(next version.SemanticVersion, tagName string) error {
+	if r.state != StatePlanned {
+		return fmt.Errorf("%w: can only set version in Planned state, current: %s", ErrInvalidState, r.state)
+	}
+
+	r.versionNext = next
+	r.tagName = tagName
+
+	// Recompute plan hash now that version is finalized
+	r.planHash = r.computePlanHash()
+	r.id = RunID("run-" + r.planHash[:16])
+
+	r.updatedAt = time.Now()
+	return nil
+}
+
+// Bump transitions from Planned to Versioned state.
+// The version should already be set via SetVersion().
+func (r *ReleaseRun) Bump(actor string) error {
+	if r.state != StatePlanned {
+		return fmt.Errorf("%w: can only bump from Planned state, current: %s", ErrInvalidState, r.state)
+	}
+
+	if r.versionNext.String() == "" || r.versionNext.String() == "0.0.0" {
+		return fmt.Errorf("%w: version must be set before bumping", ErrInvalidState)
+	}
+
+	r.addEvent(&RunVersionedEvent{
+		RunID:       r.id,
+		VersionNext: r.versionNext,
+		BumpKind:    r.bumpKind,
+		TagName:     r.tagName,
+		Actor:       actor,
+		At:          time.Now(),
+	})
+
+	return r.TransitionTo(StateVersioned, "BUMP", actor, "Version applied", map[string]string{
+		"version":  r.versionNext.String(),
+		"tag_name": r.tagName,
+	})
+}
+
 // GenerateNotes sets the release notes and transitions to NotesReady.
 func (r *ReleaseRun) GenerateNotes(notes *ReleaseNotes, inputsHash, actor string) error {
-	if r.state != StatePlanned {
-		return fmt.Errorf("%w: can only generate notes from Planned state, current: %s", ErrInvalidState, r.state)
+	if r.state != StateVersioned {
+		return fmt.Errorf("%w: can only generate notes from Versioned state, current: %s", ErrInvalidState, r.state)
 	}
 
 	r.notes = notes
