@@ -701,6 +701,1034 @@ func TestDetermineNextAction(t *testing.T) {
 	}
 }
 
+// Mock publisher for publish tests
+type mockPublisher struct {
+	stepResults      map[string]*ports.StepResult
+	checkIdempotency map[string]bool
+	executeErr       error
+	checkErr         error
+}
+
+func newMockPublisher() *mockPublisher {
+	return &mockPublisher{
+		stepResults:      make(map[string]*ports.StepResult),
+		checkIdempotency: make(map[string]bool),
+	}
+}
+
+func (m *mockPublisher) ExecuteStep(_ context.Context, _ *domain.ReleaseRun, step *domain.StepPlan) (*ports.StepResult, error) {
+	if m.executeErr != nil {
+		return nil, m.executeErr
+	}
+	if result, ok := m.stepResults[step.Name]; ok {
+		return result, nil
+	}
+	return &ports.StepResult{
+		Success: true,
+		Output:  "step completed",
+	}, nil
+}
+
+func (m *mockPublisher) CheckIdempotency(_ context.Context, _ *domain.ReleaseRun, step *domain.StepPlan) (bool, error) {
+	if m.checkErr != nil {
+		return false, m.checkErr
+	}
+	return m.checkIdempotency[step.Name], nil
+}
+
+func TestPublishReleaseUseCase_Execute(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{}
+	publisher := newMockPublisher()
+
+	// Create an approved run with execution plan
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "notify", Type: domain.StepTypeNotify},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, lockMgr, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if !output.Published {
+		t.Error("Execute() Published = false, want true")
+	}
+
+	if len(output.StepResults) != 2 {
+		t.Errorf("Execute() StepResults count = %d, want 2", len(output.StepResults))
+	}
+
+	// Verify final state
+	savedRun := repo.runs[run.ID()]
+	if savedRun.State() != domain.StatePublished {
+		t.Errorf("Run state = %v, want %v", savedRun.State(), domain.StatePublished)
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_AlreadyPublished(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create a published run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepDone("tag", "done")
+	_ = run.MarkPublished("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if !output.Published {
+		t.Error("Execute() Published = false for already published run, want true")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_WrongState(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create a notes-ready run (not approved)
+	run := createNotesReadyRun()
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error for notes_ready state")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_HeadMismatch(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error for HEAD mismatch")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_ForceBypassesHeadCheck(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+	publisher := newMockPublisher()
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Force:    true, // Force should bypass HEAD check
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() with Force error = %v", err)
+	}
+
+	if !output.Published {
+		t.Error("Execute() with Force Published = false, want true")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_StepFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+	publisher.stepResults["tag"] = &ports.StepResult{
+		Success: false,
+		Error:   errors.New("tag creation failed"),
+	}
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "notify", Type: domain.StepTypeNotify},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when step fails")
+	}
+
+	if output.Published {
+		t.Error("Execute() Published = true after step failure, want false")
+	}
+
+	// Verify first step result is recorded
+	if len(output.StepResults) != 1 {
+		t.Errorf("Execute() StepResults count = %d, want 1", len(output.StepResults))
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_DryRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "notify", Type: domain.StepTypeNotify},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		DryRun:   true,
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() with DryRun error = %v", err)
+	}
+
+	// All steps should be skipped in dry run
+	for _, result := range output.StepResults {
+		if !result.Skipped {
+			t.Errorf("Step %s Skipped = false in dry run, want true", result.StepName)
+		}
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_IdempotentStep(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+	publisher.checkIdempotency["tag"] = true // Tag already exists
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	// Step should be marked as skipped due to idempotency
+	if len(output.StepResults) != 1 {
+		t.Fatalf("Execute() StepResults count = %d, want 1", len(output.StepResults))
+	}
+	if !output.StepResults[0].Skipped {
+		t.Error("Step should be skipped due to idempotency check")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_LockError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{acquireErr: errors.New("lock failed")}
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, lockMgr, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when lock fails")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_ResumePublishing(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	// Create a run that's already publishing with one step done
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "notify", Type: domain.StepTypeNotify},
+	})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepDone("tag", "done") // First step already done
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	// Should only execute the second step
+	if len(output.StepResults) != 1 {
+		t.Errorf("Execute() StepResults count = %d, want 1 (only pending step)", len(output.StepResults))
+	}
+
+	if output.StepResults[0].StepName != "notify" {
+		t.Errorf("Execute() executed step %s, want notify", output.StepResults[0].StepName)
+	}
+
+	if !output.Published {
+		t.Error("Execute() Published = false, want true")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(), // Explicitly specify run ID
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_NoPublisher(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	// No publisher configured
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when no publisher configured")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_ExecuteStepError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+	publisher.executeErr = errors.New("execution error")
+
+	// Create an approved run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when ExecuteStep fails")
+	}
+}
+
+// Tests for RetryPublishUseCase
+
+func TestRetryPublishUseCase_Execute(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	// Create a failed run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "notify", Type: domain.StepTypeNotify},
+	})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepStarted("tag")
+	_ = run.MarkStepFailed("tag", errors.New("tag failed"))
+	_ = run.MarkFailed("step failed", "test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewRetryPublishUseCase(repo, inspector, nil, publisher, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if !output.Published {
+		t.Error("Execute() Published = false, want true")
+	}
+}
+
+func TestRetryPublishUseCase_Execute_NotFailed(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create an approved run (not failed)
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewRetryPublishUseCase(repo, inspector, nil, nil, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when run is not failed")
+	}
+}
+
+func TestRetryPublishUseCase_Execute_HeadMismatch(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+
+	// Create a failed run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkFailed("error", "test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewRetryPublishUseCase(repo, inspector, nil, nil, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error for HEAD mismatch")
+	}
+}
+
+func TestRetryPublishUseCase_Execute_ForceBypassesHeadCheck(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+	publisher := newMockPublisher()
+
+	// Create a failed run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepStarted("tag")
+	_ = run.MarkStepFailed("tag", errors.New("tag failed"))
+	_ = run.MarkFailed("error", "test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewRetryPublishUseCase(repo, inspector, nil, publisher, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		Force:    true,
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() with Force error = %v", err)
+	}
+
+	if !output.Published {
+		t.Error("Execute() with Force Published = false, want true")
+	}
+}
+
+func TestRetryPublishUseCase_Execute_LockError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{acquireErr: errors.New("lock failed")}
+
+	// Create a failed run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkFailed("error", "test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewRetryPublishUseCase(repo, inspector, lockMgr, nil, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when lock fails")
+	}
+}
+
+func TestRetryPublishUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	// Create a failed run
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepStarted("tag")
+	_ = run.MarkStepFailed("tag", errors.New("tag failed"))
+	_ = run.MarkFailed("error", "test")
+	repo.runs[run.ID()] = run
+
+	uc := NewRetryPublishUseCase(repo, inspector, nil, publisher, nil)
+
+	input := RetryPublishInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "retry@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+}
+
+// Additional edge case tests for existing use cases
+
+func TestBumpVersionUseCase_Execute_WriteError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{}
+	verWriter := &mockVersionWriter{writeErr: errors.New("write error")}
+
+	// Create a planned run with version proposal
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewBumpVersionUseCase(repo, inspector, lockMgr, verWriter, nil)
+
+	input := BumpVersionInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when version write fails")
+	}
+}
+
+func TestBumpVersionUseCase_Execute_HeadMismatch(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+
+	// Create a planned run
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewBumpVersionUseCase(repo, inspector, nil, nil, nil)
+
+	input := BumpVersionInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error for HEAD mismatch")
+	}
+}
+
+func TestGenerateNotesUseCase_Execute_NoRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewGenerateNotesUseCase(repo, inspector, nil, nil)
+
+	input := GenerateNotesInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when no run exists")
+	}
+}
+
+func TestApproveReleaseUseCase_Execute_NoRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewApproveReleaseUseCase(repo, inspector, nil, nil)
+
+	input := ApproveReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "approver@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when no run exists")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_NoRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, nil, nil)
+
+	input := PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "publisher@example.com",
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when no run exists")
+	}
+}
+
+// Additional tests for GetStatusUseCase
+
+func TestGetStatusUseCase_Execute_AllStates(t *testing.T) {
+	ctx := context.Background()
+
+	tests := []struct {
+		name           string
+		state          domain.RunState
+		expectedAction string
+	}{
+		{"draft", domain.StateDraft, "plan"},
+		{"planned", domain.StatePlanned, "bump"},
+		{"versioned", domain.StateVersioned, "notes"},
+		{"notes_ready", domain.StateNotesReady, "approve"},
+		{"approved", domain.StateApproved, "publish"},
+		{"publishing", domain.StatePublishing, "wait"},
+		{"published", domain.StatePublished, "done"},
+		{"failed", domain.StateFailed, "retry or cancel"},
+		{"canceled", domain.StateCanceled, "plan"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := newMockRepository()
+			inspector := newMockRepoInspector()
+
+			run := createRunInState(tc.state)
+			repo.runs[run.ID()] = run
+			repo.latestRuns["/path/to/repo"] = run.ID()
+
+			uc := NewGetStatusUseCase(repo, inspector)
+			output, err := uc.Execute(ctx, GetStatusInput{RepoRoot: "/path/to/repo"})
+			if err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			if output.NextAction != tc.expectedAction {
+				t.Errorf("NextAction = %v, want %v", output.NextAction, tc.expectedAction)
+			}
+		})
+	}
+}
+
+func TestGetStatusUseCase_Execute_HeadDrift(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	inspector.headSHA = domain.CommitSHA("different-sha")
+
+	run := createNotesReadyRun()
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewGetStatusUseCase(repo, inspector)
+	output, err := uc.Execute(ctx, GetStatusInput{RepoRoot: "/path/to/repo"})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.Warning == "" {
+		t.Error("Execute() expected warning for HEAD drift")
+	}
+}
+
+func TestGetStatusUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	run := createNotesReadyRun()
+	repo.runs[run.ID()] = run
+
+	uc := NewGetStatusUseCase(repo, inspector)
+	output, err := uc.Execute(ctx, GetStatusInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+}
+
+func TestGetStatusUseCase_Execute_PublishedRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	_ = run.StartPublishing("test")
+	_ = run.MarkStepDone("tag", "done")
+	_ = run.MarkPublished("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewGetStatusUseCase(repo, inspector)
+	output, err := uc.Execute(ctx, GetStatusInput{RepoRoot: "/path/to/repo"})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.State != domain.StatePublished {
+		t.Errorf("Execute() State = %v, want %v", output.State, domain.StatePublished)
+	}
+
+	if output.StepsDone != 1 {
+		t.Errorf("Execute() StepsDone = %d, want 1", output.StepsDone)
+	}
+}
+
+// createRunInState creates a run in a specific state for testing
+func createRunInState(state domain.RunState) *domain.ReleaseRun {
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+
+	switch state {
+	case domain.StateDraft:
+		return run
+	case domain.StatePlanned:
+		_ = run.Plan("test")
+		return run
+	case domain.StateVersioned:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		return run
+	case domain.StateNotesReady:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		notes := &domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+		_ = run.GenerateNotes(notes, "hash", "test")
+		return run
+	case domain.StateApproved:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		notes := &domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+		_ = run.GenerateNotes(notes, "hash", "test")
+		_ = run.Approve("test", false)
+		return run
+	case domain.StatePublishing:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		notes := &domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+		_ = run.GenerateNotes(notes, "hash", "test")
+		_ = run.Approve("test", false)
+		run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+		_ = run.StartPublishing("test")
+		return run
+	case domain.StatePublished:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		notes := &domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+		_ = run.GenerateNotes(notes, "hash", "test")
+		_ = run.Approve("test", false)
+		run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+		_ = run.StartPublishing("test")
+		_ = run.MarkStepDone("tag", "done")
+		_ = run.MarkPublished("test")
+		return run
+	case domain.StateFailed:
+		_ = run.Plan("test")
+		_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+		_ = run.Bump("test")
+		notes := &domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+		_ = run.GenerateNotes(notes, "hash", "test")
+		_ = run.Approve("test", false)
+		run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+		_ = run.StartPublishing("test")
+		_ = run.MarkFailed("error", "test")
+		return run
+	case domain.StateCanceled:
+		_ = run.Plan("test")
+		_ = run.Cancel("canceled", "test")
+		return run
+	default:
+		return run
+	}
+}
+
 // Helper functions
 
 func createNotesReadyRun() *domain.ReleaseRun {

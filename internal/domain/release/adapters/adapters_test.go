@@ -1429,3 +1429,250 @@ func TestFileReleaseRunRepository_FindByPlanHash_DuplicateDetection(t *testing.T
 	// This is where a use case would return ErrDuplicateRun
 	// to prevent creating a new run with the same plan
 }
+
+// =============================================================================
+// FileLockManager Additional Tests
+// =============================================================================
+
+func TestFileLockManager_TryAcquire_NotHeld(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	release, acquired, err := lockMgr.TryAcquire(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("TryAcquire error: %v", err)
+	}
+	if !acquired {
+		t.Error("TryAcquire should acquire when no lock exists")
+	}
+	if release == nil {
+		t.Error("TryAcquire should return release function")
+	}
+	if release != nil {
+		release()
+	}
+}
+
+func TestFileLockManager_TryAcquire_AlreadyHeld(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// First acquire
+	release1, err := lockMgr.Acquire(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("First Acquire error: %v", err)
+	}
+	defer release1()
+
+	// Try to acquire again
+	release2, acquired, err := lockMgr.TryAcquire(ctx, repoRoot, "run-456")
+	if err != nil {
+		t.Fatalf("TryAcquire error: %v", err)
+	}
+	if acquired {
+		t.Error("TryAcquire should not acquire when lock is held")
+		if release2 != nil {
+			release2()
+		}
+	}
+}
+
+func TestFileLockManager_IsLocked_NoLock(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	locked, err := lockMgr.IsLocked(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("IsLocked error: %v", err)
+	}
+	if locked {
+		t.Error("IsLocked should return false when no lock exists")
+	}
+}
+
+func TestFileLockManager_IsLocked_WithLock(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Acquire lock
+	release, err := lockMgr.Acquire(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("Acquire error: %v", err)
+	}
+	defer release()
+
+	locked, err := lockMgr.IsLocked(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("IsLocked error: %v", err)
+	}
+	if !locked {
+		t.Error("IsLocked should return true when lock is held")
+	}
+}
+
+func TestFileLockManager_GetLockInfo_NoLock(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+
+	info, err := lockMgr.GetLockInfo(repoRoot)
+	if err != nil {
+		t.Fatalf("GetLockInfo error: %v", err)
+	}
+	if info != nil {
+		t.Error("GetLockInfo should return nil when no lock exists")
+	}
+}
+
+func TestFileLockManager_GetLockInfo_WithLock(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Acquire lock
+	release, err := lockMgr.Acquire(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("Acquire error: %v", err)
+	}
+	defer release()
+
+	info, err := lockMgr.GetLockInfo(repoRoot)
+	if err != nil {
+		t.Fatalf("GetLockInfo error: %v", err)
+	}
+	if info == nil {
+		t.Fatal("GetLockInfo should return info when lock is held")
+	}
+	if info.RunID != "run-123" {
+		t.Errorf("GetLockInfo RunID = %v, want run-123", info.RunID)
+	}
+	if info.HolderPID == 0 {
+		t.Error("GetLockInfo should have a valid PID")
+	}
+}
+
+func TestFileLockManager_Release(t *testing.T) {
+	lockMgr := NewFileLockManager()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Acquire and release
+	release, err := lockMgr.Acquire(ctx, repoRoot, "run-123")
+	if err != nil {
+		t.Fatalf("Acquire error: %v", err)
+	}
+	release()
+
+	// Should be able to acquire again
+	release2, err := lockMgr.Acquire(ctx, repoRoot, "run-456")
+	if err != nil {
+		t.Fatalf("Second Acquire error: %v", err)
+	}
+	defer release2()
+}
+
+// =============================================================================
+// EventPublishingRepository Additional Tests
+// =============================================================================
+
+func TestEventPublishingRepository_SaveAndLoad(t *testing.T) {
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	baseRepo := NewFileReleaseRunRepository()
+	eventStore := NewFileEventStore()
+	repo := NewEventPublishingRepository(baseRepo, eventStore)
+
+	// Create and save a run
+	run := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		nil,
+		"",
+		"",
+	)
+	run.EmitCreatedEvent()
+
+	err := repo.Save(ctx, run)
+	if err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	// Verify events were cleared
+	if len(run.DomainEvents()) != 0 {
+		t.Error("Save should clear domain events")
+	}
+
+	// Load the run using LoadFromRepo
+	loaded, err := repo.LoadFromRepo(ctx, repoRoot, run.ID())
+	if err != nil {
+		t.Fatalf("LoadFromRepo error: %v", err)
+	}
+	if loaded.ID() != run.ID() {
+		t.Errorf("LoadFromRepo ID = %v, want %v", loaded.ID(), run.ID())
+	}
+}
+
+func TestEventPublishingRepository_FindByPlanHash(t *testing.T) {
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	baseRepo := NewFileReleaseRunRepository()
+	repo := NewEventPublishingRepository(baseRepo, nil)
+
+	// Create and save a run
+	run := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		nil,
+		"",
+		"",
+	)
+
+	err := repo.Save(ctx, run)
+	if err != nil {
+		t.Fatalf("Save error: %v", err)
+	}
+
+	// Find by plan hash
+	found, err := repo.FindByPlanHash(ctx, repoRoot, run.PlanHash())
+	if err != nil {
+		t.Fatalf("FindByPlanHash error: %v", err)
+	}
+	if found == nil {
+		t.Error("FindByPlanHash should find the run")
+	}
+}
+
+func TestEventPublishingRepository_NilEventStore(t *testing.T) {
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	baseRepo := NewFileReleaseRunRepository()
+	repo := NewEventPublishingRepository(baseRepo, nil) // No event store
+
+	// Create a run with events
+	run := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		nil,
+		"",
+		"",
+	)
+	run.EmitCreatedEvent()
+
+	// Should save without error even with nil event store
+	err := repo.Save(ctx, run)
+	if err != nil {
+		t.Fatalf("Save error with nil event store: %v", err)
+	}
+}
