@@ -4,6 +4,7 @@ package release
 
 import (
 	"context"
+	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
@@ -63,6 +64,49 @@ func (p *ReleasePlan) CommitCount() int {
 		return 0
 	}
 	return p.changeSet.CommitCount()
+}
+
+// NewRelease creates a new Release (ReleaseRun) for backwards compatibility.
+// The id parameter is ignored as the new aggregate generates IDs from the plan hash.
+func NewRelease(id ReleaseID, branch, repoPath string) *ReleaseRun {
+	return domain.NewReleaseRun(
+		repoPath, // repoID - use path as ID
+		repoPath, // repoRoot
+		branch,   // baseRef
+		"",       // headSHA - will be set later
+		nil,      // commits - will be set later
+		"",       // configHash
+		"",       // pluginPlanHash
+	)
+}
+
+// SetPlan sets the release plan on a ReleaseRun for backwards compatibility.
+// It extracts version info from the ReleasePlan and calls the appropriate methods.
+func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
+	if plan == nil {
+		return domain.ErrVersionNotSet
+	}
+
+	bumpKind := domain.BumpKindFromReleaseType(plan.ReleaseType)
+
+	// Set version proposal
+	if err := r.SetVersionProposal(
+		plan.CurrentVersion,
+		plan.NextVersion,
+		bumpKind,
+		1.0, // confidence
+	); err != nil {
+		return err
+	}
+
+	// Transition to planned state
+	return r.Plan("system")
+}
+
+// SetRepositoryName is a no-op for backwards compatibility.
+// In the new model, the repository ID is set at creation time.
+func SetRepositoryName(r *ReleaseRun, name string) {
+	// No-op - repoID is immutable in new model
 }
 
 // GetPlan extracts a ReleasePlan from a ReleaseRun for backwards compatibility.
@@ -339,4 +383,64 @@ type UnitOfWork interface {
 type UnitOfWorkFactory interface {
 	// Begin starts a new unit of work.
 	Begin(ctx context.Context) (UnitOfWork, error)
+}
+
+// ReconstructFromLegacy reconstructs a ReleaseRun from legacy persisted data.
+// This allows the persistence layer to restore aggregates without needing to know
+// the full internal structure of the new domain model.
+func ReconstructFromLegacy(
+	rel *ReleaseRun,
+	state ReleaseState,
+	plan *ReleasePlan,
+	ver *version.SemanticVersion,
+	tagName string,
+	notes *ReleaseNotes,
+	approval *Approval,
+	createdAt, updatedAt time.Time,
+	publishedAt *time.Time,
+	lastError string,
+) {
+	// Extract version info from plan if available
+	var versionCurrent, versionNext version.SemanticVersion
+	var bumpKind BumpKind = BumpNone
+	if plan != nil {
+		versionCurrent = plan.CurrentVersion
+		versionNext = plan.NextVersion
+		bumpKind = BumpKindFromReleaseType(plan.ReleaseType)
+	}
+
+	// Use ReconstructState with defaults for new fields
+	rel.ReconstructState(
+		rel.ID(),           // id
+		"",                 // planHash
+		rel.RepositoryPath(), // repoID
+		rel.RepositoryPath(), // repoRoot
+		rel.Branch(),       // baseRef
+		"",                 // headSHA
+		nil,                // commits
+		"",                 // configHash
+		"",                 // pluginPlanHash
+		versionCurrent,     // versionCurrent
+		versionNext,        // versionNext
+		bumpKind,           // bumpKind
+		1.0,                // confidence
+		0.0,                // riskScore
+		nil,                // reasons
+		ActorHuman,         // actorType
+		"",                 // actorID
+		PolicyThresholds{}, // thresholds
+		tagName,            // tagName
+		notes,              // notes
+		"",                 // notesInputsHash
+		approval,           // approval
+		nil,                // steps
+		nil,                // stepStatus
+		state,              // state
+		nil,                // history
+		lastError,          // lastError
+		"",                 // changesetID
+		createdAt,          // createdAt
+		updatedAt,          // updatedAt
+		publishedAt,        // publishedAt
+	)
 }

@@ -1112,7 +1112,7 @@ func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResource
 	}
 
 	rel := releases[0]
-	plan := rel.Plan()
+	plan := release.GetPlan(rel)
 	if plan == nil {
 		return &ReadResourceResult{
 			Contents: []ResourceContent{
@@ -1205,8 +1205,8 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 		version := ""
 		if rel.Version() != nil {
 			version = rel.Version().String()
-		} else if rel.Plan() != nil {
-			version = rel.Plan().NextVersion.String()
+		} else if plan := release.GetPlan(rel); plan != nil {
+			version = plan.NextVersion.String()
 		}
 
 		content := fmt.Sprintf("# Changelog\n\nNo changelog generated yet for version %s.\n\nRun `relicta notes` to generate release notes.", version)
@@ -1215,11 +1215,10 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 		}, nil
 	}
 
-	// Return the actual changelog
-	changelog := notes.Changelog
+	// Return the actual notes text
+	changelog := notes.Text
 	if changelog == "" {
-		// Fall back to summary if changelog is empty
-		changelog = fmt.Sprintf("# Release Notes\n\n%s", notes.Summary)
+		changelog = "# Release Notes\n\nNo content available."
 	}
 
 	return &ReadResourceResult{

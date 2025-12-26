@@ -11,6 +11,7 @@ import (
 type DomainEvent interface {
 	EventName() string
 	OccurredAt() time.Time
+	AggregateID() RunID
 }
 
 // RunCreatedEvent is emitted when a new release run is created.

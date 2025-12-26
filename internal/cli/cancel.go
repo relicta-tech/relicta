@@ -175,8 +175,8 @@ func runReset(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Reset the release
-	if err := rel.Retry(); err != nil {
+	// Reset the release (retry from failed state)
+	if err := rel.RetryPublish("cli"); err != nil {
 		return fmt.Errorf("failed to reset release: %w", err)
 	}
 

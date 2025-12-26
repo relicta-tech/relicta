@@ -823,7 +823,7 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *appreleas
 		output.ChangeSet,
 		dryRun,
 	)
-	if err := rel.SetPlan(plan); err != nil {
+	if err := release.SetPlan(rel, plan); err != nil {
 		return nil
 	}
 

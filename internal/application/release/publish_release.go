@@ -150,7 +150,7 @@ func (uc *PublishReleaseUseCase) executeWithUnitOfWork(ctx context.Context, inpu
 		return nil, fmt.Errorf("release is not ready for publishing: current state is %s", rel.State())
 	}
 
-	tagName := uc.buildTagName(input.TagPrefix, rel.Plan().NextVersion.String())
+	tagName := uc.buildTagName(input.TagPrefix, release.GetPlan(rel).NextVersion.String())
 	output := &PublishReleaseOutput{
 		TagName:       tagName,
 		PluginResults: make([]PluginResult, 0),
@@ -191,7 +191,7 @@ func (uc *PublishReleaseUseCase) executeWithoutUnitOfWork(ctx context.Context, i
 		return nil, fmt.Errorf("release is not ready for publishing: current state is %s", rel.State())
 	}
 
-	tagName := uc.buildTagName(input.TagPrefix, rel.Plan().NextVersion.String())
+	tagName := uc.buildTagName(input.TagPrefix, release.GetPlan(rel).NextVersion.String())
 	output := &PublishReleaseOutput{
 		TagName:       tagName,
 		PluginResults: make([]PluginResult, 0),
@@ -226,7 +226,7 @@ func (uc *PublishReleaseUseCase) buildTagName(prefix, version string) string {
 
 // buildReleaseContext creates the integration context for plugins.
 func (uc *PublishReleaseUseCase) buildReleaseContext(rel *release.Release, tagName string, dryRun bool) integration.ReleaseContext {
-	plan := rel.Plan()
+	plan := release.GetPlan(rel)
 	ctx := integration.ReleaseContext{
 		Version:         plan.NextVersion,
 		PreviousVersion: plan.CurrentVersion,
@@ -241,8 +241,8 @@ func (uc *PublishReleaseUseCase) buildReleaseContext(rel *release.Release, tagNa
 	}
 
 	if rel.Notes() != nil {
-		ctx.Changelog = rel.Notes().Changelog
-		ctx.ReleaseNotes = rel.Notes().Summary
+		ctx.Changelog = rel.Notes().Text
+		ctx.ReleaseNotes = rel.Notes().Text
 	}
 
 	return ctx
@@ -263,8 +263,7 @@ func (uc *PublishReleaseUseCase) executePrePublishPhase(
 		output.PluginResults = append(output.PluginResults, preResults...)
 	}
 
-	var pluginNames []string
-	if err := rel.StartPublishing(pluginNames); err != nil {
+	if err := rel.StartPublishing("system"); err != nil {
 		return fmt.Errorf("failed to start publishing: %w", err)
 	}
 
@@ -320,10 +319,15 @@ func (uc *PublishReleaseUseCase) executeGitTagPhase(
 
 // buildTagMessage creates the tag message from release notes or default.
 func (uc *PublishReleaseUseCase) buildTagMessage(rel *release.Release) string {
-	if rel.Notes() != nil && rel.Notes().Summary != "" {
-		return rel.Notes().Summary
+	if rel.Notes() != nil && rel.Notes().Text != "" {
+		// Use first 500 chars of notes as tag message
+		text := rel.Notes().Text
+		if len(text) > 500 {
+			text = text[:500] + "..."
+		}
+		return text
 	}
-	return fmt.Sprintf("Release %s", rel.Plan().NextVersion.String())
+	return fmt.Sprintf("Release %s", release.GetPlan(rel).NextVersion.String())
 }
 
 // pushTag pushes the tag to the remote repository.
@@ -340,7 +344,7 @@ func (uc *PublishReleaseUseCase) pushTag(ctx context.Context, rel *release.Relea
 
 // markReleaseFailed marks the release as failed and logs any errors.
 func (uc *PublishReleaseUseCase) markReleaseFailed(rel *release.Release, reason string) {
-	if markErr := rel.MarkFailed(reason, true); markErr != nil {
+	if markErr := rel.MarkFailed(reason, "system"); markErr != nil {
 		uc.logger.Warn("failed to mark release as failed",
 			"error", markErr,
 			"release_id", rel.ID(),

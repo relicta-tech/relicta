@@ -189,8 +189,8 @@ func outputNotesJSON(output *apprelease.GenerateNotesOutput, rel *release.Releas
 		"state":      string(rel.State()),
 	}
 
-	if rel.Plan() != nil {
-		result["version"] = rel.Plan().NextVersion.String()
+	if plan := release.GetPlan(rel); plan != nil {
+		result["version"] = plan.NextVersion.String()
 	}
 
 	if output.Changelog != nil {

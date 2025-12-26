@@ -107,10 +107,12 @@ type versionDTO struct {
 }
 
 type notesDTO struct {
-	Changelog   string `json:"changelog"`
-	Summary     string `json:"summary"`
-	AIGenerated bool   `json:"ai_generated"`
-	GeneratedAt string `json:"generated_at"`
+	Text           string `json:"text"`
+	AudiencePreset string `json:"audience_preset,omitempty"`
+	TonePreset     string `json:"tone_preset,omitempty"`
+	Provider       string `json:"provider,omitempty"`
+	Model          string `json:"model,omitempty"`
+	GeneratedAt    string `json:"generated_at"`
 }
 
 type approvalDTO struct {
@@ -456,8 +458,7 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 		LastError:      rel.LastError(),
 	}
 
-	if rel.Plan() != nil {
-		plan := rel.Plan()
+	if plan := release.GetPlan(rel); plan != nil {
 		dto.Plan = &planDTO{
 			CurrentVersion: plan.CurrentVersion.String(),
 			NextVersion:    plan.NextVersion.String(),
@@ -511,10 +512,12 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 	if rel.Notes() != nil {
 		notes := rel.Notes()
 		dto.Notes = &notesDTO{
-			Changelog:   notes.Changelog,
-			Summary:     notes.Summary,
-			AIGenerated: notes.AIGenerated,
-			GeneratedAt: notes.GeneratedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Text:           notes.Text,
+			AudiencePreset: notes.AudiencePreset,
+			TonePreset:     notes.TonePreset,
+			Provider:       notes.Provider,
+			Model:          notes.Model,
+			GeneratedAt:    notes.GeneratedAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
 
@@ -538,7 +541,7 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, error) {
 	// Create base release (this sets state to Initialized)
 	rel := release.NewRelease(release.ReleaseID(dto.ID), dto.Branch, dto.RepositoryPath)
-	rel.SetRepositoryName(dto.RepositoryName)
+	// Note: RepositoryName is now derived from repoID in the new model
 
 	// Parse timestamps
 	createdAt, err := time.Parse(time.RFC3339, dto.CreatedAt)
@@ -644,10 +647,12 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 			return nil, fmt.Errorf("failed to parse notes generated_at: %w", err)
 		}
 		notes = &release.ReleaseNotes{
-			Changelog:   dto.Notes.Changelog,
-			Summary:     dto.Notes.Summary,
-			AIGenerated: dto.Notes.AIGenerated,
-			GeneratedAt: generatedAt,
+			Text:           dto.Notes.Text,
+			AudiencePreset: dto.Notes.AudiencePreset,
+			TonePreset:     dto.Notes.TonePreset,
+			Provider:       dto.Notes.Provider,
+			Model:          dto.Notes.Model,
+			GeneratedAt:    generatedAt,
 		}
 	}
 
@@ -665,8 +670,9 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 		}
 	}
 
-	// Use ReconstructState to restore the aggregate without triggering events
-	rel.ReconstructState(
+	// Use ReconstructFromLegacy to restore the aggregate without triggering events
+	release.ReconstructFromLegacy(
+		rel,
 		release.ReleaseState(dto.State),
 		plan,
 		ver,

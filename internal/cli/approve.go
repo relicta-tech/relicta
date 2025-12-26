@@ -112,7 +112,7 @@ func handleNotesEditing(rel *release.Release) (*string, error) {
 		return nil, nil
 	}
 
-	notes, err := editReleaseNotes(rel.Notes().Changelog)
+	notes, err := editReleaseNotes(rel.Notes().Text)
 	if err != nil {
 		return nil, fmt.Errorf("failed to edit release notes: %w", err)
 	}
@@ -451,7 +451,7 @@ func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.Release,
 	input := governance.RecordOutcomeInput{
 		ReleaseID:  rel.ID(),
 		Repository: repoInfo.Path,
-		Version:    rel.Summary().NextVersion,
+		Version:    rel.Summary().VersionNext,
 		Actor:      actor,
 		RiskScore:  govResult.RiskScore,
 		Decision:   govResult.Decision,
@@ -474,21 +474,21 @@ func displayReleaseSummary(rel *release.Release) {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "  Release ID:\t%s\n", summary.ID)
-	fmt.Fprintf(w, "  Current version:\t%s\n", summary.CurrentVersion)
-	fmt.Fprintf(w, "  Next version:\t%s\n", summary.NextVersion)
-	fmt.Fprintf(w, "  Release type:\t%s\n", summary.ReleaseType)
+	fmt.Fprintf(w, "  Current version:\t%s\n", summary.VersionCurrent)
+	fmt.Fprintf(w, "  Next version:\t%s\n", summary.VersionNext)
+	fmt.Fprintf(w, "  Bump type:\t%s\n", summary.BumpKind)
 	fmt.Fprintf(w, "  Total commits:\t%d\n", summary.CommitCount)
-	fmt.Fprintf(w, "  Branch:\t%s\n", summary.Branch)
+	fmt.Fprintf(w, "  Branch:\t%s\n", rel.Branch())
 	fmt.Fprintf(w, "  State:\t%s\n", summary.State.String())
 	_ = w.Flush() // Ignore flush error for stdout display
 
 	// Show changes overview
-	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
+	if plan := release.GetPlan(rel); plan != nil && plan.HasChangeSet() {
 		fmt.Println()
 		printTitle("Changes Overview")
 		fmt.Println()
 
-		changeSet := rel.Plan().GetChangeSet()
+		changeSet := plan.GetChangeSet()
 		cats := changeSet.Categories()
 
 		if len(cats.Breaking) > 0 {
@@ -509,13 +509,13 @@ func displayReleaseSummary(rel *release.Release) {
 	}
 
 	// Show release notes preview
-	if rel.Notes() != nil && rel.Notes().Changelog != "" {
+	if rel.Notes() != nil && rel.Notes().Text != "" {
 		fmt.Println()
 		printTitle("Release Notes Preview")
 		fmt.Println()
 
 		// Show first 20 lines
-		lines := strings.Split(rel.Notes().Changelog, "\n")
+		lines := strings.Split(rel.Notes().Text, "\n")
 		maxLines := 20
 		if len(lines) < maxLines {
 			maxLines = len(lines)
@@ -654,23 +654,23 @@ func outputApproveJSON(rel *release.Release) error {
 
 	output := map[string]any{
 		"release_id":      string(summary.ID),
-		"current_version": summary.CurrentVersion,
-		"next_version":    summary.NextVersion,
-		"release_type":    summary.ReleaseType,
+		"current_version": summary.VersionCurrent,
+		"next_version":    summary.VersionNext,
+		"bump_kind":       string(summary.BumpKind),
 		"commit_count":    summary.CommitCount,
-		"branch":          summary.Branch,
-		"approved":        summary.IsApproved,
+		"branch":          rel.Branch(),
+		"approved":        rel.Approval() != nil,
 		"state":           summary.State.String(),
 		"ci_mode":         ciMode,
 	}
 
-	if summary.NextVersion != "" {
-		output["tag_name"] = cfg.Versioning.TagPrefix + summary.NextVersion
+	if summary.VersionNext != "" {
+		output["tag_name"] = cfg.Versioning.TagPrefix + summary.VersionNext
 	}
 
 	// Add changes summary if available
-	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
-		changeSet := rel.Plan().GetChangeSet()
+	if plan := release.GetPlan(rel); plan != nil && plan.HasChangeSet() {
+		changeSet := plan.GetChangeSet()
 		cats := changeSet.Categories()
 		output["changes_summary"] = map[string]int{
 			"breaking":    len(cats.Breaking),
@@ -692,16 +692,16 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 
 	tuiSummary := ui.ReleaseSummary{
 		ReleaseID:      string(summary.ID),
-		CurrentVersion: summary.CurrentVersion,
-		NextVersion:    summary.NextVersion,
-		ReleaseType:    summary.ReleaseType,
+		CurrentVersion: summary.VersionCurrent,
+		NextVersion:    summary.VersionNext,
+		ReleaseType:    string(summary.BumpKind),
 		CommitCount:    summary.CommitCount,
-		Branch:         summary.Branch,
+		Branch:         rel.Branch(),
 	}
 
 	// Add changes info
-	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
-		changeSet := rel.Plan().GetChangeSet()
+	if plan := release.GetPlan(rel); plan != nil && plan.HasChangeSet() {
+		changeSet := plan.GetChangeSet()
 		cats := changeSet.Categories()
 		tuiSummary.BreakingCount = len(cats.Breaking)
 		tuiSummary.FeatureCount = len(cats.Features)
@@ -712,7 +712,7 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 
 	// Add release notes
 	if rel.Notes() != nil {
-		tuiSummary.ReleaseNotes = rel.Notes().Changelog
+		tuiSummary.ReleaseNotes = rel.Notes().Text
 	}
 
 	// Add plugins
@@ -788,7 +788,7 @@ func handleEditApprovalResult(rel *release.Release) (*string, bool, error) {
 		return nil, false, nil
 	}
 
-	notes, err := editReleaseNotes(rel.Notes().Changelog)
+	notes, err := editReleaseNotes(rel.Notes().Text)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to edit release notes: %w", err)
 	}

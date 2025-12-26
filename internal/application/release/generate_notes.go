@@ -96,11 +96,11 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
 
-	if rel.Plan() == nil {
+	plan := release.GetPlan(rel)
+	if plan == nil {
 		return nil, release.ErrNilPlan
 	}
 
-	plan := rel.Plan()
 	changeSet := plan.GetChangeSet()
 
 	// Use actual release version if set (by SetVersion in bump step),
@@ -150,10 +150,13 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 		changelogContent = changelog.RenderEntries()
 	}
 
+	provider := ""
+	if notes.IsAIGenerated() {
+		provider = "ai"
+	}
 	releaseNotes := &release.ReleaseNotes{
-		Changelog:   changelogContent,
-		Summary:     notes.Summary(),
-		AIGenerated: notes.IsAIGenerated(),
+		Text:        changelogContent,
+		Provider:    provider,
 		GeneratedAt: notes.GeneratedAt(),
 	}
 

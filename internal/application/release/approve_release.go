@@ -86,7 +86,7 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 
 	// Update release notes if edited notes were provided
 	if input.EditedNotes != nil {
-		if err := rel.UpdateNotes(*input.EditedNotes); err != nil {
+		if err := rel.UpdateNotesText(*input.EditedNotes); err != nil {
 			return nil, fmt.Errorf("failed to update release notes: %w", err)
 		}
 		uc.logger.Info("release notes updated",
@@ -117,7 +117,7 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 	return &ApproveReleaseOutput{
 		Approved:    true,
 		ApprovedBy:  input.ApprovedBy,
-		ReleasePlan: rel.Plan(),
+		ReleasePlan: release.GetPlan(rel),
 	}, nil
 }
 

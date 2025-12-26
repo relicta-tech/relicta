@@ -179,7 +179,7 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 // buildProposalAndAnalysis creates CGP proposal and analysis from a release.
 func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.ChangeProposal, *cgp.ChangeAnalysis) {
 	rel := input.Release
-	plan := rel.Plan()
+	plan := release.GetPlan(rel)
 
 	// Build scope
 	scope := cgp.ProposalScope{
@@ -211,9 +211,9 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 		}
 	}
 
-	// Build intent
+	// Build intent using VersionNext from release run
 	intent := cgp.ProposalIntent{
-		Summary:       fmt.Sprintf("Release %s for %s", rel.Summary().NextVersion, input.Repository),
+		Summary:       fmt.Sprintf("Release %s for %s", rel.VersionNext(), input.Repository),
 		SuggestedBump: bumpType,
 		Confidence:    1.0, // Human-initiated releases have full confidence
 	}

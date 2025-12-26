@@ -222,7 +222,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	rel := release.NewRelease(releaseID, branch, input.RepositoryPath)
-	rel.SetRepositoryName(repoInfo.Name)
+	release.SetRepositoryName(rel, repoInfo.Name)
 
 	// Set release plan using constructor for proper aggregate references
 	plan := release.NewReleasePlan(
@@ -233,7 +233,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		input.DryRun,
 	)
 
-	if err := rel.SetPlan(plan); err != nil {
+	if err := release.SetPlan(rel, plan); err != nil {
 		return nil, fmt.Errorf("failed to set release plan: %w", err)
 	}
 

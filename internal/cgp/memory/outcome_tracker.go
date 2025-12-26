@@ -81,17 +81,17 @@ func (t *OutcomeTracker) Publish(ctx context.Context, events ...release.DomainEv
 // processEvent routes events to the appropriate handler.
 func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainEvent) error {
 	switch e := event.(type) {
-	case release.ReleaseInitializedEvent:
+	case *release.RunCreatedEvent:
 		return t.handleInitialized(e)
-	case release.ReleasePlannedEvent:
+	case *release.RunPlannedEvent:
 		return t.handlePlanned(e)
-	case release.ReleaseApprovedEvent:
+	case *release.RunApprovedEvent:
 		return t.handleApproved(e)
-	case release.ReleasePublishedEvent:
+	case *release.RunPublishedEvent:
 		return t.handlePublished(ctx, e)
-	case release.ReleaseFailedEvent:
+	case *release.RunFailedEvent:
 		return t.handleFailed(ctx, e)
-	case release.ReleaseCanceledEvent:
+	case *release.RunCancelledEvent:
 		return t.handleCanceled(ctx, e)
 	default:
 		// Other events don't affect outcome tracking
@@ -100,9 +100,9 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 }
 
 // handleInitialized caches initial release context.
-func (t *OutcomeTracker) handleInitialized(e release.ReleaseInitializedEvent) error {
+func (t *OutcomeTracker) handleInitialized(e *release.RunCreatedEvent) error {
 	t.releaseContexts[e.AggregateID()] = &releaseContext{
-		Repository: e.Repository,
+		Repository: e.RepoID,
 		StartedAt:  e.OccurredAt(),
 		Metadata:   make(map[string]string),
 	}
@@ -110,21 +110,21 @@ func (t *OutcomeTracker) handleInitialized(e release.ReleaseInitializedEvent) er
 }
 
 // handlePlanned updates the cached context with plan details.
-func (t *OutcomeTracker) handlePlanned(e release.ReleasePlannedEvent) error {
+func (t *OutcomeTracker) handlePlanned(e *release.RunPlannedEvent) error {
 	ctx := t.getOrCreateContext(e.AggregateID())
-	ctx.Version = e.NextVersion.String()
+	ctx.Version = e.VersionNext.String()
 	return nil
 }
 
 // handleApproved updates the cached context with approval info.
-func (t *OutcomeTracker) handleApproved(e release.ReleaseApprovedEvent) error {
+func (t *OutcomeTracker) handleApproved(e *release.RunApprovedEvent) error {
 	ctx := t.getOrCreateContext(e.AggregateID())
 	ctx.Metadata["approved_by"] = e.ApprovedBy
 	return nil
 }
 
 // handlePublished records a successful release outcome.
-func (t *OutcomeTracker) handlePublished(ctx context.Context, e release.ReleasePublishedEvent) error {
+func (t *OutcomeTracker) handlePublished(ctx context.Context, e *release.RunPublishedEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
 	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeSuccess, e.OccurredAt())
@@ -145,15 +145,11 @@ func (t *OutcomeTracker) handlePublished(ctx context.Context, e release.ReleaseP
 }
 
 // handleFailed records a failed release outcome.
-func (t *OutcomeTracker) handleFailed(ctx context.Context, e release.ReleaseFailedEvent) error {
+func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
 	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeFailed, e.OccurredAt())
 	record.Metadata["failure_reason"] = e.Reason
-	record.Metadata["failed_at_state"] = string(e.FailedAt)
-	if e.IsRecoverable {
-		record.Tags = append(record.Tags, "recoverable")
-	}
 
 	if err := t.store.RecordRelease(ctx, record); err != nil {
 		return fmt.Errorf("failed to record failed release: %w", err)
@@ -170,12 +166,12 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e release.ReleaseFail
 }
 
 // handleCanceled records a canceled release outcome.
-func (t *OutcomeTracker) handleCanceled(ctx context.Context, e release.ReleaseCanceledEvent) error {
+func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCancelledEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
 	// Cancellation is treated as a partial outcome (not success, not failure)
 	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomePartial, e.OccurredAt())
-	record.Metadata["canceled_by"] = e.CanceledBy
+	record.Metadata["canceled_by"] = e.By
 	record.Metadata["cancel_reason"] = e.Reason
 	record.Tags = append(record.Tags, "canceled")
 
@@ -185,7 +181,7 @@ func (t *OutcomeTracker) handleCanceled(ctx context.Context, e release.ReleaseCa
 
 	t.logger.Info("recorded canceled release outcome",
 		"release_id", e.AggregateID(),
-		"canceled_by", e.CanceledBy)
+		"canceled_by", e.By)
 
 	// Clean up context cache
 	delete(t.releaseContexts, e.AggregateID())

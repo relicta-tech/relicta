@@ -584,8 +584,8 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 	// Get version - prefer direct version, fall back to plan's next version
 	if rel.Version() != nil {
 		result.Version = rel.Version().String()
-	} else if rel.Plan() != nil {
-		result.Version = rel.Plan().NextVersion.String()
+	} else if plan := domainrelease.GetPlan(rel); plan != nil {
+		result.Version = plan.NextVersion.String()
 	}
 
 	status := rel.ApprovalStatus()
