@@ -306,6 +306,10 @@ func (r *FileReleaseRunRepository) List(ctx context.Context, repoRoot string) ([
 		if entry.Name() == latestFile {
 			continue
 		}
+		// Skip state and machine files (which also end with .json)
+		if strings.HasSuffix(entry.Name(), stateFileSuffix) || strings.HasSuffix(entry.Name(), machineFileSuffix) {
+			continue
+		}
 
 		runID := domain.RunID(strings.TrimSuffix(entry.Name(), runFileSuffix))
 		info, err := entry.Info()
