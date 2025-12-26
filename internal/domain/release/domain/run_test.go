@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -903,4 +904,208 @@ func newPublishingRun() *ReleaseRun {
 	_ = run.StartPublishing("test-actor")
 	_ = run.MarkStepDone("tag", "done")
 	return run
+}
+
+func TestReleaseRun_ValidateApprovalPlanHash(t *testing.T) {
+	t.Run("valid approval matches plan hash", func(t *testing.T) {
+		run := newApprovedRun()
+		err := run.ValidateApprovalPlanHash()
+		if err != nil {
+			t.Errorf("ValidateApprovalPlanHash() error = %v, want nil", err)
+		}
+	})
+
+	t.Run("not approved returns error", func(t *testing.T) {
+		run := newNotesReadyRun()
+		err := run.ValidateApprovalPlanHash()
+		if err == nil {
+			t.Error("ValidateApprovalPlanHash() expected error for unapproved run")
+		}
+		if !errors.Is(err, ErrNotApproved) {
+			t.Errorf("ValidateApprovalPlanHash() error = %v, want ErrNotApproved", err)
+		}
+	})
+
+	t.Run("mismatched plan hash returns error", func(t *testing.T) {
+		run := newApprovedRun()
+
+		// Get the original approval with its plan hash
+		originalApproval := run.Approval()
+
+		// Manually corrupt the plan hash to simulate tampering
+		run.ReconstructState(
+			run.ID(),
+			"tampered-plan-hash", // Different plan hash than what approval has
+			run.RepoID(),
+			run.RepoRoot(),
+			run.Branch(),
+			run.HeadSHA(),
+			nil,
+			"",
+			"",
+			run.VersionCurrent(),
+			run.VersionNext(),
+			run.BumpKind(),
+			0.95,           // confidence
+			run.RiskScore(),
+			nil,
+			run.ActorType(),
+			run.ActorID(),
+			PolicyThresholds{}, // thresholds
+			run.TagName(),
+			run.Notes(),
+			"",
+			originalApproval, // Keep original approval with old plan hash
+			nil,
+			nil,
+			StateApproved,
+			nil,
+			"",
+			"",
+			run.CreatedAt(),
+			run.UpdatedAt(),
+			nil,
+		)
+
+		err := run.ValidateApprovalPlanHash()
+		if err == nil {
+			t.Error("ValidateApprovalPlanHash() expected error for mismatched hash")
+		}
+		if !errors.Is(err, ErrApprovalBoundToHash) {
+			t.Errorf("ValidateApprovalPlanHash() error = %v, want ErrApprovalBoundToHash", err)
+		}
+	})
+}
+
+func TestReleaseRun_MultiLevelApproval(t *testing.T) {
+	t.Run("default policy single approval", func(t *testing.T) {
+		run := newNotesReadyRun()
+
+		// Set default policy
+		run.SetApprovalPolicy(DefaultApprovalPolicy())
+
+		// Grant release approval
+		err := run.ApproveAtLevel(ApprovalLevelRelease, "release-manager", ActorHuman, "Ready to ship")
+		if err != nil {
+			t.Fatalf("ApproveAtLevel failed: %v", err)
+		}
+
+		// Complete approval
+		err = run.CompleteMultiLevelApproval("release-manager")
+		if err != nil {
+			t.Fatalf("CompleteMultiLevelApproval failed: %v", err)
+		}
+
+		if run.State() != StateApproved {
+			t.Errorf("State = %s, want %s", run.State(), StateApproved)
+		}
+	})
+
+	t.Run("high risk policy sequential approvals", func(t *testing.T) {
+		run := newNotesReadyRun()
+
+		// Set high-risk policy requiring sequential approvals
+		run.SetApprovalPolicy(HighRiskApprovalPolicy())
+
+		// Should have 3 pending approvals initially
+		pending := run.PendingApprovalLevels()
+		if len(pending) != 3 {
+			t.Errorf("PendingApprovalLevels = %d, want 3", len(pending))
+		}
+
+		// Technical approval first
+		err := run.ApproveAtLevel(ApprovalLevelTechnical, "tech-lead", ActorHuman, "Code reviewed")
+		if err != nil {
+			t.Fatalf("ApproveAtLevel(technical) failed: %v", err)
+		}
+
+		// Now 2 pending
+		pending = run.PendingApprovalLevels()
+		if len(pending) != 2 {
+			t.Errorf("PendingApprovalLevels = %d, want 2", len(pending))
+		}
+
+		// Security approval
+		err = run.ApproveAtLevel(ApprovalLevelSecurity, "security-team", ActorHuman, "Security review passed")
+		if err != nil {
+			t.Fatalf("ApproveAtLevel(security) failed: %v", err)
+		}
+
+		// Final release approval
+		err = run.ApproveAtLevel(ApprovalLevelRelease, "release-manager", ActorHuman, "Approved for release")
+		if err != nil {
+			t.Fatalf("ApproveAtLevel(release) failed: %v", err)
+		}
+
+		// Complete approval
+		err = run.CompleteMultiLevelApproval("system")
+		if err != nil {
+			t.Fatalf("CompleteMultiLevelApproval failed: %v", err)
+		}
+
+		if run.State() != StateApproved {
+			t.Errorf("State = %s, want %s", run.State(), StateApproved)
+		}
+	})
+
+	t.Run("incomplete approvals prevented", func(t *testing.T) {
+		run := newNotesReadyRun()
+
+		// Set high-risk policy
+		run.SetApprovalPolicy(HighRiskApprovalPolicy())
+
+		// Only grant technical approval
+		err := run.ApproveAtLevel(ApprovalLevelTechnical, "tech-lead", ActorHuman, "Code reviewed")
+		if err != nil {
+			t.Fatalf("ApproveAtLevel(technical) failed: %v", err)
+		}
+
+		// Try to complete - should fail
+		err = run.CompleteMultiLevelApproval("system")
+		if err == nil {
+			t.Error("CompleteMultiLevelApproval should fail with incomplete approvals")
+		}
+
+		// State should still be NotesReady
+		if run.State() != StateNotesReady {
+			t.Errorf("State = %s, want %s", run.State(), StateNotesReady)
+		}
+	})
+
+	t.Run("sequential policy enforces order", func(t *testing.T) {
+		run := newNotesReadyRun()
+
+		// Set high-risk policy (sequential)
+		run.SetApprovalPolicy(HighRiskApprovalPolicy())
+
+		// Try to skip to security approval - should fail
+		err := run.ApproveAtLevel(ApprovalLevelSecurity, "security-team", ActorHuman, "Security review")
+		if err == nil {
+			t.Error("ApproveAtLevel should fail when skipping required levels in sequential policy")
+		}
+	})
+}
+
+func TestMultiLevelApproval_PolicyHelpers(t *testing.T) {
+	t.Run("default policy has release level", func(t *testing.T) {
+		policy := DefaultApprovalPolicy()
+
+		if len(policy.Requirements) != 1 {
+			t.Errorf("DefaultApprovalPolicy requirements = %d, want 1", len(policy.Requirements))
+		}
+		if policy.Requirements[0].Level != ApprovalLevelRelease {
+			t.Errorf("DefaultApprovalPolicy level = %s, want %s", policy.Requirements[0].Level, ApprovalLevelRelease)
+		}
+	})
+
+	t.Run("high risk policy has three levels", func(t *testing.T) {
+		policy := HighRiskApprovalPolicy()
+
+		if len(policy.Requirements) != 3 {
+			t.Errorf("HighRiskApprovalPolicy requirements = %d, want 3", len(policy.Requirements))
+		}
+		if !policy.Sequential {
+			t.Error("HighRiskApprovalPolicy should be sequential")
+		}
+	})
 }

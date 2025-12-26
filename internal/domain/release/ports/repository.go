@@ -33,4 +33,8 @@ type ReleaseRunRepository interface {
 
 	// FindActive finds all non-terminal runs for a repository.
 	FindActive(ctx context.Context, repoRoot string) ([]*domain.ReleaseRun, error)
+
+	// FindByPlanHash finds a run by its plan hash for duplicate detection.
+	// Returns nil, nil if no run exists with that plan hash.
+	FindByPlanHash(ctx context.Context, repoRoot string, planHash string) (*domain.ReleaseRun, error)
 }

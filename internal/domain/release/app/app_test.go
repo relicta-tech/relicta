@@ -102,6 +102,18 @@ func (m *mockRepository) FindActive(_ context.Context, _ string) ([]*domain.Rele
 	return runs, nil
 }
 
+func (m *mockRepository) FindByPlanHash(_ context.Context, _ string, planHash string) (*domain.ReleaseRun, error) {
+	if m.findErr != nil {
+		return nil, m.findErr
+	}
+	for _, run := range m.runs {
+		if run.PlanHash() == planHash {
+			return run, nil
+		}
+	}
+	return nil, nil
+}
+
 type mockRepoInspector struct {
 	headSHA          domain.CommitSHA
 	isClean          bool

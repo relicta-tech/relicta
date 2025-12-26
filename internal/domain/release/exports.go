@@ -229,6 +229,18 @@ type (
 	// Approval holds release approval information.
 	Approval = domain.Approval
 
+	// ApprovalLevel represents the type/level of approval required.
+	ApprovalLevel = domain.ApprovalLevel
+
+	// ApprovalRequirement defines a single approval requirement.
+	ApprovalRequirement = domain.ApprovalRequirement
+
+	// ApprovalPolicy defines the multi-level approval requirements.
+	ApprovalPolicy = domain.ApprovalPolicy
+
+	// MultiLevelApproval tracks multiple approvals for a release.
+	MultiLevelApproval = domain.MultiLevelApproval
+
 	// ReleaseNotes holds the generated release notes.
 	ReleaseNotes = domain.ReleaseNotes
 
@@ -314,6 +326,7 @@ var (
 	ErrCannotRetry         = domain.ErrCannotRetry
 	ErrVersionNotSet       = domain.ErrVersionNotSet
 	ErrRiskTooHigh         = domain.ErrRiskTooHigh
+	ErrDuplicateRun        = domain.ErrDuplicateRun
 
 	// Backwards-compatible error aliases
 	ErrReleaseNotFound = domain.ErrRunNotFound
@@ -376,6 +389,15 @@ const (
 	StepSkipped = domain.StepSkipped
 )
 
+// Approval level constants
+const (
+	ApprovalLevelTechnical = domain.ApprovalLevelTechnical
+	ApprovalLevelSecurity  = domain.ApprovalLevelSecurity
+	ApprovalLevelManager   = domain.ApprovalLevelManager
+	ApprovalLevelRelease   = domain.ApprovalLevelRelease
+	ApprovalLevelAuto      = domain.ApprovalLevelAuto
+)
+
 // Constructor functions
 var (
 	NewReleaseRun           = domain.NewReleaseRun
@@ -385,6 +407,10 @@ var (
 	AllStates               = domain.AllStates
 	ParseRunState           = domain.ParseRunState
 	NewStateTransitionError = domain.NewStateTransitionError
+
+	// Approval policy helpers
+	DefaultApprovalPolicy  = domain.DefaultApprovalPolicy
+	HighRiskApprovalPolicy = domain.HighRiskApprovalPolicy
 )
 
 // Specification constructors

@@ -103,6 +103,11 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 		return nil, fmt.Errorf("cannot publish from state %s (must be approved or publishing)", run.State())
 	}
 
+	// Validate approval is bound to current plan hash (idempotency check)
+	if err := run.ValidateApprovalPlanHash(); err != nil {
+		return nil, fmt.Errorf("approval validation failed: %w", err)
+	}
+
 	// Transition to Publishing if not already
 	if run.State() == domain.StateApproved {
 		if err := run.StartPublishing(input.Actor.ID); err != nil {

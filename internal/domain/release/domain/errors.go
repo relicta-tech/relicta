@@ -52,6 +52,9 @@ var (
 
 	// ErrRiskTooHigh indicates the risk score is too high for the operation.
 	ErrRiskTooHigh = errors.New("risk score exceeds threshold")
+
+	// ErrDuplicateRun indicates a run with the same plan hash already exists.
+	ErrDuplicateRun = errors.New("a release run with this plan already exists")
 )
 
 // StateTransitionError provides a detailed error message for invalid state transitions.

@@ -103,7 +103,8 @@ type ReleaseRun struct {
 	notesInputsHash string
 
 	// Approval
-	approval *Approval
+	approval           *Approval
+	multiLevelApproval *MultiLevelApproval // Optional multi-level approval tracking
 
 	// Execution plan
 	steps      []StepPlan
@@ -131,6 +132,17 @@ type PolicyThresholds struct {
 	BlockReleaseAbove        float64
 }
 
+// ApprovalLevel represents the type/level of approval required.
+type ApprovalLevel string
+
+const (
+	ApprovalLevelTechnical ApprovalLevel = "technical" // Technical review (code quality)
+	ApprovalLevelSecurity  ApprovalLevel = "security"  // Security review
+	ApprovalLevelManager   ApprovalLevel = "manager"   // Management approval
+	ApprovalLevelRelease   ApprovalLevel = "release"   // Release manager approval
+	ApprovalLevelAuto      ApprovalLevel = "auto"      // Auto-approval (low risk)
+)
+
 // Approval holds release approval information.
 type Approval struct {
 	ApprovedBy    string    // Who approved the release
@@ -140,11 +152,145 @@ type Approval struct {
 	RiskScore     float64   // Risk score at time of approval
 	ApproverType  ActorType // Type of approver (human, ci, agent)
 	Justification string    // Optional justification for approval
+	Level         ApprovalLevel // The level of this approval
 }
 
 // IsManual returns true if this was a manual approval.
 func (a *Approval) IsManual() bool {
 	return !a.AutoApproved
+}
+
+// ApprovalRequirement defines required approvals for a release.
+type ApprovalRequirement struct {
+	Level       ApprovalLevel // Required approval level
+	Description string        // Human-readable description
+	Required    bool          // Whether this approval is mandatory
+	AllowedBy   []string      // List of allowed approvers (empty = any)
+}
+
+// ApprovalPolicy defines the multi-level approval requirements for a release.
+type ApprovalPolicy struct {
+	Requirements []ApprovalRequirement // List of required approvals
+	Sequential   bool                  // If true, approvals must be in order
+}
+
+// MultiLevelApproval tracks multiple approvals for a release.
+type MultiLevelApproval struct {
+	Policy    ApprovalPolicy     // The approval policy in effect
+	Approvals map[ApprovalLevel]*Approval // Approvals granted at each level
+}
+
+// NewMultiLevelApproval creates a new multi-level approval tracker.
+func NewMultiLevelApproval(policy ApprovalPolicy) *MultiLevelApproval {
+	return &MultiLevelApproval{
+		Policy:    policy,
+		Approvals: make(map[ApprovalLevel]*Approval),
+	}
+}
+
+// Grant grants an approval at a specific level.
+func (m *MultiLevelApproval) Grant(level ApprovalLevel, approval *Approval) error {
+	if m.Approvals == nil {
+		m.Approvals = make(map[ApprovalLevel]*Approval)
+	}
+	approval.Level = level
+	m.Approvals[level] = approval
+	return nil
+}
+
+// IsLevelApproved returns true if the given level has been approved.
+func (m *MultiLevelApproval) IsLevelApproved(level ApprovalLevel) bool {
+	if m.Approvals == nil {
+		return false
+	}
+	_, ok := m.Approvals[level]
+	return ok
+}
+
+// IsFullyApproved returns true if all required approvals have been granted.
+func (m *MultiLevelApproval) IsFullyApproved() bool {
+	for _, req := range m.Policy.Requirements {
+		if req.Required && !m.IsLevelApproved(req.Level) {
+			return false
+		}
+	}
+	return true
+}
+
+// PendingApprovals returns the list of approvals still needed.
+func (m *MultiLevelApproval) PendingApprovals() []ApprovalRequirement {
+	var pending []ApprovalRequirement
+	for _, req := range m.Policy.Requirements {
+		if req.Required && !m.IsLevelApproved(req.Level) {
+			pending = append(pending, req)
+		}
+	}
+	return pending
+}
+
+// GetApproval returns the approval for a specific level, or nil if not approved.
+func (m *MultiLevelApproval) GetApproval(level ApprovalLevel) *Approval {
+	if m.Approvals == nil {
+		return nil
+	}
+	return m.Approvals[level]
+}
+
+// AllApprovals returns all granted approvals.
+func (m *MultiLevelApproval) AllApprovals() []*Approval {
+	var approvals []*Approval
+	for _, a := range m.Approvals {
+		approvals = append(approvals, a)
+	}
+	return approvals
+}
+
+// NextRequiredLevel returns the next approval level needed (for sequential policies).
+func (m *MultiLevelApproval) NextRequiredLevel() *ApprovalRequirement {
+	for _, req := range m.Policy.Requirements {
+		if req.Required && !m.IsLevelApproved(req.Level) {
+			return &req
+		}
+	}
+	return nil
+}
+
+// DefaultApprovalPolicy returns a simple single-approval policy.
+func DefaultApprovalPolicy() ApprovalPolicy {
+	return ApprovalPolicy{
+		Requirements: []ApprovalRequirement{
+			{
+				Level:       ApprovalLevelRelease,
+				Description: "Release approval",
+				Required:    true,
+			},
+		},
+		Sequential: false,
+	}
+}
+
+// HighRiskApprovalPolicy returns a policy requiring technical and security review.
+func HighRiskApprovalPolicy() ApprovalPolicy {
+	return ApprovalPolicy{
+		Requirements: []ApprovalRequirement{
+			{
+				Level:       ApprovalLevelTechnical,
+				Description: "Technical review",
+				Required:    true,
+			},
+			{
+				Level:       ApprovalLevelSecurity,
+				Description: "Security review",
+				Required:    true,
+			},
+			{
+				Level:       ApprovalLevelRelease,
+				Description: "Final release approval",
+				Required:    true,
+			},
+		},
+		Sequential: true,
+	}
 }
 
 // ReleaseNotes holds the generated release notes.
@@ -719,6 +865,139 @@ func (r *ReleaseRun) CanApprove() bool {
 // CanProceedToPublish returns true if the release can proceed to publishing.
 func (r *ReleaseRun) CanProceedToPublish() bool {
 	return r.IsApproved() && r.state == StateApproved
+}
+
+// ValidateApprovalPlanHash validates that the approval is bound to the current plan hash.
+// This prevents executing a release if the plan has been modified after approval.
+// Returns nil if valid, ErrApprovalBoundToHash if mismatched.
+func (r *ReleaseRun) ValidateApprovalPlanHash() error {
+	if r.approval == nil {
+		return ErrNotApproved
+	}
+	if r.approval.PlanHash != r.planHash {
+		return fmt.Errorf("%w: approved hash %s, current hash %s",
+			ErrApprovalBoundToHash, r.approval.PlanHash[:8], r.planHash[:8])
+	}
+	return nil
+}
+
+// =============================================================================
+// Multi-Level Approval Methods
+// =============================================================================
+
+// SetApprovalPolicy sets the multi-level approval policy for this release.
+// Should be called before any approvals are granted.
+func (r *ReleaseRun) SetApprovalPolicy(policy ApprovalPolicy) {
+	r.multiLevelApproval = NewMultiLevelApproval(policy)
+}
+
+// ApproveAtLevel grants an approval at a specific level for multi-level workflows.
+// This does not transition state - use CompleteMultiLevelApproval after all required
+// approvals are granted.
+func (r *ReleaseRun) ApproveAtLevel(level ApprovalLevel, actor string, approverType ActorType, justification string) error {
+	if r.state != StateNotesReady {
+		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+	}
+
+	// Initialize multi-level approval if not set
+	if r.multiLevelApproval == nil {
+		r.multiLevelApproval = NewMultiLevelApproval(DefaultApprovalPolicy())
+	}
+
+	// Check if this level is required and in order (for sequential policies)
+	if r.multiLevelApproval.Policy.Sequential {
+		next := r.multiLevelApproval.NextRequiredLevel()
+		if next != nil && next.Level != level {
+			return fmt.Errorf("sequential approval required: expecting %s approval, got %s",
+				next.Level, level)
+		}
+	}
+
+	// Create and grant the approval
+	approval := &Approval{
+		ApprovedBy:    actor,
+		ApprovedAt:    time.Now(),
+		AutoApproved:  level == ApprovalLevelAuto,
+		PlanHash:      r.planHash,
+		RiskScore:     r.riskScore,
+		ApproverType:  approverType,
+		Justification: justification,
+		Level:         level,
+	}
+
+	if err := r.multiLevelApproval.Grant(level, approval); err != nil {
+		return err
+	}
+
+	r.updatedAt = time.Now()
+	return nil
+}
+
+// CompleteMultiLevelApproval transitions to Approved state if all required approvals are granted.
+// Returns an error if any required approvals are still pending.
+func (r *ReleaseRun) CompleteMultiLevelApproval(actor string) error {
+	if r.state != StateNotesReady {
+		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+	}
+
+	if r.multiLevelApproval == nil {
+		return fmt.Errorf("no approval policy set; use Approve() for single-level approval")
+	}
+
+	if !r.multiLevelApproval.IsFullyApproved() {
+		pending := r.multiLevelApproval.PendingApprovals()
+		var levels []string
+		for _, p := range pending {
+			levels = append(levels, string(p.Level))
+		}
+		return fmt.Errorf("pending approvals required: %v", levels)
+	}
+
+	// Set the main approval to the final level for backwards compatibility
+	finalApproval := r.multiLevelApproval.GetApproval(ApprovalLevelRelease)
+	if finalApproval == nil {
+		// Use the last granted approval if no release-level approval
+		allApprovals := r.multiLevelApproval.AllApprovals()
+		if len(allApprovals) > 0 {
+			finalApproval = allApprovals[len(allApprovals)-1]
+		}
+	}
+	r.approval = finalApproval
+
+	metadata := map[string]string{
+		"plan_hash":       r.planHash,
+		"auto_approved":   "false",
+		"risk_score":      fmt.Sprintf("%.2f", r.riskScore),
+		"approval_levels": fmt.Sprintf("%d", len(r.multiLevelApproval.Approvals)),
+	}
+
+	r.addEvent(&RunApprovedEvent{
+		RunID:        r.id,
+		PlanHash:     r.planHash,
+		ApprovedBy:   actor,
+		AutoApproved: false,
+		At:           time.Now(),
+	})
+
+	return r.TransitionTo(StateApproved, "APPROVE", actor, "Multi-level approval complete", metadata)
+}
+
+// MultiLevelApprovalStatus returns the current multi-level approval status.
+func (r *ReleaseRun) MultiLevelApprovalStatus() *MultiLevelApproval {
+	return r.multiLevelApproval
+}
+
+// IsMultiLevelApprovalEnabled returns true if multi-level approval is configured.
+func (r *ReleaseRun) IsMultiLevelApprovalEnabled() bool {
+	return r.multiLevelApproval != nil
+}
+
+// PendingApprovalLevels returns the approval levels still needed.
+func (r *ReleaseRun) PendingApprovalLevels() []ApprovalRequirement {
+	if r.multiLevelApproval == nil {
+		return nil
+	}
+	return r.multiLevelApproval.PendingApprovals()
 }
 
 // RepositoryPath returns the repository path (alias for RepoRoot).

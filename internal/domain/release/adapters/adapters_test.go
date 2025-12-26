@@ -1136,3 +1136,296 @@ func TestIsLockHeldError(t *testing.T) {
 		}
 	}
 }
+
+// =============================================================================
+// FileEventStore Tests
+// =============================================================================
+
+func TestFileEventStore_AppendAndLoad(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-run-events")
+
+	// Create some test events
+	now := time.Now()
+	events := []domain.DomainEvent{
+		&domain.RunCreatedEvent{
+			RunID:   runID,
+			RepoID:  "test/repo",
+			HeadSHA: "abc123",
+			At:      now,
+		},
+		&domain.StateTransitionedEvent{
+			RunID:  runID,
+			From:   domain.StateDraft,
+			To:     domain.StatePlanned,
+			Event:  "PLAN",
+			Actor:  "test-user",
+			At:     now.Add(time.Second),
+		},
+	}
+
+	// Append events
+	err := store.Append(ctx, runID, events)
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// Load events
+	loaded, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+
+	if len(loaded) != len(events) {
+		t.Errorf("LoadEvents returned %d events, want %d", len(loaded), len(events))
+	}
+
+	// Verify first event
+	if loaded[0].EventName() != "run.created" {
+		t.Errorf("First event name = %s, want run.created", loaded[0].EventName())
+	}
+
+	// Verify second event
+	if loaded[1].EventName() != "run.state_transitioned" {
+		t.Errorf("Second event name = %s, want run.state_transitioned", loaded[1].EventName())
+	}
+}
+
+func TestFileEventStore_LoadEventsSince(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("test-run-since")
+
+	// Create events with different timestamps
+	baseTime := time.Now()
+	events := []domain.DomainEvent{
+		&domain.RunCreatedEvent{
+			RunID:   runID,
+			RepoID:  "test/repo",
+			HeadSHA: "abc123",
+			At:      baseTime,
+		},
+		&domain.StateTransitionedEvent{
+			RunID: runID,
+			From:  domain.StateDraft,
+			To:    domain.StatePlanned,
+			At:    baseTime.Add(time.Minute),
+		},
+		&domain.StateTransitionedEvent{
+			RunID: runID,
+			From:  domain.StatePlanned,
+			To:    domain.StateVersioned,
+			At:    baseTime.Add(2 * time.Minute),
+		},
+	}
+
+	err := store.Append(ctx, runID, events)
+	if err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	// Load events since baseTime + 30 seconds
+	since := baseTime.Add(30 * time.Second)
+	loaded, err := store.LoadEventsSince(ctx, runID, since)
+	if err != nil {
+		t.Fatalf("LoadEventsSince failed: %v", err)
+	}
+
+	// Should only get the 2 events after baseTime
+	if len(loaded) != 2 {
+		t.Errorf("LoadEventsSince returned %d events, want 2", len(loaded))
+	}
+}
+
+func TestFileEventStore_LoadAllEvents(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	// Create events for two different runs
+	run1 := domain.RunID("test-run-1")
+	run2 := domain.RunID("test-run-2")
+
+	now := time.Now()
+
+	err := store.Append(ctx, run1, []domain.DomainEvent{
+		&domain.RunCreatedEvent{RunID: run1, RepoID: "test/repo", At: now},
+	})
+	if err != nil {
+		t.Fatalf("Append run1 failed: %v", err)
+	}
+
+	err = store.Append(ctx, run2, []domain.DomainEvent{
+		&domain.RunCreatedEvent{RunID: run2, RepoID: "test/repo", At: now.Add(time.Second)},
+	})
+	if err != nil {
+		t.Fatalf("Append run2 failed: %v", err)
+	}
+
+	// Load all events for the repo
+	loaded, err := store.LoadAllEvents(ctx, repoRoot)
+	if err != nil {
+		t.Fatalf("LoadAllEvents failed: %v", err)
+	}
+
+	if len(loaded) != 2 {
+		t.Errorf("LoadAllEvents returned %d events, want 2", len(loaded))
+	}
+}
+
+func TestFileEventStore_EmptyRunReturnsNil(t *testing.T) {
+	store := NewFileEventStore()
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	runID := domain.RunID("nonexistent-run")
+
+	events, err := store.LoadEvents(ctx, runID)
+	if err != nil {
+		t.Errorf("LoadEvents should not error for nonexistent run: %v", err)
+	}
+	if events != nil {
+		t.Errorf("LoadEvents should return nil for nonexistent run, got %d events", len(events))
+	}
+}
+
+func TestEventPublishingRepository_SavePublishesEvents(t *testing.T) {
+	baseRepo := NewFileReleaseRunRepository()
+	eventStore := NewFileEventStore()
+	repo := NewEventPublishingRepository(baseRepo, eventStore)
+
+	repoRoot := t.TempDir()
+	ctx := WithRepoRoot(context.Background(), repoRoot)
+
+	// Create a run (this generates a RunCreatedEvent)
+	run := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		nil,
+		"config-hash",
+		"plugin-hash",
+	)
+
+	// Save the run
+	err := repo.Save(ctx, run)
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify events were persisted
+	events, err := eventStore.LoadEvents(ctx, run.ID())
+	if err != nil {
+		t.Fatalf("LoadEvents failed: %v", err)
+	}
+
+	if len(events) == 0 {
+		t.Error("Expected at least 1 event (RunCreated) to be persisted")
+	}
+
+	// Verify events were cleared from aggregate
+	if len(run.DomainEvents()) != 0 {
+		t.Errorf("Expected events to be cleared from aggregate, got %d", len(run.DomainEvents()))
+	}
+}
+
+// =============================================================================
+// FindByPlanHash Tests
+// =============================================================================
+
+func TestFileReleaseRunRepository_FindByPlanHash(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create a run
+	run := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		[]domain.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+	planHash := run.PlanHash()
+
+	// Save the run
+	err := repo.Save(ctx, run)
+	if err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Find by plan hash should return the run
+	found, err := repo.FindByPlanHash(ctx, repoRoot, planHash)
+	if err != nil {
+		t.Fatalf("FindByPlanHash failed: %v", err)
+	}
+	if found == nil {
+		t.Error("FindByPlanHash should return the run")
+	}
+	if found.ID() != run.ID() {
+		t.Errorf("FindByPlanHash returned wrong run: got %s, want %s", found.ID(), run.ID())
+	}
+}
+
+func TestFileReleaseRunRepository_FindByPlanHash_NotFound(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Search for a non-existent plan hash
+	found, err := repo.FindByPlanHash(ctx, repoRoot, "nonexistent-hash")
+	if err != nil {
+		t.Errorf("FindByPlanHash should not error for missing hash: %v", err)
+	}
+	if found != nil {
+		t.Error("FindByPlanHash should return nil for missing hash")
+	}
+}
+
+func TestFileReleaseRunRepository_FindByPlanHash_DuplicateDetection(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create first run
+	run1 := domain.NewReleaseRun(
+		"test/repo",
+		repoRoot,
+		"main",
+		domain.CommitSHA("abc123"),
+		[]domain.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+	planHash := run1.PlanHash()
+
+	err := repo.Save(ctx, run1)
+	if err != nil {
+		t.Fatalf("Save run1 failed: %v", err)
+	}
+
+	// Before creating a second run with same params, check for duplicate
+	existing, err := repo.FindByPlanHash(ctx, repoRoot, planHash)
+	if err != nil {
+		t.Fatalf("FindByPlanHash failed: %v", err)
+	}
+
+	// Should find the existing run
+	if existing == nil {
+		t.Error("Should find existing run with same plan hash")
+	}
+	if existing.ID() != run1.ID() {
+		t.Error("Should return the first run with matching plan hash")
+	}
+
+	// This is where a use case would return ErrDuplicateRun
+	// to prevent creating a new run with the same plan
+}

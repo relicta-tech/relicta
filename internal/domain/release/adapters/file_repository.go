@@ -397,6 +397,27 @@ func (r *FileReleaseRunRepository) FindActive(ctx context.Context, repoRoot stri
 	return runs, nil
 }
 
+// FindByPlanHash finds a run by its plan hash for duplicate detection.
+// Returns nil, nil if no run exists with that plan hash.
+func (r *FileReleaseRunRepository) FindByPlanHash(ctx context.Context, repoRoot string, planHash string) (*domain.ReleaseRun, error) {
+	runIDs, err := r.List(ctx, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, runID := range runIDs {
+		run, err := r.LoadFromRepo(ctx, repoRoot, runID)
+		if err != nil {
+			continue
+		}
+		if run.PlanHash() == planHash {
+			return run, nil
+		}
+	}
+
+	return nil, nil // No matching run found
+}
+
 // SaveMachineJSON saves the state machine definition JSON for a run.
 func (r *FileReleaseRunRepository) SaveMachineJSON(repoRoot string, runID domain.RunID, machineJSON []byte) error {
 	r.mu.Lock()
