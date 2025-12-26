@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+- **cli:** transition release state to Versioned after bump (b2c4073)
+- **release:** cache plan with changeset when loading from persistence (2568b3c)
 - **release:** fix List() incorrectly including .state.json and .machine.json files (840a6b4)
 
 ## [2.10.0] - 2025-12-25
