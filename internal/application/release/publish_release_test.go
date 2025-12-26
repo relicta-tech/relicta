@@ -59,7 +59,6 @@ func (m *mockPluginExecutor) ExecutePlugin(ctx context.Context, id integration.P
 // createApprovedRelease creates a release in the approved state ready for publishing.
 func createApprovedRelease(id release.ReleaseID, branch, repoPath string) *release.Release {
 	r := release.NewRelease(id, branch, repoPath)
-	r.SetRepositoryName("test-repo")
 
 	// Create a changeset for the plan
 	cs := changes.NewChangeSet("cs-test", "v1.0.0", "HEAD")
@@ -75,16 +74,15 @@ func createApprovedRelease(id release.ReleaseID, branch, repoPath string) *relea
 		cs,
 		false,
 	)
-	_ = r.SetPlan(plan)
+	_ = release.SetPlan(r, plan)
 
 	// Set version
 	_ = r.SetVersion(nextVersion, "v1.1.0")
 
 	// Set notes
 	notes := &release.ReleaseNotes{
-		Changelog:   "## [1.1.0] - Changes\n- feat: new feature",
-		Summary:     "Release 1.1.0 with new feature",
-		AIGenerated: false,
+		Text:        "## [1.1.0] - Changes\n- feat: new feature",
+		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
 	_ = r.SetNotes(notes)

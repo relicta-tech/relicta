@@ -151,7 +151,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 			)
 
 			// Set plan to transition to StatePlanned
-			if err := rel.SetPlan(plan); err != nil {
+			if err := release.SetPlan(rel, plan); err != nil {
 				t.Fatalf("failed to set plan: %v", err)
 			}
 
@@ -163,9 +163,8 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 				}
 
 				notes := &release.ReleaseNotes{
-					Changelog:   "Test changelog",
-					Summary:     "Test summary",
-					AIGenerated: false,
+					Text:        "Test changelog",
+					Provider:    "test",
 					GeneratedAt: time.Now(),
 				}
 				if err := rel.SetNotes(notes); err != nil {

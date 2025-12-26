@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 func TestFileUnitOfWork_BasicOperations(t *testing.T) {
@@ -227,11 +229,28 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 	factory := NewFileUnitOfWorkFactory(baseRepo, NewInMemoryEventPublisher())
 	ctx := context.Background()
 
-	now := time.Now()
-	active := release.NewRelease("base-active", "main", "/repo")
-	active.ReconstructState(release.StatePlanned, nil, nil, "", nil, nil, now, now, nil, "")
-	final := release.NewRelease("base-final", "main", "/repo")
-	final.ReconstructState(release.StatePublished, nil, nil, "", nil, nil, now, now, &now, "")
+	// Helper to create a planned release
+	createPlannedRelease := func(id, branch, repoPath string) *release.Release {
+		r := release.NewRelease(release.ReleaseID(id), branch, repoPath)
+		cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "v1.0.0", "HEAD")
+		cs.AddCommit(changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "feature"))
+		plan := release.NewReleasePlan(
+			version.MustParse("1.0.0"),
+			version.MustParse("1.1.0"),
+			changes.ReleaseTypeMinor,
+			cs,
+			false,
+		)
+		_ = release.SetPlan(r, plan)
+		return r
+	}
+
+	// Create an active (planned) release
+	active := createPlannedRelease("base-active", "main", "/repo1")
+
+	// Create a final (cancelled) release
+	final := release.NewRelease("base-final", "main", "/repo2")
+	_ = final.Cancel("test", "user")
 
 	if err := baseRepo.Save(ctx, active); err != nil {
 		t.Fatalf("save active error: %v", err)
@@ -247,8 +266,7 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 	defer uow.Rollback()
 
 	repo := uow.ReleaseRepository()
-	pending := release.NewRelease("pending-active", "dev", "/repo")
-	pending.ReconstructState(release.StatePlanned, nil, nil, "", nil, nil, now, now, nil, "")
+	pending := createPlannedRelease("pending-active", "dev", "/repo3")
 	if err := repo.Save(ctx, pending); err != nil {
 		t.Fatalf("save pending error: %v", err)
 	}
@@ -269,7 +287,7 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 		t.Fatalf("expected 2 active releases, got %d", len(activeList))
 	}
 
-	specList, err := repo.FindBySpecification(ctx, release.ByBranch("dev"))
+	specList, err := repo.FindBySpecification(ctx, release.ByRepositoryPath("/repo3"))
 	if err != nil {
 		t.Fatalf("FindBySpecification error: %v", err)
 	}

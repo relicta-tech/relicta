@@ -512,16 +512,15 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
 	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
 	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)
-	if err := rel.SetPlan(plan); err != nil {
+	if err := release.SetPlan(rel, plan); err != nil {
 		t.Fatalf("SetPlan failed: %v", err)
 	}
 	if err := rel.SetVersion(plan.NextVersion, cfg.Versioning.TagPrefix+plan.NextVersion.String()); err != nil {
 		t.Fatalf("SetVersion failed: %v", err)
 	}
 	notes := &release.ReleaseNotes{
-		Changelog:   "changelog",
-		Summary:     "summary",
-		AIGenerated: true,
+		Text:        "changelog",
+		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
 	if err := rel.SetNotes(notes); err != nil {

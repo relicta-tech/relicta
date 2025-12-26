@@ -44,7 +44,7 @@ func createTestRelease(t *testing.T) *release.Release {
 	current, _ := version.Parse("1.0.0")
 	next, _ := version.Parse("1.1.0")
 	plan := release.NewReleasePlan(current, next, changes.ReleaseTypeMinor, changeSet, false)
-	rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	return rel
 }
@@ -507,7 +507,7 @@ func TestSecurityDetectionInEvaluateRelease(t *testing.T) {
 	current, _ := version.Parse("1.0.0")
 	next, _ := version.Parse("1.1.0")
 	plan := release.NewReleasePlan(current, next, changes.ReleaseTypeMinor, changeSet, false)
-	rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	input := EvaluateReleaseInput{
 		Release:    rel,

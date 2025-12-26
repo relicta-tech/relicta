@@ -1044,7 +1044,7 @@ func TestResourceStateWithVersion(t *testing.T) {
 	v, _ := version.Parse("1.5.0")
 	nextV, _ := version.Parse("1.6.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(v, "v1.5.0")
 
 	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
@@ -1408,7 +1408,7 @@ func TestResourceStateWithDirectVersion(t *testing.T) {
 	v, _ := version.Parse("2.0.0")
 	nextV, _ := version.Parse("2.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(nextV, "v2.1.0")
 
 	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
@@ -1539,7 +1539,7 @@ func TestToolStatusWithVersionedRelease(t *testing.T) {
 	v, _ := version.Parse("3.0.0")
 	nextV, _ := version.Parse("3.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(nextV, "v3.1.0")
 
 	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
@@ -2528,6 +2528,6 @@ func createTestRelease(id, currentVersion, nextVersion string) *release.Release 
 	curr, _ := version.Parse(currentVersion)
 	next, _ := version.Parse(nextVersion)
 	plan := release.NewReleasePlan(curr, next, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	return rel
 }

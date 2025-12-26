@@ -505,7 +505,7 @@ func TestAdapterGetStatusWithActiveRelease(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -593,7 +593,7 @@ func TestAdapterGetStatusWithVersionSet(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 	// Set the version directly
 	_ = rel.SetVersion(nextV, "v1.1.0")
 
@@ -694,7 +694,7 @@ func TestAdapterGetStatusApprovalStatus(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -716,7 +716,7 @@ func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
 	govSvc := &governance.Service{} // Empty service - will fail but tests the actor path
@@ -744,7 +744,7 @@ func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -809,7 +809,7 @@ func TestAdapterEvaluateWithExplicitActor(t *testing.T) {
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
 	govSvc := &governance.Service{}
