@@ -481,6 +481,8 @@ func ReconstructFromLegacy(
 		versionCurrent = plan.CurrentVersion
 		versionNext = plan.NextVersion
 		bumpKind = BumpKindFromReleaseType(plan.ReleaseType)
+		// Cache the plan with its changeset for later retrieval by GetPlan
+		planCache.Store(string(rel.ID()), plan)
 	}
 
 	// Use explicitly provided version if available (may have build metadata)
