@@ -106,7 +106,7 @@ plugin-github plugin-npm plugin-slack:
 # Run unit tests
 test:
 	@echo "Running unit tests..."
-	$(GOTEST) -v ./internal/... ./pkg/...
+	$(GOTEST) -short -v ./internal/... ./pkg/...
 
 # Run tests with race detection
 test-race:
@@ -117,7 +117,7 @@ test-race:
 test-coverage:
 	@echo "Running tests with coverage..."
 	@mkdir -p $(BIN_DIR)
-	$(GOTEST) -coverprofile=$(BIN_DIR)/coverage.out -covermode=atomic ./internal/... ./pkg/...
+	$(GOTEST) -short -coverprofile=$(BIN_DIR)/coverage.out -covermode=atomic ./internal/... ./pkg/...
 	$(GOCMD) tool cover -html=$(BIN_DIR)/coverage.out -o $(BIN_DIR)/coverage.html
 	@echo "Coverage report generated at $(BIN_DIR)/coverage.html"
 
