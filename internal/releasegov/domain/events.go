@@ -112,5 +112,86 @@ type RunRetriedEvent struct {
 	At    time.Time
 }
 
-func (e *RunRetriedEvent) EventName() string    { return "run.retried" }
+func (e *RunRetriedEvent) EventName() string     { return "run.retried" }
 func (e *RunRetriedEvent) OccurredAt() time.Time { return e.At }
+
+// RunPlannedEvent is emitted when a run is planned.
+type RunPlannedEvent struct {
+	RunID          RunID
+	VersionCurrent version.SemanticVersion
+	VersionNext    version.SemanticVersion
+	BumpKind       BumpKind
+	CommitCount    int
+	RiskScore      float64
+	Actor          string
+	At             time.Time
+}
+
+func (e *RunPlannedEvent) EventName() string     { return "run.planned" }
+func (e *RunPlannedEvent) OccurredAt() time.Time { return e.At }
+
+// RunNotesGeneratedEvent is emitted when release notes are generated.
+type RunNotesGeneratedEvent struct {
+	RunID       RunID
+	NotesLength int
+	Provider    string
+	Model       string
+	Actor       string
+	At          time.Time
+}
+
+func (e *RunNotesGeneratedEvent) EventName() string     { return "run.notes_generated" }
+func (e *RunNotesGeneratedEvent) OccurredAt() time.Time { return e.At }
+
+// RunNotesUpdatedEvent is emitted when release notes are manually updated.
+type RunNotesUpdatedEvent struct {
+	RunID       RunID
+	NotesLength int
+	Actor       string
+	At          time.Time
+}
+
+func (e *RunNotesUpdatedEvent) EventName() string     { return "run.notes_updated" }
+func (e *RunNotesUpdatedEvent) OccurredAt() time.Time { return e.At }
+
+// RunPublishingStartedEvent is emitted when publishing begins.
+type RunPublishingStartedEvent struct {
+	RunID    RunID
+	Steps    []string
+	PlanHash string
+	Actor    string
+	At       time.Time
+}
+
+func (e *RunPublishingStartedEvent) EventName() string     { return "run.publishing_started" }
+func (e *RunPublishingStartedEvent) OccurredAt() time.Time { return e.At }
+
+// PluginExecutedEvent is emitted when a plugin completes execution.
+type PluginExecutedEvent struct {
+	RunID      RunID
+	PluginName string
+	Hook       string
+	Success    bool
+	Message    string
+	Duration   time.Duration
+	At         time.Time
+}
+
+func (e *PluginExecutedEvent) EventName() string     { return "run.plugin_executed" }
+func (e *PluginExecutedEvent) OccurredAt() time.Time { return e.At }
+
+// AggregateID returns the aggregate ID for events that need it.
+func (e *RunCreatedEvent) AggregateID() RunID        { return e.RunID }
+func (e *StateTransitionedEvent) AggregateID() RunID { return e.RunID }
+func (e *RunApprovedEvent) AggregateID() RunID       { return e.RunID }
+func (e *StepCompletedEvent) AggregateID() RunID     { return e.RunID }
+func (e *RunPublishedEvent) AggregateID() RunID      { return e.RunID }
+func (e *RunFailedEvent) AggregateID() RunID         { return e.RunID }
+func (e *RunCancelledEvent) AggregateID() RunID      { return e.RunID }
+func (e *RunVersionedEvent) AggregateID() RunID      { return e.RunID }
+func (e *RunRetriedEvent) AggregateID() RunID        { return e.RunID }
+func (e *RunPlannedEvent) AggregateID() RunID        { return e.RunID }
+func (e *RunNotesGeneratedEvent) AggregateID() RunID { return e.RunID }
+func (e *RunNotesUpdatedEvent) AggregateID() RunID   { return e.RunID }
+func (e *RunPublishingStartedEvent) AggregateID() RunID { return e.RunID }
+func (e *PluginExecutedEvent) AggregateID() RunID    { return e.RunID }

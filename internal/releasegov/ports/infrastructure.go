@@ -60,3 +60,54 @@ type VersionWriter interface {
 	// WriteChangelog writes or updates the changelog file.
 	WriteChangelog(ctx context.Context, ver version.SemanticVersion, notes string) error
 }
+
+// UnitOfWork provides transactional boundaries for domain operations.
+// This enables atomic commits of aggregate changes with their domain events.
+type UnitOfWork interface {
+	// Begin starts a new unit of work.
+	Begin(ctx context.Context) (UnitOfWorkContext, error)
+}
+
+// UnitOfWorkContext represents an active unit of work.
+type UnitOfWorkContext interface {
+	// Repository returns the release run repository scoped to this unit of work.
+	Repository() ReleaseRunRepository
+
+	// RegisterForEventPublication registers domain events to be published on commit.
+	RegisterForEventPublication(events ...domain.DomainEvent)
+
+	// Commit commits all changes and publishes registered events.
+	Commit(ctx context.Context) error
+
+	// Rollback rolls back all changes.
+	Rollback(ctx context.Context) error
+}
+
+// AsyncEventPublisher extends EventPublisher with async capabilities.
+type AsyncEventPublisher interface {
+	EventPublisher
+
+	// PublishAsync publishes events asynchronously.
+	PublishAsync(ctx context.Context, events ...domain.DomainEvent)
+
+	// Flush waits for all pending async publications to complete.
+	Flush(ctx context.Context) error
+}
+
+// EventHandler handles domain events.
+type EventHandler interface {
+	// Handle processes a domain event.
+	Handle(ctx context.Context, event domain.DomainEvent) error
+
+	// Handles returns the event types this handler processes.
+	Handles() []string
+}
+
+// EventDispatcher dispatches domain events to registered handlers.
+type EventDispatcher interface {
+	// Register registers a handler for event types.
+	Register(handler EventHandler)
+
+	// Dispatch dispatches an event to all registered handlers.
+	Dispatch(ctx context.Context, event domain.DomainEvent) error
+}

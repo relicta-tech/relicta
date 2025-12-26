@@ -90,8 +90,10 @@ type ReleaseRunDTO struct {
 	ActorType      string              `json:"actor_type"`
 	ActorID        string              `json:"actor_id"`
 	Thresholds     PolicyThresholdsDTO `json:"thresholds"`
+	TagName        string              `json:"tag_name,omitempty"`
 	Notes          *ReleaseNotesDTO    `json:"notes,omitempty"`
 	NotesInputHash string              `json:"notes_inputs_hash,omitempty"`
+	Approval       *ApprovalDTO        `json:"approval,omitempty"`
 	Steps          []StepPlanDTO       `json:"steps"`
 	StepStatus     map[string]StepStatusDTO `json:"step_status"`
 	State          string              `json:"state"`
@@ -150,6 +152,17 @@ type TransitionRecordDTO struct {
 	Actor    string            `json:"actor"`
 	Reason   string            `json:"reason"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// ApprovalDTO is the DTO for approval information.
+type ApprovalDTO struct {
+	ApprovedBy    string    `json:"approved_by"`
+	ApprovedAt    time.Time `json:"approved_at"`
+	AutoApproved  bool      `json:"auto_approved"`
+	PlanHash      string    `json:"plan_hash"`
+	RiskScore     float64   `json:"risk_score"`
+	ApproverType  string    `json:"approver_type"`
+	Justification string    `json:"justification,omitempty"`
 }
 
 // Save persists a release run atomically.
@@ -454,6 +467,7 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 		Reasons:        run.Reasons(),
 		ActorType:      string(run.ActorType()),
 		ActorID:        run.ActorID(),
+		TagName:        run.TagName(),
 		Steps:          steps,
 		StepStatus:     stepStatus,
 		State:          string(run.State()),
@@ -476,49 +490,69 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 		}
 	}
 
+	if run.Approval() != nil {
+		approval := run.Approval()
+		dto.Approval = &ApprovalDTO{
+			ApprovedBy:    approval.ApprovedBy,
+			ApprovedAt:    approval.ApprovedAt,
+			AutoApproved:  approval.AutoApproved,
+			PlanHash:      approval.PlanHash,
+			RiskScore:     approval.RiskScore,
+			ApproverType:  string(approval.ApproverType),
+			Justification: approval.Justification,
+		}
+	}
+
 	return dto
 }
 
 func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
+	// Convert commits
 	commits := make([]domain.CommitSHA, len(dto.Commits))
 	for i, c := range dto.Commits {
 		commits[i] = domain.CommitSHA(c)
 	}
-
-	// Create the run with basic info
-	run := domain.NewReleaseRun(
-		dto.RepoID,
-		dto.RepoRoot,
-		dto.BaseRef,
-		domain.CommitSHA(dto.HeadSHA),
-		commits,
-		dto.ConfigHash,
-		dto.PluginPlanHash,
-	)
 
 	// Parse versions
 	currentVer, _ := version.Parse(dto.VersionCurrent)
 	nextVer, _ := version.Parse(dto.VersionNext)
 	bumpKind, _ := domain.ParseBumpKind(dto.BumpKind)
 
-	// Set version proposal
-	_ = run.SetVersionProposal(currentVer, nextVer, bumpKind, dto.Confidence)
-
-	// Set policy evaluation
+	// Convert thresholds
 	thresholds := domain.PolicyThresholds{
 		AutoApproveRiskThreshold: dto.Thresholds.AutoApproveRiskThreshold,
 		RequireApprovalAbove:     dto.Thresholds.RequireApprovalAbove,
 		BlockReleaseAbove:        dto.Thresholds.BlockReleaseAbove,
 	}
-	run.SetPolicyEvaluation(dto.RiskScore, dto.Reasons, thresholds)
 
-	// Set actor
-	run.SetActor(domain.ActorType(dto.ActorType), dto.ActorID)
+	// Convert notes
+	var notes *domain.ReleaseNotes
+	if dto.Notes != nil {
+		notes = &domain.ReleaseNotes{
+			Text:           dto.Notes.Text,
+			AudiencePreset: dto.Notes.AudiencePreset,
+			TonePreset:     dto.Notes.TonePreset,
+			Provider:       dto.Notes.Provider,
+			Model:          dto.Notes.Model,
+			GeneratedAt:    dto.Notes.GeneratedAt,
+		}
+	}
 
-	// Set changeset ID
-	run.SetChangesetID(dto.ChangesetID)
+	// Convert approval
+	var approval *domain.Approval
+	if dto.Approval != nil {
+		approval = &domain.Approval{
+			ApprovedBy:    dto.Approval.ApprovedBy,
+			ApprovedAt:    dto.Approval.ApprovedAt,
+			AutoApproved:  dto.Approval.AutoApproved,
+			PlanHash:      dto.Approval.PlanHash,
+			RiskScore:     dto.Approval.RiskScore,
+			ApproverType:  domain.ActorType(dto.Approval.ApproverType),
+			Justification: dto.Approval.Justification,
+		}
+	}
 
-	// Set execution plan
+	// Convert steps
 	steps := make([]domain.StepPlan, len(dto.Steps))
 	for i, s := range dto.Steps {
 		steps[i] = domain.StepPlan{
@@ -531,12 +565,69 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 			Unsafe:         s.Unsafe,
 		}
 	}
-	run.SetExecutionPlan(steps)
 
-	// Note: We can't fully restore the run's internal state (state, history, etc.)
-	// from the DTO because the aggregate has encapsulated state.
-	// The DTO is primarily for inspection/debugging.
-	// For full state restoration, we would need a separate "hydrate" method.
+	// Convert step status
+	stepStatus := make(map[string]*domain.StepStatus, len(dto.StepStatus))
+	for name, s := range dto.StepStatus {
+		stepStatus[name] = &domain.StepStatus{
+			State:       domain.StepState(s.State),
+			Attempts:    s.Attempts,
+			LastError:   s.LastError,
+			StartedAt:   s.StartedAt,
+			CompletedAt: s.CompletedAt,
+			Output:      s.Output,
+		}
+	}
+
+	// Convert history
+	history := make([]domain.TransitionRecord, len(dto.History))
+	for i, h := range dto.History {
+		history[i] = domain.TransitionRecord{
+			At:       h.At,
+			From:     domain.RunState(h.From),
+			To:       domain.RunState(h.To),
+			Event:    h.Event,
+			Actor:    h.Actor,
+			Reason:   h.Reason,
+			Metadata: h.Metadata,
+		}
+	}
+
+	// Create a new run and use ReconstructState to hydrate it
+	run := &domain.ReleaseRun{}
+	run.ReconstructState(
+		domain.RunID(dto.ID),
+		dto.PlanHash,
+		dto.RepoID,
+		dto.RepoRoot,
+		dto.BaseRef,
+		domain.CommitSHA(dto.HeadSHA),
+		commits,
+		dto.ConfigHash,
+		dto.PluginPlanHash,
+		currentVer,
+		nextVer,
+		bumpKind,
+		dto.Confidence,
+		dto.RiskScore,
+		dto.Reasons,
+		domain.ActorType(dto.ActorType),
+		dto.ActorID,
+		thresholds,
+		dto.TagName,
+		notes,
+		dto.NotesInputHash,
+		approval,
+		steps,
+		stepStatus,
+		domain.RunState(dto.State),
+		history,
+		dto.LastError,
+		dto.ChangesetID,
+		dto.CreatedAt,
+		dto.UpdatedAt,
+		dto.PublishedAt,
+	)
 
 	return run, nil
 }

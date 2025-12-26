@@ -5,7 +5,6 @@ package domain
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -103,6 +102,9 @@ type ReleaseRun struct {
 	notes           *ReleaseNotes
 	notesInputsHash string
 
+	// Approval
+	approval *Approval
+
 	// Execution plan
 	steps      []StepPlan
 	stepStatus map[string]*StepStatus
@@ -127,6 +129,22 @@ type PolicyThresholds struct {
 	AutoApproveRiskThreshold float64
 	RequireApprovalAbove     float64
 	BlockReleaseAbove        float64
+}
+
+// Approval holds release approval information.
+type Approval struct {
+	ApprovedBy    string    // Who approved the release
+	ApprovedAt    time.Time // When it was approved
+	AutoApproved  bool      // If auto-approved (risk below threshold)
+	PlanHash      string    // The plan hash that was approved
+	RiskScore     float64   // Risk score at time of approval
+	ApproverType  ActorType // Type of approver (human, ci, agent)
+	Justification string    // Optional justification for approval
+}
+
+// IsManual returns true if this was a manual approval.
+func (a *Approval) IsManual() bool {
+	return !a.AutoApproved
 }
 
 // ReleaseNotes holds the generated release notes.
@@ -194,19 +212,6 @@ type TransitionRecord struct {
 	Reason   string
 	Metadata map[string]string
 }
-
-// Domain errors
-var (
-	ErrInvalidState        = errors.New("invalid state for this operation")
-	ErrHeadSHAChanged      = errors.New("repository HEAD has changed since planning")
-	ErrAlreadyPublished    = errors.New("release is already published")
-	ErrNotApproved         = errors.New("release is not approved")
-	ErrPlanHashMismatch    = errors.New("plan hash does not match approved plan")
-	ErrStepAlreadyDone     = errors.New("step is already completed")
-	ErrStepNotFound        = errors.New("step not found in execution plan")
-	ErrRunNotFound         = errors.New("release run not found")
-	ErrApprovalBoundToHash = errors.New("approval is bound to a different plan hash")
-)
 
 // NewReleaseRun creates a new ReleaseRun aggregate in Draft state.
 func NewReleaseRun(
@@ -586,9 +591,32 @@ func (r *ReleaseRun) Approve(actor string, autoApproved bool) error {
 		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
 	}
 
+	return r.ApproveWithOptions(actor, autoApproved, r.actorType, "")
+}
+
+// ApproveWithOptions approves the release with additional options.
+func (r *ReleaseRun) ApproveWithOptions(actor string, autoApproved bool, approverType ActorType, justification string) error {
+	if r.state != StateNotesReady {
+		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+	}
+
+	now := time.Now()
+
+	// Create the approval record
+	r.approval = &Approval{
+		ApprovedBy:    actor,
+		ApprovedAt:    now,
+		AutoApproved:  autoApproved,
+		PlanHash:      r.planHash,
+		RiskScore:     r.riskScore,
+		ApproverType:  approverType,
+		Justification: justification,
+	}
+
 	metadata := map[string]string{
 		"plan_hash":     r.planHash,
 		"auto_approved": fmt.Sprintf("%t", autoApproved),
+		"risk_score":    fmt.Sprintf("%.2f", r.riskScore),
 	}
 
 	r.addEvent(&RunApprovedEvent{
@@ -596,10 +624,33 @@ func (r *ReleaseRun) Approve(actor string, autoApproved bool) error {
 		PlanHash:     r.planHash,
 		ApprovedBy:   actor,
 		AutoApproved: autoApproved,
-		At:           time.Now(),
+		At:           now,
 	})
 
 	return r.TransitionTo(StateApproved, "APPROVE", actor, "Release approved", metadata)
+}
+
+// Approval returns a copy of the approval details if approved.
+// Returns nil if not approved. A copy is returned to preserve aggregate encapsulation.
+func (r *ReleaseRun) Approval() *Approval {
+	if r.approval == nil {
+		return nil
+	}
+	// Return a copy to preserve aggregate boundary
+	return &Approval{
+		ApprovedBy:    r.approval.ApprovedBy,
+		ApprovedAt:    r.approval.ApprovedAt,
+		AutoApproved:  r.approval.AutoApproved,
+		PlanHash:      r.approval.PlanHash,
+		RiskScore:     r.approval.RiskScore,
+		ApproverType:  r.approval.ApproverType,
+		Justification: r.approval.Justification,
+	}
+}
+
+// IsApproved returns true if the release has been approved.
+func (r *ReleaseRun) IsApproved() bool {
+	return r.approval != nil
 }
 
 // StartPublishing transitions to Publishing state.
@@ -929,4 +980,252 @@ func BumpKindFromReleaseType(rt changes.ReleaseType) BumpKind {
 	default:
 		return BumpPatch
 	}
+}
+
+// Invariant provides information about aggregate invariant validation.
+type Invariant struct {
+	Name        string
+	Description string
+	Valid       bool
+	Message     string
+}
+
+// ValidateInvariants checks all aggregate invariants and returns any violations.
+// This is useful for debugging and ensuring aggregate consistency.
+func (r *ReleaseRun) ValidateInvariants() []Invariant {
+	invariants := make([]Invariant, 0, 10)
+
+	// Invariant 1: ID must be non-empty
+	invariants = append(invariants, Invariant{
+		Name:        "NonEmptyID",
+		Description: "Release run must have a non-empty ID",
+		Valid:       r.id != "",
+		Message:     conditionalMessage(r.id == "", "Run ID is empty"),
+	})
+
+	// Invariant 2: State must be valid
+	invariants = append(invariants, Invariant{
+		Name:        "ValidState",
+		Description: "Release run state must be valid",
+		Valid:       r.state.IsValid(),
+		Message:     conditionalMessage(!r.state.IsValid(), "State is invalid: "+string(r.state)),
+	})
+
+	// Invariant 3: HEAD SHA must be set
+	invariants = append(invariants, Invariant{
+		Name:        "HeadSHASet",
+		Description: "Release run must have a pinned HEAD SHA",
+		Valid:       r.headSHA != "",
+		Message:     conditionalMessage(r.headSHA == "", "HEAD SHA is empty"),
+	})
+
+	// Invariant 4: If state is beyond Planned, must have version
+	hasVersionIfRequired := r.state == StateDraft || r.state == StatePlanned ||
+		(r.versionNext.String() != "" && r.versionNext.String() != "0.0.0")
+	invariants = append(invariants, Invariant{
+		Name:        "VersionRequired",
+		Description: "Release run must have version if state is beyond Planned",
+		Valid:       hasVersionIfRequired,
+		Message:     conditionalMessage(!hasVersionIfRequired, "Version is not set but state is "+string(r.state)),
+	})
+
+	// Invariant 5: If state is beyond NotesReady, must have notes
+	hasNotesIfRequired := r.state == StateDraft || r.state == StatePlanned ||
+		r.state == StateVersioned || r.notes != nil
+	invariants = append(invariants, Invariant{
+		Name:        "NotesRequired",
+		Description: "Release run must have notes if state is beyond NotesReady",
+		Valid:       hasNotesIfRequired,
+		Message:     conditionalMessage(!hasNotesIfRequired, "Notes are nil but state is "+string(r.state)),
+	})
+
+	// Invariant 6: If published, must have publishedAt timestamp
+	hasPublishedAtIfRequired := r.state != StatePublished || r.publishedAt != nil
+	invariants = append(invariants, Invariant{
+		Name:        "PublishedAtRequired",
+		Description: "Published run must have publishedAt timestamp",
+		Valid:       hasPublishedAtIfRequired,
+		Message:     conditionalMessage(!hasPublishedAtIfRequired, "publishedAt is nil but state is published"),
+	})
+
+	// Invariant 7: CreatedAt must be before or equal to UpdatedAt
+	createdBeforeUpdated := !r.createdAt.After(r.updatedAt)
+	invariants = append(invariants, Invariant{
+		Name:        "CreatedBeforeUpdated",
+		Description: "createdAt must not be after updatedAt",
+		Valid:       createdBeforeUpdated,
+		Message:     conditionalMessage(!createdBeforeUpdated, "createdAt is after updatedAt"),
+	})
+
+	// Invariant 8: RepoRoot must be non-empty
+	invariants = append(invariants, Invariant{
+		Name:        "NonEmptyRepoRoot",
+		Description: "Release run must have a non-empty repository root",
+		Valid:       r.repoRoot != "",
+		Message:     conditionalMessage(r.repoRoot == "", "RepoRoot is empty"),
+	})
+
+	// Invariant 9: PlanHash must be set for non-draft states
+	planHashRequired := r.state == StateDraft || r.planHash != ""
+	invariants = append(invariants, Invariant{
+		Name:        "PlanHashRequired",
+		Description: "Release run must have plan hash if state is beyond Draft",
+		Valid:       planHashRequired,
+		Message:     conditionalMessage(!planHashRequired, "PlanHash is empty but state is "+string(r.state)),
+	})
+
+	// Invariant 10: If in Publishing state, must have execution plan
+	hasStepsIfPublishing := r.state != StatePublishing || len(r.steps) > 0
+	invariants = append(invariants, Invariant{
+		Name:        "StepsRequiredForPublishing",
+		Description: "Publishing run must have execution steps",
+		Valid:       hasStepsIfPublishing,
+		Message:     conditionalMessage(!hasStepsIfPublishing, "No execution steps but state is publishing"),
+	})
+
+	// Invariant 11: If state is Approved or beyond, must have approval
+	hasApprovalIfRequired := r.state == StateDraft || r.state == StatePlanned ||
+		r.state == StateVersioned || r.state == StateNotesReady || r.approval != nil
+	invariants = append(invariants, Invariant{
+		Name:        "ApprovalRequired",
+		Description: "Release run must have approval if state is approved or beyond",
+		Valid:       hasApprovalIfRequired,
+		Message:     conditionalMessage(!hasApprovalIfRequired, "Approval is nil but state is "+string(r.state)),
+	})
+
+	return invariants
+}
+
+// IsValid checks if all aggregate invariants are satisfied.
+func (r *ReleaseRun) IsValid() bool {
+	for _, inv := range r.ValidateInvariants() {
+		if !inv.Valid {
+			return false
+		}
+	}
+	return true
+}
+
+// InvariantViolations returns only the violated invariants.
+func (r *ReleaseRun) InvariantViolations() []Invariant {
+	violations := make([]Invariant, 0)
+	for _, inv := range r.ValidateInvariants() {
+		if !inv.Valid {
+			violations = append(violations, inv)
+		}
+	}
+	return violations
+}
+
+// conditionalMessage returns msg if condition is true, empty string otherwise.
+func conditionalMessage(condition bool, msg string) string {
+	if condition {
+		return msg
+	}
+	return ""
+}
+
+// ReconstructState reconstructs the release run state from persisted data without
+// triggering domain events. This is used by repositories when loading aggregates.
+// It should only be called by repository implementations.
+func (r *ReleaseRun) ReconstructState(
+	id RunID,
+	planHash string,
+	repoID, repoRoot string,
+	baseRef string,
+	headSHA CommitSHA,
+	commits []CommitSHA,
+	configHash, pluginPlanHash string,
+	versionCurrent, versionNext version.SemanticVersion,
+	bumpKind BumpKind,
+	confidence float64,
+	riskScore float64,
+	reasons []string,
+	actorType ActorType,
+	actorID string,
+	thresholds PolicyThresholds,
+	tagName string,
+	notes *ReleaseNotes,
+	notesInputsHash string,
+	approval *Approval,
+	steps []StepPlan,
+	stepStatus map[string]*StepStatus,
+	state RunState,
+	history []TransitionRecord,
+	lastError string,
+	changesetID string,
+	createdAt, updatedAt time.Time,
+	publishedAt *time.Time,
+) {
+	r.id = id
+	r.planHash = planHash
+	r.repoID = repoID
+	r.repoRoot = repoRoot
+	r.baseRef = baseRef
+	r.headSHA = headSHA
+	r.commits = commits
+	r.configHash = configHash
+	r.pluginPlanHash = pluginPlanHash
+	r.versionCurrent = versionCurrent
+	r.versionNext = versionNext
+	r.bumpKind = bumpKind
+	r.confidence = confidence
+	r.riskScore = riskScore
+	r.reasons = reasons
+	r.actorType = actorType
+	r.actorID = actorID
+	r.thresholds = thresholds
+	r.tagName = tagName
+	r.notes = notes
+	r.notesInputsHash = notesInputsHash
+	r.approval = approval
+	r.steps = steps
+	r.stepStatus = stepStatus
+	r.state = state
+	r.history = history
+	r.lastError = lastError
+	r.changesetID = changesetID
+	r.createdAt = createdAt
+	r.updatedAt = updatedAt
+	r.publishedAt = publishedAt
+	// Clear domain events - we're reconstructing, not creating
+	r.domainEvents = make([]DomainEvent, 0, 5)
+}
+
+// UpdateNotes updates the release notes in NotesReady state.
+// This allows manual editing of notes before approval.
+func (r *ReleaseRun) UpdateNotes(notes *ReleaseNotes, actor string) error {
+	if r.state != StateNotesReady {
+		return NewStateTransitionError(r.state, "update notes")
+	}
+
+	if notes == nil {
+		return ErrNilNotes
+	}
+
+	r.notes = notes
+	r.updatedAt = time.Now()
+
+	r.addEvent(&RunNotesUpdatedEvent{
+		RunID:       r.id,
+		NotesLength: len(notes.Text),
+		Actor:       actor,
+		At:          time.Now(),
+	})
+
+	return nil
+}
+
+// RecordPluginExecution records a plugin execution result.
+func (r *ReleaseRun) RecordPluginExecution(pluginName, hook string, success bool, msg string, duration time.Duration) {
+	r.addEvent(&PluginExecutedEvent{
+		RunID:      r.id,
+		PluginName: pluginName,
+		Hook:       hook,
+		Success:    success,
+		Message:    msg,
+		Duration:   duration,
+		At:         time.Now(),
+	})
+	r.updatedAt = time.Now()
 }
