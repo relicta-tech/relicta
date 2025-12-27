@@ -62,7 +62,7 @@ func (uc *GetLatestReleaseUseCase) Execute(ctx context.Context, input GetLatestR
 	// Find the latest release for the repository
 	rel, err := uc.releaseRepo.FindLatest(ctx, input.RepositoryPath)
 	if err != nil {
-		if errors.Is(err, release.ErrReleaseNotFound) {
+		if errors.Is(err, release.ErrRunNotFound) {
 			// No release found - return empty output with HasRelease=false
 			return &GetLatestReleaseOutput{
 				RepositoryPath: input.RepositoryPath,
@@ -76,7 +76,7 @@ func (uc *GetLatestReleaseUseCase) Execute(ctx context.Context, input GetLatestR
 		Release:        rel,
 		Version:        rel.Version(),
 		State:          rel.State(),
-		RepositoryPath: rel.RepositoryPath(),
+		RepositoryPath: rel.RepoRoot(),
 		Branch:         rel.Branch(),
 		HasRelease:     true,
 	}, nil

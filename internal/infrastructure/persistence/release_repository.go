@@ -159,7 +159,7 @@ func (r *FileReleaseRepository) FindByID(ctx context.Context, id release.Release
 	data, err := fileutil.ReadFileLimited(filePath, MaxReleaseFileSize)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, release.ErrReleaseNotFound
+			return nil, release.ErrRunNotFound
 		}
 		return nil, fmt.Errorf("failed to read release file: %w", err)
 	}
@@ -346,7 +346,7 @@ func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string)
 	}
 
 	if len(releases) == 0 {
-		return nil, release.ErrReleaseNotFound
+		return nil, release.ErrRunNotFound
 	}
 
 	// Find the latest by UpdatedAt
@@ -431,7 +431,7 @@ func (r *FileReleaseRepository) Delete(ctx context.Context, id release.ReleaseID
 	filePath := r.releaseFilePath(id)
 	if err := os.Remove(filePath); err != nil {
 		if os.IsNotExist(err) {
-			return release.ErrReleaseNotFound
+			return release.ErrRunNotFound
 		}
 		return fmt.Errorf("failed to delete release file: %w", err)
 	}
@@ -450,8 +450,8 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 		ID:             string(rel.ID()),
 		State:          string(rel.State()),
 		Branch:         rel.Branch(),
-		RepositoryPath: rel.RepositoryPath(),
-		RepositoryName: rel.RepositoryName(),
+		RepositoryPath: rel.RepoRoot(),
+		RepositoryName: rel.RepoID(),
 		TagName:        rel.TagName(),
 		CreatedAt:      rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:      rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),

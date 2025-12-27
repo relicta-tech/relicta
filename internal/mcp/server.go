@@ -1284,7 +1284,7 @@ func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResou
 				Name: "MCP Resource Reader",
 			},
 			cgp.ProposalScope{
-				Repository:  rel.RepositoryName(),
+				Repository:  rel.RepoID(),
 				CommitRange: "HEAD~5..HEAD",
 			},
 			cgp.ProposalIntent{

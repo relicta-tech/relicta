@@ -477,13 +477,13 @@ func TestFileUnitOfWork_FindByState(t *testing.T) {
 		uow, _ := factory.Begin(ctx)
 		defer uow.Rollback()
 
-		// NewRelease starts in StateInitialized
+		// NewRelease starts in StateDraft
 		rel := release.NewRelease("test-rel-state", "main", "/repo")
 		repo := uow.ReleaseRepository()
 		_ = repo.Save(ctx, rel)
 
-		// FindByState should include the pending write (new releases start in StateInitialized)
-		releases, err := repo.FindByState(ctx, release.StateInitialized)
+		// FindByState should include the pending write (new releases start in StateDraft)
+		releases, err := repo.FindByState(ctx, release.StateDraft)
 		if err != nil {
 			t.Fatalf("FindByState failed: %v", err)
 		}

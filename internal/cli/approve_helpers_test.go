@@ -170,7 +170,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 					Provider:    "test",
 					GeneratedAt: time.Now(),
 				}
-				if err := rel.SetNotes(notes); err != nil {
+				if err := rel.GenerateNotes(notes, "", "system"); err != nil {
 					t.Fatalf("failed to set notes: %v", err)
 				}
 

@@ -72,7 +72,7 @@ func validateReleaseStateForApproval(rel *release.Release) error {
 	state := rel.State()
 
 	switch state {
-	case release.StateNotesGenerated:
+	case release.StateNotesReady:
 		// Ideal state - ready for approval
 		return nil
 	case release.StatePlanned, release.StateVersioned:
@@ -80,7 +80,7 @@ func validateReleaseStateForApproval(rel *release.Release) error {
 		printWarning("Release notes have not been generated")
 		printInfo("Consider running 'relicta notes' first for better release documentation")
 		return nil
-	case release.StateInitialized:
+	case release.StateDraft:
 		printError("Release has not been planned yet")
 		printInfo("Run 'relicta plan' to analyze commits and prepare the release")
 		return fmt.Errorf("release in state '%s' cannot be approved - run 'relicta plan' first", state)

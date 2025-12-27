@@ -86,7 +86,7 @@ func createApprovedRelease(id release.ReleaseID, branch, repoPath string) *relea
 		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	_ = r.SetNotes(notes)
+	_ = r.GenerateNotes(notes, "", "system")
 
 	// Approve
 	_ = r.Approve("test-user", false)

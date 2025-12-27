@@ -67,7 +67,7 @@ func TestHandleForcedVersion_Succeeds(t *testing.T) {
 	app := testCLIApp{
 		gitRepo:      stubGitRepo{},
 		setVersionUC: fake,
-		releaseRepo:  stubReleaseRepo{findLatestErr: release.ErrReleaseNotFound},
+		releaseRepo:  stubReleaseRepo{findLatestErr: release.ErrRunNotFound},
 	}
 
 	if err := handleForcedVersion(context.Background(), app, "1.2.3"); err != nil {

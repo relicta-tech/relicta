@@ -95,8 +95,8 @@ func TestFileReleaseRepository_FindByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.FindByID(ctx, "nonexistent")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("FindByID() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("FindByID() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -129,7 +129,7 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	_ = rel.SetNotes(notes)
+	_ = rel.GenerateNotes(notes, "", "system")
 
 	// Approve
 	_ = rel.Approve("admin", false)
@@ -286,8 +286,8 @@ func TestFileReleaseRepository_FindLatest_MultipleReleases(t *testing.T) {
 
 	// Note: The actual latest depends on which has newer UpdatedAt timestamp
 	// Both releases are valid results since the test depends on timing
-	if latest.RepositoryPath() != "/path/to/repo" {
-		t.Errorf("FindLatest() returned wrong repo path: %v", latest.RepositoryPath())
+	if latest.RepoRoot() != "/path/to/repo" {
+		t.Errorf("FindLatest() returned wrong repo path: %v", latest.RepoRoot())
 	}
 }
 
@@ -297,8 +297,8 @@ func TestFileReleaseRepository_FindLatest_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.FindLatest(ctx, "/nonexistent/repo")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("FindLatest() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("FindLatest() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -415,7 +415,7 @@ func TestFileReleaseRepository_Delete(t *testing.T) {
 
 	// Verify it's gone
 	_, err = repo.FindByID(ctx, "to-delete")
-	if err != release.ErrReleaseNotFound {
+	if err != release.ErrRunNotFound {
 		t.Errorf("Release should not exist after delete")
 	}
 }
@@ -426,8 +426,8 @@ func TestFileReleaseRepository_Delete_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	err := repo.Delete(ctx, "nonexistent")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("Delete() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("Delete() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -504,7 +504,7 @@ func TestFileReleaseRepository_PublishedRelease(t *testing.T) {
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
 	_ = rel.Bump("test-actor")
-	_ = rel.SetNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()})
+	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")
 	_ = rel.MarkPublished("https://github.com/owner/repo/releases/v1.1.0")
@@ -543,7 +543,7 @@ func TestFileReleaseRepository_FailedRelease(t *testing.T) {
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
 	_ = rel.Bump("test-actor")
-	_ = rel.SetNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()})
+	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")
 	_ = rel.MarkFailed("network error", "system")

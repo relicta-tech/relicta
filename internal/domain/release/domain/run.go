@@ -1004,16 +1004,6 @@ func (r *ReleaseRun) PendingApprovalLevels() []ApprovalRequirement {
 	return r.multiLevelApproval.PendingApprovals()
 }
 
-// RepositoryPath returns the repository path (alias for RepoRoot).
-func (r *ReleaseRun) RepositoryPath() string {
-	return r.repoRoot
-}
-
-// RepositoryName returns the repository name (alias for RepoID).
-func (r *ReleaseRun) RepositoryName() string {
-	return r.repoID
-}
-
 // Branch returns the branch name (derived from baseRef if available).
 func (r *ReleaseRun) Branch() string {
 	return r.baseRef
@@ -1590,11 +1580,6 @@ func (r *ReleaseRun) UpdateNotesText(text string) error {
 		Text: text,
 	}
 	return r.UpdateNotes(notes, "system")
-}
-
-// SetNotes sets the release notes (alias for GenerateNotes for backwards compatibility).
-func (r *ReleaseRun) SetNotes(notes *ReleaseNotes) error {
-	return r.GenerateNotes(notes, "", "system")
 }
 
 // RecordPluginExecution records a plugin execution result.

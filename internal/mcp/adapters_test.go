@@ -443,12 +443,12 @@ func (m *mockReleaseRepository) FindByID(ctx context.Context, id domainrelease.R
 			return r, nil
 		}
 	}
-	return nil, domainrelease.ErrReleaseNotFound
+	return nil, domainrelease.ErrRunNotFound
 }
 
 func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*domainrelease.Release, error) {
 	if len(m.releases) == 0 {
-		return nil, domainrelease.ErrReleaseNotFound
+		return nil, domainrelease.ErrRunNotFound
 	}
 	return m.releases[len(m.releases)-1], nil
 }
@@ -484,7 +484,7 @@ func (m *mockReleaseRepository) Delete(ctx context.Context, id domainrelease.Rel
 			return nil
 		}
 	}
-	return domainrelease.ErrReleaseNotFound
+	return domainrelease.ErrRunNotFound
 }
 
 func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {

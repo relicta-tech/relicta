@@ -493,7 +493,7 @@ func (testReleaseRepo) FindByID(ctx context.Context, id release.ReleaseID) (*rel
 }
 func (r testReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
 	if r.latest == nil {
-		return nil, release.ErrReleaseNotFound
+		return nil, release.ErrRunNotFound
 	}
 	return r.latest, nil
 }
@@ -527,7 +527,7 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	if err := rel.SetNotes(notes); err != nil {
+	if err := rel.GenerateNotes(notes, "", "system"); err != nil {
 		t.Fatalf("SetNotes failed: %v", err)
 	}
 	return rel

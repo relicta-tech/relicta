@@ -199,7 +199,7 @@ func (r *unitOfWorkRepository) FindByID(ctx context.Context, id release.ReleaseI
 
 	// Check if deleted
 	if _, deleted := r.uow.pendingDeletes[id]; deleted {
-		return nil, release.ErrReleaseNotFound
+		return nil, release.ErrRunNotFound
 	}
 
 	// Check pending writes first
@@ -232,7 +232,7 @@ func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) 
 			continue
 		}
 
-		if rel.RepositoryPath() == repoPath {
+		if rel.RepoRoot() == repoPath {
 			if latestPending == nil || rel.UpdatedAt().After(latestPending.UpdatedAt()) {
 				latestPending = rel
 			}
@@ -249,7 +249,7 @@ func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) 
 	if baseRelease != nil {
 		// Check if base release is deleted
 		if _, deleted := r.uow.pendingDeletes[baseRelease.ID()]; deleted {
-			return nil, release.ErrReleaseNotFound
+			return nil, release.ErrRunNotFound
 		}
 		return baseRelease, nil
 	}

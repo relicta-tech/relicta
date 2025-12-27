@@ -308,10 +308,6 @@ var (
 	ErrVersionNotSet       = domain.ErrVersionNotSet
 	ErrRiskTooHigh         = domain.ErrRiskTooHigh
 	ErrDuplicateRun        = domain.ErrDuplicateRun
-
-	// Backwards-compatible error aliases
-	ErrReleaseNotFound = domain.ErrRunNotFound
-	ErrNilPlan         = domain.ErrVersionNotSet // Maps to version not set
 )
 
 // State constants (new DDD names)
@@ -325,12 +321,6 @@ const (
 	StatePublished  = domain.StatePublished
 	StateFailed     = domain.StateFailed
 	StateCanceled   = domain.StateCanceled
-)
-
-// Backwards-compatible state constants (old names -> new names)
-const (
-	StateInitialized    = domain.StateDraft      // Old name for StateDraft
-	StateNotesGenerated = domain.StateNotesReady // Old name for StateNotesReady
 )
 
 // Actor type constants
@@ -498,36 +488,36 @@ func ReconstructFromLegacy(
 
 	// Use ReconstructState with defaults for new fields
 	rel.ReconstructState(
-		rel.ID(),             // id
-		"",                   // planHash
-		rel.RepositoryPath(), // repoID
-		rel.RepositoryPath(), // repoRoot
-		rel.Branch(),         // baseRef
-		"",                   // headSHA
-		nil,                  // commits
-		"",                   // configHash
-		"",                   // pluginPlanHash
-		versionCurrent,       // versionCurrent
-		versionNext,          // versionNext
-		bumpKind,             // bumpKind
-		1.0,                  // confidence
-		0.0,                  // riskScore
-		nil,                  // reasons
-		ActorHuman,           // actorType
-		"",                   // actorID
-		PolicyThresholds{},   // thresholds
-		tagName,              // tagName
-		notes,                // notes
-		"",                   // notesInputsHash
-		approval,             // approval
-		nil,                  // steps
-		nil,                  // stepStatus
-		state,                // state
-		nil,                  // history
-		lastError,            // lastError
-		"",                   // changesetID
-		createdAt,            // createdAt
-		updatedAt,            // updatedAt
-		publishedAt,          // publishedAt
+		rel.ID(),           // id
+		"",                 // planHash
+		rel.RepoRoot(),     // repoID
+		rel.RepoRoot(),     // repoRoot
+		rel.Branch(),       // baseRef
+		"",                 // headSHA
+		nil,                // commits
+		"",                 // configHash
+		"",                 // pluginPlanHash
+		versionCurrent,     // versionCurrent
+		versionNext,        // versionNext
+		bumpKind,           // bumpKind
+		1.0,                // confidence
+		0.0,                // riskScore
+		nil,                // reasons
+		ActorHuman,         // actorType
+		"",                 // actorID
+		PolicyThresholds{}, // thresholds
+		tagName,            // tagName
+		notes,              // notes
+		"",                 // notesInputsHash
+		approval,           // approval
+		nil,                // steps
+		nil,                // stepStatus
+		state,              // state
+		nil,                // history
+		lastError,          // lastError
+		"",                 // changesetID
+		createdAt,          // createdAt
+		updatedAt,          // updatedAt
+		publishedAt,        // publishedAt
 	)
 }

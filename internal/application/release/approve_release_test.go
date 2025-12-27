@@ -42,7 +42,7 @@ func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *rele
 		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	_ = r.SetNotes(notes)
+	_ = r.GenerateNotes(notes, "", "system")
 
 	return r
 }

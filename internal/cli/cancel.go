@@ -211,7 +211,7 @@ func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, erro
 	releaseRepo := app.ReleaseRepository()
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
-		if errors.Is(err, release.ErrReleaseNotFound) {
+		if errors.Is(err, release.ErrRunNotFound) {
 			printInfo("No active release found")
 			printInfo("Nothing to cancel - there is no release in progress")
 			return nil, err

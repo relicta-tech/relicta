@@ -296,7 +296,7 @@ func (r cancelTestReleaseRepo) FindByID(ctx context.Context, id release.ReleaseI
 }
 func (r cancelTestReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
 	if r.latest == nil {
-		return nil, release.ErrReleaseNotFound
+		return nil, release.ErrRunNotFound
 	}
 	return r.latest, nil
 }

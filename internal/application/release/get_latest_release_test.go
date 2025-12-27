@@ -25,7 +25,7 @@ func (m *mockReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*rel
 	if m.findLatestFn != nil {
 		return m.findLatestFn(ctx, repoPath)
 	}
-	return nil, release.ErrReleaseNotFound
+	return nil, release.ErrRunNotFound
 }
 
 func (m *mockReleaseRepo) FindByState(_ context.Context, _ release.ReleaseState) ([]*release.Release, error) {
@@ -93,7 +93,7 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 				if repoPath == "/path/to/repo" {
 					return expectedRelease, nil
 				}
-				return nil, release.ErrReleaseNotFound
+				return nil, release.ErrRunNotFound
 			},
 		}
 
@@ -117,7 +117,7 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 	t.Run("returns HasRelease=false when no release found", func(t *testing.T) {
 		repo := &mockReleaseRepo{
 			findLatestFn: func(_ context.Context, _ string) (*release.Release, error) {
-				return nil, release.ErrReleaseNotFound
+				return nil, release.ErrRunNotFound
 			},
 		}
 

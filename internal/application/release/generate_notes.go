@@ -98,7 +98,7 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 
 	plan := release.GetPlan(rel)
 	if plan == nil {
-		return nil, release.ErrNilPlan
+		return nil, release.ErrVersionNotSet
 	}
 
 	changeSet := plan.GetChangeSet()
@@ -167,7 +167,7 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 		GeneratedAt: notes.GeneratedAt(),
 	}
 
-	if err := rel.SetNotes(releaseNotes); err != nil {
+	if err := rel.GenerateNotes(releaseNotes, "", "system"); err != nil {
 		return nil, fmt.Errorf("failed to set release notes: %w", err)
 	}
 
