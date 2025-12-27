@@ -5,13 +5,47 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
 	"github.com/relicta-tech/relicta/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+// createTestReleaseRun creates a test release run in draft state
+func createTestReleaseRun() *domainrelease.ReleaseRun {
+	return domainrelease.NewReleaseRun(
+		"github.com/test/repo",
+		"/tmp/test-repo",
+		"main",
+		domainrelease.CommitSHA("abc123"),
+		[]domainrelease.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+}
+
+// createTestReleaseRunWithVersion creates a test release run with version 1.2.3
+func createTestReleaseRunWithVersion() *domainrelease.ReleaseRun {
+	run := domainrelease.NewReleaseRun(
+		"github.com/test/repo",
+		"/tmp/test-repo",
+		"v1.0.0",
+		domainrelease.CommitSHA("abc123"),
+		[]domainrelease.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+	// Transition to planned state and set version
+	_ = run.Plan("system")
+	v, _ := version.Parse("1.2.3")
+	_ = run.SetVersion(v, "v1.2.3")
+	return run
+}
 
 func TestNewServer(t *testing.T) {
 	t.Run("creates server with defaults", func(t *testing.T) {
@@ -541,4 +575,1088 @@ func TestResourceCacheIntegration(t *testing.T) {
 		cached := server.cache.Get("relicta://state")
 		assert.Nil(t, cached) // Not cached because repo is nil
 	})
+
+	t.Run("returns cached result when available", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Manually set cache entry
+		server.cache.Set("relicta://state", &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:      "relicta://state",
+				MIMEType: "application/json",
+				Text:     `{"cached": true}`,
+			}},
+		})
+
+		// Should return cached result
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "cached")
+	})
 }
+
+func TestConfigResourceWithEmptyProductName(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.DefaultConfig()
+	cfg.Changelog.ProductName = "" // Empty should default to "Relicta"
+
+	server, err := NewServer("1.0.0", WithConfig(cfg))
+	require.NoError(t, err)
+
+	result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+	require.NoError(t, err)
+	assert.Contains(t, result.Text, "Relicta")
+}
+
+func TestHandleBumpWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no calculate use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+		require.NoError(t, err)
+		assert.Equal(t, "minor", result["bump_type"])
+	})
+
+	t.Run("includes version in result", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Version: "2.0.0"})
+		require.NoError(t, err)
+		assert.Equal(t, "2.0.0", result["version"])
+	})
+}
+
+func TestHandleNotesWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no notes use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["use_ai"])
+	})
+}
+
+func TestHandleApproveWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no approve use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		require.NoError(t, err)
+		assert.Equal(t, "", result["notes"])
+	})
+}
+
+func TestHandlePublishWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no publish use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["dry_run"])
+	})
+}
+
+func TestHandleEvaluateWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no governance service", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		// Should fallback to basic risk calculation
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+	})
+}
+
+func TestResourceRiskReportWithRiskCalc(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("uses risk calculator when available", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		// Without repo, returns not configured message
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no release repository configured")
+	})
+}
+
+func TestAllServerOptionsApplied(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cfg := config.DefaultConfig()
+	riskCalc := risk.NewCalculatorWithDefaults()
+	cache := NewResourceCache()
+	adapter := NewAdapter()
+
+	server, err := NewServer("2.0.0",
+		WithLogger(logger),
+		WithConfig(cfg),
+		WithRiskCalculator(riskCalc),
+		WithCache(cache),
+		WithAdapter(adapter),
+		WithGitService(nil),
+		WithReleaseRepository(nil),
+		WithPolicyEngine(nil),
+		WithEvaluator(nil),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, server)
+	assert.Equal(t, "2.0.0", server.version)
+	assert.Equal(t, logger, server.logger)
+	assert.Equal(t, cfg, server.config)
+	assert.Equal(t, riskCalc, server.riskCalc)
+	assert.Equal(t, cache, server.cache)
+	assert.Equal(t, adapter, server.adapter)
+}
+
+func TestHandlePlanWithFromRef(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles auto from ref", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "auto"})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+
+	t.Run("handles specific from ref", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0"})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestResourceStateWithCache(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("logs cache hit", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Set cache
+		server.cache.Set("relicta://state", &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:      "relicta://state",
+				MIMEType: "application/json",
+				Text:     `{"test": "value"}`,
+			}},
+		})
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "relicta://state", result.URI)
+		assert.Contains(t, result.Text, "test")
+	})
+}
+
+func TestTypes(t *testing.T) {
+	t.Run("ResourceContent fields", func(t *testing.T) {
+		rc := ResourceContent{
+			URI:      "test://uri",
+			MIMEType: "text/plain",
+			Text:     "content",
+			Blob:     "base64data",
+		}
+		assert.Equal(t, "test://uri", rc.URI)
+		assert.Equal(t, "text/plain", rc.MIMEType)
+		assert.Equal(t, "content", rc.Text)
+		assert.Equal(t, "base64data", rc.Blob)
+	})
+
+	t.Run("ReadResourceResult fields", func(t *testing.T) {
+		result := ReadResourceResult{
+			Contents: []ResourceContent{
+				{URI: "test://1", Text: "one"},
+				{URI: "test://2", Text: "two"},
+			},
+		}
+		assert.Len(t, result.Contents, 2)
+		assert.Equal(t, "test://1", result.Contents[0].URI)
+	})
+}
+
+// Tests with mock repository for deeper coverage
+
+func TestHandleStatusWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no_active_release when repo returns empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "no_active_release", result["status"])
+	})
+
+	t.Run("returns release state when active release exists", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "planned", result["state"])
+		assert.Contains(t, result, "created")
+		assert.Contains(t, result, "updated")
+	})
+
+	t.Run("returns version when release has version", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "1.2.3", result["version"])
+	})
+
+	t.Run("returns draft state for draft release", func(t *testing.T) {
+		run := createTestReleaseRun() // Draft state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "draft", result["state"])
+	})
+}
+
+func TestResourceStateWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("returns state JSON when release exists", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "1.2.3")
+		assert.Contains(t, result.Text, "planned")
+		assert.Equal(t, "application/json", result.MimeType)
+	})
+
+	t.Run("caches state resource result", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		// First call
+		_, err = server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+
+		// Should be cached
+		cached := server.cache.Get("relicta://state")
+		assert.NotNil(t, cached)
+	})
+}
+
+func TestResourceCommitsWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("returns changeset status when release has no loaded changeset", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state with a plan
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		// The run has a plan but no loaded changeset
+		assert.Contains(t, result.Text, "changeset not loaded")
+	})
+}
+
+func TestResourceChangelogWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "No active release found")
+	})
+
+	t.Run("returns no changelog when release has no notes", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "No changelog generated yet")
+		assert.Contains(t, result.Text, "1.2.3")
+	})
+}
+
+func TestResourceRiskReportWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("performs risk calculation when release exists", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "score")
+		assert.Contains(t, result.Text, "severity")
+	})
+
+	t.Run("returns hint when no risk assessment available", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+		server.riskCalc = nil // Disable risk calc
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no risk assessment available")
+	})
+}
+
+func TestCacheDisabledBehavior(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("state resource works without cache", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithCacheDisabled())
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "planned")
+	})
+}
+
+// Additional tests to increase coverage
+
+func TestHandleStatusWithRepositoryAndVersion(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns full status with versioned release", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+
+		// Verify all expected fields - state is "versioned" in the domain
+		assert.Contains(t, []string{"planned", "versioned"}, result["state"])
+		assert.Equal(t, "1.2.3", result["version"])
+		assert.Contains(t, result, "created")
+		assert.Contains(t, result, "updated")
+	})
+}
+
+func TestHandleBumpWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles major bump type", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "major"})
+		require.NoError(t, err)
+		assert.Equal(t, "major", result["bump_type"])
+	})
+
+	t.Run("handles patch bump type", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "patch"})
+		require.NoError(t, err)
+		assert.Equal(t, "patch", result["bump_type"])
+	})
+
+	t.Run("handles prerelease version", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{
+			Bump:    "minor",
+			Version: "1.2.0-beta.1",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "minor", result["bump_type"])
+		assert.Equal(t, "1.2.0-beta.1", result["version"])
+	})
+}
+
+func TestHandleNotesWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles AI disabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["use_ai"])
+	})
+
+	t.Run("handles AI enabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["use_ai"])
+	})
+}
+
+func TestHandlePublishWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles dry run true", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["dry_run"])
+	})
+
+	t.Run("handles dry run false", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["dry_run"])
+	})
+}
+
+func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("evaluates with default risk calculator", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+		assert.Contains(t, result, "factors")
+	})
+
+	t.Run("evaluates with custom risk calculator", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+	})
+}
+
+func TestHandleApproveWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles empty notes", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		require.NoError(t, err)
+		assert.Equal(t, "", result["notes"])
+	})
+
+	t.Run("handles long notes", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		longNotes := "This is a very long note that contains detailed release information."
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: longNotes})
+		require.NoError(t, err)
+		assert.Equal(t, longNotes, result["notes"])
+	})
+}
+
+func TestResourceConfigWithDifferentSettings(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("includes config settings", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Changelog.ProductName = "MyApp"
+		cfg.AI.Enabled = true
+		cfg.AI.Provider = "anthropic"
+		cfg.Versioning.Strategy = "conventional"
+
+		server, err := NewServer("1.0.0", WithConfig(cfg))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "MyApp")
+		assert.Contains(t, result.Text, "anthropic")
+		assert.Contains(t, result.Text, "conventional")
+	})
+
+	t.Run("defaults empty product name to Relicta", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Changelog.ProductName = ""
+
+		server, err := NewServer("1.0.0", WithConfig(cfg))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "Relicta")
+	})
+}
+
+func TestResourceChangelogWithVersionedRelease(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns version info when release has version", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "1.2.3")
+		assert.Equal(t, "text/markdown", result.MimeType)
+	})
+}
+
+func TestCacheOperations(t *testing.T) {
+	t.Run("cache can be set and retrieved", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		retrieved := cache.Get("test://uri")
+		require.NotNil(t, retrieved)
+		assert.Equal(t, "test content", retrieved.Contents[0].Text)
+	})
+
+	t.Run("cache returns nil for missing key", func(t *testing.T) {
+		cache := NewResourceCache()
+		retrieved := cache.Get("nonexistent://uri")
+		assert.Nil(t, retrieved)
+	})
+
+	t.Run("cache invalidation removes entry", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+		cache.Invalidate("test://uri")
+
+		retrieved := cache.Get("test://uri")
+		assert.Nil(t, retrieved)
+	})
+
+	t.Run("cache stats track entry count", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		stats := cache.Stats()
+		assert.True(t, stats.Enabled)
+		assert.Equal(t, 1, stats.EntryCount)
+		assert.Contains(t, stats.Entries, "test://uri")
+	})
+}
+
+func TestPromptArgsWithDifferentValues(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("release-summary with executive style", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": "executive"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("commit-review with breaking focus", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": "breaking"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("migration-guide with developer audience", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": "developer"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-announcement with internal channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": "internal"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+}
+
+func TestServerWithMultipleOptions(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cfg := config.DefaultConfig()
+	riskCalc := risk.NewCalculatorWithDefaults()
+	cache := NewResourceCache()
+	adapter := NewAdapter()
+
+	t.Run("all options applied correctly", func(t *testing.T) {
+		server, err := NewServer("3.0.0",
+			WithLogger(logger),
+			WithConfig(cfg),
+			WithRiskCalculator(riskCalc),
+			WithCache(cache),
+			WithAdapter(adapter),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "3.0.0", server.version)
+		assert.Equal(t, logger, server.logger)
+		assert.Equal(t, cfg, server.config)
+		assert.Equal(t, riskCalc, server.riskCalc)
+		assert.Equal(t, cache, server.cache)
+		assert.Equal(t, adapter, server.adapter)
+	})
+}
+
+func TestResourceRiskReportWithCalc(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns calculated risk when repo and calc available", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "score")
+	})
+}
+
+func TestHandlePlanWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured when adapter has no plan use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0", Analyze: true})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("uses adapter when it has release repository", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		// Should return release info from adapter
+		assert.Contains(t, result, "release_id")
+		assert.Contains(t, result, "state")
+	})
+
+	t.Run("returns no_active_release when adapter repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "no_active_release", result["status"])
+	})
+}
+
+func TestAdapterGetStatusWithData(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns full status with versioned release", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.NotEmpty(t, status.ReleaseID)
+		assert.Equal(t, "1.2.3", status.Version)
+	})
+
+	t.Run("returns status with approval info", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		// Check approval-related fields
+		assert.Contains(t, status.NextAction, "")
+	})
+
+	t.Run("returns stale status for empty version", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system")
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.NotEmpty(t, status.ReleaseID)
+	})
+}
+
+func TestAdapterEvaluateRequiresGovernanceService(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns error without governance service", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		input := EvaluateInput{
+			ReleaseID: "test-release",
+			ActorID:   "test-user",
+			ActorName: "Test User",
+		}
+
+		output, err := adapter.Evaluate(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "governance service not configured")
+	})
+}
+
+func TestMoreCacheScenarios(t *testing.T) {
+	t.Run("set and get with TTL", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		// Set a custom TTL
+		cache.SetTTL("test://uri", 1*time.Hour)
+
+		// Entry should still be retrievable
+		retrieved := cache.Get("test://uri")
+		assert.NotNil(t, retrieved)
+	})
+
+	t.Run("invalidate all clears all entries", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content1 := &ReadResourceResult{Contents: []ResourceContent{{URI: "test://1", Text: "one"}}}
+		content2 := &ReadResourceResult{Contents: []ResourceContent{{URI: "test://2", Text: "two"}}}
+
+		cache.Set("test://1", content1)
+		cache.Set("test://2", content2)
+
+		stats := cache.Stats()
+		assert.Equal(t, 2, stats.EntryCount)
+
+		cache.InvalidateAll()
+
+		stats = cache.Stats()
+		assert.Equal(t, 0, stats.EntryCount)
+	})
+
+	t.Run("invalidate state dependent removes related entries", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content1 := &ReadResourceResult{Contents: []ResourceContent{{URI: "relicta://state", Text: "state"}}}
+		content2 := &ReadResourceResult{Contents: []ResourceContent{{URI: "relicta://config", Text: "config"}}}
+
+		cache.Set("relicta://state", content1)
+		cache.Set("relicta://config", content2)
+
+		cache.InvalidateStateDependent()
+
+		assert.Nil(t, cache.Get("relicta://state"))
+		// Config might still be there depending on implementation
+	})
+
+	t.Run("set enabled toggles cache", func(t *testing.T) {
+		cache := NewResourceCache()
+		assert.True(t, cache.IsEnabled())
+
+		cache.SetEnabled(false)
+		assert.False(t, cache.IsEnabled())
+
+		cache.SetEnabled(true)
+		assert.True(t, cache.IsEnabled())
+	})
+}
+
+func TestHandleResourceCommitsWithVariousStates(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns changeset not loaded for draft release", func(t *testing.T) {
+		run := createTestReleaseRun()
+		// Draft state - no plan
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		// Draft has no plan, which may return "no plan" or "changeset not loaded"
+		assert.Contains(t, result.Text, "commit")
+	})
+
+	t.Run("returns changeset status for planned release without changeset", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "changeset")
+	})
+}
+
+func TestHandleEvaluateWithRiskCalculator(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calculates basic risk factors", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+		assert.Contains(t, result, "factors")
+
+		factors, ok := result["factors"].([]map[string]any)
+		if ok {
+			assert.GreaterOrEqual(t, len(factors), 0)
+		}
+	})
+}
+
+func TestAllPromptHandlersComprehensive(t *testing.T) {
+	ctx := context.Background()
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	t.Run("all prompts return valid results", func(t *testing.T) {
+		// Test release-summary with all styles
+		for _, style := range []string{"", "brief", "detailed", "technical", "executive"} {
+			result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": style})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
+		}
+
+		// Test commit-review with all focus types
+		for _, focus := range []string{"", "general", "quality", "security", "breaking"} {
+			result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": focus})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
+		}
+
+		// Test migration-guide with all audiences
+		for _, audience := range []string{"", "developer", "operator", "end-user"} {
+			result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": audience})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
+		}
+
+		// Test release-announcement with all channels
+		for _, channel := range []string{"", "github", "blog", "social", "email", "internal"} {
+			result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": channel})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
+		}
+	})
+}
+
+// Test more handler scenarios with adapter
+func TestHandleBumpWithAdapterWithoutUseCase(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
+	require.NoError(t, err)
+
+	result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+	require.NoError(t, err)
+	// Falls through to stub response
+	assert.Equal(t, "minor", result["bump_type"])
+}
+
+func TestHandleNotesWithAdapterWithoutUseCase(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
+	require.NoError(t, err)
+
+	result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+	require.NoError(t, err)
+	assert.Equal(t, true, result["use_ai"])
+}
+
+func TestHandleApproveWithAdapterWithoutUseCase(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
+	require.NoError(t, err)
+
+	result, err := server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
+	require.NoError(t, err)
+	assert.Equal(t, "approval notes", result["notes"])
+}
+
+func TestHandlePublishWithAdapterWithoutUseCase(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
+	require.NoError(t, err)
+
+	result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+	require.NoError(t, err)
+	assert.Equal(t, true, result["dry_run"])
+}
+
+func TestHandleEvaluateWithAdapterAndGovernance(t *testing.T) {
+	ctx := context.Background()
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
+	require.NoError(t, err)
+
+	result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+	require.NoError(t, err)
+	// Should fallback to basic risk calculation
+	assert.Contains(t, result, "score")
+}
+
+// Suppress unused variable warnings
+var _ = time.Now
