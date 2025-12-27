@@ -26,7 +26,7 @@ func (m *mockAINotesGenerator) GenerateReleaseNotes(ctx context.Context, input A
 }
 
 // createReleaseWithPlan creates a release with a plan ready for notes generation.
-func createReleaseWithPlan(id release.ReleaseID, branch, repoPath string) *release.Release {
+func createReleaseWithPlan(id release.RunID, branch, repoPath string) *release.ReleaseRun {
 	r := release.NewRelease(id, branch, repoPath)
 
 	// Create a changeset with various commit types

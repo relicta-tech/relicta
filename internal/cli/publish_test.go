@@ -258,7 +258,7 @@ func TestBuildPublishInput(t *testing.T) {
 		},
 	}
 
-	rel := release.NewRelease(release.ReleaseID("test-rel-id"), "main", "test-repo")
+	rel := release.NewRelease(release.RunID("test-rel-id"), "main", "test-repo")
 
 	tests := []struct {
 		name       string

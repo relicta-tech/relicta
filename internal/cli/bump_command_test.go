@@ -28,31 +28,31 @@ type stubReleaseRepo struct {
 	findLatestErr error
 }
 
-func (s stubReleaseRepo) Save(ctx context.Context, release *release.Release) error {
+func (s stubReleaseRepo) Save(ctx context.Context, release *release.ReleaseRun) error {
 	return nil
 }
 
-func (s stubReleaseRepo) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (s stubReleaseRepo) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (s stubReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (s stubReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	return nil, s.findLatestErr
 }
 
-func (s stubReleaseRepo) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (s stubReleaseRepo) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (s stubReleaseRepo) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (s stubReleaseRepo) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (s stubReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+func (s stubReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (s stubReleaseRepo) Delete(ctx context.Context, id release.ReleaseID) error {
+func (s stubReleaseRepo) Delete(ctx context.Context, id release.RunID) error {
 	return nil
 }
 

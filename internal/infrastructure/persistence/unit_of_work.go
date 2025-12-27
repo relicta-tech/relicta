@@ -20,8 +20,8 @@ type FileUnitOfWork struct {
 
 	// Transaction state
 	active         bool
-	pendingWrites  map[release.ReleaseID]*release.Release
-	pendingDeletes map[release.ReleaseID]struct{}
+	pendingWrites  map[release.RunID]*release.Release
+	pendingDeletes map[release.RunID]struct{}
 	pendingEvents  []release.DomainEvent
 }
 
@@ -54,8 +54,8 @@ func (f *FileUnitOfWorkFactory) Begin(ctx context.Context) (release.UnitOfWork, 
 		baseRepo:       f.baseRepo,
 		eventPublisher: f.eventPublisher,
 		active:         true,
-		pendingWrites:  make(map[release.ReleaseID]*release.Release),
-		pendingDeletes: make(map[release.ReleaseID]struct{}),
+		pendingWrites:  make(map[release.RunID]*release.ReleaseRun),
+		pendingDeletes: make(map[release.RunID]struct{}),
 		pendingEvents:  make([]release.DomainEvent, 0),
 	}, nil
 }
@@ -156,15 +156,15 @@ func (u *FileUnitOfWork) AddEvents(events ...release.DomainEvent) {
 
 // clearPending clears all pending operations.
 func (u *FileUnitOfWork) clearPending() {
-	u.pendingWrites = make(map[release.ReleaseID]*release.Release)
-	u.pendingDeletes = make(map[release.ReleaseID]struct{})
+	u.pendingWrites = make(map[release.RunID]*release.ReleaseRun)
+	u.pendingDeletes = make(map[release.RunID]struct{})
 	u.pendingEvents = make([]release.DomainEvent, 0)
 }
 
 // unitOfWorkRepository implementation
 
 // Save stages a release for saving on commit.
-func (r *unitOfWorkRepository) Save(ctx context.Context, rel *release.Release) error {
+func (r *unitOfWorkRepository) Save(ctx context.Context, rel *release.ReleaseRun) error {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -189,7 +189,7 @@ func (r *unitOfWorkRepository) Save(ctx context.Context, rel *release.Release) e
 }
 
 // FindByID retrieves a release, checking pending changes first.
-func (r *unitOfWorkRepository) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (r *unitOfWorkRepository) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -212,7 +212,7 @@ func (r *unitOfWorkRepository) FindByID(ctx context.Context, id release.ReleaseI
 }
 
 // FindLatest retrieves the latest release for a repository.
-func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -258,7 +258,7 @@ func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) 
 }
 
 // FindByState retrieves releases in a specific state.
-func (r *unitOfWorkRepository) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (r *unitOfWorkRepository) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -273,8 +273,8 @@ func (r *unitOfWorkRepository) FindByState(ctx context.Context, state release.Re
 	}
 
 	// Build result set considering pending changes
-	result := make([]*release.Release, 0, len(baseReleases))
-	seen := make(map[release.ReleaseID]bool)
+	result := make([]*release.ReleaseRun, 0, len(baseReleases))
+	seen := make(map[release.RunID]bool)
 
 	// Add pending writes that match state
 	for id, rel := range r.uow.pendingWrites {
@@ -309,7 +309,7 @@ func (r *unitOfWorkRepository) FindByState(ctx context.Context, state release.Re
 }
 
 // FindActive retrieves all active (non-final) releases.
-func (r *unitOfWorkRepository) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (r *unitOfWorkRepository) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -324,8 +324,8 @@ func (r *unitOfWorkRepository) FindActive(ctx context.Context) ([]*release.Relea
 	}
 
 	// Build result set considering pending changes
-	result := make([]*release.Release, 0, len(baseReleases))
-	seen := make(map[release.ReleaseID]bool)
+	result := make([]*release.ReleaseRun, 0, len(baseReleases))
+	seen := make(map[release.RunID]bool)
 
 	// Add pending writes that are active
 	for id, rel := range r.uow.pendingWrites {
@@ -360,7 +360,7 @@ func (r *unitOfWorkRepository) FindActive(ctx context.Context) ([]*release.Relea
 }
 
 // Delete stages a release for deletion on commit.
-func (r *unitOfWorkRepository) Delete(ctx context.Context, id release.ReleaseID) error {
+func (r *unitOfWorkRepository) Delete(ctx context.Context, id release.RunID) error {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -378,7 +378,7 @@ func (r *unitOfWorkRepository) Delete(ctx context.Context, id release.ReleaseID)
 }
 
 // FindBySpecification retrieves releases matching the given specification.
-func (r *unitOfWorkRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+func (r *unitOfWorkRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
 	r.uow.mu.Lock()
 	defer r.uow.mu.Unlock()
 
@@ -393,8 +393,8 @@ func (r *unitOfWorkRepository) FindBySpecification(ctx context.Context, spec rel
 	}
 
 	// Build result set considering pending changes
-	result := make([]*release.Release, 0, len(baseReleases))
-	seen := make(map[release.ReleaseID]bool)
+	result := make([]*release.ReleaseRun, 0, len(baseReleases))
+	seen := make(map[release.RunID]bool)
 
 	// Add pending writes that match specification
 	for id, rel := range r.uow.pendingWrites {

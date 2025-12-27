@@ -32,7 +32,7 @@ func init() {
 }
 
 // validateReleaseForPublish validates that the release is ready for publishing.
-func validateReleaseForPublish(rel *release.Release) error {
+func validateReleaseForPublish(rel *release.ReleaseRun) error {
 	// Check approval
 	if cfg.Workflow.RequireApproval && !rel.IsApproved() && !publishSkipApproval {
 		printError("Release not approved")
@@ -78,7 +78,7 @@ func displayPublishActions(nextVersion string) {
 }
 
 // buildPublishInput creates the input for the PublishRelease use case.
-func buildPublishInput(rel *release.Release) apprelease.PublishReleaseInput {
+func buildPublishInput(rel *release.ReleaseRun) apprelease.PublishReleaseInput {
 	return apprelease.PublishReleaseInput{
 		ReleaseID: rel.ID(),
 		DryRun:    dryRun,
@@ -119,7 +119,7 @@ func outputPluginResults(results []apprelease.PluginResult) {
 }
 
 // handleChangelogUpdate updates the changelog file if configured.
-func handleChangelogUpdate(rel *release.Release) {
+func handleChangelogUpdate(rel *release.ReleaseRun) {
 	if cfg.Changelog.File == "" || rel.Notes() == nil || rel.Notes().Text == "" {
 		return
 	}
@@ -257,7 +257,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 }
 
 // evaluateGovernanceForPublish evaluates the release for governance tracking.
-func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.ReleaseRun) (*governance.EvaluateReleaseOutput, error) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
@@ -282,7 +282,7 @@ func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.
 }
 
 // recordPublishOutcome records the actual publish outcome to Release Memory.
-func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
+func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.ReleaseRun, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return
@@ -418,7 +418,7 @@ func findVersionEntryPoint(content string) int {
 }
 
 // outputPublishJSON outputs the publish information as JSON.
-func outputPublishJSON(rel *release.Release) error {
+func outputPublishJSON(rel *release.ReleaseRun) error {
 	plan := release.GetPlan(rel)
 
 	output := map[string]any{

@@ -288,28 +288,28 @@ type cancelTestReleaseRepo struct {
 	saveError error
 }
 
-func (r cancelTestReleaseRepo) Save(ctx context.Context, rel *release.Release) error {
+func (r cancelTestReleaseRepo) Save(ctx context.Context, rel *release.ReleaseRun) error {
 	return r.saveError
 }
-func (r cancelTestReleaseRepo) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (r cancelTestReleaseRepo) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (r cancelTestReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (r cancelTestReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	if r.latest == nil {
 		return nil, release.ErrRunNotFound
 	}
 	return r.latest, nil
 }
-func (r cancelTestReleaseRepo) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (r cancelTestReleaseRepo) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (r cancelTestReleaseRepo) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (r cancelTestReleaseRepo) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (r cancelTestReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+func (r cancelTestReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (r cancelTestReleaseRepo) Delete(ctx context.Context, id release.ReleaseID) error { return nil }
+func (r cancelTestReleaseRepo) Delete(ctx context.Context, id release.RunID) error { return nil }
 
 func TestRunCancel_NoReleaseFound(t *testing.T) {
 	origCfg := cfg
@@ -748,14 +748,14 @@ func TestValidateCancelState_AllStates(t *testing.T) {
 	}{
 		{
 			name: "initialized state should be cancelable",
-			setup: func() *release.Release {
+			setup: func() *release.ReleaseRun {
 				return release.NewRelease("test-init", "main", "/test/repo")
 			},
 			wantError: false,
 		},
 		{
 			name: "canceled state should not be cancelable",
-			setup: func() *release.Release {
+			setup: func() *release.ReleaseRun {
 				rel := release.NewRelease("test-canceled", "main", "/test/repo")
 				_ = rel.Cancel("test", "cli")
 				return rel
@@ -778,19 +778,19 @@ func TestValidateCancelState_AllStates(t *testing.T) {
 func TestValidateResetState_AllowedStates(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func(*release.Release)
+		setup     func(*release.ReleaseRun)
 		wantError bool
 	}{
 		{
 			name: "initialized state should suggest cancel first",
-			setup: func(r *release.Release) {
+			setup: func(r *release.ReleaseRun) {
 				// Already in initialized state, nothing to do
 			},
 			wantError: true,
 		},
 		{
 			name: "canceled state should allow reset",
-			setup: func(r *release.Release) {
+			setup: func(r *release.ReleaseRun) {
 				_ = r.Cancel("test", "cli")
 			},
 			wantError: false,

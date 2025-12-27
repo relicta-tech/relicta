@@ -22,7 +22,7 @@ func TestOutputPlanJSON_Coverage(t *testing.T) {
 	changeSet := changes.NewChangeSet(changes.ChangeSetID("test-id"), "main", "HEAD")
 
 	output := &release.PlanReleaseOutput{
-		ReleaseID:      domainrelease.ReleaseID("test-release"),
+		ReleaseID:      domainrelease.RunID("test-release"),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    changes.ReleaseTypeMinor,
@@ -74,7 +74,7 @@ func TestOutputPlanText_Coverage(t *testing.T) {
 	changeSet := changes.NewChangeSet(changes.ChangeSetID("test-id"), "main", "HEAD")
 
 	output := &release.PlanReleaseOutput{
-		ReleaseID:      domainrelease.ReleaseID("test-release"),
+		ReleaseID:      domainrelease.RunID("test-release"),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    changes.ReleaseTypeMinor,

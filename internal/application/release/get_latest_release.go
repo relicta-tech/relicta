@@ -33,8 +33,8 @@ func (i *GetLatestReleaseInput) Validate() error {
 // GetLatestReleaseOutput represents the output of the GetLatestRelease use case.
 type GetLatestReleaseOutput struct {
 	Release        *release.Release
-	Version        *version.SemanticVersion
-	State          release.ReleaseState
+	Version        version.SemanticVersion
+	State          release.RunState
 	RepositoryPath string
 	Branch         string
 	HasRelease     bool
@@ -74,7 +74,7 @@ func (uc *GetLatestReleaseUseCase) Execute(ctx context.Context, input GetLatestR
 
 	return &GetLatestReleaseOutput{
 		Release:        rel,
-		Version:        rel.Version(),
+		Version:        rel.VersionNext(),
 		State:          rel.State(),
 		RepositoryPath: rel.RepoRoot(),
 		Branch:         rel.Branch(),

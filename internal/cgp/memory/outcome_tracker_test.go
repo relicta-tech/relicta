@@ -14,7 +14,7 @@ func TestOutcomeTracker_PublishedEvent(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("test-release-1")
+	releaseID := release.RunID("test-release-1")
 
 	// Set up context
 	tracker.SetReleaseContext(
@@ -71,7 +71,7 @@ func TestOutcomeTracker_FailedEvent(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("test-release-2")
+	releaseID := release.RunID("test-release-2")
 
 	// Set up context
 	tracker.SetReleaseContext(
@@ -121,7 +121,7 @@ func TestOutcomeTracker_CanceledEvent(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("test-release-3")
+	releaseID := release.RunID("test-release-3")
 
 	// Set up context
 	tracker.SetReleaseContext(
@@ -173,7 +173,7 @@ func TestOutcomeTracker_ForwardsToNextPublisher(t *testing.T) {
 	nextPublisher := &mockEventPublisher{}
 	tracker := NewOutcomeTracker(store, nextPublisher)
 
-	releaseID := release.ReleaseID("test-release-4")
+	releaseID := release.RunID("test-release-4")
 	event := &release.RunCreatedEvent{RunID: releaseID, RepoID: "/path/to/repo", At: time.Now()}
 
 	err := tracker.Publish(context.Background(), event)
@@ -198,7 +198,7 @@ func TestOutcomeTracker_ActorMetricsUpdated(t *testing.T) {
 	actor := cgp.NewHumanActor("dev-user", "Developer")
 
 	// Create successful release
-	releaseID1 := release.ReleaseID("release-1")
+	releaseID1 := release.RunID("release-1")
 	tracker.SetReleaseContext(releaseID1, "owner/repo", "1.0.0", actor, 0.2, cgp.DecisionApproved)
 	ver1 := version.MustParse("1.0.0")
 	err := tracker.Publish(context.Background(), &release.RunPublishedEvent{RunID: releaseID1, Version: ver1, At: time.Now()})
@@ -207,7 +207,7 @@ func TestOutcomeTracker_ActorMetricsUpdated(t *testing.T) {
 	}
 
 	// Create failed release
-	releaseID2 := release.ReleaseID("release-2")
+	releaseID2 := release.RunID("release-2")
 	tracker.SetReleaseContext(releaseID2, "owner/repo", "1.1.0", actor, 0.8, cgp.DecisionApproved)
 	err = tracker.Publish(context.Background(), &release.RunFailedEvent{RunID: releaseID2, Reason: "test failure", At: time.Now()})
 	if err != nil {
@@ -238,7 +238,7 @@ func TestOutcomeTracker_DurationTracking(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("timed-release")
+	releaseID := release.RunID("timed-release")
 
 	// Simulate release start
 	startTime := time.Now().Add(-5 * time.Minute)
@@ -275,7 +275,7 @@ func TestOutcomeTracker_AddTags(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("tagged-release")
+	releaseID := release.RunID("tagged-release")
 	tracker.SetReleaseContext(releaseID, "owner/repo", "1.0.0", cgp.NewHumanActor("dev", "Dev"), 0.1, cgp.DecisionApproved)
 	tracker.AddTags(releaseID, "hotfix", "production")
 
@@ -303,7 +303,7 @@ func TestOutcomeTracker_EventChaining(t *testing.T) {
 	store := NewInMemoryStore()
 	tracker := NewOutcomeTracker(store, nil)
 
-	releaseID := release.ReleaseID("chained-release")
+	releaseID := release.RunID("chained-release")
 
 	// Simulate the full event lifecycle
 	events := []release.DomainEvent{

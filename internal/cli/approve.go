@@ -38,7 +38,7 @@ func init() {
 }
 
 // getLatestRelease retrieves the latest release from the repository.
-func getLatestRelease(ctx context.Context, app cliApp) (*release.Release, error) {
+func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, error) {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -57,7 +57,7 @@ func getLatestRelease(ctx context.Context, app cliApp) (*release.Release, error)
 }
 
 // isReleaseAlreadyApproved checks if the release is already approved and prints info.
-func isReleaseAlreadyApproved(rel *release.Release) bool {
+func isReleaseAlreadyApproved(rel *release.ReleaseRun) bool {
 	if rel.State() == release.StateApproved || rel.IsApproved() {
 		printInfo("Release already approved")
 		printInfo("Run 'relicta publish' to execute the release")
@@ -68,7 +68,7 @@ func isReleaseAlreadyApproved(rel *release.Release) bool {
 
 // validateReleaseStateForApproval checks if the release is in a valid state for approval.
 // Returns an error with guidance if the state is invalid.
-func validateReleaseStateForApproval(rel *release.Release) error {
+func validateReleaseStateForApproval(rel *release.ReleaseRun) error {
 	state := rel.State()
 
 	switch state {
@@ -107,7 +107,7 @@ func shouldUseInteractiveApproval() bool {
 }
 
 // handleNotesEditing handles editing of release notes if requested.
-func handleNotesEditing(rel *release.Release) (*string, error) {
+func handleNotesEditing(rel *release.ReleaseRun) (*string, error) {
 	if !approveEdit || rel.Notes() == nil {
 		return nil, nil
 	}
@@ -151,7 +151,7 @@ func getApproverName() string {
 }
 
 // executeApproval executes the approval use case.
-func executeApproval(ctx context.Context, app cliApp, rel *release.Release, editedNotes *string) error {
+func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
 	input := apprelease.ApproveReleaseInput{
 		ReleaseID:   rel.ID(),
 		ApprovedBy:  getApproverName(),
@@ -343,7 +343,7 @@ func createCGPActor() cgp.Actor {
 }
 
 // evaluateGovernance evaluates the release through CGP governance.
-func evaluateGovernance(ctx context.Context, app cliApp, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+func evaluateGovernance(ctx context.Context, app cliApp, rel *release.ReleaseRun) (*governance.EvaluateReleaseOutput, error) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
@@ -428,7 +428,7 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 }
 
 // recordReleaseOutcome records the release outcome to Release Memory.
-func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool) {
+func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.ReleaseRun, govResult *governance.EvaluateReleaseOutput, success bool) {
 	govService := app.GovernanceService()
 	if govService == nil || govResult == nil {
 		return
@@ -465,7 +465,7 @@ func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.Release,
 }
 
 // displayReleaseSummary displays the release summary for review.
-func displayReleaseSummary(rel *release.Release) {
+func displayReleaseSummary(rel *release.ReleaseRun) {
 	fmt.Println()
 	printTitle("Release Summary")
 	fmt.Println()
@@ -649,7 +649,7 @@ func editReleaseNotes(notes string) (string, error) {
 }
 
 // outputApproveJSON outputs the approval information as JSON.
-func outputApproveJSON(rel *release.Release) error {
+func outputApproveJSON(rel *release.ReleaseRun) error {
 	summary := rel.Summary()
 
 	output := map[string]any{
@@ -687,7 +687,7 @@ func outputApproveJSON(rel *release.Release) error {
 }
 
 // buildTUISummary builds the TUI summary from a release.
-func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
+func buildTUISummary(rel *release.ReleaseRun) ui.ReleaseSummary {
 	summary := rel.Summary()
 
 	tuiSummary := ui.ReleaseSummary{
@@ -726,7 +726,7 @@ func buildTUISummary(rel *release.Release) ui.ReleaseSummary {
 }
 
 // buildGovernanceSummaryForTUI builds governance summary for TUI display.
-func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.Release) *ui.GovernanceSummary {
+func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.ReleaseRun) *ui.GovernanceSummary {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
@@ -782,7 +782,7 @@ func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.
 
 // handleEditApprovalResult handles the edit result from TUI approval.
 // Returns the edited notes and whether approval should proceed.
-func handleEditApprovalResult(rel *release.Release) (*string, bool, error) {
+func handleEditApprovalResult(rel *release.ReleaseRun) (*string, bool, error) {
 	if rel.Notes() == nil {
 		printWarning("No release notes to edit")
 		return nil, false, nil
@@ -812,7 +812,7 @@ func handleEditApprovalResult(rel *release.Release) (*string, bool, error) {
 }
 
 // processTUIApprovalResult processes the TUI approval result and returns edited notes and whether to proceed.
-func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*string, bool, error) {
+func processTUIApprovalResult(result ui.ApprovalResult, rel *release.ReleaseRun) (*string, bool, error) {
 	switch result {
 	case ui.ApprovalAccepted:
 		return nil, true, nil
@@ -828,7 +828,7 @@ func processTUIApprovalResult(result ui.ApprovalResult, rel *release.Release) (*
 }
 
 // runInteractiveApproval runs the interactive TUI for approval.
-func runInteractiveApproval(ctx context.Context, app cliApp, rel *release.Release) error {
+func runInteractiveApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun) error {
 	// Build TUI summary
 	tuiSummary := buildTUISummary(rel)
 

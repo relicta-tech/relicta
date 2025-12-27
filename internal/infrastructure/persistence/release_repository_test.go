@@ -124,7 +124,7 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 	_ = rel.Bump("test-actor")
 
 	// Set notes
-	notes := &release.ReleaseNotes{
+	notes := &release.ReleaseRunNotes{
 		Text:        "## 2.0.0\n\n- Breaking changes",
 		Provider:    "test",
 		GeneratedAt: time.Now(),
@@ -152,8 +152,8 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 	if loaded.TagName() != "v2.0.0" {
 		t.Errorf("TagName = %v, want v2.0.0", loaded.TagName())
 	}
-	if loaded.Version().String() != "2.0.0" {
-		t.Errorf("Version = %v, want 2.0.0", loaded.Version())
+	if loaded.VersionNext().String() != "2.0.0" {
+		t.Errorf("Version = %v, want 2.0.0", loaded.VersionNext())
 	}
 	if loaded.Notes() == nil {
 		t.Fatal("Notes should not be nil")
@@ -199,8 +199,8 @@ func TestFileReleaseRepository_SaveWithPrerelease(t *testing.T) {
 		t.Fatalf("FindByID() error = %v", err)
 	}
 
-	if loaded.Version().String() != "1.1.0-beta.1+build.123" {
-		t.Errorf("Version = %v, want 1.1.0-beta.1+build.123", loaded.Version())
+	if loaded.VersionNext().String() != "1.1.0-beta.1+build.123" {
+		t.Errorf("Version = %v, want 1.1.0-beta.1+build.123", loaded.VersionNext())
 	}
 }
 
@@ -504,7 +504,7 @@ func TestFileReleaseRepository_PublishedRelease(t *testing.T) {
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
 	_ = rel.Bump("test-actor")
-	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
+	_ = rel.GenerateNotes(&release.ReleaseRunNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")
 	_ = rel.MarkPublished("https://github.com/owner/repo/releases/v1.1.0")
@@ -543,7 +543,7 @@ func TestFileReleaseRepository_FailedRelease(t *testing.T) {
 	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
 	_ = rel.Bump("test-actor")
-	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
+	_ = rel.GenerateNotes(&release.ReleaseRunNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
 	_ = rel.StartPublishing("user")
 	_ = rel.MarkFailed("network error", "system")
@@ -570,7 +570,7 @@ func TestFileReleaseRepository_ConcurrentScanReleases(t *testing.T) {
 
 	// Create multiple releases with different states
 	for i := 0; i < numReleases; i++ {
-		id := release.ReleaseID("test-concurrent-" + string(rune('a'+i)))
+		id := release.RunID("test-concurrent-" + string(rune('a'+i)))
 		rel := release.NewRelease(id, "main", "/path/to/repo")
 
 		// Vary the states to test filtering

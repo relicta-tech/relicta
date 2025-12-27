@@ -625,8 +625,8 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 		"updated": rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
-	if rel.Version() != nil {
-		result["version"] = rel.Version().String()
+	if !rel.VersionNext().IsZero() {
+		result["version"] = rel.VersionNext().String()
 	}
 
 	return NewToolResultJSON(result)
@@ -1051,8 +1051,8 @@ func (s *Server) resourceState(ctx context.Context, uri string) (*ReadResourceRe
 
 	rel := releases[0]
 	version := ""
-	if rel.Version() != nil {
-		version = rel.Version().String()
+	if !rel.VersionNext().IsZero() {
+		version = rel.VersionNext().String()
 	}
 
 	content := fmt.Sprintf(`{
@@ -1203,10 +1203,8 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 	if notes == nil {
 		// No notes generated yet - provide helpful message
 		version := ""
-		if rel.Version() != nil {
-			version = rel.Version().String()
-		} else if plan := release.GetPlan(rel); plan != nil {
-			version = plan.NextVersion.String()
+		if !rel.VersionNext().IsZero() {
+			version = rel.VersionNext().String()
 		}
 
 		content := fmt.Sprintf("# Changelog\n\nNo changelog generated yet for version %s.\n\nRun `relicta notes` to generate release notes.", version)

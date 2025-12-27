@@ -13,7 +13,7 @@ import (
 )
 
 // createReleaseWithNotes creates a release in NotesGenerated state ready for approval.
-func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *release.Release {
+func createReleaseWithNotes(id release.RunID, branch, repoPath string) *release.ReleaseRun {
 	r := release.NewRelease(id, branch, repoPath)
 
 	// Create a changeset for the plan
@@ -37,7 +37,7 @@ func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *rele
 	_ = r.Bump("test-actor")
 
 	// Set notes to move to NotesGenerated state
-	notes := &release.ReleaseNotes{
+	notes := &release.ReleaseRunNotes{
 		Text:        "## [1.1.0] - Changes\n- feat: new feature",
 		Provider:    "test",
 		GeneratedAt: time.Now(),

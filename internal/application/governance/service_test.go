@@ -31,7 +31,7 @@ func createTestService(t *testing.T) (*Service, *memory.InMemoryStore) {
 	return svc, memStore
 }
 
-func createTestRelease(t *testing.T) *release.Release {
+func createTestRelease(t *testing.T) *release.ReleaseRun {
 	t.Helper()
 
 	// Create release using the actual API

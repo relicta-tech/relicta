@@ -201,7 +201,7 @@ func runReset(cmd *cobra.Command, args []string) error {
 }
 
 // findCurrentRelease finds the current/latest release for the repository.
-func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, error) {
+func findCurrentRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, error) {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -223,7 +223,7 @@ func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, erro
 }
 
 // validateCancelState validates that the release can be canceled.
-func validateCancelState(rel *release.Release) error {
+func validateCancelState(rel *release.ReleaseRun) error {
 	state := rel.State()
 
 	switch state {
@@ -258,7 +258,7 @@ func validateCancelState(rel *release.Release) error {
 }
 
 // validateResetState validates that the release can be reset.
-func validateResetState(rel *release.Release) error {
+func validateResetState(rel *release.ReleaseRun) error {
 	state := rel.State()
 
 	switch state {
@@ -305,7 +305,7 @@ func getCurrentUser() string {
 }
 
 // outputCancelJSON outputs the cancel result as JSON.
-func outputCancelJSON(rel *release.Release, reason string, wasDryRun bool) error {
+func outputCancelJSON(rel *release.ReleaseRun, reason string, wasDryRun bool) error {
 	output := map[string]any{
 		"action":     "cancel",
 		"release_id": string(rel.ID()),
@@ -320,7 +320,7 @@ func outputCancelJSON(rel *release.Release, reason string, wasDryRun bool) error
 }
 
 // outputResetJSON outputs the reset result as JSON.
-func outputResetJSON(rel *release.Release, previousState release.ReleaseState, wasDryRun bool) error {
+func outputResetJSON(rel *release.ReleaseRun, previousState release.RunState, wasDryRun bool) error {
 	output := map[string]any{
 		"action":         "reset",
 		"release_id":     string(rel.ID()),

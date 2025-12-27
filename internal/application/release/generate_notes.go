@@ -12,7 +12,7 @@ import (
 
 // GenerateNotesInput represents the input for the GenerateNotes use case.
 type GenerateNotesInput struct {
-	ReleaseID        release.ReleaseID
+	ReleaseID        release.RunID
 	UseAI            bool
 	Tone             communication.NoteTone
 	Audience         communication.NoteAudience
@@ -110,8 +110,8 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	// otherwise fall back to planned version. This handles tag-push mode
 	// where the existing tag version may differ from the calculated one.
 	releaseVersion := plan.NextVersion
-	if rel.Version() != nil {
-		releaseVersion = *rel.Version()
+	if !rel.VersionNext().IsZero() {
+		releaseVersion = rel.VersionNext()
 	}
 
 	var notes *communication.ReleaseNotes
@@ -161,7 +161,7 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	if notes.IsAIGenerated() {
 		provider = "ai"
 	}
-	releaseNotes := &release.ReleaseNotes{
+	releaseNotes := &release.ReleaseRunNotes{
 		Text:        notesText,
 		Provider:    provider,
 		GeneratedAt: notes.GeneratedAt(),

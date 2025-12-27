@@ -147,7 +147,7 @@ func (m *mockGitRepository) Push(ctx context.Context, remote, branch string) err
 
 // mockReleaseRepository implements release.Repository for testing.
 type mockReleaseRepository struct {
-	releases   map[release.ReleaseID]*release.Release
+	releases   map[release.RunID]*release.Release
 	saveErr    error
 	findErr    error
 	saveCalled bool
@@ -155,11 +155,11 @@ type mockReleaseRepository struct {
 
 func newMockReleaseRepository() *mockReleaseRepository {
 	return &mockReleaseRepository{
-		releases: make(map[release.ReleaseID]*release.Release),
+		releases: make(map[release.RunID]*release.ReleaseRun),
 	}
 }
 
-func (m *mockReleaseRepository) Save(ctx context.Context, r *release.Release) error {
+func (m *mockReleaseRepository) Save(ctx context.Context, r *release.ReleaseRun) error {
 	m.saveCalled = true
 	if m.saveErr != nil {
 		return m.saveErr
@@ -168,7 +168,7 @@ func (m *mockReleaseRepository) Save(ctx context.Context, r *release.Release) er
 	return nil
 }
 
-func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -179,24 +179,24 @@ func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.Release
 	return r, nil
 }
 
-func (m *mockReleaseRepository) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (m *mockReleaseRepository) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) Delete(ctx context.Context, id release.ReleaseID) error {
+func (m *mockReleaseRepository) Delete(ctx context.Context, id release.RunID) error {
 	return nil
 }
 
-func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
-	result := make([]*release.Release, 0)
+func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
+	result := make([]*release.ReleaseRun, 0)
 	for _, r := range m.releases {
 		if spec.IsSatisfiedBy(r) {
 			result = append(result, r)

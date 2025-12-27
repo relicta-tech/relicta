@@ -11,7 +11,7 @@ import (
 
 // ApproveReleaseInput represents the input for the ApproveRelease use case.
 type ApproveReleaseInput struct {
-	ReleaseID   release.ReleaseID
+	ReleaseID   release.RunID
 	ApprovedBy  string
 	AutoApprove bool
 	// EditedNotes contains user-edited release notes. If non-nil, the notes
@@ -43,7 +43,7 @@ func (i *ApproveReleaseInput) Validate() error {
 type ApproveReleaseOutput struct {
 	Approved    bool
 	ApprovedBy  string
-	ReleasePlan *release.ReleasePlan
+	ReleasePlan *release.ReleaseRunPlan
 }
 
 // ApproveReleaseUseCase implements the approve release use case.
@@ -123,7 +123,7 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 
 // GetReleaseForApprovalInput represents input for getting release details.
 type GetReleaseForApprovalInput struct {
-	ReleaseID release.ReleaseID
+	ReleaseID release.RunID
 }
 
 // Validate validates the GetReleaseForApprovalInput.
@@ -134,7 +134,7 @@ func (i *GetReleaseForApprovalInput) Validate() error {
 // GetReleaseForApprovalOutput represents output with release details for approval.
 type GetReleaseForApprovalOutput struct {
 	Release     *release.Release
-	Summary     release.ReleaseSummary
+	Summary     release.ReleaseRunSummary
 	CanApprove  bool
 	ApprovalMsg string
 }

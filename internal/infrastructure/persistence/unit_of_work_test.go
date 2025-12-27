@@ -230,8 +230,8 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 	ctx := context.Background()
 
 	// Helper to create a planned release
-	createPlannedRelease := func(id, branch, repoPath string) *release.Release {
-		r := release.NewRelease(release.ReleaseID(id), branch, repoPath)
+	createPlannedRelease := func(id, branch, repoPath string) *release.ReleaseRun {
+		r := release.NewRelease(release.RunID(id), branch, repoPath)
 		cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "v1.0.0", "HEAD")
 		cs.AddCommit(changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "feature"))
 		plan := release.NewReleasePlan(
@@ -595,10 +595,10 @@ func TestFileUnitOfWork_AddEvents(t *testing.T) {
 // testDomainEvent is a simple domain event for testing
 type testDomainEvent struct {
 	eventName   string
-	aggregateID release.ReleaseID
+	aggregateID release.RunID
 	occurredAt  time.Time
 }
 
-func (e *testDomainEvent) EventName() string              { return e.eventName }
-func (e *testDomainEvent) AggregateID() release.ReleaseID { return e.aggregateID }
-func (e *testDomainEvent) OccurredAt() time.Time          { return e.occurredAt }
+func (e *testDomainEvent) EventName() string          { return e.eventName }
+func (e *testDomainEvent) AggregateID() release.RunID { return e.aggregateID }
+func (e *testDomainEvent) OccurredAt() time.Time      { return e.occurredAt }

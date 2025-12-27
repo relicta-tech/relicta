@@ -503,15 +503,6 @@ func (r *ReleaseRun) TagName() string {
 	return r.tagName
 }
 
-// Version returns the next version (for backwards compatibility).
-func (r *ReleaseRun) Version() *version.SemanticVersion {
-	ver := r.versionNext
-	if ver.String() == "" || ver.String() == "0.0.0" {
-		return nil
-	}
-	return &ver
-}
-
 // Notes returns the release notes if generated.
 func (r *ReleaseRun) Notes() *ReleaseNotes {
 	return r.notes

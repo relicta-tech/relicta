@@ -40,7 +40,7 @@ func runPlanExecutesPlan(t *testing.T, useAnalyze bool) {
 			{Hash: sourcecontrol.CommitHash("abc"), Subject: "feat"},
 		},
 		executeOutput: &apprelease.PlanReleaseOutput{
-			ReleaseID:      release.ReleaseID("release-1"),
+			ReleaseID:      release.RunID("release-1"),
 			CurrentVersion: version.MustParse("0.1.0"),
 			NextVersion:    version.MustParse("0.2.0"),
 			ReleaseType:    changes.ReleaseTypeMinor,
@@ -487,29 +487,31 @@ type testReleaseRepo struct {
 	latest *release.Release
 }
 
-func (r testReleaseRepo) Save(ctx context.Context, rel *release.Release) error { return nil }
-func (testReleaseRepo) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (r testReleaseRepo) Save(ctx context.Context, rel *release.ReleaseRun) error { return nil }
+func (testReleaseRepo) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (r testReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (r testReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	if r.latest == nil {
 		return nil, release.ErrRunNotFound
 	}
 	return r.latest, nil
 }
-func (testReleaseRepo) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (testReleaseRepo) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (testReleaseRepo) FindActive(ctx context.Context) ([]*release.Release, error) { return nil, nil }
-func (testReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+func (testReleaseRepo) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
-func (testReleaseRepo) Delete(ctx context.Context, id release.ReleaseID) error { return nil }
+func (testReleaseRepo) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
+	return nil, nil
+}
+func (testReleaseRepo) Delete(ctx context.Context, id release.RunID) error { return nil }
 
 // newTestRelease creates a release in StateNotesReady (ready for approval).
-func newTestRelease(t *testing.T, id string) *release.Release {
+func newTestRelease(t *testing.T, id string) *release.ReleaseRun {
 	t.Helper()
-	rel := release.NewRelease(release.ReleaseID(id), "main", ".")
+	rel := release.NewRelease(release.RunID(id), "main", ".")
 	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
 	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
 	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)
@@ -522,7 +524,7 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 	if err := rel.Bump("test-actor"); err != nil {
 		t.Fatalf("Bump failed: %v", err)
 	}
-	notes := &release.ReleaseNotes{
+	notes := &release.ReleaseRunNotes{
 		Text:        "changelog",
 		Provider:    "test",
 		GeneratedAt: time.Now(),
@@ -534,9 +536,9 @@ func newTestRelease(t *testing.T, id string) *release.Release {
 }
 
 // newPlannedRelease creates a release in StatePlanned (ready for bump/version command).
-func newPlannedRelease(t *testing.T, id string) *release.Release {
+func newPlannedRelease(t *testing.T, id string) *release.ReleaseRun {
 	t.Helper()
-	rel := release.NewRelease(release.ReleaseID(id), "main", ".")
+	rel := release.NewRelease(release.RunID(id), "main", ".")
 	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
 	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
 	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)

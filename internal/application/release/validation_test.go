@@ -11,7 +11,7 @@ import (
 func TestValidateReleaseID(t *testing.T) {
 	tests := []struct {
 		name    string
-		id      release.ReleaseID
+		id      release.RunID
 		wantErr bool
 		errMsg  string
 	}{
@@ -61,7 +61,7 @@ func TestValidateReleaseID(t *testing.T) {
 		},
 		{
 			name:    "too long",
-			id:      release.ReleaseID("rel-" + strings.Repeat("1", 100)),
+			id:      release.RunID("rel-" + strings.Repeat("1", 100)),
 			wantErr: true,
 			errMsg:  "too long",
 		},

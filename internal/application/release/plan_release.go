@@ -87,7 +87,7 @@ func (i *PlanReleaseInput) Validate() error {
 
 // PlanReleaseOutput represents the output of the PlanRelease use case.
 type PlanReleaseOutput struct {
-	ReleaseID      release.ReleaseID
+	ReleaseID      release.RunID
 	CurrentVersion version.SemanticVersion
 	NextVersion    version.SemanticVersion
 	ReleaseType    changes.ReleaseType
@@ -215,7 +215,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	nextVersion := uc.versionCalc.CalculateNextVersion(currentVersion, releaseType.ToBumpType())
 
 	// Create release aggregate
-	releaseID := release.ReleaseID(fmt.Sprintf("rel-%d", time.Now().UnixNano()))
+	releaseID := release.RunID(fmt.Sprintf("rel-%d", time.Now().UnixNano()))
 	branch := input.Branch
 	if branch == "" {
 		branch = repoInfo.CurrentBranch
@@ -561,7 +561,7 @@ func firstParent(commit *sourcecontrol.Commit) string {
 }
 
 // saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.
-func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Release) error {
+func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.ReleaseRun) error {
 	// Use UnitOfWork if available
 	if uc.unitOfWorkFactory != nil {
 		return uc.saveReleaseWithUoW(ctx, rel)
@@ -586,7 +586,7 @@ func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Rele
 }
 
 // saveReleaseWithUoW saves the release with transactional boundaries.
-func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.Release) error {
+func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.ReleaseRun) error {
 	// Begin transaction via factory
 	uow, err := uc.unitOfWorkFactory.Begin(ctx)
 	if err != nil {

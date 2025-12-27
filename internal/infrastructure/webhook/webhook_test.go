@@ -51,7 +51,7 @@ func TestPublisher_SendsToWebhook(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release-1")
+	releaseID := release.RunID("test-release-1")
 	ver := version.MustParse("1.2.0")
 	event := &release.RunPublishedEvent{
 		RunID:   releaseID,
@@ -111,7 +111,7 @@ func TestPublisher_FiltersEvents(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 
 	events := []release.DomainEvent{
 		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
@@ -162,7 +162,7 @@ func TestPublisher_WildcardFilter(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	events := []release.DomainEvent{
 		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
 		&release.RunApprovedEvent{RunID: releaseID, ApprovedBy: "admin", At: time.Now()},
@@ -211,7 +211,7 @@ func TestPublisher_SignsPayload(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
@@ -260,7 +260,7 @@ func TestPublisher_CustomHeaders(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
@@ -306,7 +306,7 @@ func TestPublisher_DisabledWebhook(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
@@ -331,7 +331,7 @@ func TestPublisher_ForwardsToNextPublisher(t *testing.T) {
 	webhooks := []config.WebhookConfig{}
 	publisher := NewPublisher(webhooks, nextPublisher)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
@@ -377,7 +377,7 @@ func TestPublisher_RetriesOnFailure(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
@@ -422,7 +422,7 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	events := []release.DomainEvent{
 		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
 		&release.RunPlannedEvent{RunID: releaseID, VersionCurrent: version.MustParse("1.0.0"), VersionNext: version.MustParse("1.1.0"), BumpKind: release.BumpMinor, CommitCount: 5, At: time.Now()},

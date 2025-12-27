@@ -15,7 +15,7 @@ import (
 
 // PublishReleaseInput represents the input for the PublishRelease use case.
 type PublishReleaseInput struct {
-	ReleaseID release.ReleaseID
+	ReleaseID release.RunID
 	DryRun    bool
 	CreateTag bool
 	PushTag   bool
@@ -225,7 +225,7 @@ func (uc *PublishReleaseUseCase) buildTagName(prefix, version string) string {
 }
 
 // buildReleaseContext creates the integration context for plugins.
-func (uc *PublishReleaseUseCase) buildReleaseContext(rel *release.Release, tagName string, dryRun bool) integration.ReleaseContext {
+func (uc *PublishReleaseUseCase) buildReleaseContext(rel *release.ReleaseRun, tagName string, dryRun bool) integration.ReleaseContext {
 	plan := release.GetPlan(rel)
 	ctx := integration.ReleaseContext{
 		Version:         plan.NextVersion,
@@ -251,7 +251,7 @@ func (uc *PublishReleaseUseCase) buildReleaseContext(rel *release.Release, tagNa
 // executePrePublishPhase runs pre-publish hooks and starts publishing.
 func (uc *PublishReleaseUseCase) executePrePublishPhase(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	releaseCtx integration.ReleaseContext,
 	output *PublishReleaseOutput,
 ) error {
@@ -273,7 +273,7 @@ func (uc *PublishReleaseUseCase) executePrePublishPhase(
 // executeGitTagPhase creates and optionally pushes the git tag.
 func (uc *PublishReleaseUseCase) executeGitTagPhase(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	tagName string,
 	input PublishReleaseInput,
 ) error {
@@ -318,7 +318,7 @@ func (uc *PublishReleaseUseCase) executeGitTagPhase(
 }
 
 // buildTagMessage creates the tag message from release notes or default.
-func (uc *PublishReleaseUseCase) buildTagMessage(rel *release.Release) string {
+func (uc *PublishReleaseUseCase) buildTagMessage(rel *release.ReleaseRun) string {
 	if rel.Notes() != nil && rel.Notes().Text != "" {
 		// Use first 500 chars of notes as tag message
 		text := rel.Notes().Text
@@ -331,7 +331,7 @@ func (uc *PublishReleaseUseCase) buildTagMessage(rel *release.Release) string {
 }
 
 // pushTag pushes the tag to the remote repository.
-func (uc *PublishReleaseUseCase) pushTag(ctx context.Context, rel *release.Release, tagName, remote string) error {
+func (uc *PublishReleaseUseCase) pushTag(ctx context.Context, rel *release.ReleaseRun, tagName, remote string) error {
 	if remote == "" {
 		remote = "origin"
 	}
@@ -343,7 +343,7 @@ func (uc *PublishReleaseUseCase) pushTag(ctx context.Context, rel *release.Relea
 }
 
 // markReleaseFailed marks the release as failed and logs any errors.
-func (uc *PublishReleaseUseCase) markReleaseFailed(rel *release.Release, reason string) {
+func (uc *PublishReleaseUseCase) markReleaseFailed(rel *release.ReleaseRun, reason string) {
 	if markErr := rel.MarkFailed(reason, "system"); markErr != nil {
 		uc.logger.Warn("failed to mark release as failed",
 			"error", markErr,
@@ -355,7 +355,7 @@ func (uc *PublishReleaseUseCase) markReleaseFailed(rel *release.Release, reason 
 // executePostPublishPhase runs post-publish hooks (errors are non-fatal).
 func (uc *PublishReleaseUseCase) executePostPublishPhase(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	releaseCtx integration.ReleaseContext,
 	tagName string,
 	output *PublishReleaseOutput,
@@ -377,7 +377,7 @@ func (uc *PublishReleaseUseCase) executePostPublishPhase(
 // finalizePublish marks release as published and executes success hooks.
 func (uc *PublishReleaseUseCase) finalizePublish(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	releaseCtx integration.ReleaseContext,
 	tagName string,
 	dryRun bool,
@@ -406,7 +406,7 @@ func (uc *PublishReleaseUseCase) finalizePublish(
 // Events are collected by the UoW and published on commit.
 func (uc *PublishReleaseUseCase) finalizePublishWithUoW(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	repo release.Repository,
 	releaseCtx integration.ReleaseContext,
 	tagName string,
@@ -434,7 +434,7 @@ func (uc *PublishReleaseUseCase) finalizePublishWithUoW(
 // executeSuccessHooks runs on-success hooks (errors are non-fatal).
 func (uc *PublishReleaseUseCase) executeSuccessHooks(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	releaseCtx integration.ReleaseContext,
 	tagName string,
 	output *PublishReleaseOutput,
@@ -454,7 +454,7 @@ func (uc *PublishReleaseUseCase) executeSuccessHooks(
 }
 
 // publishDomainEvents publishes domain events (errors are non-fatal).
-func (uc *PublishReleaseUseCase) publishDomainEvents(ctx context.Context, rel *release.Release) {
+func (uc *PublishReleaseUseCase) publishDomainEvents(ctx context.Context, rel *release.ReleaseRun) {
 	if uc.eventPublisher == nil {
 		return
 	}
@@ -470,7 +470,7 @@ func (uc *PublishReleaseUseCase) publishDomainEvents(ctx context.Context, rel *r
 // executeHook executes plugins for a hook and records results.
 func (uc *PublishReleaseUseCase) executeHook(
 	ctx context.Context,
-	rel *release.Release,
+	rel *release.ReleaseRun,
 	hook integration.Hook,
 	releaseCtx integration.ReleaseContext,
 ) ([]PluginResult, error) {

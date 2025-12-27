@@ -192,13 +192,6 @@ func ClearPlanCache() {
 
 // Re-export core aggregate and value objects
 type (
-	// Backwards-compatible aliases (old names -> new DDD names)
-	// These allow gradual migration of existing code
-	Release      = domain.ReleaseRun // Old name -> new aggregate
-	ReleaseID    = domain.RunID      // Old name -> new ID type
-	ReleaseState = domain.RunState   // Old name -> new state type
-
-	// New DDD names (preferred)
 	// ReleaseRun is the aggregate root for release governance.
 	ReleaseRun = domain.ReleaseRun
 
@@ -281,8 +274,8 @@ type (
 	StepCompletedEvent        = domain.StepCompletedEvent
 	PluginExecutedEvent       = domain.PluginExecutedEvent
 
-	// ReleaseSummary alias for backwards compatibility
-	ReleaseSummary = domain.RunSummary
+	// RunSummary is a summary of the release run.
+	RunSummary = domain.RunSummary
 )
 
 // Re-export specifications

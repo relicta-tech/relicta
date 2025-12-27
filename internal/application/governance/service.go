@@ -373,7 +373,7 @@ func (s *Service) RecordReleaseOutcome(ctx context.Context, input RecordOutcomeI
 
 // RecordOutcomeInput represents input for recording a release outcome.
 type RecordOutcomeInput struct {
-	ReleaseID       release.ReleaseID
+	ReleaseID       release.RunID
 	Repository      string
 	Version         string
 	Actor           cgp.Actor
@@ -427,7 +427,7 @@ func (s *Service) RecordIncident(ctx context.Context, input RecordIncidentInput)
 type RecordIncidentInput struct {
 	ID            string
 	Repository    string
-	ReleaseID     release.ReleaseID
+	ReleaseID     release.RunID
 	Version       string
 	ActorID       string
 	Type          memory.IncidentType

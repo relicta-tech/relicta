@@ -26,7 +26,7 @@ type OutcomeTracker struct {
 
 	// releaseContexts caches release context for building complete records.
 	// This is needed because outcome events don't contain all release metadata.
-	releaseContexts map[release.ReleaseID]*releaseContext
+	releaseContexts map[release.RunID]*releaseContext
 }
 
 // releaseContext caches release information needed for building ReleaseRecord.
@@ -52,7 +52,7 @@ func NewOutcomeTracker(store Store, next release.EventPublisher) *OutcomeTracker
 		store:           store,
 		next:            next,
 		logger:          slog.Default().With("component", "outcome_tracker"),
-		releaseContexts: make(map[release.ReleaseID]*releaseContext),
+		releaseContexts: make(map[release.RunID]*releaseContext),
 	}
 }
 
@@ -191,7 +191,7 @@ func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCance
 
 // buildReleaseRecord constructs a ReleaseRecord from cached context.
 func (t *OutcomeTracker) buildReleaseRecord(
-	releaseID release.ReleaseID,
+	releaseID release.RunID,
 	ctx *releaseContext,
 	outcome ReleaseOutcome,
 	occurredAt time.Time,
@@ -226,7 +226,7 @@ func (t *OutcomeTracker) buildReleaseRecord(
 }
 
 // getOrCreateContext retrieves or creates a release context.
-func (t *OutcomeTracker) getOrCreateContext(id release.ReleaseID) *releaseContext {
+func (t *OutcomeTracker) getOrCreateContext(id release.RunID) *releaseContext {
 	if ctx, ok := t.releaseContexts[id]; ok {
 		return ctx
 	}
@@ -241,7 +241,7 @@ func (t *OutcomeTracker) getOrCreateContext(id release.ReleaseID) *releaseContex
 // before outcome events arrive. This is useful when the outcome tracker
 // doesn't observe all events from the beginning.
 func (t *OutcomeTracker) SetReleaseContext(
-	releaseID release.ReleaseID,
+	releaseID release.RunID,
 	repository string,
 	version string,
 	actor cgp.Actor,
@@ -261,7 +261,7 @@ func (t *OutcomeTracker) SetReleaseContext(
 
 // SetChangeMetrics sets change metrics for a release context.
 func (t *OutcomeTracker) SetChangeMetrics(
-	releaseID release.ReleaseID,
+	releaseID release.RunID,
 	breakingChanges, securityChanges, filesChanged, linesChanged int,
 ) {
 	ctx := t.getOrCreateContext(releaseID)
@@ -272,7 +272,7 @@ func (t *OutcomeTracker) SetChangeMetrics(
 }
 
 // AddTags adds tags to a release context.
-func (t *OutcomeTracker) AddTags(releaseID release.ReleaseID, tags ...string) {
+func (t *OutcomeTracker) AddTags(releaseID release.RunID, tags ...string) {
 	ctx := t.getOrCreateContext(releaseID)
 	ctx.Tags = append(ctx.Tags, tags...)
 }

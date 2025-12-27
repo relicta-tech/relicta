@@ -334,7 +334,7 @@ func TestBuildGenerateNotesInput(t *testing.T) {
 	}()
 
 	// Create a test release
-	rel := release.NewRelease(release.ReleaseID("test-release-id"), "main", "test-repo")
+	rel := release.NewRelease(release.RunID("test-release-id"), "main", "test-repo")
 
 	tests := []struct {
 		name         string
