@@ -194,25 +194,6 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 		},
 	})
 
-	// Set server instructions
-	s.server.SetInstructions(`Relicta is an AI-powered release management tool.
-
-Use these tools to manage software releases:
-- relicta.status: Get current release state
-- relicta.plan: Analyze commits and plan a release
-- relicta.bump: Set the next version
-- relicta.notes: Generate release notes
-- relicta.evaluate: Evaluate risk using CGP
-- relicta.approve: Approve the release
-- relicta.publish: Execute the release
-
-Resources provide read-only access to:
-- relicta://state: Current release state
-- relicta://config: Configuration settings
-- relicta://commits: Recent commits
-- relicta://changelog: Generated changelog
-- relicta://risk-report: CGP risk assessment`)
-
 	// Register tools
 	s.registerTools()
 
@@ -435,7 +416,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 		// Report progress
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 3.0
-			progress.Report(1, &total)
+			_ = progress.Report(1, &total)
 		}
 
 		output, err := s.adapter.Plan(ctx, planInput)
@@ -445,7 +426,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 3.0
-			progress.Report(2, &total)
+			_ = progress.Report(2, &total)
 		}
 
 		result := map[string]any{
@@ -479,7 +460,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 3.0
-			progress.Report(3, &total)
+			_ = progress.Report(3, &total)
 		}
 
 		s.invalidateCache()
@@ -555,7 +536,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 			totalSteps = 5.0
 		}
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
-			progress.Report(1, &totalSteps)
+			_ = progress.Report(1, &totalSteps)
 		}
 
 		notesInput := NotesInput{
@@ -565,7 +546,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
-			progress.Report(2, &totalSteps)
+			_ = progress.Report(2, &totalSteps)
 		}
 
 		output, err := s.adapter.Notes(ctx, notesInput)
@@ -574,7 +555,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
-			progress.Report(totalSteps, &totalSteps)
+			_ = progress.Report(totalSteps, &totalSteps)
 		}
 
 		result := map[string]any{
@@ -607,7 +588,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 		// Report progress
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 4.0
-			progress.Report(1, &total)
+			_ = progress.Report(1, &total)
 		}
 
 		evalInput := EvaluateInput{
@@ -617,7 +598,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 4.0
-			progress.Report(2, &total)
+			_ = progress.Report(2, &total)
 		}
 
 		output, err := s.adapter.Evaluate(ctx, evalInput)
@@ -627,7 +608,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 4.0
-			progress.Report(4, &total)
+			_ = progress.Report(4, &total)
 		}
 
 		return map[string]any{
@@ -720,7 +701,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 		// Report progress
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 5.0
-			progress.Report(1, &total)
+			_ = progress.Report(1, &total)
 		}
 
 		publishInput := PublishInput{
@@ -732,7 +713,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 5.0
-			progress.Report(2, &total)
+			_ = progress.Report(2, &total)
 		}
 
 		output, err := s.adapter.Publish(ctx, publishInput)
@@ -742,7 +723,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 5.0
-			progress.Report(4, &total)
+			_ = progress.Report(4, &total)
 		}
 
 		result := map[string]any{
@@ -766,7 +747,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
 			total := 5.0
-			progress.Report(5, &total)
+			_ = progress.Report(5, &total)
 		}
 
 		s.invalidateCache()

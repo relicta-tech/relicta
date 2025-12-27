@@ -80,6 +80,8 @@ github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
 github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
 github.com/felixgeelhaar/fortify v1.1.2 h1:v/413a60nA9dusR0jOrI7wtaL67gtyH4nUO0xdj/oIM=
 github.com/felixgeelhaar/fortify v1.1.2/go.mod h1:SXyIu11ChgBHTX+7gmVdUwIcpC0udaH8tRp05tUl3S4=
+github.com/felixgeelhaar/mcp-go v1.2.0 h1:6aBZuyLvt9Bl6trtf7EIrUpW9Ck7zejLIIPloyrM6SY=
+github.com/felixgeelhaar/mcp-go v1.2.0/go.mod h1:mst8EzfTEix4U5HrnDDCIRo8+6etCNbJw1cizW6k3Gg=
 github.com/felixgeelhaar/statekit v0.4.0 h1:JuOo2PU7MDBWDUq3htDX/kjcHtpk0q52avDB8Qt6wSg=
 github.com/felixgeelhaar/statekit v0.4.0/go.mod h1:YBmvEaQBrZlPWUDancNZwLuMTFa4mGJBObM15fkJIbc=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
@@ -98,6 +100,7 @@ github.com/go-git/go-git/v5 v5.16.4 h1:7ajIEZHZJULcyJebDLo99bGgS0jRrOxzZG4uCk2Yb
 github.com/go-git/go-git/v5 v5.16.4/go.mod h1:4Ge4alE/5gPs30F2H1esi2gPd69R0C39lolkucHBOp8=
 github.com/go-logfmt/logfmt v0.6.1 h1:4hvbpePJKnIzH1B+8OR/JPbTx37NktoI9LE2QZBBkvE=
 github.com/go-logfmt/logfmt v0.6.1/go.mod h1:EV2pOAQoZaT1ZXZbqDl5hrymndi4SY9ED9/z6CO0XAk=
+github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
