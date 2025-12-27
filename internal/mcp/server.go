@@ -625,8 +625,8 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 		"updated": rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
-	if rel.Version() != nil {
-		result["version"] = rel.Version().String()
+	if !rel.VersionNext().IsZero() {
+		result["version"] = rel.VersionNext().String()
 	}
 
 	return NewToolResultJSON(result)
@@ -1051,8 +1051,8 @@ func (s *Server) resourceState(ctx context.Context, uri string) (*ReadResourceRe
 
 	rel := releases[0]
 	version := ""
-	if rel.Version() != nil {
-		version = rel.Version().String()
+	if !rel.VersionNext().IsZero() {
+		version = rel.VersionNext().String()
 	}
 
 	content := fmt.Sprintf(`{
@@ -1112,7 +1112,7 @@ func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResource
 	}
 
 	rel := releases[0]
-	plan := rel.Plan()
+	plan := release.GetPlan(rel)
 	if plan == nil {
 		return &ReadResourceResult{
 			Contents: []ResourceContent{
@@ -1203,10 +1203,8 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 	if notes == nil {
 		// No notes generated yet - provide helpful message
 		version := ""
-		if rel.Version() != nil {
-			version = rel.Version().String()
-		} else if rel.Plan() != nil {
-			version = rel.Plan().NextVersion.String()
+		if !rel.VersionNext().IsZero() {
+			version = rel.VersionNext().String()
 		}
 
 		content := fmt.Sprintf("# Changelog\n\nNo changelog generated yet for version %s.\n\nRun `relicta notes` to generate release notes.", version)
@@ -1215,11 +1213,10 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 		}, nil
 	}
 
-	// Return the actual changelog
-	changelog := notes.Changelog
+	// Return the actual notes text
+	changelog := notes.Text
 	if changelog == "" {
-		// Fall back to summary if changelog is empty
-		changelog = fmt.Sprintf("# Release Notes\n\n%s", notes.Summary)
+		changelog = "# Release Notes\n\nNo content available."
 	}
 
 	return &ReadResourceResult{
@@ -1285,7 +1282,7 @@ func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResou
 				Name: "MCP Resource Reader",
 			},
 			cgp.ProposalScope{
-				Repository:  rel.RepositoryName(),
+				Repository:  rel.RepoID(),
 				CommitRange: "HEAD~5..HEAD",
 			},
 			cgp.ProposalIntent{

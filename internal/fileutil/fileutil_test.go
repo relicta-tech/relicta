@@ -118,6 +118,11 @@ func TestReadFileLimited_PermissionDenied(t *testing.T) {
 		t.Skip("permissions behave differently on windows")
 	}
 
+	// Skip if running as root since root can read any file regardless of permissions
+	if os.Geteuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
+
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "secret.txt")
 	if err := os.WriteFile(filePath, []byte("secret"), 0600); err != nil {

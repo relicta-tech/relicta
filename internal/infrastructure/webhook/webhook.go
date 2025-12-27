@@ -131,56 +131,63 @@ func (p *Publisher) buildPayload(event release.DomainEvent) *WebhookPayload {
 		Data:      make(map[string]any),
 	}
 
-	// Extract event-specific data
+	// Extract event-specific data using new DDD event types
 	switch e := event.(type) {
-	case release.ReleaseInitializedEvent:
-		payload.Data["branch"] = e.Branch
-		payload.Data["repository"] = e.Repository
+	case *release.RunCreatedEvent:
+		payload.Data["repo_id"] = e.RepoID
+		payload.Data["head_sha"] = string(e.HeadSHA)
 
-	case release.ReleasePlannedEvent:
-		payload.Data["current_version"] = e.CurrentVersion.String()
-		payload.Data["next_version"] = e.NextVersion.String()
-		payload.Data["release_type"] = e.ReleaseType
+	case *release.RunPlannedEvent:
+		payload.Data["current_version"] = e.VersionCurrent.String()
+		payload.Data["next_version"] = e.VersionNext.String()
+		payload.Data["bump_kind"] = string(e.BumpKind)
 		payload.Data["commit_count"] = e.CommitCount
+		payload.Data["risk_score"] = e.RiskScore
 
-	case release.ReleaseVersionedEvent:
-		payload.Data["version"] = e.Version.String()
+	case *release.RunVersionedEvent:
+		payload.Data["version"] = e.VersionNext.String()
 		payload.Data["tag_name"] = e.TagName
+		payload.Data["bump_kind"] = string(e.BumpKind)
 
-	case release.ReleaseNotesGeneratedEvent:
-		payload.Data["changelog_updated"] = e.ChangelogUpdated
+	case *release.RunNotesGeneratedEvent:
 		payload.Data["notes_length"] = e.NotesLength
+		payload.Data["provider"] = e.Provider
+		payload.Data["model"] = e.Model
 
-	case release.ReleaseApprovedEvent:
+	case *release.RunApprovedEvent:
 		payload.Data["approved_by"] = e.ApprovedBy
+		payload.Data["auto_approved"] = e.AutoApproved
+		payload.Data["plan_hash"] = e.PlanHash
 
-	case release.ReleasePublishingStartedEvent:
-		payload.Data["plugins"] = e.Plugins
+	case *release.RunPublishingStartedEvent:
+		payload.Data["steps"] = e.Steps
+		payload.Data["plan_hash"] = e.PlanHash
 
-	case release.ReleasePublishedEvent:
+	case *release.RunPublishedEvent:
 		payload.Data["version"] = e.Version.String()
-		payload.Data["tag_name"] = e.TagName
-		payload.Data["release_url"] = e.ReleaseURL
 
-	case release.ReleaseFailedEvent:
+	case *release.RunFailedEvent:
 		payload.Data["reason"] = e.Reason
-		payload.Data["failed_at"] = string(e.FailedAt)
-		payload.Data["is_recoverable"] = e.IsRecoverable
 
-	case release.ReleaseCanceledEvent:
+	case *release.RunCanceledEvent:
 		payload.Data["reason"] = e.Reason
-		payload.Data["canceled_by"] = e.CanceledBy
+		payload.Data["canceled_by"] = e.By
 
-	case release.PluginExecutedEvent:
+	case *release.PluginExecutedEvent:
 		payload.Data["plugin_name"] = e.PluginName
 		payload.Data["hook"] = e.Hook
 		payload.Data["success"] = e.Success
 		payload.Data["message"] = e.Message
 		payload.Data["duration_ms"] = e.Duration.Milliseconds()
 
-	case release.ReleaseRetriedEvent:
-		payload.Data["previous_state"] = string(e.PreviousState)
-		payload.Data["new_state"] = string(e.NewState)
+	case *release.RunRetriedEvent:
+		payload.Data["retried_by"] = e.By
+
+	case *release.StateTransitionedEvent:
+		payload.Data["from_state"] = string(e.From)
+		payload.Data["to_state"] = string(e.To)
+		payload.Data["event"] = e.Event
+		payload.Data["actor"] = e.Actor
 	}
 
 	return payload

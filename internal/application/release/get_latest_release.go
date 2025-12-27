@@ -32,9 +32,9 @@ func (i *GetLatestReleaseInput) Validate() error {
 
 // GetLatestReleaseOutput represents the output of the GetLatestRelease use case.
 type GetLatestReleaseOutput struct {
-	Release        *release.Release
-	Version        *version.SemanticVersion
-	State          release.ReleaseState
+	Release        *release.ReleaseRun
+	Version        version.SemanticVersion
+	State          release.RunState
 	RepositoryPath string
 	Branch         string
 	HasRelease     bool
@@ -62,7 +62,7 @@ func (uc *GetLatestReleaseUseCase) Execute(ctx context.Context, input GetLatestR
 	// Find the latest release for the repository
 	rel, err := uc.releaseRepo.FindLatest(ctx, input.RepositoryPath)
 	if err != nil {
-		if errors.Is(err, release.ErrReleaseNotFound) {
+		if errors.Is(err, release.ErrRunNotFound) {
 			// No release found - return empty output with HasRelease=false
 			return &GetLatestReleaseOutput{
 				RepositoryPath: input.RepositoryPath,
@@ -74,9 +74,9 @@ func (uc *GetLatestReleaseUseCase) Execute(ctx context.Context, input GetLatestR
 
 	return &GetLatestReleaseOutput{
 		Release:        rel,
-		Version:        rel.Version(),
+		Version:        rel.VersionNext(),
 		State:          rel.State(),
-		RepositoryPath: rel.RepositoryPath(),
+		RepositoryPath: rel.RepoRoot(),
 		Branch:         rel.Branch(),
 		HasRelease:     true,
 	}, nil

@@ -22,7 +22,7 @@ const (
 var releaseIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
 // ValidateReleaseID validates a release ID format and length.
-func ValidateReleaseID(id release.ReleaseID) error {
+func ValidateReleaseID(id release.RunID) error {
 	if id == "" {
 		return fmt.Errorf("release ID is required")
 	}

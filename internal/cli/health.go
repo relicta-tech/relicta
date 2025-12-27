@@ -100,12 +100,17 @@ func runHealth(cmd *cobra.Command, args []string) error {
 		report.Components = append(report.Components, health)
 
 		// Update overall status based on component health
-		if health.Status == HealthStatusUnhealthy && c.critical {
-			report.Status = HealthStatusUnhealthy
-		} else if health.Status == HealthStatusDegraded && report.Status == HealthStatusHealthy {
-			report.Status = HealthStatusDegraded
-		} else if health.Status == HealthStatusUnhealthy && report.Status == HealthStatusHealthy {
-			report.Status = HealthStatusDegraded
+		switch health.Status {
+		case HealthStatusUnhealthy:
+			if c.critical {
+				report.Status = HealthStatusUnhealthy
+			} else if report.Status == HealthStatusHealthy {
+				report.Status = HealthStatusDegraded
+			}
+		case HealthStatusDegraded:
+			if report.Status == HealthStatusHealthy {
+				report.Status = HealthStatusDegraded
+			}
 		}
 	}
 

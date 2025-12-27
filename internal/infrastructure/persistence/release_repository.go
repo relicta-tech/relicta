@@ -107,10 +107,12 @@ type versionDTO struct {
 }
 
 type notesDTO struct {
-	Changelog   string `json:"changelog"`
-	Summary     string `json:"summary"`
-	AIGenerated bool   `json:"ai_generated"`
-	GeneratedAt string `json:"generated_at"`
+	Text           string `json:"text"`
+	AudiencePreset string `json:"audience_preset,omitempty"`
+	TonePreset     string `json:"tone_preset,omitempty"`
+	Provider       string `json:"provider,omitempty"`
+	Model          string `json:"model,omitempty"`
+	GeneratedAt    string `json:"generated_at"`
 }
 
 type approvalDTO struct {
@@ -120,7 +122,7 @@ type approvalDTO struct {
 }
 
 // Save persists a release.
-func (r *FileReleaseRepository) Save(ctx context.Context, rel *release.Release) error {
+func (r *FileReleaseRepository) Save(ctx context.Context, rel *release.ReleaseRun) error {
 	if err := checkContext(ctx); err != nil {
 		return err
 	}
@@ -145,7 +147,7 @@ func (r *FileReleaseRepository) Save(ctx context.Context, rel *release.Release) 
 }
 
 // FindByID retrieves a release by its ID.
-func (r *FileReleaseRepository) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (r *FileReleaseRepository) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	if err := checkContext(ctx); err != nil {
 		return nil, err
 	}
@@ -157,7 +159,7 @@ func (r *FileReleaseRepository) FindByID(ctx context.Context, id release.Release
 	data, err := fileutil.ReadFileLimited(filePath, MaxReleaseFileSize)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, release.ErrReleaseNotFound
+			return nil, release.ErrRunNotFound
 		}
 		return nil, fmt.Errorf("failed to read release file: %w", err)
 	}
@@ -176,7 +178,7 @@ const maxScanWorkers = 4
 
 // scanResult holds the result of scanning a single file.
 type scanResult struct {
-	release *release.Release
+	release *release.ReleaseRun
 	err     error
 }
 
@@ -184,7 +186,7 @@ type scanResult struct {
 // The filter receives the parsed DTO and returns true if the release should be included.
 // This method must be called with the read lock held.
 // It uses concurrent file reading for better performance with many files.
-func (r *FileReleaseRepository) scanReleases(ctx context.Context, filter func(*releaseDTO) bool) ([]*release.Release, error) {
+func (r *FileReleaseRepository) scanReleases(ctx context.Context, filter func(*releaseDTO) bool) ([]*release.ReleaseRun, error) {
 	entries, err := os.ReadDir(r.basePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read repository directory: %w", err)
@@ -208,8 +210,8 @@ func (r *FileReleaseRepository) scanReleases(ctx context.Context, filter func(*r
 }
 
 // scanReleasesSequential scans files sequentially (for small file counts).
-func (r *FileReleaseRepository) scanReleasesSequential(ctx context.Context, files []string, filter func(*releaseDTO) bool) ([]*release.Release, error) {
-	releases := make([]*release.Release, 0, len(files)/2)
+func (r *FileReleaseRepository) scanReleasesSequential(ctx context.Context, files []string, filter func(*releaseDTO) bool) ([]*release.ReleaseRun, error) {
+	releases := make([]*release.ReleaseRun, 0, len(files)/2)
 
 	for _, filePath := range files {
 		if err := checkContext(ctx); err != nil {
@@ -227,7 +229,7 @@ func (r *FileReleaseRepository) scanReleasesSequential(ctx context.Context, file
 }
 
 // scanReleasesConcurrent scans files concurrently using a worker pool.
-func (r *FileReleaseRepository) scanReleasesConcurrent(ctx context.Context, files []string, filter func(*releaseDTO) bool) ([]*release.Release, error) {
+func (r *FileReleaseRepository) scanReleasesConcurrent(ctx context.Context, files []string, filter func(*releaseDTO) bool) ([]*release.ReleaseRun, error) {
 	// Create channels for work distribution and results
 	jobs := make(chan string, len(files))
 	results := make(chan scanResult, len(files))
@@ -286,7 +288,7 @@ func (r *FileReleaseRepository) scanReleasesConcurrent(ctx context.Context, file
 	}()
 
 	// Collect results
-	releases := make([]*release.Release, 0, len(files)/2)
+	releases := make([]*release.ReleaseRun, 0, len(files)/2)
 	for result := range results {
 		if result.release != nil {
 			releases = append(releases, result.release)
@@ -301,7 +303,7 @@ func (r *FileReleaseRepository) scanReleasesConcurrent(ctx context.Context, file
 }
 
 // scanSingleFile reads and parses a single release file.
-func (r *FileReleaseRepository) scanSingleFile(filePath string, filter func(*releaseDTO) bool) (*release.Release, error) {
+func (r *FileReleaseRepository) scanSingleFile(filePath string, filter func(*releaseDTO) bool) (*release.ReleaseRun, error) {
 	data, err := fileutil.ReadFileLimited(filePath, MaxReleaseFileSize)
 	if err != nil {
 		// Skip files that can't be read (may be corrupted or locked)
@@ -328,7 +330,7 @@ func (r *FileReleaseRepository) scanSingleFile(filePath string, filter func(*rel
 }
 
 // FindLatest retrieves the latest release for a repository.
-func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	if err := checkContext(ctx); err != nil {
 		return nil, err
 	}
@@ -344,7 +346,7 @@ func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string)
 	}
 
 	if len(releases) == 0 {
-		return nil, release.ErrReleaseNotFound
+		return nil, release.ErrRunNotFound
 	}
 
 	// Find the latest by UpdatedAt
@@ -359,7 +361,7 @@ func (r *FileReleaseRepository) FindLatest(ctx context.Context, repoPath string)
 }
 
 // FindByState retrieves releases in a specific state.
-func (r *FileReleaseRepository) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (r *FileReleaseRepository) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	if err := checkContext(ctx); err != nil {
 		return nil, err
 	}
@@ -373,7 +375,7 @@ func (r *FileReleaseRepository) FindByState(ctx context.Context, state release.R
 }
 
 // FindActive retrieves all active (non-final) releases.
-func (r *FileReleaseRepository) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (r *FileReleaseRepository) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	if err := checkContext(ctx); err != nil {
 		return nil, err
 	}
@@ -382,14 +384,14 @@ func (r *FileReleaseRepository) FindActive(ctx context.Context) ([]*release.Rele
 	defer r.mu.RUnlock()
 
 	return r.scanReleases(ctx, func(dto *releaseDTO) bool {
-		state := release.ReleaseState(dto.State)
+		state := release.RunState(dto.State)
 		return !state.IsFinal()
 	})
 }
 
 // FindBySpecification retrieves releases matching the given specification.
 // This method scans all releases and applies the specification filter.
-func (r *FileReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
+func (r *FileReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
 	if err := checkContext(ctx); err != nil {
 		return nil, err
 	}
@@ -407,7 +409,7 @@ func (r *FileReleaseRepository) FindBySpecification(ctx context.Context, spec re
 	}
 
 	// Apply specification filter
-	result := make([]*release.Release, 0, len(allReleases))
+	result := make([]*release.ReleaseRun, 0, len(allReleases))
 	for _, rel := range allReleases {
 		if spec.IsSatisfiedBy(rel) {
 			result = append(result, rel)
@@ -418,7 +420,7 @@ func (r *FileReleaseRepository) FindBySpecification(ctx context.Context, spec re
 }
 
 // Delete removes a release.
-func (r *FileReleaseRepository) Delete(ctx context.Context, id release.ReleaseID) error {
+func (r *FileReleaseRepository) Delete(ctx context.Context, id release.RunID) error {
 	if err := checkContext(ctx); err != nil {
 		return err
 	}
@@ -429,7 +431,7 @@ func (r *FileReleaseRepository) Delete(ctx context.Context, id release.ReleaseID
 	filePath := r.releaseFilePath(id)
 	if err := os.Remove(filePath); err != nil {
 		if os.IsNotExist(err) {
-			return release.ErrReleaseNotFound
+			return release.ErrRunNotFound
 		}
 		return fmt.Errorf("failed to delete release file: %w", err)
 	}
@@ -439,25 +441,24 @@ func (r *FileReleaseRepository) Delete(ctx context.Context, id release.ReleaseID
 
 // Helper methods
 
-func (r *FileReleaseRepository) releaseFilePath(id release.ReleaseID) string {
+func (r *FileReleaseRepository) releaseFilePath(id release.RunID) string {
 	return filepath.Join(r.basePath, string(id)+".json")
 }
 
-func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
+func (r *FileReleaseRepository) toDTO(rel *release.ReleaseRun) *releaseDTO {
 	dto := &releaseDTO{
 		ID:             string(rel.ID()),
 		State:          string(rel.State()),
 		Branch:         rel.Branch(),
-		RepositoryPath: rel.RepositoryPath(),
-		RepositoryName: rel.RepositoryName(),
+		RepositoryPath: rel.RepoRoot(),
+		RepositoryName: rel.RepoID(),
 		TagName:        rel.TagName(),
 		CreatedAt:      rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:      rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		LastError:      rel.LastError(),
 	}
 
-	if rel.Plan() != nil {
-		plan := rel.Plan()
+	if plan := release.GetPlan(rel); plan != nil {
 		dto.Plan = &planDTO{
 			CurrentVersion: plan.CurrentVersion.String(),
 			NextVersion:    plan.NextVersion.String(),
@@ -497,8 +498,8 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 		}
 	}
 
-	if rel.Version() != nil {
-		ver := rel.Version()
+	if !rel.VersionNext().IsZero() {
+		ver := rel.VersionNext()
 		dto.Version = &versionDTO{
 			Major:      ver.Major(),
 			Minor:      ver.Minor(),
@@ -511,10 +512,12 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 	if rel.Notes() != nil {
 		notes := rel.Notes()
 		dto.Notes = &notesDTO{
-			Changelog:   notes.Changelog,
-			Summary:     notes.Summary,
-			AIGenerated: notes.AIGenerated,
-			GeneratedAt: notes.GeneratedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Text:           notes.Text,
+			AudiencePreset: notes.AudiencePreset,
+			TonePreset:     notes.TonePreset,
+			Provider:       notes.Provider,
+			Model:          notes.Model,
+			GeneratedAt:    notes.GeneratedAt.Format("2006-01-02T15:04:05Z07:00"),
 		}
 	}
 
@@ -535,11 +538,7 @@ func (r *FileReleaseRepository) toDTO(rel *release.Release) *releaseDTO {
 	return dto
 }
 
-func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, error) {
-	// Create base release (this sets state to Initialized)
-	rel := release.NewRelease(release.ReleaseID(dto.ID), dto.Branch, dto.RepositoryPath)
-	rel.SetRepositoryName(dto.RepositoryName)
-
+func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, error) {
 	// Parse timestamps
 	createdAt, err := time.Parse(time.RFC3339, dto.CreatedAt)
 	if err != nil {
@@ -559,8 +558,10 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 		publishedAt = &t
 	}
 
-	// Reconstruct plan
-	var plan *release.ReleasePlan
+	// Extract version info from plan if available
+	var versionCurrent, versionNext version.SemanticVersion
+	var bumpKind release.BumpKind
+	var changeSet *changes.ChangeSet
 	if dto.Plan != nil {
 		currentVer, err := version.Parse(dto.Plan.CurrentVersion)
 		if err != nil {
@@ -575,8 +576,11 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 			return nil, fmt.Errorf("failed to parse release type: %w", err)
 		}
 
+		versionCurrent = currentVer
+		versionNext = nextVer
+		bumpKind = release.BumpKindFromReleaseType(releaseType)
+
 		// Reconstruct changeset if available
-		var changeSet *changes.ChangeSet
 		if dto.Plan.ChangeSet != nil {
 			csDTO := dto.Plan.ChangeSet
 			changeSet = changes.NewChangeSet(
@@ -615,16 +619,9 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 				changeSet.AddCommit(commit)
 			}
 		}
-
-		plan = release.NewReleasePlan(currentVer, nextVer, releaseType, changeSet, dto.Plan.DryRun)
-		// Restore the original ChangeSetID from persisted data (if different or nil changeset)
-		if dto.Plan.ChangeSetID != "" {
-			plan.ChangeSetID = changes.ChangeSetID(dto.Plan.ChangeSetID)
-		}
 	}
 
-	// Reconstruct version
-	var ver *version.SemanticVersion
+	// Use explicitly provided version if available (may have build metadata)
 	if dto.Version != nil {
 		v := version.NewSemanticVersion(dto.Version.Major, dto.Version.Minor, dto.Version.Patch)
 		if dto.Version.Prerelease != "" {
@@ -633,7 +630,7 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 		if dto.Version.Metadata != "" {
 			v = v.WithMetadata(version.BuildMetadata(dto.Version.Metadata))
 		}
-		ver = &v
+		versionNext = v
 	}
 
 	// Reconstruct notes
@@ -644,10 +641,12 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 			return nil, fmt.Errorf("failed to parse notes generated_at: %w", err)
 		}
 		notes = &release.ReleaseNotes{
-			Changelog:   dto.Notes.Changelog,
-			Summary:     dto.Notes.Summary,
-			AIGenerated: dto.Notes.AIGenerated,
-			GeneratedAt: generatedAt,
+			Text:           dto.Notes.Text,
+			AudiencePreset: dto.Notes.AudiencePreset,
+			TonePreset:     dto.Notes.TonePreset,
+			Provider:       dto.Notes.Provider,
+			Model:          dto.Notes.Model,
+			GeneratedAt:    generatedAt,
 		}
 	}
 
@@ -665,19 +664,56 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.Release, erro
 		}
 	}
 
+	// Create base release and reconstruct state directly
+	rel := release.NewReleaseRun(
+		dto.RepositoryPath, // repoID
+		dto.RepositoryPath, // repoRoot
+		dto.Branch,         // baseRef
+		"",                 // headSHA
+		nil,                // commits
+		"",                 // configHash
+		"",                 // pluginPlanHash
+	)
+
 	// Use ReconstructState to restore the aggregate without triggering events
 	rel.ReconstructState(
-		release.ReleaseState(dto.State),
-		plan,
-		ver,
-		dto.TagName,
-		notes,
-		approval,
-		createdAt,
-		updatedAt,
-		publishedAt,
-		dto.LastError,
+		release.RunID(dto.ID),       // id
+		"",                          // planHash
+		dto.RepositoryPath,          // repoID
+		dto.RepositoryPath,          // repoRoot
+		dto.Branch,                  // baseRef
+		"",                          // headSHA
+		nil,                         // commits
+		"",                          // configHash
+		"",                          // pluginPlanHash
+		versionCurrent,              // versionCurrent
+		versionNext,                 // versionNext
+		bumpKind,                    // bumpKind
+		1.0,                         // confidence
+		0.0,                         // riskScore
+		nil,                         // reasons
+		release.ActorHuman,          // actorType
+		"",                          // actorID
+		release.PolicyThresholds{},  // thresholds
+		dto.TagName,                 // tagName
+		notes,                       // notes
+		"",                          // notesInputsHash
+		approval,                    // approval
+		nil,                         // steps
+		nil,                         // stepStatus
+		release.RunState(dto.State), // state
+		nil,                         // history
+		dto.LastError,               // lastError
+		"",                          // changesetID
+		createdAt,                   // createdAt
+		updatedAt,                   // updatedAt
+		publishedAt,                 // publishedAt
 	)
+
+	// Store changeset in aggregate if available
+	if changeSet != nil {
+		rel.SetChangeSet(changeSet)
+	}
 
 	return rel, nil
 }

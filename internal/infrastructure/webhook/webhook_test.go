@@ -51,9 +51,13 @@ func TestPublisher_SendsToWebhook(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release-1")
+	releaseID := release.RunID("test-release-1")
 	ver := version.MustParse("1.2.0")
-	event := release.NewReleasePublishedEvent(releaseID, ver, "v1.2.0", "https://example.com/release")
+	event := &release.RunPublishedEvent{
+		RunID:   releaseID,
+		Version: ver,
+		At:      time.Now(),
+	}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -70,8 +74,8 @@ func TestPublisher_SendsToWebhook(t *testing.T) {
 		t.Fatal("webhook did not receive payload")
 	}
 
-	if received.Event != "release.published" {
-		t.Errorf("expected event 'release.published', got %q", received.Event)
+	if received.Event != "run.published" {
+		t.Errorf("expected event 'run.published', got %q", received.Event)
 	}
 
 	if received.ReleaseID != "test-release-1" {
@@ -80,10 +84,6 @@ func TestPublisher_SendsToWebhook(t *testing.T) {
 
 	if received.Data["version"] != "1.2.0" {
 		t.Errorf("expected version '1.2.0', got %v", received.Data["version"])
-	}
-
-	if received.Data["tag_name"] != "v1.2.0" {
-		t.Errorf("expected tag_name 'v1.2.0', got %v", received.Data["tag_name"])
 	}
 }
 
@@ -105,18 +105,18 @@ func TestPublisher_FiltersEvents(t *testing.T) {
 		{
 			Name:   "filtered",
 			URL:    server.URL,
-			Events: []string{"release.published", "release.failed"},
+			Events: []string{"run.published", "run.failed"},
 		},
 	}
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 
 	events := []release.DomainEvent{
-		release.NewReleaseInitializedEvent(releaseID, "main", "owner/repo"),
-		release.NewReleaseApprovedEvent(releaseID, "admin"),
-		release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", ""),
+		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
+		&release.RunApprovedEvent{RunID: releaseID, ApprovedBy: "admin", At: time.Now()},
+		&release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()},
 	}
 
 	err := publisher.Publish(context.Background(), events...)
@@ -130,13 +130,13 @@ func TestPublisher_FiltersEvents(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// Only release.published should be received (initialized and approved are filtered out)
+	// Only run.published should be received (created and approved are filtered out)
 	if len(receivedEvents) != 1 {
 		t.Errorf("expected 1 event, got %d: %v", len(receivedEvents), receivedEvents)
 	}
 
-	if len(receivedEvents) > 0 && receivedEvents[0] != "release.published" {
-		t.Errorf("expected 'release.published', got %q", receivedEvents[0])
+	if len(receivedEvents) > 0 && receivedEvents[0] != "run.published" {
+		t.Errorf("expected 'run.published', got %q", receivedEvents[0])
 	}
 }
 
@@ -156,17 +156,17 @@ func TestPublisher_WildcardFilter(t *testing.T) {
 		{
 			Name:   "wildcard",
 			URL:    server.URL,
-			Events: []string{"release.*"},
+			Events: []string{"run.*"},
 		},
 	}
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	events := []release.DomainEvent{
-		release.NewReleaseInitializedEvent(releaseID, "main", "owner/repo"),
-		release.NewReleaseApprovedEvent(releaseID, "admin"),
-		release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", ""),
+		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
+		&release.RunApprovedEvent{RunID: releaseID, ApprovedBy: "admin", At: time.Now()},
+		&release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()},
 	}
 
 	err := publisher.Publish(context.Background(), events...)
@@ -211,8 +211,8 @@ func TestPublisher_SignsPayload(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
-	event := release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", "")
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -260,8 +260,8 @@ func TestPublisher_CustomHeaders(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
-	event := release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", "")
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -306,8 +306,8 @@ func TestPublisher_DisabledWebhook(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
-	event := release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", "")
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -331,8 +331,8 @@ func TestPublisher_ForwardsToNextPublisher(t *testing.T) {
 	webhooks := []config.WebhookConfig{}
 	publisher := NewPublisher(webhooks, nextPublisher)
 
-	releaseID := release.ReleaseID("test-release")
-	event := release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", "")
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -343,8 +343,8 @@ func TestPublisher_ForwardsToNextPublisher(t *testing.T) {
 		t.Fatalf("expected 1 event forwarded, got %d", len(nextPublisher.events))
 	}
 
-	if nextPublisher.events[0].EventName() != "release.published" {
-		t.Errorf("expected 'release.published' event, got %q", nextPublisher.events[0].EventName())
+	if nextPublisher.events[0].EventName() != "run.published" {
+		t.Errorf("expected 'run.published' event, got %q", nextPublisher.events[0].EventName())
 	}
 }
 
@@ -377,8 +377,8 @@ func TestPublisher_RetriesOnFailure(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
-	event := release.NewReleasePublishedEvent(releaseID, version.MustParse("1.0.0"), "v1.0.0", "")
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(context.Background(), event)
 	if err != nil {
@@ -422,19 +422,19 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 
 	publisher := NewPublisher(webhooks, nil)
 
-	releaseID := release.ReleaseID("test-release")
+	releaseID := release.RunID("test-release")
 	events := []release.DomainEvent{
-		release.NewReleaseInitializedEvent(releaseID, "main", "owner/repo"),
-		release.NewReleasePlannedEvent(releaseID, version.MustParse("1.0.0"), version.MustParse("1.1.0"), "minor", 5),
-		release.NewReleaseVersionedEvent(releaseID, version.MustParse("1.1.0"), "v1.1.0"),
-		release.NewReleaseNotesGeneratedEvent(releaseID, true, 500),
-		release.NewReleaseApprovedEvent(releaseID, "admin"),
-		release.NewReleasePublishingStartedEvent(releaseID, []string{"github", "slack"}),
-		release.NewReleasePublishedEvent(releaseID, version.MustParse("1.1.0"), "v1.1.0", "https://example.com"),
-		release.NewReleaseFailedEvent(releaseID, "test failure", release.StatePublishing, true),
-		release.NewReleaseCanceledEvent(releaseID, "user request", "admin"),
-		release.NewPluginExecutedEvent(releaseID, "github", "PostPublish", true, "success", 2*time.Second),
-		release.NewReleaseRetriedEvent(releaseID, release.StateFailed, release.StatePlanned),
+		&release.RunCreatedEvent{RunID: releaseID, RepoID: "owner/repo", At: time.Now()},
+		&release.RunPlannedEvent{RunID: releaseID, VersionCurrent: version.MustParse("1.0.0"), VersionNext: version.MustParse("1.1.0"), BumpKind: release.BumpMinor, CommitCount: 5, At: time.Now()},
+		&release.RunVersionedEvent{RunID: releaseID, VersionNext: version.MustParse("1.1.0"), TagName: "v1.1.0", At: time.Now()},
+		&release.RunNotesGeneratedEvent{RunID: releaseID, NotesLength: 500, At: time.Now()},
+		&release.RunApprovedEvent{RunID: releaseID, ApprovedBy: "admin", At: time.Now()},
+		&release.RunPublishingStartedEvent{RunID: releaseID, Steps: []string{"github", "slack"}, At: time.Now()},
+		&release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.1.0"), At: time.Now()},
+		&release.RunFailedEvent{RunID: releaseID, Reason: "test failure", At: time.Now()},
+		&release.RunCanceledEvent{RunID: releaseID, Reason: "user request", By: "admin", At: time.Now()},
+		&release.PluginExecutedEvent{RunID: releaseID, PluginName: "github", Hook: "PostPublish", Success: true, Message: "success", Duration: 2 * time.Second, At: time.Now()},
+		&release.RunRetriedEvent{RunID: releaseID, At: time.Now()},
 	}
 
 	err := publisher.Publish(context.Background(), events...)
@@ -459,17 +459,17 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 	}
 
 	expectedEvents := []string{
-		"release.initialized",
-		"release.planned",
-		"release.versioned",
-		"release.notes_generated",
-		"release.approved",
-		"release.publishing_started",
-		"release.published",
-		"release.failed",
-		"release.canceled",
-		"release.plugin_executed",
-		"release.retried",
+		"run.created",
+		"run.planned",
+		"run.versioned",
+		"run.notes_generated",
+		"run.approved",
+		"run.publishing_started",
+		"run.published",
+		"run.failed",
+		"run.canceled",
+		"run.plugin_executed",
+		"run.retried",
 	}
 
 	for _, expected := range expectedEvents {

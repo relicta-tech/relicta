@@ -815,7 +815,15 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *appreleas
 	}
 
 	// Create a temporary release from plan output (works in dry-run mode)
-	rel := release.NewRelease(output.ReleaseID, output.Branch, "")
+	rel := release.NewReleaseRun(
+		"",            // repoID
+		"",            // repoRoot
+		output.Branch, // baseRef
+		"",            // headSHA
+		nil,           // commits
+		"",            // configHash
+		"",            // pluginPlanHash
+	)
 	plan := release.NewReleasePlan(
 		output.CurrentVersion,
 		output.NextVersion,
@@ -823,7 +831,7 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *appreleas
 		output.ChangeSet,
 		dryRun,
 	)
-	if err := rel.SetPlan(plan); err != nil {
+	if err := release.SetPlan(rel, plan); err != nil {
 		return nil
 	}
 

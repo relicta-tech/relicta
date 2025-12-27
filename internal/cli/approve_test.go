@@ -109,7 +109,7 @@ func TestAllowedEditors_Count(t *testing.T) {
 
 func TestValidateReleaseStateForApproval_Initialized(t *testing.T) {
 	// Test that an initialized release (no plan) returns an error
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 
 	err := validateReleaseStateForApproval(rel)
 	if err == nil {

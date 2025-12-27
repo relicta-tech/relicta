@@ -8,16 +8,45 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+// Helper to create a RunCreatedEvent for testing
+func newTestRunCreatedEvent(id release.RunID, repoID string) *release.RunCreatedEvent {
+	return &release.RunCreatedEvent{
+		RunID:  id,
+		RepoID: repoID,
+		At:     time.Now(),
+	}
+}
+
+// Helper to create a RunPlannedEvent for testing
+func newTestRunPlannedEvent(id release.RunID, current, next version.SemanticVersion) *release.RunPlannedEvent {
+	return &release.RunPlannedEvent{
+		RunID:          id,
+		VersionCurrent: current,
+		VersionNext:    next,
+		BumpKind:       release.BumpMinor,
+		CommitCount:    5,
+		At:             time.Now(),
+	}
+}
+
+// Helper to create a RunApprovedEvent for testing
+func newTestRunApprovedEvent(id release.RunID, approvedBy string) *release.RunApprovedEvent {
+	return &release.RunApprovedEvent{
+		RunID:      id,
+		ApprovedBy: approvedBy,
+		At:         time.Now(),
+	}
+}
 
 func TestInMemoryEventPublisher_Publish(t *testing.T) {
 	publisher := NewInMemoryEventPublisher()
 	ctx := context.Background()
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 
 	err := publisher.Publish(ctx, event)
 	if err != nil {
@@ -34,8 +63,8 @@ func TestInMemoryEventPublisher_PublishMultiple(t *testing.T) {
 	publisher := NewInMemoryEventPublisher()
 	ctx := context.Background()
 
-	event1 := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
-	event2 := release.NewReleasePlannedEvent("test-1", version.MustParse("1.0.0"), version.MustParse("1.1.0"), changes.ReleaseTypeMinor.String(), 5)
+	event1 := newTestRunCreatedEvent("test-1", "/repo")
+	event2 := newTestRunPlannedEvent("test-1", version.MustParse("1.0.0"), version.MustParse("1.1.0"))
 
 	err := publisher.Publish(ctx, event1, event2)
 	if err != nil {
@@ -61,7 +90,7 @@ func TestInMemoryEventPublisher_Subscribe(t *testing.T) {
 		mu.Unlock()
 	})
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 	err := publisher.Publish(ctx, event)
 	if err != nil {
 		t.Fatalf("Publish() error = %v", err)
@@ -87,7 +116,7 @@ func TestInMemoryEventPublisher_MultipleSubscribers(t *testing.T) {
 		atomic.AddInt32(&count2, 1)
 	})
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 	err := publisher.Publish(ctx, event)
 	if err != nil {
 		t.Fatalf("Publish() error = %v", err)
@@ -105,7 +134,7 @@ func TestInMemoryEventPublisher_ClearEvents(t *testing.T) {
 	publisher := NewInMemoryEventPublisher()
 	ctx := context.Background()
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 	_ = publisher.Publish(ctx, event)
 
 	if len(publisher.GetEvents()) != 1 {
@@ -123,18 +152,18 @@ func TestInMemoryEventPublisher_GetEventsByType(t *testing.T) {
 	publisher := NewInMemoryEventPublisher()
 	ctx := context.Background()
 
-	event1 := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
-	event2 := release.NewReleaseApprovedEvent("test-1", "user")
-	event3 := release.NewReleaseInitializedEvent("test-2", "develop", "/repo2")
+	event1 := newTestRunCreatedEvent("test-1", "/repo")
+	event2 := newTestRunApprovedEvent("test-1", "user")
+	event3 := newTestRunCreatedEvent("test-2", "/repo2")
 
 	_ = publisher.Publish(ctx, event1, event2, event3)
 
-	initEvents := publisher.GetEventsByType("release.initialized")
+	initEvents := publisher.GetEventsByType("run.created")
 	if len(initEvents) != 2 {
 		t.Errorf("GetEventsByType() length = %d, want 2", len(initEvents))
 	}
 
-	approveEvents := publisher.GetEventsByType("release.approved")
+	approveEvents := publisher.GetEventsByType("run.approved")
 	if len(approveEvents) != 1 {
 		t.Errorf("GetEventsByType() length = %d, want 1", len(approveEvents))
 	}
@@ -144,9 +173,9 @@ func TestInMemoryEventPublisher_GetEventsByAggregateID(t *testing.T) {
 	publisher := NewInMemoryEventPublisher()
 	ctx := context.Background()
 
-	event1 := release.NewReleaseInitializedEvent("release-1", "main", "/repo")
-	event2 := release.NewReleaseApprovedEvent("release-1", "user")
-	event3 := release.NewReleaseInitializedEvent("release-2", "main", "/repo")
+	event1 := newTestRunCreatedEvent("release-1", "/repo")
+	event2 := newTestRunApprovedEvent("release-1", "user")
+	event3 := newTestRunCreatedEvent("release-2", "/repo")
 
 	_ = publisher.Publish(ctx, event1, event2, event3)
 
@@ -172,7 +201,7 @@ func TestInMemoryEventPublisher_ConcurrentPublish(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			event := release.NewReleaseInitializedEvent(release.ReleaseID("test-"+string(rune(idx))), "main", "/repo")
+			event := newTestRunCreatedEvent(release.RunID("test-"+string(rune(idx))), "/repo")
 			_ = publisher.Publish(ctx, event)
 		}(i)
 	}
@@ -201,7 +230,7 @@ func TestInMemoryEventPublisher_HandlerDoesNotBlockOtherOperations(t *testing.T)
 
 	// Publish an event (will trigger slow handler)
 	go func() {
-		event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+		event := newTestRunCreatedEvent("test-1", "/repo")
 		_ = publisher.Publish(ctx, event)
 	}()
 
@@ -237,7 +266,7 @@ func TestInMemoryEventPublisher_HandlerCanCallPublisher(t *testing.T) {
 		_ = publisher.GetEvents()
 	})
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 
 	done := make(chan struct{})
 	go func() {
@@ -257,7 +286,7 @@ func TestNoOpEventPublisher_Publish(t *testing.T) {
 	publisher := NewNoOpEventPublisher()
 	ctx := context.Background()
 
-	event := release.NewReleaseInitializedEvent("test-1", "main", "/repo")
+	event := newTestRunCreatedEvent("test-1", "/repo")
 	err := publisher.Publish(ctx, event)
 
 	if err != nil {

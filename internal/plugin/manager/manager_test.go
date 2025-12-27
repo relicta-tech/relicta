@@ -281,6 +281,11 @@ func TestManager_Install_AlreadyInstalled(t *testing.T) {
 }
 
 func TestManager_Install_SaveManifestError(t *testing.T) {
+	// Skip if running as root since root can write to read-only files
+	if os.Geteuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
+
 	pluginDir := t.TempDir()
 	configDir := t.TempDir()
 	cacheDir := t.TempDir()

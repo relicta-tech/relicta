@@ -22,11 +22,6 @@ GOLINT := golangci-lint
 BIN_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd/relicta
-PLUGINS_DIR := plugins
-
-# All plugin binaries - NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
-# This is kept for backwards compatibility with local development only
-ALL_PLUGINS :=
 
 # Release platforms (os/arch pairs)
 RELEASE_PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
@@ -81,25 +76,6 @@ build-windows:
 install:
 	@echo "Installing $(BINARY_NAME)..."
 	$(GOBUILD) $(LDFLAGS) -o $(GOPATH)/bin/$(BINARY_NAME) ./$(CMD_DIR)
-
-## Plugin targets
-# NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
-# These targets are kept for backwards compatibility but now show guidance
-
-# Build all plugins (no-op - plugins are in separate repos)
-plugins:
-	@echo "Plugins are now in separate repositories:"
-	@echo "  - github:  https://github.com/relicta-tech/plugin-github"
-	@echo "  - gitlab:  https://github.com/relicta-tech/plugin-gitlab"
-	@echo "  - npm:     https://github.com/relicta-tech/plugin-npm"
-	@echo "  - slack:   https://github.com/relicta-tech/plugin-slack"
-	@echo "  - discord: https://github.com/relicta-tech/plugin-discord"
-	@echo "  - jira:    https://github.com/relicta-tech/plugin-jira"
-	@echo ""
-	@echo "Install plugins with: relicta plugin install <name>"
-
-plugin-github plugin-npm plugin-slack:
-	@echo "Plugin targets are deprecated. Use 'relicta plugin install <name>' instead."
 
 ## Test targets
 
@@ -246,13 +222,6 @@ release-binaries:
 			-o $(DIST_DIR)/$(ARCHIVE_NAME)/$(BINARY_NAME)$(EXT) \
 			./$(CMD_DIR) || exit 1; \
 	)
-
-# Build all plugins for all release platforms
-# NOTE: Plugins are now in separate repositories (relicta-tech/plugin-*)
-# This target is kept for backwards compatibility but is a no-op
-release-plugins:
-	@echo "Skipping plugin builds (plugins are now in separate repositories)"
-	@echo "See: https://github.com/relicta-tech/plugin-*"
 
 # Create archives (tar.gz for linux/darwin, zip for windows)
 release-archives:

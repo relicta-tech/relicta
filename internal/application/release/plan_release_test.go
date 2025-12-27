@@ -147,7 +147,7 @@ func (m *mockGitRepository) Push(ctx context.Context, remote, branch string) err
 
 // mockReleaseRepository implements release.Repository for testing.
 type mockReleaseRepository struct {
-	releases   map[release.ReleaseID]*release.Release
+	releases   map[release.RunID]*release.ReleaseRun
 	saveErr    error
 	findErr    error
 	saveCalled bool
@@ -155,11 +155,11 @@ type mockReleaseRepository struct {
 
 func newMockReleaseRepository() *mockReleaseRepository {
 	return &mockReleaseRepository{
-		releases: make(map[release.ReleaseID]*release.Release),
+		releases: make(map[release.RunID]*release.ReleaseRun),
 	}
 }
 
-func (m *mockReleaseRepository) Save(ctx context.Context, r *release.Release) error {
+func (m *mockReleaseRepository) Save(ctx context.Context, r *release.ReleaseRun) error {
 	m.saveCalled = true
 	if m.saveErr != nil {
 		return m.saveErr
@@ -168,7 +168,7 @@ func (m *mockReleaseRepository) Save(ctx context.Context, r *release.Release) er
 	return nil
 }
 
-func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.ReleaseID) (*release.Release, error) {
+func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.RunID) (*release.ReleaseRun, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -179,24 +179,24 @@ func (m *mockReleaseRepository) FindByID(ctx context.Context, id release.Release
 	return r, nil
 }
 
-func (m *mockReleaseRepository) FindByState(ctx context.Context, state release.ReleaseState) ([]*release.Release, error) {
+func (m *mockReleaseRepository) FindByState(ctx context.Context, state release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*release.Release, error) {
+func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepository) Delete(ctx context.Context, id release.ReleaseID) error {
+func (m *mockReleaseRepository) Delete(ctx context.Context, id release.RunID) error {
 	return nil
 }
 
-func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.Release, error) {
-	result := make([]*release.Release, 0)
+func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec release.Specification) ([]*release.ReleaseRun, error) {
+	result := make([]*release.ReleaseRun, 0)
 	for _, r := range m.releases {
 		if spec.IsSatisfiedBy(r) {
 			result = append(result, r)
@@ -930,6 +930,69 @@ func TestShouldAnalyzeAST(t *testing.T) {
 	if shouldAnalyzeAST("docs/README.md", cfg) {
 		t.Error("expected non-go file to be skipped")
 	}
+}
+
+func TestComputeConfigHash(t *testing.T) {
+	t.Run("same config produces same hash", func(t *testing.T) {
+		input := PlanReleaseInput{
+			TagPrefix: "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{
+				MinConfidence: 0.75,
+				EnableAI:      true,
+				EnableAST:     false,
+				Languages:     []string{"go", "python"},
+				SkipPaths:     []string{"vendor/**", "testdata/**"},
+			},
+		}
+		hash1 := computeConfigHash(input)
+		hash2 := computeConfigHash(input)
+		if hash1 != hash2 {
+			t.Errorf("same config should produce same hash, got %s and %s", hash1, hash2)
+		}
+	})
+
+	t.Run("different tag prefix produces different hash", func(t *testing.T) {
+		input1 := PlanReleaseInput{TagPrefix: "v"}
+		input2 := PlanReleaseInput{TagPrefix: "release-"}
+		hash1 := computeConfigHash(input1)
+		hash2 := computeConfigHash(input2)
+		if hash1 == hash2 {
+			t.Error("different tag prefixes should produce different hashes")
+		}
+	})
+
+	t.Run("different analysis config produces different hash", func(t *testing.T) {
+		input1 := PlanReleaseInput{
+			TagPrefix:      "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{EnableAI: true},
+		}
+		input2 := PlanReleaseInput{
+			TagPrefix:      "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{EnableAI: false},
+		}
+		hash1 := computeConfigHash(input1)
+		hash2 := computeConfigHash(input2)
+		if hash1 == hash2 {
+			t.Error("different analysis configs should produce different hashes")
+		}
+	})
+
+	t.Run("nil analysis config produces deterministic hash", func(t *testing.T) {
+		input := PlanReleaseInput{TagPrefix: "v"}
+		hash1 := computeConfigHash(input)
+		hash2 := computeConfigHash(input)
+		if hash1 != hash2 {
+			t.Errorf("nil analysis config should produce deterministic hash, got %s and %s", hash1, hash2)
+		}
+	})
+
+	t.Run("hash is 16 characters", func(t *testing.T) {
+		input := PlanReleaseInput{TagPrefix: "v"}
+		hash := computeConfigHash(input)
+		if len(hash) != 16 {
+			t.Errorf("expected hash length 16, got %d", len(hash))
+		}
+	})
 }
 
 // containsString checks if s contains substr.

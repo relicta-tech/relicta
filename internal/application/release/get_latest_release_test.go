@@ -10,37 +10,37 @@ import (
 
 // mockReleaseRepo is a mock implementation of release.Repository for testing.
 type mockReleaseRepo struct {
-	findLatestFn func(ctx context.Context, repoPath string) (*release.Release, error)
+	findLatestFn func(ctx context.Context, repoPath string) (*release.ReleaseRun, error)
 }
 
-func (m *mockReleaseRepo) Save(_ context.Context, _ *release.Release) error {
+func (m *mockReleaseRepo) Save(_ context.Context, _ *release.ReleaseRun) error {
 	return nil
 }
 
-func (m *mockReleaseRepo) FindByID(_ context.Context, _ release.ReleaseID) (*release.Release, error) {
+func (m *mockReleaseRepo) FindByID(_ context.Context, _ release.RunID) (*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.Release, error) {
+func (m *mockReleaseRepo) FindLatest(ctx context.Context, repoPath string) (*release.ReleaseRun, error) {
 	if m.findLatestFn != nil {
 		return m.findLatestFn(ctx, repoPath)
 	}
-	return nil, release.ErrReleaseNotFound
+	return nil, release.ErrRunNotFound
 }
 
-func (m *mockReleaseRepo) FindByState(_ context.Context, _ release.ReleaseState) ([]*release.Release, error) {
+func (m *mockReleaseRepo) FindByState(_ context.Context, _ release.RunState) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepo) FindActive(_ context.Context) ([]*release.Release, error) {
+func (m *mockReleaseRepo) FindActive(_ context.Context) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepo) FindBySpecification(_ context.Context, _ release.Specification) ([]*release.Release, error) {
+func (m *mockReleaseRepo) FindBySpecification(_ context.Context, _ release.Specification) ([]*release.ReleaseRun, error) {
 	return nil, nil
 }
 
-func (m *mockReleaseRepo) Delete(_ context.Context, _ release.ReleaseID) error {
+func (m *mockReleaseRepo) Delete(_ context.Context, _ release.RunID) error {
 	return nil
 }
 
@@ -86,14 +86,14 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns latest release when found", func(t *testing.T) {
-		expectedRelease := release.NewRelease("test-release-1", "main", "/path/to/repo")
+		expectedRelease := release.NewReleaseRunForTest("test-release-1", "main", "/path/to/repo")
 
 		repo := &mockReleaseRepo{
-			findLatestFn: func(_ context.Context, repoPath string) (*release.Release, error) {
+			findLatestFn: func(_ context.Context, repoPath string) (*release.ReleaseRun, error) {
 				if repoPath == "/path/to/repo" {
 					return expectedRelease, nil
 				}
-				return nil, release.ErrReleaseNotFound
+				return nil, release.ErrRunNotFound
 			},
 		}
 
@@ -116,8 +116,8 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 
 	t.Run("returns HasRelease=false when no release found", func(t *testing.T) {
 		repo := &mockReleaseRepo{
-			findLatestFn: func(_ context.Context, _ string) (*release.Release, error) {
-				return nil, release.ErrReleaseNotFound
+			findLatestFn: func(_ context.Context, _ string) (*release.ReleaseRun, error) {
+				return nil, release.ErrRunNotFound
 			},
 		}
 
@@ -148,7 +148,7 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 
 	t.Run("returns error for repository error", func(t *testing.T) {
 		repo := &mockReleaseRepo{
-			findLatestFn: func(_ context.Context, _ string) (*release.Release, error) {
+			findLatestFn: func(_ context.Context, _ string) (*release.ReleaseRun, error) {
 				return nil, context.DeadlineExceeded
 			},
 		}
