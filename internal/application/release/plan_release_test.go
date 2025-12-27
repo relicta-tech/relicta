@@ -932,6 +932,69 @@ func TestShouldAnalyzeAST(t *testing.T) {
 	}
 }
 
+func TestComputeConfigHash(t *testing.T) {
+	t.Run("same config produces same hash", func(t *testing.T) {
+		input := PlanReleaseInput{
+			TagPrefix: "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{
+				MinConfidence: 0.75,
+				EnableAI:      true,
+				EnableAST:     false,
+				Languages:     []string{"go", "python"},
+				SkipPaths:     []string{"vendor/**", "testdata/**"},
+			},
+		}
+		hash1 := computeConfigHash(input)
+		hash2 := computeConfigHash(input)
+		if hash1 != hash2 {
+			t.Errorf("same config should produce same hash, got %s and %s", hash1, hash2)
+		}
+	})
+
+	t.Run("different tag prefix produces different hash", func(t *testing.T) {
+		input1 := PlanReleaseInput{TagPrefix: "v"}
+		input2 := PlanReleaseInput{TagPrefix: "release-"}
+		hash1 := computeConfigHash(input1)
+		hash2 := computeConfigHash(input2)
+		if hash1 == hash2 {
+			t.Error("different tag prefixes should produce different hashes")
+		}
+	})
+
+	t.Run("different analysis config produces different hash", func(t *testing.T) {
+		input1 := PlanReleaseInput{
+			TagPrefix:      "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{EnableAI: true},
+		}
+		input2 := PlanReleaseInput{
+			TagPrefix:      "v",
+			AnalysisConfig: &analysis.AnalyzerConfig{EnableAI: false},
+		}
+		hash1 := computeConfigHash(input1)
+		hash2 := computeConfigHash(input2)
+		if hash1 == hash2 {
+			t.Error("different analysis configs should produce different hashes")
+		}
+	})
+
+	t.Run("nil analysis config produces deterministic hash", func(t *testing.T) {
+		input := PlanReleaseInput{TagPrefix: "v"}
+		hash1 := computeConfigHash(input)
+		hash2 := computeConfigHash(input)
+		if hash1 != hash2 {
+			t.Errorf("nil analysis config should produce deterministic hash, got %s and %s", hash1, hash2)
+		}
+	})
+
+	t.Run("hash is 16 characters", func(t *testing.T) {
+		input := PlanReleaseInput{TagPrefix: "v"}
+		hash := computeConfigHash(input)
+		if len(hash) != 16 {
+			t.Errorf("expected hash length 16, got %d", len(hash))
+		}
+	})
+}
+
 // containsString checks if s contains substr.
 func containsString(s, substr string) bool {
 	return strings.Contains(s, substr)

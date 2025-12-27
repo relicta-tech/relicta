@@ -3,6 +3,8 @@ package release
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -232,14 +234,22 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		headSHA = release.CommitSHA(commits[len(commits)-1].Hash())
 	}
 
+	// Compute configuration hash for idempotency detection
+	configHash := computeConfigHash(input)
+
+	// Plugin plan hash is intentionally empty during the plan phase.
+	// Plugins are configured and executed during the publish phase,
+	// so their configuration is not part of the plan identity.
+	const pluginPlanHash = ""
+
 	rel := release.NewReleaseRun(
 		repoInfo.RemoteURL,   // repoID
 		input.RepositoryPath, // repoRoot
 		branch,               // baseRef
 		headSHA,              // headSHA
 		commitSHAs,           // commits
-		"",                   // configHash (TODO: compute if needed)
-		"",                   // pluginPlanHash (TODO: compute if needed)
+		configHash,
+		pluginPlanHash,
 	)
 
 	// Set release plan
@@ -577,6 +587,33 @@ func firstParent(commit *sourcecontrol.Commit) string {
 		return ""
 	}
 	return parents[0].String()
+}
+
+// computeConfigHash computes a hash of configuration settings that affect the release plan.
+// This is used for idempotency detection - if the same commits with the same config
+// produce the same plan, the hash will match.
+func computeConfigHash(input PlanReleaseInput) string {
+	h := sha256.New()
+
+	// Include tag prefix as it affects version discovery
+	h.Write([]byte("tagPrefix:"))
+	h.Write([]byte(input.TagPrefix))
+
+	// Include analysis config settings that affect commit classification
+	if input.AnalysisConfig != nil {
+		cfg := input.AnalysisConfig
+		fmt.Fprintf(h, "|minConfidence:%.2f", cfg.MinConfidence)
+		fmt.Fprintf(h, "|enableAI:%t", cfg.EnableAI)
+		fmt.Fprintf(h, "|enableAST:%t", cfg.EnableAST)
+		if len(cfg.Languages) > 0 {
+			fmt.Fprintf(h, "|languages:%s", strings.Join(cfg.Languages, ","))
+		}
+		if len(cfg.SkipPaths) > 0 {
+			fmt.Fprintf(h, "|skipPaths:%s", strings.Join(cfg.SkipPaths, ","))
+		}
+	}
+
+	return hex.EncodeToString(h.Sum(nil))[:16] // Use first 16 chars for brevity
 }
 
 // saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.
