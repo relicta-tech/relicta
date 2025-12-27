@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document evaluates whether to replace Relicta's custom MCP (Model Context Protocol) implementation with an existing mcp-go framework. After thorough analysis, **the recommendation is to NOT migrate** at this time. The custom implementation provides significant value with minimal ongoing maintenance burden, while migration would require substantial effort with limited benefits.
+This document evaluates whether to replace Relicta's custom MCP (Model Context Protocol) implementation with an existing mcp-go framework. After thorough analysis, **the recommendation is to MIGRATE to `felixgeelhaar/mcp-go`**. This framework provides production-ready features that closely match Relicta's current implementation while significantly reducing code maintenance burden.
 
 ---
 
@@ -23,239 +23,281 @@ This document evaluates whether to replace Relicta's custom MCP (Model Context P
 | **Transport** | Stdio (NDJSON) |
 | **Advanced** | Progress streaming, resource caching with TTLs, multi-repo management, plugin integration, client SDK |
 
-### Architecture Strengths
+### Current Pain Points
 
-1. **Clean Adapter Pattern**: `Adapter` bridges MCP protocol to application use cases, providing excellent separation of concerns
-2. **Type-Safe Integration**: Direct integration with domain types (`release.Repository`, `version.Version`, etc.)
-3. **CGP Integration**: Tight coupling with Change Governance Protocol for risk assessment
-4. **Zero External Dependencies**: Custom JSON-RPC 2.0 implementation with no framework lock-in
-5. **Comprehensive Testing**: Integration and unit tests cover full workflow
-
----
-
-## Available mcp-go Frameworks
-
-### 1. Official Go SDK (`modelcontextprotocol/go-sdk`)
-
-| Attribute | Details |
-|-----------|---------|
-| **Maintainer** | MCP Organization + Google |
-| **Stars/Forks** | 3.5k stars, 70 contributors |
-| **Stability** | Stable target: July 2025 |
-| **MCP Version** | 2025-06-18 |
-| **License** | MIT |
-
-**Key Features**:
-- Typed tool handlers with struct-based inputs
-- Command-based and stdio transports
-- OAuth support for authentication
-- Official specification alignment
-
-**Limitations**:
-- Newer project, still stabilizing API
-- Less community adoption compared to alternatives
-
-### 2. mark3labs/mcp-go
-
-| Attribute | Details |
-|-----------|---------|
-| **Maintainer** | Ed Zynda (Community) |
-| **Stars/Forks** | 7.9k stars, 744 forks |
-| **Imports** | 1,307 packages |
-| **Status** | Active development |
-| **License** | MIT |
-
-**Key Features**:
-- High-level builder API (`mcp.NewTool()`)
-- Per-session tool registration
-- Request hooks and middleware
-- Panic recovery via `WithRecovery()`
-- Full context support
-
-**Limitations**:
-- "Under active development" - API may change
-- Some advanced features still in progress
-- Custom extensions may diverge from spec
-
-### 3. metoro-io/mcp-golang
-
-| Attribute | Details |
-|-----------|---------|
-| **Maintainer** | Metoro.io |
-| **Focus** | Type safety, low boilerplate |
-| **License** | MIT |
-
-**Key Features**:
-- Define tool arguments as native Go structs
-- Automatic JSON schema generation
-- Custom transports (stdio, HTTP)
-
-**Limitations**:
-- Smaller community
-- Less feature-complete
+1. **Protocol Maintenance**: Custom JSON-RPC 2.0 implementation requires manual spec updates
+2. **Type Safety**: Manual `map[string]any` argument parsing with type assertions
+3. **Missing Transports**: Only stdio supported; no HTTP/SSE or WebSocket
+4. **No Built-in Middleware**: Custom logging, recovery, and auth implementations
+5. **MCP Version**: Using `2024-11-05` spec, behind current `2025-06-18`
 
 ---
 
-## Migration Effort Assessment
+## Framework Analysis
 
-### What Would Need to Change
+### Recommended: `felixgeelhaar/mcp-go`
 
-#### 1. Protocol Layer (Low Effort)
-The `protocol.go` file (~362 lines) would be replaced by framework types. This is straightforward.
+| Attribute | Details |
+|-----------|---------|
+| **Repository** | [github.com/felixgeelhaar/mcp-go](https://pkg.go.dev/github.com/felixgeelhaar/mcp-go) |
+| **Philosophy** | "Typed > dynamic", "Safe defaults > flexibility" |
+| **Go Version** | 1.23+ |
+| **License** | MIT |
+| **Production Use** | Obvia (incident automation platform) |
 
-#### 2. Server Core (Medium-High Effort)
-The `server.go` file (~1,639 lines) contains:
-- Custom tool/resource/prompt registration
-- Message dispatch logic
-- Progress notification handling
-- Cache integration
+#### Key Features
 
-Framework approach would require:
-- Rewriting all tool handlers to match framework signatures
-- Adapting progress streaming (frameworks may not support this natively)
-- Integrating cache invalidation with framework lifecycle
+**1. Strongly-Typed Handlers**
+```go
+type SearchInput struct {
+    Query string `json:"query" jsonschema:"required,description=Search query"`
+    Limit int    `json:"limit" jsonschema:"default=10,minimum=1"`
+}
 
-#### 3. Transport Layer (Low Effort)
-The `transport.go` (~178 lines) can be replaced by framework stdio transport.
+srv.Tool("search").
+    Description("Search for items").
+    Handler(func(ctx context.Context, input SearchInput) ([]string, error) {
+        return results, nil  // Automatic JSON serialization
+    })
+```
 
-#### 4. Adapter Layer (Medium Effort)
-The `adapters.go` (~670 lines) would remain largely unchanged but would need to:
-- Convert input/output types to framework formats
-- Handle framework-specific error patterns
+**2. Multiple Transports**
+- **Stdio**: `mcp.ServeStdio(ctx, srv)` - CLI/agent integration
+- **HTTP + SSE**: `mcp.ServeHTTP(ctx, srv, ":8080")` - Service deployments
+- **WebSocket**: `mcp.ServeWebSocket(ctx, srv, ":8080")` - Bidirectional
 
-#### 5. Advanced Features (High Effort)
-These custom features have no direct framework equivalents:
+**3. Built-in Middleware Stack**
+```go
+middleware := mcp.Chain(
+    mcp.Recover(),           // Panic recovery
+    mcp.RequestID(),         // Request tracing
+    mcp.Timeout(30*time.Second),
+    mcp.Logging(logger),     // Structured logging
+    mcp.RateLimit(config),   // Rate limiting
+    mcp.Auth(authenticator), // API key/Bearer auth
+    mcp.OTel(options),       // OpenTelemetry
+)
+```
 
-| Feature | Custom Lines | Framework Support |
-|---------|--------------|-------------------|
-| **Resource Caching** | 206 | None - must implement |
-| **Multi-repo Management** | 100+ | None - must implement |
-| **Plugin Integration** | 100+ | None - must implement |
-| **Progress Streaming** | 100+ | Partial in some frameworks |
-| **Client SDK** | 350+ | Available but different API |
+**4. Built-in Progress Reporting**
+```go
+progress := mcp.ProgressFromContext(ctx)
+total := 100.0
+for i := 0; i < 100; i++ {
+    progress.Report(float64(i), &total)
+}
+```
 
-#### 6. Test Suite (High Effort)
-All integration tests would need rewriting to use framework APIs.
+**5. Session Features (MCP v1.1+)**
+- Logging to client
+- LLM sampling requests
+- Workspace roots awareness
+- Resource subscriptions
+- Request cancellation
+
+**6. URI Template Resources**
+```go
+srv.Resource("file://{path}").
+    Name("File").
+    MimeType("text/plain").
+    Handler(func(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
+        content, _ := os.ReadFile(params["path"])
+        return &mcp.ResourceContent{URI: uri, Text: string(content)}, nil
+    })
+```
+
+**7. Automatic JSON Schema Generation**
+Struct tags define validation without manual schema maintenance:
+- `jsonschema:"required"` - Required field
+- `jsonschema:"description=..."` - Field description
+- `jsonschema:"default=10"` - Default value
+- `jsonschema:"minimum=0,maximum=100"` - Numeric bounds
+- `jsonschema:"enum=a|b|c"` - Enum values
+
+---
+
+### Alternative Frameworks Considered
+
+#### Official Go SDK (`modelcontextprotocol/go-sdk`)
+
+| Pros | Cons |
+|------|------|
+| Official MCP organization | Stabilizing until July 2025 |
+| Google collaboration | Less mature API |
+| OAuth support | Smaller community |
+
+#### mark3labs/mcp-go
+
+| Pros | Cons |
+|------|------|
+| 7.9k stars, high adoption | "Under active development" |
+| Builder pattern API | No built-in middleware |
+| Per-session tools | Manual progress handling |
+
+#### metoro-io/mcp-golang
+
+| Pros | Cons |
+|------|------|
+| Type-safe structs | Smaller community |
+| Low boilerplate | Less feature-complete |
+
+---
+
+## Migration Plan
+
+### Phase 1: Core Server Migration (3-4 days)
+
+**Files to replace:**
+- `protocol.go` (362 lines) → Use framework types
+- `transport.go` (178 lines) → Use `mcp.ServeStdio()`
+- `server.go` (1,639 lines) → Rewrite with typed handlers
+
+**Before (current):**
+```go
+type ToolHandler func(ctx context.Context, args map[string]any) (*CallToolResult, error)
+
+func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+    analyze, _ := args["analyze"].(bool)
+    fromRef, _ := args["from"].(string)
+    // Manual type assertions...
+}
+```
+
+**After (felixgeelhaar/mcp-go):**
+```go
+type PlanInput struct {
+    Analyze bool   `json:"analyze" jsonschema:"description=Include detailed commit analysis"`
+    From    string `json:"from" jsonschema:"description=Starting reference (tag or commit)"`
+}
+
+srv.Tool("relicta.plan").
+    Description("Analyze commits since last release").
+    Handler(func(ctx context.Context, input PlanInput) (*PlanOutput, error) {
+        return adapter.Plan(ctx, input)  // Type-safe!
+    })
+```
+
+### Phase 2: Adapter Simplification (2-3 days)
+
+The `adapters.go` layer remains but simplifies:
+- Remove manual type conversion from `map[string]any`
+- Input/output types already match handler signatures
+- Direct pass-through to use cases
+
+### Phase 3: Advanced Features (3-4 days)
+
+| Feature | Migration Approach |
+|---------|-------------------|
+| **Progress Streaming** | Use `mcp.ProgressFromContext(ctx)` - native support |
+| **Resource Caching** | Implement as middleware or keep `cache.go` |
+| **Multi-repo** | Keep as application-layer feature |
+| **Plugin Integration** | Keep as application-layer feature |
+
+### Phase 4: New Capabilities (2-3 days)
+
+Features gained from migration:
+- HTTP+SSE transport for web integrations
+- WebSocket transport for real-time updates
+- OpenTelemetry instrumentation
+- Built-in rate limiting and auth
+- Session-based logging to clients
+
+### Phase 5: Test Migration (2-3 days)
+
+Update integration tests to use framework APIs. Most test logic remains; only API calls change.
 
 ### Estimated Total Effort
 
-| Component | Lines Affected | Effort |
-|-----------|----------------|--------|
-| Protocol replacement | 362 | 1-2 days |
-| Server rewrite | 1,639 | 3-5 days |
-| Adapter updates | 670 | 2-3 days |
-| Advanced features | 500+ | 5-7 days |
-| Test migration | 2,000+ | 3-5 days |
-| Integration testing | - | 2-3 days |
-| **Total** | **~5,000 lines** | **16-25 days** |
+| Phase | Effort |
+|-------|--------|
+| Core Server Migration | 3-4 days |
+| Adapter Simplification | 2-3 days |
+| Advanced Features | 3-4 days |
+| New Capabilities | 2-3 days |
+| Test Migration | 2-3 days |
+| **Total** | **12-17 days** |
 
 ---
 
-## Benefits Analysis
+## Code Reduction Analysis
 
-### Benefits of Migration
+| Component | Current Lines | After Migration | Reduction |
+|-----------|---------------|-----------------|-----------|
+| `protocol.go` | 362 | 0 (framework) | -362 |
+| `transport.go` | 178 | 0 (framework) | -178 |
+| `server.go` | 1,639 | ~400 (handlers only) | -1,239 |
+| `streaming.go` | 100+ | 0 (framework) | -100 |
+| `adapters.go` | 670 | ~400 (simplified) | -270 |
+| **Total Reduction** | | | **~2,100 lines** |
 
-1. **Reduced Maintenance**: Protocol updates handled by framework maintainers
-2. **Community Support**: Bug fixes and improvements from community
-3. **Specification Compliance**: Automatic alignment with MCP spec changes
-4. **New Features**: Get new MCP features (e.g., OAuth) for free
-
-### Benefits of Current Implementation
-
-1. **Zero Dependencies**: No external framework to update or worry about breaking changes
-2. **Tailored Features**: Custom caching, multi-repo, and plugin support exactly match Relicta's needs
-3. **CGP Integration**: Tight coupling with governance features would be harder to maintain through abstraction layers
-4. **Performance Control**: Direct control over serialization, caching, and message handling
-5. **Stability**: No risk of upstream breaking changes affecting production
+**Net result**: ~13,000 lines → ~10,900 lines (~16% reduction) while gaining significant new capabilities.
 
 ---
 
-## Risk Analysis
+## Feature Comparison Matrix
 
-### Risks of Migration
-
-| Risk | Severity | Likelihood | Mitigation |
-|------|----------|------------|------------|
-| Breaking changes in framework | High | Medium | Pin versions, monitor releases |
-| Feature regression | Medium | High | Extensive testing required |
-| Performance degradation | Low | Medium | Benchmark before/after |
-| Loss of custom features | High | High | Re-implement as extensions |
-| Increased complexity | Medium | Medium | Maintain abstraction layer |
-
-### Risks of Staying
-
-| Risk | Severity | Likelihood | Mitigation |
-|------|----------|------------|------------|
-| Spec drift | Low | Low | Monitor MCP spec, update as needed |
-| Maintenance burden | Low | Low | Protocol is stable, minimal changes expected |
-| Missing new features | Low | Medium | Implement as needed |
+| Feature | Current | felixgeelhaar/mcp-go | Benefit |
+|---------|---------|---------------------|---------|
+| **Type Safety** | Manual assertions | Struct-based handlers | Compile-time safety |
+| **JSON Schema** | Hand-crafted | Auto-generated | Always in sync |
+| **Progress** | Custom implementation | `ProgressFromContext` | Less code |
+| **Transports** | Stdio only | Stdio, HTTP, WebSocket | More deployment options |
+| **Middleware** | None | Full stack | Production-ready |
+| **Auth** | None | API key, Bearer | Security built-in |
+| **Observability** | Manual logging | OpenTelemetry | Industry standard |
+| **MCP Version** | 2024-11-05 | Latest | Spec compliance |
 
 ---
 
-## Framework Comparison Matrix
+## Risk Mitigation
 
-| Criteria | Custom | Official SDK | mark3labs | metoro-io |
-|----------|--------|--------------|-----------|-----------|
-| **Type Safety** | Manual | Struct-based | Mixed | Struct-based |
-| **Tool Definition** | Handler maps | Typed handlers | Builder pattern | Structs |
-| **Progress Streaming** | Full support | Unknown | Partial | Unknown |
-| **Resource Caching** | Built-in | None | None | None |
-| **Multi-repo** | Built-in | None | None | None |
-| **Plugin Integration** | Built-in | None | None | None |
-| **Client SDK** | Built-in | Yes | No | No |
-| **Stability** | Stable | Stabilizing | Active dev | Active dev |
-| **Dependencies** | Zero | Minimal | Minimal | Minimal |
-| **Migration Effort** | N/A | High | High | High |
+| Risk | Mitigation |
+|------|------------|
+| Breaking changes | Pin to specific version, review releases |
+| Feature gaps | Keep custom `cache.go`, `multirepo.go`, `plugins.go` |
+| Performance | Benchmark before/after migration |
+| Learning curve | Framework has Gin-like familiar API |
 
 ---
 
 ## Recommendation
 
-### Decision: **Do Not Migrate**
+### Decision: **Migrate to `felixgeelhaar/mcp-go`**
 
 #### Rationale
 
-1. **High effort, low reward**: Migration would require 16-25 days of work with no significant functional improvement
+1. **Strong Feature Parity**: Built-in progress reporting, typed handlers, and middleware match current needs
 
-2. **Feature loss risk**: Custom features (caching, multi-repo, plugins) would need re-implementation
+2. **Code Reduction**: ~2,100 fewer lines to maintain while gaining capabilities
 
-3. **Framework instability**: Both major frameworks are "under active development" with potential breaking changes
+3. **Type Safety**: Eliminates error-prone `map[string]any` argument parsing
 
-4. **Custom implementation is mature**: The current code is well-tested, production-ready, and matches Relicta's specific needs
+4. **Transport Flexibility**: HTTP+SSE and WebSocket enable new integration patterns
 
-5. **Protocol stability**: MCP specification updates are infrequent; maintaining protocol compliance is minimal effort
+5. **Production Middleware**: Recovery, auth, rate limiting, and observability out of the box
 
-6. **Zero-dependency advantage**: Current implementation has no external dependencies to manage or worry about
+6. **Spec Compliance**: Automatic alignment with latest MCP specification
 
-### When to Reconsider
+7. **Reasonable Effort**: 12-17 days is acceptable for the benefits gained
 
-Migration should be reconsidered if:
+### Migration Priority
 
-1. **MCP spec undergoes major revision** requiring substantial protocol changes
-2. **Framework reaches stable 1.0** with stable API guarantees
-3. **New MCP features** (e.g., streaming responses, bidirectional tools) become essential
-4. **Maintenance burden increases** significantly due to spec changes
-5. **Team bandwidth allows** for the migration effort without impacting features
-
-### Incremental Improvements (Alternative)
-
-Instead of full migration, consider these targeted improvements:
-
-1. **Update MCP version**: Current implementation uses `2024-11-05`; update to `2025-06-18` spec
-2. **Improve type safety**: Add typed argument binding similar to framework approaches
-3. **Extract protocol types**: Create standalone package for potential reuse
-4. **Add OAuth support**: Implement authentication if needed for future features
+1. Start with core server migration to validate framework fit
+2. Keep adapter pattern - it cleanly separates MCP from business logic
+3. Retain custom caching and multi-repo as application-layer features
+4. Add HTTP transport after stdio works to enable web integrations
 
 ---
 
 ## Sources
 
+- [felixgeelhaar/mcp-go](https://pkg.go.dev/github.com/felixgeelhaar/mcp-go) - Recommended framework
 - [Official Go SDK](https://github.com/modelcontextprotocol/go-sdk) - MCP organization repository
-- [mark3labs/mcp-go](https://github.com/mark3labs/mcp-go) - Community implementation with 7.9k stars
-- [mcp-go API Documentation](https://pkg.go.dev/github.com/mark3labs/mcp-go/mcp) - Package documentation
+- [mark3labs/mcp-go](https://github.com/mark3labs/mcp-go) - Community implementation
 - [metoro-io/mcp-golang](https://github.com/metoro-io/mcp-golang) - Type-safe implementation
 
 ---
 
 *Evaluation completed: 2025-12-27*
+*Revised: 2025-12-27 - Updated recommendation to felixgeelhaar/mcp-go*
 *Author: Claude Code*
