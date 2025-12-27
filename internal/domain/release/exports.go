@@ -160,6 +160,10 @@ func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 
 // SetRepositoryName is a no-op for backwards compatibility.
 // In the new model, the repository ID is set at creation time.
+//
+// Deprecated: RepositoryName is now immutable and set at creation time via
+// NewReleaseRun. This function exists only for backward compatibility and
+// will be removed in a future version.
 func SetRepositoryName(r *ReleaseRun, name string) {
 	// No-op - repoID is immutable in new model
 }

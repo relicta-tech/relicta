@@ -386,7 +386,11 @@ func NewReleaseRun(
 
 	// Compute plan hash and run ID
 	r.planHash = r.computePlanHash()
-	r.id = RunID("run-" + r.planHash[:16])
+	hashPrefix := r.planHash
+	if len(hashPrefix) > 16 {
+		hashPrefix = hashPrefix[:16]
+	}
+	r.id = RunID("run-" + hashPrefix)
 
 	r.addEvent(&RunCreatedEvent{
 		RunID:   r.id,
