@@ -595,19 +595,19 @@ func TestRunHistoryActor_WithMockStore(t *testing.T) {
 	now := time.Now()
 	mockStore := &historyMockStore{
 		actorMetrics: &memory.ActorMetrics{
-			ActorID:                 "human:dev",
-			TotalReleases:           10,
-			SuccessfulReleases:      8,
-			FailedReleases:          2,
-			RollbackCount:           1,
-			IncidentCount:           1,
-			AverageRiskScore:        0.3,
-			HighRiskReleases:        2,
-			BreakingChangeReleases:  1,
-			SuccessRate:             0.8,
-			ReliabilityScore:        0.85,
-			FirstReleaseAt:          &now,
-			LastReleaseAt:           &now,
+			ActorID:                "human:dev",
+			TotalReleases:          10,
+			SuccessfulReleases:     8,
+			FailedReleases:         2,
+			RollbackCount:          1,
+			IncidentCount:          1,
+			AverageRiskScore:       0.3,
+			HighRiskReleases:       2,
+			BreakingChangeReleases: 1,
+			SuccessRate:            0.8,
+			ReliabilityScore:       0.85,
+			FirstReleaseAt:         &now,
+			LastReleaseAt:          &now,
 		},
 	}
 
@@ -659,11 +659,11 @@ func TestRunHistoryActor_WithArg(t *testing.T) {
 
 	mockStore := &historyMockStore{
 		actorMetrics: &memory.ActorMetrics{
-			ActorID:          "agent:copilot",
-			TotalReleases:    5,
+			ActorID:            "agent:copilot",
+			TotalReleases:      5,
 			SuccessfulReleases: 5,
-			SuccessRate:      1.0,
-			ReliabilityScore: 0.9,
+			SuccessRate:        1.0,
+			ReliabilityScore:   0.9,
 		},
 	}
 

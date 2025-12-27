@@ -909,12 +909,12 @@ func TestAdapterGetStatusNextAction(t *testing.T) {
 // Test GetStatus with warning flag
 func TestGetStatusOutputWarningField(t *testing.T) {
 	output := GetStatusOutput{
-		ReleaseID:   "warning-test",
-		State:       "planned",
-		Version:     "1.0.0",
-		NextAction:  "bump",
-		Stale:       true,
-		Warning:     "Release was last updated over 1 hour ago",
+		ReleaseID:  "warning-test",
+		State:      "planned",
+		Version:    "1.0.0",
+		NextAction: "bump",
+		Stale:      true,
+		Warning:    "Release was last updated over 1 hour ago",
 	}
 
 	assert.Equal(t, "warning-test", output.ReleaseID)
