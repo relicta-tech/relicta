@@ -37,7 +37,7 @@ func TestFileUnitOfWork_BasicOperations(t *testing.T) {
 		}
 
 		// Create and save release
-		rel := release.NewRelease("test-rel-1", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-1", "main", "/repo")
 		repo := uow.ReleaseRepository()
 
 		if err := repo.Save(ctx, rel); err != nil {
@@ -73,7 +73,7 @@ func TestFileUnitOfWork_BasicOperations(t *testing.T) {
 		}
 
 		// Create and save release
-		rel := release.NewRelease("test-rel-rollback", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-rollback", "main", "/repo")
 		repo := uow.ReleaseRepository()
 
 		if err := repo.Save(ctx, rel); err != nil {
@@ -101,7 +101,7 @@ func TestFileUnitOfWork_BasicOperations(t *testing.T) {
 		defer uow.Rollback()
 
 		// Create and save release
-		rel := release.NewRelease("test-rel-pending", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-pending", "main", "/repo")
 		repo := uow.ReleaseRepository()
 
 		if err := repo.Save(ctx, rel); err != nil {
@@ -120,7 +120,7 @@ func TestFileUnitOfWork_BasicOperations(t *testing.T) {
 
 	t.Run("delete stages deletion", func(t *testing.T) {
 		// First create a release in base repo
-		rel := release.NewRelease("test-rel-delete", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-delete", "main", "/repo")
 		if err := baseRepo.Save(ctx, rel); err != nil {
 			t.Fatalf("failed to save to base: %v", err)
 		}
@@ -197,7 +197,7 @@ func TestFileUnitOfWork_EventCollection(t *testing.T) {
 		repo := uow.ReleaseRepository()
 
 		// Create release (which generates events)
-		rel := release.NewRelease("test-rel-events", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-events", "main", "/repo")
 
 		// Save to collect events
 		repo.Save(ctx, rel)
@@ -231,7 +231,7 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 
 	// Helper to create a planned release
 	createPlannedRelease := func(id, branch, repoPath string) *release.ReleaseRun {
-		r := release.NewRelease(release.RunID(id), branch, repoPath)
+		r := release.NewReleaseRunForTest(release.RunID(id), branch, repoPath)
 		cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "v1.0.0", "HEAD")
 		cs.AddCommit(changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "feature"))
 		plan := release.NewReleasePlan(
@@ -249,7 +249,7 @@ func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
 	active := createPlannedRelease("base-active", "main", "/repo1")
 
 	// Create a final (canceled) release
-	final := release.NewRelease("base-final", "main", "/repo2")
+	final := release.NewReleaseRunForTest("base-final", "main", "/repo2")
 	_ = final.Cancel("test", "user")
 
 	if err := baseRepo.Save(ctx, active); err != nil {
@@ -330,8 +330,8 @@ func TestFileUnitOfWork_IndependentTransactions(t *testing.T) {
 	repo1 := uow1.ReleaseRepository()
 	repo2 := uow2.ReleaseRepository()
 
-	rel1 := release.NewRelease("test-rel-1", "main", "/repo1")
-	rel2 := release.NewRelease("test-rel-2", "main", "/repo2")
+	rel1 := release.NewReleaseRunForTest("test-rel-1", "main", "/repo1")
+	rel2 := release.NewReleaseRunForTest("test-rel-2", "main", "/repo2")
 
 	if err := repo1.Save(ctx, rel1); err != nil {
 		t.Fatalf("failed to save in uow1: %v", err)
@@ -379,7 +379,7 @@ func TestFileUnitOfWork_ContextCancellation(t *testing.T) {
 		}
 
 		// Save a release
-		rel := release.NewRelease("test-rel-cancel", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-cancel", "main", "/repo")
 		repo := uow.ReleaseRepository()
 		_ = repo.Save(ctx, rel)
 
@@ -424,7 +424,7 @@ func TestFileUnitOfWork_FindLatest(t *testing.T) {
 		uow, _ := factory.Begin(ctx)
 		defer uow.Rollback()
 
-		rel := release.NewRelease("test-rel-latest", "main", "/test/repo")
+		rel := release.NewReleaseRunForTest("test-rel-latest", "main", "/test/repo")
 		repo := uow.ReleaseRepository()
 		_ = repo.Save(ctx, rel)
 
@@ -440,7 +440,7 @@ func TestFileUnitOfWork_FindLatest(t *testing.T) {
 
 	t.Run("respects deleted releases", func(t *testing.T) {
 		// First save to base repo
-		rel := release.NewRelease("test-rel-delete-latest", "main", "/delete/repo")
+		rel := release.NewReleaseRunForTest("test-rel-delete-latest", "main", "/delete/repo")
 		_ = baseRepo.Save(ctx, rel)
 
 		uow, _ := factory.Begin(ctx)
@@ -478,7 +478,7 @@ func TestFileUnitOfWork_FindByState(t *testing.T) {
 		defer uow.Rollback()
 
 		// NewRelease starts in StateDraft
-		rel := release.NewRelease("test-rel-state", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-state", "main", "/repo")
 		repo := uow.ReleaseRepository()
 		_ = repo.Save(ctx, rel)
 
@@ -520,7 +520,7 @@ func TestFileUnitOfWork_FindActive(t *testing.T) {
 		uow, _ := factory.Begin(ctx)
 		defer uow.Rollback()
 
-		rel := release.NewRelease("test-rel-active", "main", "/repo")
+		rel := release.NewReleaseRunForTest("test-rel-active", "main", "/repo")
 		repo := uow.ReleaseRepository()
 		_ = repo.Save(ctx, rel)
 

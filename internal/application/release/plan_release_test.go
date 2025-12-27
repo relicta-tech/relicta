@@ -147,7 +147,7 @@ func (m *mockGitRepository) Push(ctx context.Context, remote, branch string) err
 
 // mockReleaseRepository implements release.Repository for testing.
 type mockReleaseRepository struct {
-	releases   map[release.RunID]*release.Release
+	releases   map[release.RunID]*release.ReleaseRun
 	saveErr    error
 	findErr    error
 	saveCalled bool

@@ -484,7 +484,7 @@ func withStubContainerApp(t *testing.T, app cliApp) {
 }
 
 type testReleaseRepo struct {
-	latest *release.Release
+	latest *release.ReleaseRun
 }
 
 func (r testReleaseRepo) Save(ctx context.Context, rel *release.ReleaseRun) error { return nil }
@@ -511,7 +511,7 @@ func (testReleaseRepo) Delete(ctx context.Context, id release.RunID) error { ret
 // newTestRelease creates a release in StateNotesReady (ready for approval).
 func newTestRelease(t *testing.T, id string) *release.ReleaseRun {
 	t.Helper()
-	rel := release.NewRelease(release.RunID(id), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID(id), "main", ".")
 	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
 	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
 	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)
@@ -524,7 +524,7 @@ func newTestRelease(t *testing.T, id string) *release.ReleaseRun {
 	if err := rel.Bump("test-actor"); err != nil {
 		t.Fatalf("Bump failed: %v", err)
 	}
-	notes := &release.ReleaseRunNotes{
+	notes := &release.ReleaseNotes{
 		Text:        "changelog",
 		Provider:    "test",
 		GeneratedAt: time.Now(),
@@ -538,7 +538,7 @@ func newTestRelease(t *testing.T, id string) *release.ReleaseRun {
 // newPlannedRelease creates a release in StatePlanned (ready for bump/version command).
 func newPlannedRelease(t *testing.T, id string) *release.ReleaseRun {
 	t.Helper()
-	rel := release.NewRelease(release.RunID(id), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID(id), "main", ".")
 	cs := changes.NewChangeSet(changes.ChangeSetID("cs-"+id), "main", "HEAD")
 	cs.AddCommit(changes.NewConventionalCommit("abc", changes.CommitTypeFeat, "feature"))
 	plan := release.NewReleasePlan(version.Initial, version.MustParse("0.1.0"), changes.ReleaseTypeMinor, cs, false)

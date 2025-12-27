@@ -429,7 +429,7 @@ func TestGetStatusOutputFields(t *testing.T) {
 // Mock implementations for testing with real use cases
 
 type mockReleaseRepository struct {
-	releases []*domainrelease.Release
+	releases []*domainrelease.ReleaseRun
 }
 
 func (m *mockReleaseRepository) Save(ctx context.Context, rel *domainrelease.ReleaseRun) error {
@@ -458,7 +458,7 @@ func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*domainreleas
 }
 
 func (m *mockReleaseRepository) FindByState(ctx context.Context, state domainrelease.RunState) ([]*domainrelease.ReleaseRun, error) {
-	var result []*domainrelease.Release
+	var result []*domainrelease.ReleaseRun
 	for _, r := range m.releases {
 		if r.State() == state {
 			result = append(result, r)
@@ -468,7 +468,7 @@ func (m *mockReleaseRepository) FindByState(ctx context.Context, state domainrel
 }
 
 func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec domainrelease.Specification) ([]*domainrelease.ReleaseRun, error) {
-	var result []*domainrelease.Release
+	var result []*domainrelease.ReleaseRun
 	for _, r := range m.releases {
 		if spec.IsSatisfiedBy(r) {
 			result = append(result, r)
@@ -501,7 +501,7 @@ func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {
 
 func TestAdapterGetStatusWithActiveRelease(t *testing.T) {
 	// Create a release
-	rel := domainrelease.NewRelease("test-release-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("test-release-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -589,7 +589,7 @@ func TestAdapterBumpTypeParsing(t *testing.T) {
 // Test GetStatus with release that has version set
 func TestAdapterGetStatusWithVersionSet(t *testing.T) {
 	// Create a release with version explicitly set
-	rel := domainrelease.NewRelease("test-release-456", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("test-release-456", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -690,7 +690,7 @@ func TestAdapterOptionChaining(t *testing.T) {
 
 // Test GetStatus shows correct approval status
 func TestAdapterGetStatusApprovalStatus(t *testing.T) {
-	rel := domainrelease.NewRelease("approval-test-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("approval-test-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -712,7 +712,7 @@ func TestAdapterGetStatusApprovalStatus(t *testing.T) {
 // Test Evaluate with release found but empty actor (tests default actor)
 func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 	// Create a release
-	rel := domainrelease.NewRelease("evaluate-test-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("evaluate-test-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -740,7 +740,7 @@ func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 
 // Test that adapter correctly handles release with approval status
 func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
-	rel := domainrelease.NewRelease("approval-msg-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("approval-msg-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -805,7 +805,7 @@ func TestAdapterEvaluateReleaseNotFoundByID(t *testing.T) {
 // Test Evaluate with explicit actor (non-empty ActorID)
 func TestAdapterEvaluateWithExplicitActor(t *testing.T) {
 	// Create a release with a plan
-	rel := domainrelease.NewRelease("evaluate-actor-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("evaluate-actor-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -868,7 +868,7 @@ func TestNextActionForState(t *testing.T) {
 // Test GetStatus with stale release
 func TestAdapterGetStatusWithStaleRelease(t *testing.T) {
 	// Create a release that was last updated more than 1 hour ago
-	rel := domainrelease.NewRelease("stale-release-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("stale-release-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -889,7 +889,7 @@ func TestAdapterGetStatusWithStaleRelease(t *testing.T) {
 // Test GetStatus output fields for various states
 func TestAdapterGetStatusNextAction(t *testing.T) {
 	// Create a release in planned state
-	rel := domainrelease.NewRelease("next-action-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("next-action-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)

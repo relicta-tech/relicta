@@ -178,7 +178,7 @@ const maxScanWorkers = 4
 
 // scanResult holds the result of scanning a single file.
 type scanResult struct {
-	release *release.Release
+	release *release.ReleaseRun
 	err     error
 }
 
@@ -539,10 +539,6 @@ func (r *FileReleaseRepository) toDTO(rel *release.ReleaseRun) *releaseDTO {
 }
 
 func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, error) {
-	// Create base release (this sets state to Initialized)
-	rel := release.NewRelease(release.RunID(dto.ID), dto.Branch, dto.RepositoryPath)
-	// Note: RepositoryName is now derived from repoID in the new model
-
 	// Parse timestamps
 	createdAt, err := time.Parse(time.RFC3339, dto.CreatedAt)
 	if err != nil {
@@ -562,8 +558,10 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 		publishedAt = &t
 	}
 
-	// Reconstruct plan
-	var plan *release.ReleaseRunPlan
+	// Extract version info from plan if available
+	var versionCurrent, versionNext version.SemanticVersion
+	var bumpKind release.BumpKind
+	var changeSet *changes.ChangeSet
 	if dto.Plan != nil {
 		currentVer, err := version.Parse(dto.Plan.CurrentVersion)
 		if err != nil {
@@ -578,8 +576,11 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 			return nil, fmt.Errorf("failed to parse release type: %w", err)
 		}
 
+		versionCurrent = currentVer
+		versionNext = nextVer
+		bumpKind = release.BumpKindFromReleaseType(releaseType)
+
 		// Reconstruct changeset if available
-		var changeSet *changes.ChangeSet
 		if dto.Plan.ChangeSet != nil {
 			csDTO := dto.Plan.ChangeSet
 			changeSet = changes.NewChangeSet(
@@ -618,16 +619,9 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 				changeSet.AddCommit(commit)
 			}
 		}
-
-		plan = release.NewReleasePlan(currentVer, nextVer, releaseType, changeSet, dto.Plan.DryRun)
-		// Restore the original ChangeSetID from persisted data (if different or nil changeset)
-		if dto.Plan.ChangeSetID != "" {
-			plan.ChangeSetID = changes.ChangeSetID(dto.Plan.ChangeSetID)
-		}
 	}
 
-	// Reconstruct version
-	var ver *version.SemanticVersion
+	// Use explicitly provided version if available (may have build metadata)
 	if dto.Version != nil {
 		v := version.NewSemanticVersion(dto.Version.Major, dto.Version.Minor, dto.Version.Patch)
 		if dto.Version.Prerelease != "" {
@@ -636,17 +630,17 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 		if dto.Version.Metadata != "" {
 			v = v.WithMetadata(version.BuildMetadata(dto.Version.Metadata))
 		}
-		ver = &v
+		versionNext = v
 	}
 
 	// Reconstruct notes
-	var notes *release.ReleaseRunNotes
+	var notes *release.ReleaseNotes
 	if dto.Notes != nil {
 		generatedAt, err := time.Parse(time.RFC3339, dto.Notes.GeneratedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse notes generated_at: %w", err)
 		}
-		notes = &release.ReleaseRunNotes{
+		notes = &release.ReleaseNotes{
 			Text:           dto.Notes.Text,
 			AudiencePreset: dto.Notes.AudiencePreset,
 			TonePreset:     dto.Notes.TonePreset,
@@ -670,20 +664,56 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 		}
 	}
 
-	// Use ReconstructFromLegacy to restore the aggregate without triggering events
-	release.ReconstructFromLegacy(
-		rel,
-		release.RunState(dto.State),
-		plan,
-		ver,
-		dto.TagName,
-		notes,
-		approval,
-		createdAt,
-		updatedAt,
-		publishedAt,
-		dto.LastError,
+	// Create base release and reconstruct state directly
+	rel := release.NewReleaseRun(
+		dto.RepositoryPath, // repoID
+		dto.RepositoryPath, // repoRoot
+		dto.Branch,         // baseRef
+		"",                 // headSHA
+		nil,                // commits
+		"",                 // configHash
+		"",                 // pluginPlanHash
 	)
+
+	// Use ReconstructState to restore the aggregate without triggering events
+	rel.ReconstructState(
+		release.RunID(dto.ID),       // id
+		"",                          // planHash
+		dto.RepositoryPath,          // repoID
+		dto.RepositoryPath,          // repoRoot
+		dto.Branch,                  // baseRef
+		"",                          // headSHA
+		nil,                         // commits
+		"",                          // configHash
+		"",                          // pluginPlanHash
+		versionCurrent,              // versionCurrent
+		versionNext,                 // versionNext
+		bumpKind,                    // bumpKind
+		1.0,                         // confidence
+		0.0,                         // riskScore
+		nil,                         // reasons
+		release.ActorHuman,          // actorType
+		"",                          // actorID
+		release.PolicyThresholds{},  // thresholds
+		dto.TagName,                 // tagName
+		notes,                       // notes
+		"",                          // notesInputsHash
+		approval,                    // approval
+		nil,                         // steps
+		nil,                         // stepStatus
+		release.RunState(dto.State), // state
+		nil,                         // history
+		dto.LastError,               // lastError
+		"",                          // changesetID
+		createdAt,                   // createdAt
+		updatedAt,                   // updatedAt
+		publishedAt,                 // publishedAt
+	)
+
+	// Store changeset in aggregate if available
+	if changeSet != nil {
+		rel.SetChangeSet(changeSet)
+	}
 
 	return rel, nil
 }

@@ -56,7 +56,7 @@ type AINotesGenerator interface {
 
 // AIGenerateInput represents input for AI generation.
 type AIGenerateInput struct {
-	ReleaseContext *release.Release
+	ReleaseContext *release.ReleaseRun
 	Tone           communication.NoteTone
 	Audience       communication.NoteAudience
 }
@@ -161,7 +161,7 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	if notes.IsAIGenerated() {
 		provider = "ai"
 	}
-	releaseNotes := &release.ReleaseRunNotes{
+	releaseNotes := &release.ReleaseNotes{
 		Text:        notesText,
 		Provider:    provider,
 		GeneratedAt: notes.GeneratedAt(),

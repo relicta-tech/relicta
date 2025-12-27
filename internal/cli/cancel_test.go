@@ -74,7 +74,7 @@ func TestResetCommand_Configuration(t *testing.T) {
 }
 
 func TestValidateCancelState_Initialized(t *testing.T) {
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 	// Initialized state should be cancelable
 	err := validateCancelState(rel)
 	if err != nil {
@@ -83,7 +83,7 @@ func TestValidateCancelState_Initialized(t *testing.T) {
 }
 
 func TestValidateResetState_NotFailedOrCanceled(t *testing.T) {
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 	// In initialized state, reset should fail
 	err := validateResetState(rel)
 	if err == nil {
@@ -143,7 +143,7 @@ func TestGetCurrentUser_Unknown(t *testing.T) {
 func TestValidateCancelState_VariousStates(t *testing.T) {
 	// Test initialized state (can be canceled)
 	t.Run("initialized allows cancel", func(t *testing.T) {
-		rel := release.NewRelease("test-id", "main", "/test/repo")
+		rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 		err := validateCancelState(rel)
 		if err != nil {
 			t.Errorf("validateCancelState() error = %v, want nil for initialized state", err)
@@ -152,7 +152,7 @@ func TestValidateCancelState_VariousStates(t *testing.T) {
 
 	// Test canceled state (cannot be canceled again)
 	t.Run("canceled blocks cancel", func(t *testing.T) {
-		rel := release.NewRelease("test-id", "main", "/test/repo")
+		rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 		_ = rel.Cancel("test cancel", "cli")
 		err := validateCancelState(rel)
 		if err == nil {
@@ -164,7 +164,7 @@ func TestValidateCancelState_VariousStates(t *testing.T) {
 func TestValidateResetState_VariousStates(t *testing.T) {
 	// Test initialized state (cannot be reset, suggest cancel first)
 	t.Run("initialized suggests cancel first", func(t *testing.T) {
-		rel := release.NewRelease("test-id", "main", "/test/repo")
+		rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 		err := validateResetState(rel)
 		if err == nil {
 			t.Error("validateResetState() should return error for initialized state")
@@ -173,7 +173,7 @@ func TestValidateResetState_VariousStates(t *testing.T) {
 
 	// Test canceled state (can be reset)
 	t.Run("canceled allows reset", func(t *testing.T) {
-		rel := release.NewRelease("test-id", "main", "/test/repo")
+		rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 		_ = rel.Cancel("test cancel", "cli")
 		err := validateResetState(rel)
 		if err != nil {
@@ -183,7 +183,7 @@ func TestValidateResetState_VariousStates(t *testing.T) {
 }
 
 func TestOutputCancelJSON(t *testing.T) {
-	rel := release.NewRelease("test-123", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-123", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "tester")
 
 	// Capture stdout is complex for os.Stdout, but the function should not panic
@@ -194,7 +194,7 @@ func TestOutputCancelJSON(t *testing.T) {
 }
 
 func TestOutputResetJSON(t *testing.T) {
-	rel := release.NewRelease("test-123", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-123", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "tester")
 
 	// Capture stdout is complex for os.Stdout, but the function should not panic
@@ -284,7 +284,7 @@ func (cancelTestGitRepo) GetStatus(ctx context.Context) (*sourcecontrol.WorkingT
 
 // cancelTestReleaseRepo is a mock release repository for cancel tests.
 type cancelTestReleaseRepo struct {
-	latest    *release.Release
+	latest    *release.ReleaseRun
 	saveError error
 }
 
@@ -354,7 +354,7 @@ func TestRunCancel_DryRun(t *testing.T) {
 	dryRun = true
 
 	// Create a cancellable release
-	rel := release.NewRelease("test-cancel-dryrun", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-cancel-dryrun", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -388,7 +388,7 @@ func TestRunCancel_Success(t *testing.T) {
 	dryRun = false
 
 	// Create a cancellable release
-	rel := release.NewRelease("test-cancel-success", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-cancel-success", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -448,7 +448,7 @@ func TestRunReset_InvalidState(t *testing.T) {
 	cfg = config.DefaultConfig()
 
 	// Create a release in initialized state (not resettable)
-	rel := release.NewRelease("test-reset-invalid", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-reset-invalid", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -483,7 +483,7 @@ func TestRunReset_DryRun(t *testing.T) {
 	dryRun = true
 
 	// Create a canceled release (resettable)
-	rel := release.NewRelease("test-reset-dryrun", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-reset-dryrun", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "user")
 
 	app := cancelTestApp{
@@ -505,7 +505,7 @@ func TestRunReset_DryRun(t *testing.T) {
 }
 
 func TestFindCurrentRelease_Success(t *testing.T) {
-	rel := release.NewRelease("test-find", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-find", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -545,7 +545,7 @@ func TestFindCurrentRelease_NotFound(t *testing.T) {
 
 func TestValidateCancelState_PublishingWithForce(t *testing.T) {
 	// Create a release and transition to publishing state
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 	// We need to get it to publishing state - first plan it, version it, approve it, then start publishing
 	// Simplest way: just test that initialized can be canceled
 	// Actually for this test we need the publishing state path
@@ -563,7 +563,7 @@ func TestValidateCancelState_PublishingWithForce(t *testing.T) {
 }
 
 func TestValidateResetState_PublishingWithForce(t *testing.T) {
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 
 	// First cancel it so we can test the reset states
 	_ = rel.Cancel("test", "user")
@@ -597,7 +597,7 @@ func TestRunCancel_WithJSONOutput(t *testing.T) {
 	outputJSON = true
 
 	// Create a cancellable release
-	rel := release.NewRelease("test-cancel-json", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-cancel-json", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -634,7 +634,7 @@ func TestRunCancel_SuccessWithJSONOutput(t *testing.T) {
 	outputJSON = true
 
 	// Create a cancellable release
-	rel := release.NewRelease("test-cancel-json-success", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-cancel-json-success", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -671,7 +671,7 @@ func TestRunReset_SuccessWithJSONOutput(t *testing.T) {
 	outputJSON = true
 
 	// Create a canceled release (resettable)
-	rel := release.NewRelease("test-reset-json", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-reset-json", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "user")
 
 	app := cancelTestApp{
@@ -708,7 +708,7 @@ func TestRunCancel_WithCustomReason(t *testing.T) {
 	dryRun = false
 	cancelReason = "custom test reason"
 
-	rel := release.NewRelease("test-cancel-reason", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-cancel-reason", "main", "/test/repo")
 
 	app := cancelTestApp{
 		gitRepo:     cancelTestGitRepo{},
@@ -729,7 +729,7 @@ func TestRunCancel_WithCustomReason(t *testing.T) {
 }
 
 func TestValidateCancelState_FailedState(t *testing.T) {
-	rel := release.NewRelease("test-id", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 	// First cancel it, then the state is already failed/canceled
 	_ = rel.Cancel("test reason", "cli")
 
@@ -743,20 +743,20 @@ func TestValidateCancelState_FailedState(t *testing.T) {
 func TestValidateCancelState_AllStates(t *testing.T) {
 	tests := []struct {
 		name      string
-		setup     func() *release.Release
+		setup     func() *release.ReleaseRun
 		wantError bool
 	}{
 		{
 			name: "initialized state should be cancelable",
 			setup: func() *release.ReleaseRun {
-				return release.NewRelease("test-init", "main", "/test/repo")
+				return release.NewReleaseRunForTest("test-init", "main", "/test/repo")
 			},
 			wantError: false,
 		},
 		{
 			name: "canceled state should not be cancelable",
 			setup: func() *release.ReleaseRun {
-				rel := release.NewRelease("test-canceled", "main", "/test/repo")
+				rel := release.NewReleaseRunForTest("test-canceled", "main", "/test/repo")
 				_ = rel.Cancel("test", "cli")
 				return rel
 			},
@@ -799,7 +799,7 @@ func TestValidateResetState_AllowedStates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rel := release.NewRelease("test-id", "main", "/test/repo")
+			rel := release.NewReleaseRunForTest("test-id", "main", "/test/repo")
 			tt.setup(rel)
 			err := validateResetState(rel)
 			if (err != nil) != tt.wantError {
@@ -826,7 +826,7 @@ func TestRunReset_DryRunNoJSON(t *testing.T) {
 	outputJSON = false
 
 	// Create a canceled release (resettable based on validateResetState)
-	rel := release.NewRelease("test-reset-success", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-reset-success", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "user")
 
 	app := cancelTestApp{
@@ -864,7 +864,7 @@ func TestRunReset_DryRunWithJSON(t *testing.T) {
 	outputJSON = true
 
 	// Create a canceled release (resettable based on validateResetState)
-	rel := release.NewRelease("test-reset-json-run", "main", "/test/repo")
+	rel := release.NewReleaseRunForTest("test-reset-json-run", "main", "/test/repo")
 	_ = rel.Cancel("test reason", "user")
 
 	app := cancelTestApp{

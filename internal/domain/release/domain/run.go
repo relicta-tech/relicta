@@ -114,7 +114,8 @@ type ReleaseRun struct {
 	state       RunState
 	history     []TransitionRecord
 	lastError   string
-	changesetID string // Reference to the changeset aggregate
+	changesetID string             // Reference to the changeset aggregate
+	changeset   *changes.ChangeSet // Cached changeset (transient, not persisted)
 
 	// Timestamps
 	createdAt   time.Time
@@ -545,6 +546,24 @@ func (r *ReleaseRun) LastError() string {
 // ChangesetID returns the changeset ID reference.
 func (r *ReleaseRun) ChangesetID() string {
 	return r.changesetID
+}
+
+// ChangeSet returns the cached changeset if available.
+func (r *ReleaseRun) ChangeSet() *changes.ChangeSet {
+	return r.changeset
+}
+
+// SetChangeSet sets the changeset on the aggregate.
+func (r *ReleaseRun) SetChangeSet(cs *changes.ChangeSet) {
+	r.changeset = cs
+	if cs != nil {
+		r.changesetID = string(cs.ID())
+	}
+}
+
+// HasChangeSet returns true if a changeset is available.
+func (r *ReleaseRun) HasChangeSet() bool {
+	return r.changeset != nil
 }
 
 // CreatedAt returns when the run was created.

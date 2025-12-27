@@ -144,7 +144,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 				false,
 			)
 
-			rel := release.NewRelease(
+			rel := release.NewReleaseRunForTest(
 				release.RunID("test-release"),
 				"main",
 				"test-repo",
@@ -165,7 +165,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 					t.Fatalf("failed to bump: %v", err)
 				}
 
-				notes := &release.ReleaseRunNotes{
+				notes := &release.ReleaseNotes{
 					Text:        "Test changelog",
 					Provider:    "test",
 					GeneratedAt: time.Now(),
@@ -188,7 +188,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 }
 
 func TestHandleEditApprovalResultWithoutNotes(t *testing.T) {
-	rel := release.NewRelease(release.RunID("no-notes-edit"), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID("no-notes-edit"), "main", ".")
 	notes, proceed, err := handleEditApprovalResult(rel)
 	if err != nil {
 		t.Fatalf("handleEditApprovalResult returned error: %v", err)
@@ -202,7 +202,7 @@ func TestHandleEditApprovalResultWithoutNotes(t *testing.T) {
 }
 
 func TestProcessTUIApprovalResultPaths(t *testing.T) {
-	rel := release.NewRelease(release.RunID("tui-result"), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID("tui-result"), "main", ".")
 	tests := []struct {
 		name    string
 		result  ui.ApprovalResult

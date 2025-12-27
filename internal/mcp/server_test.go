@@ -1040,7 +1040,7 @@ func TestToolFallbackPaths(t *testing.T) {
 
 func TestResourceStateWithVersion(t *testing.T) {
 	// Create release with explicit version set
-	rel := release.NewRelease(release.RunID("version-test"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("version-test"), "main", "")
 	v, _ := version.Parse("1.5.0")
 	nextV, _ := version.Parse("1.6.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -1404,7 +1404,7 @@ func TestResourceStateWithDirectVersion(t *testing.T) {
 	ctx := context.Background()
 
 	// Create release with explicit version set (not just from plan)
-	rel := release.NewRelease(release.RunID("version-direct-test"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("version-direct-test"), "main", "")
 	v, _ := version.Parse("2.0.0")
 	nextV, _ := version.Parse("2.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -1535,7 +1535,7 @@ func TestToolStatusWithVersionedRelease(t *testing.T) {
 	ctx := context.Background()
 
 	// Create release with direct version
-	rel := release.NewRelease(release.RunID("versioned-release"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("versioned-release"), "main", "")
 	v, _ := version.Parse("3.0.0")
 	nextV, _ := version.Parse("3.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -2524,7 +2524,7 @@ func TestToolHandlerArgumentTypes(t *testing.T) {
 
 // createTestRelease creates a release with a plan for testing
 func createTestRelease(id, currentVersion, nextVersion string) *release.ReleaseRun {
-	rel := release.NewRelease(release.RunID(id), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID(id), "main", "")
 	curr, _ := version.Parse(currentVersion)
 	next, _ := version.Parse(nextVersion)
 	plan := release.NewReleasePlan(curr, next, changes.ReleaseTypeMinor, nil, false)

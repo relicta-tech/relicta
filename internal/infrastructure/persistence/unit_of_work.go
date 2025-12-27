@@ -20,7 +20,7 @@ type FileUnitOfWork struct {
 
 	// Transaction state
 	active         bool
-	pendingWrites  map[release.RunID]*release.Release
+	pendingWrites  map[release.RunID]*release.ReleaseRun
 	pendingDeletes map[release.RunID]struct{}
 	pendingEvents  []release.DomainEvent
 }
@@ -225,7 +225,7 @@ func (r *unitOfWorkRepository) FindLatest(ctx context.Context, repoPath string) 
 	baseRelease, baseErr := r.baseRepo.FindLatest(ctx, repoPath)
 
 	// Check pending writes for newer releases
-	var latestPending *release.Release
+	var latestPending *release.ReleaseRun
 	for id, rel := range r.uow.pendingWrites {
 		// Skip deleted
 		if _, deleted := r.uow.pendingDeletes[id]; deleted {

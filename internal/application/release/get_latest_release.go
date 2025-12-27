@@ -32,7 +32,7 @@ func (i *GetLatestReleaseInput) Validate() error {
 
 // GetLatestReleaseOutput represents the output of the GetLatestRelease use case.
 type GetLatestReleaseOutput struct {
-	Release        *release.Release
+	Release        *release.ReleaseRun
 	Version        version.SemanticVersion
 	State          release.RunState
 	RepositoryPath string

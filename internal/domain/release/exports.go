@@ -4,18 +4,11 @@ package release
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
-
-// planCache stores release plans with their changesets by run ID.
-// This provides a bridge between the old API (which passed changesets through plans)
-// and the new DDD model (which doesn't store changesets in the aggregate).
-var planCache sync.Map
 
 // ReleasePlan holds the planned release information.
 // This type provides backwards compatibility with the old Release aggregate.
@@ -72,63 +65,8 @@ func (p *ReleasePlan) CommitCount() int {
 	return p.changeSet.CommitCount()
 }
 
-// NewRelease creates a new Release (ReleaseRun) for backwards compatibility.
-// The provided id parameter is used to maintain compatibility with existing code.
-func NewRelease(id ReleaseID, branch, repoPath string) *ReleaseRun {
-	run := domain.NewReleaseRun(
-		repoPath, // repoID - use path as ID
-		repoPath, // repoRoot
-		branch,   // baseRef
-		"",       // headSHA - will be set later
-		nil,      // commits - will be set later
-		"",       // configHash
-		"",       // pluginPlanHash
-	)
-
-	// Override the auto-generated ID with the provided ID for backwards compatibility
-	run.ReconstructState(
-		domain.RunID(id),                    // use provided id
-		"",                                  // planHash
-		repoPath,                            // repoID
-		repoPath,                            // repoRoot
-		branch,                              // baseRef
-		"",                                  // headSHA
-		nil,                                 // commits
-		"",                                  // configHash
-		"",                                  // pluginPlanHash
-		version.SemanticVersion{},           // versionCurrent
-		version.SemanticVersion{},           // versionNext
-		domain.BumpNone,                     // bumpKind
-		0.0,                                 // confidence
-		0.0,                                 // riskScore
-		nil,                                 // reasons
-		domain.ActorHuman,                   // actorType
-		"",                                  // actorID
-		domain.PolicyThresholds{},           // thresholds
-		"",                                  // tagName
-		nil,                                 // notes
-		"",                                  // notesInputsHash
-		nil,                                 // approval
-		nil,                                 // steps
-		make(map[string]*domain.StepStatus), // stepStatus
-		domain.StateDraft,                   // state
-		nil,                                 // history
-		"",                                  // lastError
-		"",                                  // changesetID
-		run.CreatedAt(),                     // createdAt
-		run.UpdatedAt(),                     // updatedAt
-		nil,                                 // publishedAt
-	)
-
-	// Emit creation event (ReconstructState clears events, so we emit after)
-	run.EmitCreatedEvent()
-
-	return run
-}
-
-// SetPlan sets the release plan on a ReleaseRun for backwards compatibility.
-// It extracts version info from the ReleasePlan and calls the appropriate methods.
-// The plan (including its changeset) is cached for later retrieval by GetPlan.
+// SetPlan sets the release plan on a ReleaseRun.
+// It extracts version info from the ReleasePlan and stores the changeset in the aggregate.
 func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 	if plan == nil {
 		return domain.ErrVersionNotSet
@@ -151,43 +89,36 @@ func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 		return err
 	}
 
-	// Cache the plan with its changeset for later retrieval
-	// The run ID is generated during Plan(), so we cache after planning
-	planCache.Store(string(r.ID()), plan)
+	// Store the changeset in the aggregate
+	if plan.changeSet != nil {
+		r.SetChangeSet(plan.changeSet)
+	}
 
 	return nil
 }
 
-// GetPlan extracts a ReleasePlan from a ReleaseRun for backwards compatibility.
-// If the plan was previously set via SetPlan, it returns the cached plan with its changeset.
-// Otherwise, it reconstructs a plan from the run's version info (without changeset).
+// GetPlan extracts a ReleasePlan from a ReleaseRun.
+// It reconstructs the plan from the aggregate's stored data.
 func GetPlan(r *ReleaseRun) *ReleasePlan {
 	if r == nil {
 		return nil
 	}
 
-	// Try to retrieve cached plan with changeset
-	if cached, ok := planCache.Load(string(r.ID())); ok {
-		if plan, ok := cached.(*ReleasePlan); ok {
-			return plan
-		}
-	}
-
-	// Fall back to reconstructing plan from run data (without changeset)
-	return &ReleasePlan{
+	// Reconstruct plan from aggregate data
+	plan := &ReleasePlan{
 		CurrentVersion: r.VersionCurrent(),
 		NextVersion:    r.VersionNext(),
 		ReleaseType:    changes.ReleaseType(r.BumpKind()),
 		DryRun:         false,
 	}
-}
 
-// ClearPlanCache clears the plan cache. Used for testing.
-func ClearPlanCache() {
-	planCache.Range(func(key, value interface{}) bool {
-		planCache.Delete(key)
-		return true
-	})
+	// Include changeset if available
+	if r.HasChangeSet() {
+		plan.changeSet = r.ChangeSet()
+		plan.ChangeSetID = r.ChangeSet().ID()
+	}
+
+	return plan
 }
 
 // Re-export core aggregate and value objects
@@ -273,9 +204,6 @@ type (
 	RunRetriedEvent           = domain.RunRetriedEvent
 	StepCompletedEvent        = domain.StepCompletedEvent
 	PluginExecutedEvent       = domain.PluginExecutedEvent
-
-	// RunSummary is a summary of the release run.
-	RunSummary = domain.RunSummary
 )
 
 // Re-export specifications
@@ -402,26 +330,26 @@ var (
 // Repository defines the interface for persisting and retrieving releases.
 // This follows the DDD repository pattern.
 type Repository interface {
-	// Save persists a release.
-	Save(ctx context.Context, release *Release) error
+	// Save persists a release run.
+	Save(ctx context.Context, run *ReleaseRun) error
 
-	// FindByID retrieves a release by its ID.
-	FindByID(ctx context.Context, id ReleaseID) (*Release, error)
+	// FindByID retrieves a release run by its ID.
+	FindByID(ctx context.Context, id RunID) (*ReleaseRun, error)
 
-	// FindLatest retrieves the latest release for a repository.
-	FindLatest(ctx context.Context, repoPath string) (*Release, error)
+	// FindLatest retrieves the latest release run for a repository.
+	FindLatest(ctx context.Context, repoPath string) (*ReleaseRun, error)
 
-	// FindByState retrieves releases in a specific state.
-	FindByState(ctx context.Context, state ReleaseState) ([]*Release, error)
+	// FindByState retrieves release runs in a specific state.
+	FindByState(ctx context.Context, state RunState) ([]*ReleaseRun, error)
 
-	// FindActive retrieves all active (non-final) releases.
-	FindActive(ctx context.Context) ([]*Release, error)
+	// FindActive retrieves all active (non-final) release runs.
+	FindActive(ctx context.Context) ([]*ReleaseRun, error)
 
-	// FindBySpecification retrieves releases matching the given specification.
-	FindBySpecification(ctx context.Context, spec Specification) ([]*Release, error)
+	// FindBySpecification retrieves release runs matching the given specification.
+	FindBySpecification(ctx context.Context, spec Specification) ([]*ReleaseRun, error)
 
-	// Delete removes a release.
-	Delete(ctx context.Context, id ReleaseID) error
+	// Delete removes a release run.
+	Delete(ctx context.Context, id RunID) error
 }
 
 // EventPublisher defines the interface for publishing domain events.
@@ -446,71 +374,4 @@ type UnitOfWork interface {
 type UnitOfWorkFactory interface {
 	// Begin starts a new unit of work.
 	Begin(ctx context.Context) (UnitOfWork, error)
-}
-
-// ReconstructFromLegacy reconstructs a ReleaseRun from legacy persisted data.
-// This allows the persistence layer to restore aggregates without needing to know
-// the full internal structure of the new domain model.
-func ReconstructFromLegacy(
-	rel *ReleaseRun,
-	state ReleaseState,
-	plan *ReleasePlan,
-	ver *version.SemanticVersion,
-	tagName string,
-	notes *ReleaseNotes,
-	approval *Approval,
-	createdAt, updatedAt time.Time,
-	publishedAt *time.Time,
-	lastError string,
-) {
-	// Extract version info from plan if available
-	var versionCurrent, versionNext version.SemanticVersion
-	bumpKind := BumpNone
-	if plan != nil {
-		versionCurrent = plan.CurrentVersion
-		versionNext = plan.NextVersion
-		bumpKind = BumpKindFromReleaseType(plan.ReleaseType)
-		// Cache the plan with its changeset for later retrieval by GetPlan
-		planCache.Store(string(rel.ID()), plan)
-	}
-
-	// Use explicitly provided version if available (may have build metadata)
-	if ver != nil {
-		versionNext = *ver
-	}
-
-	// Use ReconstructState with defaults for new fields
-	rel.ReconstructState(
-		rel.ID(),           // id
-		"",                 // planHash
-		rel.RepoRoot(),     // repoID
-		rel.RepoRoot(),     // repoRoot
-		rel.Branch(),       // baseRef
-		"",                 // headSHA
-		nil,                // commits
-		"",                 // configHash
-		"",                 // pluginPlanHash
-		versionCurrent,     // versionCurrent
-		versionNext,        // versionNext
-		bumpKind,           // bumpKind
-		1.0,                // confidence
-		0.0,                // riskScore
-		nil,                // reasons
-		ActorHuman,         // actorType
-		"",                 // actorID
-		PolicyThresholds{}, // thresholds
-		tagName,            // tagName
-		notes,              // notes
-		"",                 // notesInputsHash
-		approval,           // approval
-		nil,                // steps
-		nil,                // stepStatus
-		state,              // state
-		nil,                // history
-		lastError,          // lastError
-		"",                 // changesetID
-		createdAt,          // createdAt
-		updatedAt,          // updatedAt
-		publishedAt,        // publishedAt
-	)
 }

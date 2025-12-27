@@ -215,15 +215,34 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	nextVersion := uc.versionCalc.CalculateNextVersion(currentVersion, releaseType.ToBumpType())
 
 	// Create release aggregate
-	releaseID := release.RunID(fmt.Sprintf("rel-%d", time.Now().UnixNano()))
 	branch := input.Branch
 	if branch == "" {
 		branch = repoInfo.CurrentBranch
 	}
 
-	rel := release.NewRelease(releaseID, branch, input.RepositoryPath)
+	// Build commit SHAs list
+	commitSHAs := make([]release.CommitSHA, 0, len(commits))
+	for _, c := range commits {
+		commitSHAs = append(commitSHAs, release.CommitSHA(c.Hash()))
+	}
 
-	// Set release plan using constructor for proper aggregate references
+	// Get head SHA from the last commit or ToRef
+	var headSHA release.CommitSHA
+	if len(commits) > 0 {
+		headSHA = release.CommitSHA(commits[len(commits)-1].Hash())
+	}
+
+	rel := release.NewReleaseRun(
+		repoInfo.RemoteURL,   // repoID
+		input.RepositoryPath, // repoRoot
+		branch,               // baseRef
+		headSHA,              // headSHA
+		commitSHAs,           // commits
+		"",                   // configHash (TODO: compute if needed)
+		"",                   // pluginPlanHash (TODO: compute if needed)
+	)
+
+	// Set release plan
 	plan := release.NewReleasePlan(
 		currentVersion,
 		nextVersion,
@@ -243,7 +262,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	return &PlanReleaseOutput{
-		ReleaseID:      releaseID,
+		ReleaseID:      rel.ID(),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    releaseType,

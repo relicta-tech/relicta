@@ -67,7 +67,7 @@ func NewService(eval *evaluator.Evaluator, opts ...ServiceOption) *Service {
 // EvaluateReleaseInput represents input for evaluating a release.
 type EvaluateReleaseInput struct {
 	// Release is the release being evaluated.
-	Release *release.Release
+	Release *release.ReleaseRun
 
 	// Actor is the actor initiating the release.
 	Actor cgp.Actor

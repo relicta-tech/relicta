@@ -43,7 +43,7 @@ func (i *ApproveReleaseInput) Validate() error {
 type ApproveReleaseOutput struct {
 	Approved    bool
 	ApprovedBy  string
-	ReleasePlan *release.ReleaseRunPlan
+	ReleasePlan *release.ReleasePlan
 }
 
 // ApproveReleaseUseCase implements the approve release use case.
@@ -133,8 +133,8 @@ func (i *GetReleaseForApprovalInput) Validate() error {
 
 // GetReleaseForApprovalOutput represents output with release details for approval.
 type GetReleaseForApprovalOutput struct {
-	Release     *release.Release
-	Summary     release.ReleaseRunSummary
+	Release     *release.ReleaseRun
+	Summary     release.RunSummary
 	CanApprove  bool
 	ApprovalMsg string
 }

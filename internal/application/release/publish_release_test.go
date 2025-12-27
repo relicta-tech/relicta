@@ -58,7 +58,7 @@ func (m *mockPluginExecutor) ExecutePlugin(ctx context.Context, id integration.P
 
 // createApprovedRelease creates a release in the approved state ready for publishing.
 func createApprovedRelease(id release.RunID, branch, repoPath string) *release.ReleaseRun {
-	r := release.NewRelease(id, branch, repoPath)
+	r := release.NewReleaseRunForTest(id, branch, repoPath)
 
 	// Create a changeset for the plan
 	cs := changes.NewChangeSet("cs-test", "v1.0.0", "HEAD")
@@ -81,7 +81,7 @@ func createApprovedRelease(id release.RunID, branch, repoPath string) *release.R
 	_ = r.Bump("test-actor")
 
 	// Set notes
-	notes := &release.ReleaseRunNotes{
+	notes := &release.ReleaseNotes{
 		Text:        "## [1.1.0] - Changes\n- feat: new feature",
 		Provider:    "test",
 		GeneratedAt: time.Now(),
@@ -293,7 +293,7 @@ func TestPublishReleaseUseCase_Execute(t *testing.T) {
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
 				// Create a release that's only in initialized state
-				r := release.NewRelease("release-123", "main", "/path/to/repo")
+				r := release.NewReleaseRunForTest("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			gitRepo:        &mockGitRepository{},

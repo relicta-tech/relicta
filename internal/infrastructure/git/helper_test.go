@@ -6,28 +6,6 @@ import (
 	"time"
 )
 
-func TestIsVersionBumpHelpers(t *testing.T) {
-	for _, tc := range []struct {
-		typ    CommitType
-		expect bool
-	}{
-		{CommitTypeFeat, true},
-		{CommitTypeFix, true},
-		{CommitTypePerf, true},
-		{CommitTypeDocs, false},
-	} {
-		if got := IsVersionBump(tc.typ); got != tc.expect {
-			t.Errorf("IsVersionBump(%v) = %v, want %v", tc.typ, got, tc.expect)
-		}
-	}
-	if !IsMajorTrigger(CommitTypeFeat) {
-		t.Error("IsMajorTrigger should return true for feat commits")
-	}
-	if Priority(ReleaseTypeMajor) != 3 || Priority(ReleaseTypeNone) != 0 {
-		t.Error("Priority returned unexpected values")
-	}
-}
-
 func TestTimeoutHelpers(t *testing.T) {
 	ctx := context.Background()
 	localCtx, cancelLocal := withLocalTimeout(ctx)

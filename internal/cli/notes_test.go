@@ -284,7 +284,7 @@ func TestRunNotesSuccessToStdout(t *testing.T) {
 		ReleaseNotes: notes,
 	}
 
-	rel := release.NewRelease("notes-1", "main", ".")
+	rel := release.NewReleaseRunForTest("notes-1", "main", ".")
 	app := notesTestApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -334,7 +334,7 @@ func TestBuildGenerateNotesInput(t *testing.T) {
 	}()
 
 	// Create a test release
-	rel := release.NewRelease(release.RunID("test-release-id"), "main", "test-repo")
+	rel := release.NewReleaseRunForTest(release.RunID("test-release-id"), "main", "test-repo")
 
 	tests := []struct {
 		name         string

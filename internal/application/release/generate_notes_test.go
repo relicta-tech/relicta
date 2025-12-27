@@ -27,7 +27,7 @@ func (m *mockAINotesGenerator) GenerateReleaseNotes(ctx context.Context, input A
 
 // createReleaseWithPlan creates a release with a plan ready for notes generation.
 func createReleaseWithPlan(id release.RunID, branch, repoPath string) *release.ReleaseRun {
-	r := release.NewRelease(id, branch, repoPath)
+	r := release.NewReleaseRunForTest(id, branch, repoPath)
 
 	// Create a changeset with various commit types
 	cs := changes.NewChangeSet("cs-test", "v1.0.0", "HEAD")
@@ -165,14 +165,14 @@ func TestGenerateNotesUseCase_Execute(t *testing.T) {
 				UseAI:     false,
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
-				// Create release without plan - state is Draft, not Versioned
-				r := release.NewRelease("release-123", "main", "/path/to/repo")
+				// Create release without changeset - no plan was run
+				r := release.NewReleaseRunForTest("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			aiGenerator:    nil,
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        true,
-			errMsg:         "can only generate notes from Versioned state",
+			errMsg:         "changeset not available",
 		},
 		{
 			name: "repository save fails",

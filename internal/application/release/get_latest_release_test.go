@@ -86,7 +86,7 @@ func TestGetLatestReleaseUseCase_Execute(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns latest release when found", func(t *testing.T) {
-		expectedRelease := release.NewRelease("test-release-1", "main", "/path/to/repo")
+		expectedRelease := release.NewReleaseRunForTest("test-release-1", "main", "/path/to/repo")
 
 		repo := &mockReleaseRepo{
 			findLatestFn: func(_ context.Context, repoPath string) (*release.ReleaseRun, error) {
