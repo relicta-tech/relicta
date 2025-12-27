@@ -1366,10 +1366,10 @@ Structure the release notes:
 2. **Summary**: 2-3 sentence release overview
 3. **Highlights**: Top 3-5 changes as bullet points
 4. **What's Changed**: Categorized changes
-   - Features
-   - Bug Fixes
-   - Documentation
-   - Breaking Changes
+   - ✨ Features
+   - 🐛 Bug Fixes
+   - 📚 Documentation
+   - ⚠️ Breaking Changes
 5. **Upgrade Notes**: Critical information for upgrading
 6. **Contributors**: @mention contributors
 
