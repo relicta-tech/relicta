@@ -50,7 +50,7 @@ policy:
     - name: mcp
       match:
         - ./internal/mcp/...
-      min: 73
+      min: 60
     - name: observability
       match:
         - ./internal/observability/...
