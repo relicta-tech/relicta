@@ -67,7 +67,7 @@ func NewService(eval *evaluator.Evaluator, opts ...ServiceOption) *Service {
 // EvaluateReleaseInput represents input for evaluating a release.
 type EvaluateReleaseInput struct {
 	// Release is the release being evaluated.
-	Release *release.Release
+	Release *release.ReleaseRun
 
 	// Actor is the actor initiating the release.
 	Actor cgp.Actor
@@ -179,7 +179,7 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 // buildProposalAndAnalysis creates CGP proposal and analysis from a release.
 func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.ChangeProposal, *cgp.ChangeAnalysis) {
 	rel := input.Release
-	plan := rel.Plan()
+	plan := release.GetPlan(rel)
 
 	// Build scope
 	scope := cgp.ProposalScope{
@@ -211,9 +211,9 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 		}
 	}
 
-	// Build intent
+	// Build intent using VersionNext from release run
 	intent := cgp.ProposalIntent{
-		Summary:       fmt.Sprintf("Release %s for %s", rel.Summary().NextVersion, input.Repository),
+		Summary:       fmt.Sprintf("Release %s for %s", rel.VersionNext(), input.Repository),
 		SuggestedBump: bumpType,
 		Confidence:    1.0, // Human-initiated releases have full confidence
 	}
@@ -373,7 +373,7 @@ func (s *Service) RecordReleaseOutcome(ctx context.Context, input RecordOutcomeI
 
 // RecordOutcomeInput represents input for recording a release outcome.
 type RecordOutcomeInput struct {
-	ReleaseID       release.ReleaseID
+	ReleaseID       release.RunID
 	Repository      string
 	Version         string
 	Actor           cgp.Actor
@@ -427,7 +427,7 @@ func (s *Service) RecordIncident(ctx context.Context, input RecordIncidentInput)
 type RecordIncidentInput struct {
 	ID            string
 	Repository    string
-	ReleaseID     release.ReleaseID
+	ReleaseID     release.RunID
 	Version       string
 	ActorID       string
 	Type          memory.IncidentType

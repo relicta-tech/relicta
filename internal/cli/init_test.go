@@ -484,3 +484,117 @@ func TestDetectRepoSettings_NoRepo(t *testing.T) {
 		t.Fatal("expected detectRepoSettings to fail outside a git repo")
 	}
 }
+
+func TestIsGitHubRemote(t *testing.T) {
+	tests := []struct {
+		name      string
+		remoteURL string
+		want      bool
+	}{
+		{"SSH GitHub URL", "git@github.com:owner/repo.git", true},
+		{"HTTPS GitHub URL", "https://github.com/owner/repo.git", true},
+		{"HTTP GitHub URL", "http://github.com/owner/repo", true},
+		{"GitLab URL", "git@gitlab.com:owner/repo.git", false},
+		{"Bitbucket URL", "git@bitbucket.org:owner/repo.git", false},
+		{"custom URL", "git@example.com:owner/repo.git", false},
+		{"empty string", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isGitHubRemote(tt.remoteURL)
+			if got != tt.want {
+				t.Errorf("isGitHubRemote(%q) = %v, want %v", tt.remoteURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsGitLabRemote(t *testing.T) {
+	tests := []struct {
+		name      string
+		remoteURL string
+		want      bool
+	}{
+		{"SSH GitLab.com URL", "git@gitlab.com:owner/repo.git", true},
+		{"HTTPS GitLab.com URL", "https://gitlab.com/owner/repo.git", true},
+		{"self-hosted GitLab", "git@gitlab.example.com:owner/repo.git", true},
+		{"GitHub URL", "git@github.com:owner/repo.git", false},
+		{"Bitbucket URL", "git@bitbucket.org:owner/repo.git", false},
+		{"empty string", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isGitLabRemote(tt.remoteURL)
+			if got != tt.want {
+				t.Errorf("isGitLabRemote(%q) = %v, want %v", tt.remoteURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunInit_ExistingConfigNoForce(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	// Create an existing config file
+	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	if err := os.WriteFile(configPath, []byte("version: 1"), 0644); err != nil {
+		t.Fatalf("WriteFile error: %v", err)
+	}
+
+	origInteractive := initInteractive
+	origForce := initForce
+	t.Cleanup(func() {
+		initInteractive = origInteractive
+		initForce = origForce
+	})
+	initInteractive = false
+	initForce = false
+
+	cmd := &cobra.Command{}
+	if err := runInit(cmd, nil); err != nil {
+		t.Errorf("runInit should not return error for existing config, got: %v", err)
+	}
+}
+
+func TestRunInit_JSONFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	origInteractive := initInteractive
+	origForce := initForce
+	origFormat := initFormat
+	t.Cleanup(func() {
+		initInteractive = origInteractive
+		initForce = origForce
+		initFormat = origFormat
+	})
+	initInteractive = false
+	initForce = true
+	initFormat = "json"
+
+	cmd := &cobra.Command{}
+	if err := runInit(cmd, nil); err != nil {
+		t.Fatalf("runInit error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(tmpDir, "release.config.json")); err != nil {
+		t.Fatalf("expected JSON config file to be created: %v", err)
+	}
+}

@@ -175,8 +175,8 @@ func runReset(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Reset the release
-	if err := rel.Retry(); err != nil {
+	// Reset the release (retry from failed state)
+	if err := rel.RetryPublish("cli"); err != nil {
 		return fmt.Errorf("failed to reset release: %w", err)
 	}
 
@@ -201,7 +201,7 @@ func runReset(cmd *cobra.Command, args []string) error {
 }
 
 // findCurrentRelease finds the current/latest release for the repository.
-func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, error) {
+func findCurrentRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, error) {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -211,7 +211,7 @@ func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, erro
 	releaseRepo := app.ReleaseRepository()
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
-		if errors.Is(err, release.ErrReleaseNotFound) {
+		if errors.Is(err, release.ErrRunNotFound) {
 			printInfo("No active release found")
 			printInfo("Nothing to cancel - there is no release in progress")
 			return nil, err
@@ -223,7 +223,7 @@ func findCurrentRelease(ctx context.Context, app cliApp) (*release.Release, erro
 }
 
 // validateCancelState validates that the release can be canceled.
-func validateCancelState(rel *release.Release) error {
+func validateCancelState(rel *release.ReleaseRun) error {
 	state := rel.State()
 
 	switch state {
@@ -258,7 +258,7 @@ func validateCancelState(rel *release.Release) error {
 }
 
 // validateResetState validates that the release can be reset.
-func validateResetState(rel *release.Release) error {
+func validateResetState(rel *release.ReleaseRun) error {
 	state := rel.State()
 
 	switch state {
@@ -305,7 +305,7 @@ func getCurrentUser() string {
 }
 
 // outputCancelJSON outputs the cancel result as JSON.
-func outputCancelJSON(rel *release.Release, reason string, wasDryRun bool) error {
+func outputCancelJSON(rel *release.ReleaseRun, reason string, wasDryRun bool) error {
 	output := map[string]any{
 		"action":     "cancel",
 		"release_id": string(rel.ID()),
@@ -320,7 +320,7 @@ func outputCancelJSON(rel *release.Release, reason string, wasDryRun bool) error
 }
 
 // outputResetJSON outputs the reset result as JSON.
-func outputResetJSON(rel *release.Release, previousState release.ReleaseState, wasDryRun bool) error {
+func outputResetJSON(rel *release.ReleaseRun, previousState release.RunState, wasDryRun bool) error {
 	output := map[string]any{
 		"action":         "reset",
 		"release_id":     string(rel.ID()),

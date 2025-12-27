@@ -111,7 +111,7 @@ func TestOutputPlanText_WithBreaking(t *testing.T) {
 	changeSet.AddCommit(commit)
 
 	output := &release.PlanReleaseOutput{
-		ReleaseID:      domainrelease.ReleaseID("test-release"),
+		ReleaseID:      domainrelease.RunID("test-release"),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    changes.ReleaseTypeMajor,
@@ -137,7 +137,7 @@ func TestOutputPlanJSON_CIMode(t *testing.T) {
 	changeSet := changes.NewChangeSet(changes.ChangeSetID("test-id"), "main", "HEAD")
 
 	output := &release.PlanReleaseOutput{
-		ReleaseID:      domainrelease.ReleaseID("test-release"),
+		ReleaseID:      domainrelease.RunID("test-release"),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    changes.ReleaseTypeMinor,

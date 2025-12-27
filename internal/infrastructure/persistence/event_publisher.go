@@ -85,7 +85,7 @@ func (p *InMemoryEventPublisher) GetEventsByType(eventName string) []release.Dom
 }
 
 // GetEventsByAggregateID returns events for a specific aggregate.
-func (p *InMemoryEventPublisher) GetEventsByAggregateID(id release.ReleaseID) []release.DomainEvent {
+func (p *InMemoryEventPublisher) GetEventsByAggregateID(id release.RunID) []release.DomainEvent {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 

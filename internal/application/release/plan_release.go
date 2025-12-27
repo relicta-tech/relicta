@@ -3,6 +3,8 @@ package release
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -87,7 +89,7 @@ func (i *PlanReleaseInput) Validate() error {
 
 // PlanReleaseOutput represents the output of the PlanRelease use case.
 type PlanReleaseOutput struct {
-	ReleaseID      release.ReleaseID
+	ReleaseID      release.RunID
 	CurrentVersion version.SemanticVersion
 	NextVersion    version.SemanticVersion
 	ReleaseType    changes.ReleaseType
@@ -215,16 +217,42 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	nextVersion := uc.versionCalc.CalculateNextVersion(currentVersion, releaseType.ToBumpType())
 
 	// Create release aggregate
-	releaseID := release.ReleaseID(fmt.Sprintf("rel-%d", time.Now().UnixNano()))
 	branch := input.Branch
 	if branch == "" {
 		branch = repoInfo.CurrentBranch
 	}
 
-	rel := release.NewRelease(releaseID, branch, input.RepositoryPath)
-	rel.SetRepositoryName(repoInfo.Name)
+	// Build commit SHAs list
+	commitSHAs := make([]release.CommitSHA, 0, len(commits))
+	for _, c := range commits {
+		commitSHAs = append(commitSHAs, release.CommitSHA(c.Hash()))
+	}
 
-	// Set release plan using constructor for proper aggregate references
+	// Get head SHA from the last commit or ToRef
+	var headSHA release.CommitSHA
+	if len(commits) > 0 {
+		headSHA = release.CommitSHA(commits[len(commits)-1].Hash())
+	}
+
+	// Compute configuration hash for idempotency detection
+	configHash := computeConfigHash(input)
+
+	// Plugin plan hash is intentionally empty during the plan phase.
+	// Plugins are configured and executed during the publish phase,
+	// so their configuration is not part of the plan identity.
+	const pluginPlanHash = ""
+
+	rel := release.NewReleaseRun(
+		repoInfo.RemoteURL,   // repoID
+		input.RepositoryPath, // repoRoot
+		branch,               // baseRef
+		headSHA,              // headSHA
+		commitSHAs,           // commits
+		configHash,
+		pluginPlanHash,
+	)
+
+	// Set release plan
 	plan := release.NewReleasePlan(
 		currentVersion,
 		nextVersion,
@@ -233,7 +261,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		input.DryRun,
 	)
 
-	if err := rel.SetPlan(plan); err != nil {
+	if err := release.SetPlan(rel, plan); err != nil {
 		return nil, fmt.Errorf("failed to set release plan: %w", err)
 	}
 
@@ -244,7 +272,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	return &PlanReleaseOutput{
-		ReleaseID:      releaseID,
+		ReleaseID:      rel.ID(),
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    releaseType,
@@ -561,8 +589,35 @@ func firstParent(commit *sourcecontrol.Commit) string {
 	return parents[0].String()
 }
 
+// computeConfigHash computes a hash of configuration settings that affect the release plan.
+// This is used for idempotency detection - if the same commits with the same config
+// produce the same plan, the hash will match.
+func computeConfigHash(input PlanReleaseInput) string {
+	h := sha256.New()
+
+	// Include tag prefix as it affects version discovery
+	h.Write([]byte("tagPrefix:"))
+	h.Write([]byte(input.TagPrefix))
+
+	// Include analysis config settings that affect commit classification
+	if input.AnalysisConfig != nil {
+		cfg := input.AnalysisConfig
+		fmt.Fprintf(h, "|minConfidence:%.2f", cfg.MinConfidence)
+		fmt.Fprintf(h, "|enableAI:%t", cfg.EnableAI)
+		fmt.Fprintf(h, "|enableAST:%t", cfg.EnableAST)
+		if len(cfg.Languages) > 0 {
+			fmt.Fprintf(h, "|languages:%s", strings.Join(cfg.Languages, ","))
+		}
+		if len(cfg.SkipPaths) > 0 {
+			fmt.Fprintf(h, "|skipPaths:%s", strings.Join(cfg.SkipPaths, ","))
+		}
+	}
+
+	return hex.EncodeToString(h.Sum(nil))[:16] // Use first 16 chars for brevity
+}
+
 // saveRelease saves the release using UnitOfWork if available, otherwise uses repository directly.
-func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Release) error {
+func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.ReleaseRun) error {
 	// Use UnitOfWork if available
 	if uc.unitOfWorkFactory != nil {
 		return uc.saveReleaseWithUoW(ctx, rel)
@@ -587,7 +642,7 @@ func (uc *PlanReleaseUseCase) saveRelease(ctx context.Context, rel *release.Rele
 }
 
 // saveReleaseWithUoW saves the release with transactional boundaries.
-func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.Release) error {
+func (uc *PlanReleaseUseCase) saveReleaseWithUoW(ctx context.Context, rel *release.ReleaseRun) error {
 	// Begin transaction via factory
 	uow, err := uc.unitOfWorkFactory.Begin(ctx)
 	if err != nil {

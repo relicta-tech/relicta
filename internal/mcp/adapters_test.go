@@ -429,36 +429,36 @@ func TestGetStatusOutputFields(t *testing.T) {
 // Mock implementations for testing with real use cases
 
 type mockReleaseRepository struct {
-	releases []*domainrelease.Release
+	releases []*domainrelease.ReleaseRun
 }
 
-func (m *mockReleaseRepository) Save(ctx context.Context, rel *domainrelease.Release) error {
+func (m *mockReleaseRepository) Save(ctx context.Context, rel *domainrelease.ReleaseRun) error {
 	m.releases = append(m.releases, rel)
 	return nil
 }
 
-func (m *mockReleaseRepository) FindByID(ctx context.Context, id domainrelease.ReleaseID) (*domainrelease.Release, error) {
+func (m *mockReleaseRepository) FindByID(ctx context.Context, id domainrelease.RunID) (*domainrelease.ReleaseRun, error) {
 	for _, r := range m.releases {
 		if r.ID() == id {
 			return r, nil
 		}
 	}
-	return nil, domainrelease.ErrReleaseNotFound
+	return nil, domainrelease.ErrRunNotFound
 }
 
-func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*domainrelease.Release, error) {
+func (m *mockReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*domainrelease.ReleaseRun, error) {
 	if len(m.releases) == 0 {
-		return nil, domainrelease.ErrReleaseNotFound
+		return nil, domainrelease.ErrRunNotFound
 	}
 	return m.releases[len(m.releases)-1], nil
 }
 
-func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*domainrelease.Release, error) {
+func (m *mockReleaseRepository) FindActive(ctx context.Context) ([]*domainrelease.ReleaseRun, error) {
 	return m.releases, nil
 }
 
-func (m *mockReleaseRepository) FindByState(ctx context.Context, state domainrelease.ReleaseState) ([]*domainrelease.Release, error) {
-	var result []*domainrelease.Release
+func (m *mockReleaseRepository) FindByState(ctx context.Context, state domainrelease.RunState) ([]*domainrelease.ReleaseRun, error) {
+	var result []*domainrelease.ReleaseRun
 	for _, r := range m.releases {
 		if r.State() == state {
 			result = append(result, r)
@@ -467,8 +467,8 @@ func (m *mockReleaseRepository) FindByState(ctx context.Context, state domainrel
 	return result, nil
 }
 
-func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec domainrelease.Specification) ([]*domainrelease.Release, error) {
-	var result []*domainrelease.Release
+func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec domainrelease.Specification) ([]*domainrelease.ReleaseRun, error) {
+	var result []*domainrelease.ReleaseRun
 	for _, r := range m.releases {
 		if spec.IsSatisfiedBy(r) {
 			result = append(result, r)
@@ -477,18 +477,18 @@ func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec do
 	return result, nil
 }
 
-func (m *mockReleaseRepository) Delete(ctx context.Context, id domainrelease.ReleaseID) error {
+func (m *mockReleaseRepository) Delete(ctx context.Context, id domainrelease.RunID) error {
 	for i, r := range m.releases {
 		if r.ID() == id {
 			m.releases = append(m.releases[:i], m.releases[i+1:]...)
 			return nil
 		}
 	}
-	return domainrelease.ErrReleaseNotFound
+	return domainrelease.ErrRunNotFound
 }
 
 func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	ctx := context.Background()
@@ -501,13 +501,13 @@ func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {
 
 func TestAdapterGetStatusWithActiveRelease(t *testing.T) {
 	// Create a release
-	rel := domainrelease.NewRelease("test-release-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("test-release-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	ctx := context.Background()
@@ -589,15 +589,15 @@ func TestAdapterBumpTypeParsing(t *testing.T) {
 // Test GetStatus with release that has version set
 func TestAdapterGetStatusWithVersionSet(t *testing.T) {
 	// Create a release with version explicitly set
-	rel := domainrelease.NewRelease("test-release-456", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("test-release-456", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 	// Set the version directly
 	_ = rel.SetVersion(nextV, "v1.1.0")
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	ctx := context.Background()
@@ -627,37 +627,37 @@ type mockErrorReleaseRepository struct {
 	err error
 }
 
-func (m *mockErrorReleaseRepository) Save(ctx context.Context, rel *domainrelease.Release) error {
+func (m *mockErrorReleaseRepository) Save(ctx context.Context, rel *domainrelease.ReleaseRun) error {
 	return m.err
 }
 
-func (m *mockErrorReleaseRepository) FindByID(ctx context.Context, id domainrelease.ReleaseID) (*domainrelease.Release, error) {
+func (m *mockErrorReleaseRepository) FindByID(ctx context.Context, id domainrelease.RunID) (*domainrelease.ReleaseRun, error) {
 	return nil, m.err
 }
 
-func (m *mockErrorReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*domainrelease.Release, error) {
+func (m *mockErrorReleaseRepository) FindLatest(ctx context.Context, repoPath string) (*domainrelease.ReleaseRun, error) {
 	return nil, m.err
 }
 
-func (m *mockErrorReleaseRepository) FindActive(ctx context.Context) ([]*domainrelease.Release, error) {
+func (m *mockErrorReleaseRepository) FindActive(ctx context.Context) ([]*domainrelease.ReleaseRun, error) {
 	return nil, m.err
 }
 
-func (m *mockErrorReleaseRepository) FindByState(ctx context.Context, state domainrelease.ReleaseState) ([]*domainrelease.Release, error) {
+func (m *mockErrorReleaseRepository) FindByState(ctx context.Context, state domainrelease.RunState) ([]*domainrelease.ReleaseRun, error) {
 	return nil, m.err
 }
 
-func (m *mockErrorReleaseRepository) FindBySpecification(ctx context.Context, spec domainrelease.Specification) ([]*domainrelease.Release, error) {
+func (m *mockErrorReleaseRepository) FindBySpecification(ctx context.Context, spec domainrelease.Specification) ([]*domainrelease.ReleaseRun, error) {
 	return nil, m.err
 }
 
-func (m *mockErrorReleaseRepository) Delete(ctx context.Context, id domainrelease.ReleaseID) error {
+func (m *mockErrorReleaseRepository) Delete(ctx context.Context, id domainrelease.RunID) error {
 	return m.err
 }
 
 // Test Evaluate with release not found
 func TestAdapterEvaluateReleaseNotFound(t *testing.T) {
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
 	adapter := NewAdapter(
 		WithGovernanceService(&governance.Service{}),
 		WithAdapterReleaseRepository(repo),
@@ -676,7 +676,7 @@ func TestAdapterEvaluateReleaseNotFound(t *testing.T) {
 
 // Test adapter option application order
 func TestAdapterOptionChaining(t *testing.T) {
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
 	govSvc := &governance.Service{}
 
 	adapter := NewAdapter(
@@ -690,13 +690,13 @@ func TestAdapterOptionChaining(t *testing.T) {
 
 // Test GetStatus shows correct approval status
 func TestAdapterGetStatusApprovalStatus(t *testing.T) {
-	rel := domainrelease.NewRelease("approval-test-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("approval-test-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	ctx := context.Background()
@@ -712,13 +712,13 @@ func TestAdapterGetStatusApprovalStatus(t *testing.T) {
 // Test Evaluate with release found but empty actor (tests default actor)
 func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 	// Create a release
-	rel := domainrelease.NewRelease("evaluate-test-123", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("evaluate-test-123", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	govSvc := &governance.Service{} // Empty service - will fail but tests the actor path
 
 	adapter := NewAdapter(
@@ -740,13 +740,13 @@ func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 
 // Test that adapter correctly handles release with approval status
 func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
-	rel := domainrelease.NewRelease("approval-msg-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("approval-msg-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	ctx := context.Background()
@@ -786,7 +786,7 @@ func TestAdapterEvaluateNoReleaseRepo(t *testing.T) {
 // Test Evaluate with release not found
 func TestAdapterEvaluateReleaseNotFoundByID(t *testing.T) {
 	govSvc := &governance.Service{}
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{}} // empty
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}} // empty
 	adapter := NewAdapter(
 		WithGovernanceService(govSvc),
 		WithAdapterReleaseRepository(repo),
@@ -805,13 +805,13 @@ func TestAdapterEvaluateReleaseNotFoundByID(t *testing.T) {
 // Test Evaluate with explicit actor (non-empty ActorID)
 func TestAdapterEvaluateWithExplicitActor(t *testing.T) {
 	// Create a release with a plan
-	rel := domainrelease.NewRelease("evaluate-actor-test", "main", "")
+	rel := domainrelease.NewReleaseRunForTest("evaluate-actor-test", "main", "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = domainrelease.SetPlan(rel, plan)
 
-	repo := &mockReleaseRepository{releases: []*domainrelease.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
 	govSvc := &governance.Service{}
 
 	adapter := NewAdapter(
@@ -837,3 +837,140 @@ var (
 	_ domainrelease.Repository = (*mockReleaseRepository)(nil)
 	_ domainrelease.Repository = (*mockErrorReleaseRepository)(nil)
 )
+
+// Test nextActionForState function for all states
+func TestNextActionForState(t *testing.T) {
+	tests := []struct {
+		state    string
+		expected string
+	}{
+		{"initialized", "plan"},
+		{"planned", "bump"},
+		{"versioned", "notes"},
+		{"notes_generated", "approve"},
+		{"approved", "publish"},
+		{"publishing", "wait"},
+		{"published", "done"},
+		{"failed", "retry or cancel"},
+		{"canceled", "plan"},
+		{"unknown", ""},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.state, func(t *testing.T) {
+			result := nextActionForState(tt.state)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test GetStatus with stale release
+func TestAdapterGetStatusWithStaleRelease(t *testing.T) {
+	// Create a release that was last updated more than 1 hour ago
+	rel := domainrelease.NewReleaseRunForTest("stale-release-test", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+
+	output, err := adapter.GetStatus(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	// Check that NextAction is populated
+	assert.NotEmpty(t, output.NextAction)
+}
+
+// Test GetStatus output fields for various states
+func TestAdapterGetStatusNextAction(t *testing.T) {
+	// Create a release in planned state
+	rel := domainrelease.NewReleaseRunForTest("next-action-test", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+
+	output, err := adapter.GetStatus(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.Equal(t, "bump", output.NextAction)
+}
+
+// Test GetStatus with warning flag
+func TestGetStatusOutputWarningField(t *testing.T) {
+	output := GetStatusOutput{
+		ReleaseID:  "warning-test",
+		State:      "planned",
+		Version:    "1.0.0",
+		NextAction: "bump",
+		Stale:      true,
+		Warning:    "Release was last updated over 1 hour ago",
+	}
+
+	assert.Equal(t, "warning-test", output.ReleaseID)
+	assert.True(t, output.Stale)
+	assert.NotEmpty(t, output.Warning)
+}
+
+// Test CommitInfo struct
+func TestCommitInfoFields(t *testing.T) {
+	info := CommitInfo{
+		SHA:     "abc123",
+		Type:    "feat",
+		Scope:   "api",
+		Message: "add new endpoint",
+		Author:  "test@example.com",
+	}
+
+	assert.Equal(t, "abc123", info.SHA)
+	assert.Equal(t, "feat", info.Type)
+	assert.Equal(t, "api", info.Scope)
+	assert.Equal(t, "add new endpoint", info.Message)
+	assert.Equal(t, "test@example.com", info.Author)
+}
+
+// Test PluginResultInfo struct
+func TestPluginResultInfoFields(t *testing.T) {
+	info := PluginResultInfo{
+		PluginName: "github",
+		Hook:       "PostPublish",
+		Success:    true,
+		Message:    "Release created successfully",
+	}
+
+	assert.Equal(t, "github", info.PluginName)
+	assert.Equal(t, "PostPublish", info.Hook)
+	assert.True(t, info.Success)
+	assert.Equal(t, "Release created successfully", info.Message)
+}
+
+// Test PlanOutput with Commits field
+func TestPlanOutputWithCommits(t *testing.T) {
+	output := PlanOutput{
+		ReleaseID:      "plan-with-commits",
+		CurrentVersion: "1.0.0",
+		NextVersion:    "1.1.0",
+		ReleaseType:    "minor",
+		CommitCount:    2,
+		HasFeatures:    true,
+		Commits: []CommitInfo{
+			{SHA: "abc123", Type: "feat", Message: "add feature"},
+			{SHA: "def456", Type: "fix", Message: "fix bug"},
+		},
+	}
+
+	assert.Equal(t, "plan-with-commits", output.ReleaseID)
+	assert.Len(t, output.Commits, 2)
+	assert.Equal(t, "abc123", output.Commits[0].SHA)
+	assert.Equal(t, "def456", output.Commits[1].SHA)
+}

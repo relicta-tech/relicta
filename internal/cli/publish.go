@@ -32,7 +32,7 @@ func init() {
 }
 
 // validateReleaseForPublish validates that the release is ready for publishing.
-func validateReleaseForPublish(rel *release.Release) error {
+func validateReleaseForPublish(rel *release.ReleaseRun) error {
 	// Check approval
 	if cfg.Workflow.RequireApproval && !rel.IsApproved() && !publishSkipApproval {
 		printError("Release not approved")
@@ -41,7 +41,7 @@ func validateReleaseForPublish(rel *release.Release) error {
 	}
 
 	// Check plan exists
-	if rel.Plan() == nil {
+	if release.GetPlan(rel) == nil {
 		printError("Release has no plan")
 		printInfo("Run 'relicta plan' to create a release plan")
 		return fmt.Errorf("no release plan found")
@@ -78,7 +78,7 @@ func displayPublishActions(nextVersion string) {
 }
 
 // buildPublishInput creates the input for the PublishRelease use case.
-func buildPublishInput(rel *release.Release) apprelease.PublishReleaseInput {
+func buildPublishInput(rel *release.ReleaseRun) apprelease.PublishReleaseInput {
 	return apprelease.PublishReleaseInput{
 		ReleaseID: rel.ID(),
 		DryRun:    dryRun,
@@ -119,13 +119,13 @@ func outputPluginResults(results []apprelease.PluginResult) {
 }
 
 // handleChangelogUpdate updates the changelog file if configured.
-func handleChangelogUpdate(rel *release.Release) {
-	if cfg.Changelog.File == "" || rel.Notes() == nil || rel.Notes().Changelog == "" {
+func handleChangelogUpdate(rel *release.ReleaseRun) {
+	if cfg.Changelog.File == "" || rel.Notes() == nil || rel.Notes().Text == "" {
 		return
 	}
 
 	printInfo(fmt.Sprintf("Updating %s...", cfg.Changelog.File))
-	if err := updateChangelogFile(cfg.Changelog.File, rel.Notes().Changelog); err != nil {
+	if err := updateChangelogFile(cfg.Changelog.File, rel.Notes().Text); err != nil {
 		printWarning(fmt.Sprintf("Failed to update changelog: %v", err))
 	} else {
 		printSuccess(fmt.Sprintf("Updated %s", cfg.Changelog.File))
@@ -190,7 +190,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	nextVersion := rel.Plan().NextVersion
+	nextVersion := release.GetPlan(rel).NextVersion
 
 	// Output JSON if requested
 	if outputJSON {
@@ -257,7 +257,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 }
 
 // evaluateGovernanceForPublish evaluates the release for governance tracking.
-func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.Release) (*governance.EvaluateReleaseOutput, error) {
+func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.ReleaseRun) (*governance.EvaluateReleaseOutput, error) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil, fmt.Errorf("governance service not available")
@@ -282,7 +282,7 @@ func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.
 }
 
 // recordPublishOutcome records the actual publish outcome to Release Memory.
-func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.Release, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
+func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.ReleaseRun, govResult *governance.EvaluateReleaseOutput, success bool, duration time.Duration) {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return
@@ -313,16 +313,16 @@ func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.Release,
 	}
 
 	// Extract change metrics from release plan
-	if rel.Plan() != nil && rel.Plan().HasChangeSet() {
-		cats := rel.Plan().GetChangeSet().Categories()
+	if plan := release.GetPlan(rel); plan != nil && plan.HasChangeSet() {
+		cats := plan.GetChangeSet().Categories()
 		breakingChanges = len(cats.Breaking)
-		filesChanged = rel.Plan().GetChangeSet().Summary().TotalCommits
+		filesChanged = plan.GetChangeSet().Summary().TotalCommits
 	}
 
 	input := governance.RecordOutcomeInput{
 		ReleaseID:       rel.ID(),
 		Repository:      repoInfo.Path,
-		Version:         rel.Summary().NextVersion,
+		Version:         rel.Summary().VersionNext,
 		Actor:           actor,
 		RiskScore:       riskScore,
 		Decision:        decision,
@@ -418,8 +418,8 @@ func findVersionEntryPoint(content string) int {
 }
 
 // outputPublishJSON outputs the publish information as JSON.
-func outputPublishJSON(rel *release.Release) error {
-	plan := rel.Plan()
+func outputPublishJSON(rel *release.ReleaseRun) error {
+	plan := release.GetPlan(rel)
 
 	output := map[string]any{
 		"release_id":   string(rel.ID()),
@@ -439,8 +439,8 @@ func outputPublishJSON(rel *release.Release) error {
 		},
 	}
 
-	if rel.Notes() != nil && rel.Notes().Changelog != "" {
-		output["release_notes"] = rel.Notes().Changelog
+	if rel.Notes() != nil && rel.Notes().Text != "" {
+		output["release_notes"] = rel.Notes().Text
 	}
 
 	if len(cfg.Plugins) > 0 {

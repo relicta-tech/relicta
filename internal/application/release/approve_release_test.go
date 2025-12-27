@@ -13,9 +13,8 @@ import (
 )
 
 // createReleaseWithNotes creates a release in NotesGenerated state ready for approval.
-func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *release.Release {
-	r := release.NewRelease(id, branch, repoPath)
-	r.SetRepositoryName("test-repo")
+func createReleaseWithNotes(id release.RunID, branch, repoPath string) *release.ReleaseRun {
+	r := release.NewReleaseRunForTest(id, branch, repoPath)
 
 	// Create a changeset for the plan
 	cs := changes.NewChangeSet("cs-test", "v1.0.0", "HEAD")
@@ -31,19 +30,19 @@ func createReleaseWithNotes(id release.ReleaseID, branch, repoPath string) *rele
 		cs,
 		false,
 	)
-	_ = r.SetPlan(plan)
+	_ = release.SetPlan(r, plan)
 
-	// Set version
+	// Set version and bump to transition to Versioned state
 	_ = r.SetVersion(nextVersion, "v1.1.0")
+	_ = r.Bump("test-actor")
 
 	// Set notes to move to NotesGenerated state
 	notes := &release.ReleaseNotes{
-		Changelog:   "## [1.1.0] - Changes\n- feat: new feature",
-		Summary:     "Release 1.1.0 with new feature",
-		AIGenerated: false,
+		Text:        "## [1.1.0] - Changes\n- feat: new feature",
+		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	_ = r.SetNotes(notes)
+	_ = r.GenerateNotes(notes, "", "system")
 
 	return r
 }
@@ -127,7 +126,7 @@ func TestApproveReleaseUseCase_Execute(t *testing.T) {
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
 				// Create release in initialized state (no notes generated)
-				r := release.NewRelease("release-123", "main", "/path/to/repo")
+				r := release.NewReleaseRunForTest("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			eventPublisher: &mockEventPublisher{},
@@ -288,7 +287,7 @@ func TestGetReleaseForApprovalUseCase_Execute(t *testing.T) {
 				ReleaseID: "release-123",
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
-				r := release.NewRelease("release-123", "main", "/path/to/repo")
+				r := release.NewReleaseRunForTest("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			wantErr:         false,

@@ -184,7 +184,7 @@ func TestOutputNotesJSON_Complete(t *testing.T) {
 	os.Stdout = w
 
 	// Create test data
-	rel := domainrelease.NewRelease(domainrelease.ReleaseID("test-release-id"), "main", "test-repo")
+	rel := domainrelease.NewReleaseRunForTest(domainrelease.RunID("test-release-id"), "main", "test-repo")
 
 	ver, _ := version.Parse("1.0.0")
 	changelog := communication.NewChangelog("Changelog", communication.FormatKeepAChangelog)

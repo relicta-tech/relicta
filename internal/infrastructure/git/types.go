@@ -44,38 +44,6 @@ const (
 	ReleaseTypeNone  = changes.ReleaseTypeNone
 )
 
-// IsVersionBump returns true if this commit type should trigger a version bump.
-// Deprecated: Use changes.CommitType.AffectsChangelog() or domain logic instead.
-func IsVersionBump(t CommitType) bool {
-	switch t {
-	case CommitTypeFeat, CommitTypeFix, CommitTypePerf:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsMajorTrigger returns true if this commit type can trigger a major bump (with breaking change).
-// Deprecated: Use changes.ReleaseTypeFromCommitType() instead.
-func IsMajorTrigger(t CommitType) bool {
-	return t == CommitTypeFeat
-}
-
-// Priority returns the priority of the release type (higher = more significant).
-// Deprecated: Use changes.MaxReleaseType() for comparing release types.
-func Priority(r ReleaseType) int {
-	switch r {
-	case ReleaseTypeMajor:
-		return 3
-	case ReleaseTypeMinor:
-		return 2
-	case ReleaseTypePatch:
-		return 1
-	default:
-		return 0
-	}
-}
-
 // Commit represents a git commit.
 type Commit struct {
 	// Hash is the commit SHA.

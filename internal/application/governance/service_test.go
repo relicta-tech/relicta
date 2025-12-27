@@ -31,11 +31,11 @@ func createTestService(t *testing.T) (*Service, *memory.InMemoryStore) {
 	return svc, memStore
 }
 
-func createTestRelease(t *testing.T) *release.Release {
+func createTestRelease(t *testing.T) *release.ReleaseRun {
 	t.Helper()
 
 	// Create release using the actual API
-	rel := release.NewRelease("release-123", "main", "owner/repo")
+	rel := release.NewReleaseRunForTest("release-123", "main", "owner/repo")
 
 	// Add a plan with a changeset
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
@@ -44,7 +44,7 @@ func createTestRelease(t *testing.T) *release.Release {
 	current, _ := version.Parse("1.0.0")
 	next, _ := version.Parse("1.1.0")
 	plan := release.NewReleasePlan(current, next, changes.ReleaseTypeMinor, changeSet, false)
-	rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	return rel
 }
@@ -498,7 +498,7 @@ func TestSecurityDetectionInEvaluateRelease(t *testing.T) {
 	actor := cgp.NewHumanActor("john@example.com", "John")
 
 	// Create release with security commits
-	rel := release.NewRelease("release-security", "main", "owner/repo")
+	rel := release.NewReleaseRunForTest("release-security", "main", "owner/repo")
 	changeSet := changes.NewChangeSet("cs-sec", "v1.0.0", "HEAD")
 	changeSet.AddCommit(changes.NewConventionalCommit("1", changes.CommitTypeFeat, "add feature"))
 	changeSet.AddCommit(changes.NewConventionalCommit("2", changes.CommitTypeFix, "fix CVE-2024-1234"))
@@ -507,7 +507,7 @@ func TestSecurityDetectionInEvaluateRelease(t *testing.T) {
 	current, _ := version.Parse("1.0.0")
 	next, _ := version.Parse("1.1.0")
 	plan := release.NewReleasePlan(current, next, changes.ReleaseTypeMinor, changeSet, false)
-	rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	input := EvaluateReleaseInput{
 		Release:    rel,

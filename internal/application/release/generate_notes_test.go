@@ -26,9 +26,8 @@ func (m *mockAINotesGenerator) GenerateReleaseNotes(ctx context.Context, input A
 }
 
 // createReleaseWithPlan creates a release with a plan ready for notes generation.
-func createReleaseWithPlan(id release.ReleaseID, branch, repoPath string) *release.Release {
-	r := release.NewRelease(id, branch, repoPath)
-	r.SetRepositoryName("test-repo")
+func createReleaseWithPlan(id release.RunID, branch, repoPath string) *release.ReleaseRun {
+	r := release.NewReleaseRunForTest(id, branch, repoPath)
 
 	// Create a changeset with various commit types
 	cs := changes.NewChangeSet("cs-test", "v1.0.0", "HEAD")
@@ -45,8 +44,9 @@ func createReleaseWithPlan(id release.ReleaseID, branch, repoPath string) *relea
 		cs,
 		false,
 	)
-	_ = r.SetPlan(plan)
+	_ = release.SetPlan(r, plan)
 	_ = r.SetVersion(nextVersion, "v1.1.0")
+	_ = r.Bump("test-actor")
 
 	return r
 }
@@ -165,14 +165,14 @@ func TestGenerateNotesUseCase_Execute(t *testing.T) {
 				UseAI:     false,
 			},
 			setupRelease: func(repo *mockReleaseRepository) {
-				// Create release without plan
-				r := release.NewRelease("release-123", "main", "/path/to/repo")
+				// Create release without changeset - no plan was run
+				r := release.NewReleaseRunForTest("release-123", "main", "/path/to/repo")
 				repo.releases["release-123"] = r
 			},
 			aiGenerator:    nil,
 			eventPublisher: &mockEventPublisher{},
 			wantErr:        true,
-			errMsg:         "plan cannot be nil",
+			errMsg:         "changeset not available",
 		},
 		{
 			name: "repository save fails",
@@ -400,7 +400,7 @@ func TestGenerateNotesUseCase_ChangelogGeneration(t *testing.T) {
 		t.Fatal("expected release to have notes")
 	}
 
-	if savedRelease.Notes().Changelog == "" {
+	if savedRelease.Notes().Text == "" {
 		t.Error("expected release notes to include changelog content")
 	}
 }
@@ -439,12 +439,8 @@ func TestGenerateNotesUseCase_NotesContentValidation(t *testing.T) {
 		t.Fatal("expected notes to be set")
 	}
 
-	if notes.Summary == "" {
-		t.Error("expected non-empty summary in saved notes")
-	}
-
-	if notes.AIGenerated {
-		t.Error("standard generation should not be marked as AI generated")
+	if notes.Text == "" {
+		t.Error("expected non-empty Text in saved notes")
 	}
 
 	if notes.GeneratedAt.IsZero() {

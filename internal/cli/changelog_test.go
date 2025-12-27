@@ -64,7 +64,7 @@ func TestHandleChangelogUpdateWritesNotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read changelog failed: %v", err)
 	}
-	if !strings.Contains(string(data), rel.Notes().Changelog) {
+	if !strings.Contains(string(data), rel.Notes().Text) {
 		t.Fatal("expected notes content in changelog")
 	}
 }

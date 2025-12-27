@@ -64,7 +64,7 @@ func parseNoteAudience(audience string) communication.NoteAudience {
 }
 
 // buildGenerateNotesInput creates the input for the GenerateNotes use case.
-func buildGenerateNotesInput(rel *release.Release, hasAI bool) apprelease.GenerateNotesInput {
+func buildGenerateNotesInput(rel *release.ReleaseRun, hasAI bool) apprelease.GenerateNotesInput {
 	return apprelease.GenerateNotesInput{
 		ReleaseID:        rel.ID(),
 		UseAI:            notesUseAI && hasAI,
@@ -183,14 +183,14 @@ func runNotes(cmd *cobra.Command, args []string) error {
 }
 
 // outputNotesJSON outputs the notes as JSON.
-func outputNotesJSON(output *apprelease.GenerateNotesOutput, rel *release.Release) error {
+func outputNotesJSON(output *apprelease.GenerateNotesOutput, rel *release.ReleaseRun) error {
 	result := map[string]any{
 		"release_id": string(rel.ID()),
 		"state":      string(rel.State()),
 	}
 
-	if rel.Plan() != nil {
-		result["version"] = rel.Plan().NextVersion.String()
+	if plan := release.GetPlan(rel); plan != nil {
+		result["version"] = plan.NextVersion.String()
 	}
 
 	if output.Changelog != nil {

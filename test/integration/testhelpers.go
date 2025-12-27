@@ -39,6 +39,7 @@ func NewTestRepo(t testing.TB) *TestRepo {
 	repo.Git("init", "--initial-branch=main")
 	repo.Git("config", "user.email", "test@example.com")
 	repo.Git("config", "user.name", "Test User")
+	repo.Git("config", "commit.gpgsign", "false")
 
 	t.Cleanup(repo.cleanup)
 	return repo

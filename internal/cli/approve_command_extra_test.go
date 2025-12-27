@@ -48,7 +48,7 @@ func TestHandleNotesEditingNoNotes(t *testing.T) {
 	defer func() { approveEdit = origEdit }()
 
 	approveEdit = true
-	rel := release.NewRelease("notes-missing", "main", ".")
+	rel := release.NewReleaseRunForTest("notes-missing", "main", ".")
 
 	edited, err := handleNotesEditing(rel)
 	if err != nil {
@@ -136,7 +136,7 @@ func TestRunApproveDryRunAutoApprove(t *testing.T) {
 }
 
 func TestHandleEditApprovalResultNoNotes(t *testing.T) {
-	rel := release.NewRelease("no-notes", "main", ".")
+	rel := release.NewReleaseRunForTest("no-notes", "main", ".")
 	edited, proceed, err := handleEditApprovalResult(rel)
 	if err != nil {
 		t.Fatalf("handleEditApprovalResult error: %v", err)

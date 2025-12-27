@@ -58,7 +58,7 @@ func TestCheckContextCanceled(t *testing.T) {
 
 func TestReleaseFilePath(t *testing.T) {
 	repo := newTestRepository(t)
-	id := release.ReleaseID("test")
+	id := release.RunID("test")
 	want := filepath.Join(repo.basePath, "test.json")
 	if got := repo.releaseFilePath(id); got != want {
 		t.Fatalf("releaseFilePath = %q, want %q", got, want)

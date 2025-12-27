@@ -46,7 +46,7 @@ func TestValidateReleaseForPublish(t *testing.T) {
 	}
 
 	publishSkipApproval = false
-	unplanned := domainrelease.NewRelease(domainrelease.ReleaseID("no-plan"), "main", ".")
+	unplanned := domainrelease.NewReleaseRunForTest(domainrelease.RunID("no-plan"), "main", ".")
 	if err := validateReleaseForPublish(unplanned); err == nil {
 		t.Fatal("expected validation to fail when no plan is set")
 	}

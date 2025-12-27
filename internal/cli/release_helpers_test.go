@@ -93,7 +93,7 @@ func TestRunReleaseBumpUsesForcedVersion(t *testing.T) {
 		gitRepo:    stubGitRepo{},
 		setVersion: setVersion,
 		releaseRepo: testReleaseRepo{
-			latest: newTestRelease(t, "bump-release"),
+			latest: newPlannedRelease(t, "bump-release"),
 		},
 	}
 

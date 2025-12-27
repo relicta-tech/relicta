@@ -68,7 +68,7 @@ func TestPublishReleaseUseCase_ExecuteWithUnitOfWork(t *testing.T) {
 			repo: newMockReleaseRepository(),
 		},
 	}
-	releaseID := release.ReleaseID("release-123")
+	releaseID := release.RunID("release-123")
 	r := createApprovedRelease(releaseID, "main", "/tmp/repo")
 	factory.uow.repo.releases[releaseID] = r
 

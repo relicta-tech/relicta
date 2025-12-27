@@ -50,8 +50,7 @@ func TestFileReleaseRepository_SaveAndFindByID(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a release
-	rel := release.NewRelease("test-release-1", "main", "/path/to/repo")
-	rel.SetRepositoryName("my-repo")
+	rel := release.NewReleaseRunForTest("test-release-1", "main", "/path/to/repo")
 
 	// Add plan
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
@@ -65,7 +64,7 @@ func TestFileReleaseRepository_SaveAndFindByID(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	// Save
 	err := repo.Save(ctx, rel)
@@ -85,9 +84,6 @@ func TestFileReleaseRepository_SaveAndFindByID(t *testing.T) {
 	if found.Branch() != rel.Branch() {
 		t.Errorf("Branch mismatch: got %v, want %v", found.Branch(), rel.Branch())
 	}
-	if found.RepositoryName() != rel.RepositoryName() {
-		t.Errorf("RepositoryName mismatch: got %v, want %v", found.RepositoryName(), rel.RepositoryName())
-	}
 	if found.State() != rel.State() {
 		t.Errorf("State mismatch: got %v, want %v", found.State(), rel.State())
 	}
@@ -99,8 +95,8 @@ func TestFileReleaseRepository_FindByID_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.FindByID(ctx, "nonexistent")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("FindByID() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("FindByID() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -110,8 +106,7 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a complete release with all fields
-	rel := release.NewRelease("full-release", "main", "/path/to/repo")
-	rel.SetRepositoryName("test-repo")
+	rel := release.NewReleaseRunForTest("full-release", "main", "/path/to/repo")
 
 	// Set plan
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
@@ -122,19 +117,19 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
-	// Set version
+	// Set version and bump
 	_ = rel.SetVersion(version.MustParse("2.0.0"), "v2.0.0")
+	_ = rel.Bump("test-actor")
 
 	// Set notes
 	notes := &release.ReleaseNotes{
-		Changelog:   "## 2.0.0\n\n- Breaking changes",
-		Summary:     "Major release",
-		AIGenerated: true,
+		Text:        "## 2.0.0\n\n- Breaking changes",
+		Provider:    "test",
 		GeneratedAt: time.Now(),
 	}
-	_ = rel.SetNotes(notes)
+	_ = rel.GenerateNotes(notes, "", "system")
 
 	// Approve
 	_ = rel.Approve("admin", false)
@@ -157,14 +152,14 @@ func TestFileReleaseRepository_SaveFullRelease(t *testing.T) {
 	if loaded.TagName() != "v2.0.0" {
 		t.Errorf("TagName = %v, want v2.0.0", loaded.TagName())
 	}
-	if loaded.Version().String() != "2.0.0" {
-		t.Errorf("Version = %v, want 2.0.0", loaded.Version())
+	if loaded.VersionNext().String() != "2.0.0" {
+		t.Errorf("Version = %v, want 2.0.0", loaded.VersionNext())
 	}
 	if loaded.Notes() == nil {
 		t.Fatal("Notes should not be nil")
 	}
-	if loaded.Notes().Changelog != notes.Changelog {
-		t.Errorf("Changelog mismatch")
+	if loaded.Notes().Text != notes.Text {
+		t.Errorf("Notes.Text mismatch")
 	}
 	if !loaded.IsApproved() {
 		t.Error("Should be approved")
@@ -179,7 +174,7 @@ func TestFileReleaseRepository_SaveWithPrerelease(t *testing.T) {
 	repo, _ := NewFileReleaseRepository(tmpDir)
 	ctx := context.Background()
 
-	rel := release.NewRelease("prerelease-test", "develop", "/repo")
+	rel := release.NewReleaseRunForTest("prerelease-test", "develop", "/repo")
 
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
 	plan := release.NewReleasePlan(
@@ -189,7 +184,7 @@ func TestFileReleaseRepository_SaveWithPrerelease(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	ver := version.MustParse("1.1.0-beta.1+build.123")
 	_ = rel.SetVersion(ver, "v1.1.0-beta.1")
@@ -204,8 +199,8 @@ func TestFileReleaseRepository_SaveWithPrerelease(t *testing.T) {
 		t.Fatalf("FindByID() error = %v", err)
 	}
 
-	if loaded.Version().String() != "1.1.0-beta.1+build.123" {
-		t.Errorf("Version = %v, want 1.1.0-beta.1+build.123", loaded.Version())
+	if loaded.VersionNext().String() != "1.1.0-beta.1+build.123" {
+		t.Errorf("Version = %v, want 1.1.0-beta.1+build.123", loaded.VersionNext())
 	}
 }
 
@@ -214,8 +209,8 @@ func TestFileReleaseRepository_FindBySpecification(t *testing.T) {
 	repo, _ := NewFileReleaseRepository(tmpDir)
 	ctx := context.Background()
 
-	relMain := release.NewRelease("spec-main", "main", "/repo")
-	relDev := release.NewRelease("spec-dev", "dev", "/repo")
+	relMain := release.NewReleaseRunForTest("spec-main", "main", "/repo1")
+	relDev := release.NewReleaseRunForTest("spec-dev", "dev", "/repo2")
 
 	if err := repo.Save(ctx, relMain); err != nil {
 		t.Fatalf("Save main error: %v", err)
@@ -224,7 +219,7 @@ func TestFileReleaseRepository_FindBySpecification(t *testing.T) {
 		t.Fatalf("Save dev error: %v", err)
 	}
 
-	spec := release.ByBranch("main")
+	spec := release.ByRepositoryPath("/repo1")
 	found, err := repo.FindBySpecification(ctx, spec)
 	if err != nil {
 		t.Fatalf("FindBySpecification error: %v", err)
@@ -240,11 +235,11 @@ func TestFileReleaseRepository_FindLatest(t *testing.T) {
 	ctx := context.Background()
 
 	// Create release for one repo path
-	rel1 := release.NewRelease("release-1", "main", "/path/to/repo")
+	rel1 := release.NewReleaseRunForTest("release-1", "main", "/path/to/repo")
 	_ = repo.Save(ctx, rel1)
 
 	// Create release for a different repo path
-	rel2 := release.NewRelease("release-2", "main", "/other/repo")
+	rel2 := release.NewReleaseRunForTest("release-2", "main", "/other/repo")
 	_ = repo.Save(ctx, rel2)
 
 	// Find latest for /path/to/repo - should only find rel1
@@ -274,13 +269,13 @@ func TestFileReleaseRepository_FindLatest_MultipleReleases(t *testing.T) {
 	ctx := context.Background()
 
 	// Create first release
-	rel1 := release.NewRelease("release-1", "main", "/path/to/repo")
+	rel1 := release.NewReleaseRunForTest("release-1", "main", "/path/to/repo")
 	_ = repo.Save(ctx, rel1)
 
 	// Wait and create second release with later timestamp
 	time.Sleep(1100 * time.Millisecond) // Wait > 1 second to ensure different RFC3339 timestamps
 
-	rel2 := release.NewRelease("release-2", "main", "/path/to/repo")
+	rel2 := release.NewReleaseRunForTest("release-2", "main", "/path/to/repo")
 	_ = repo.Save(ctx, rel2)
 
 	// Find latest should return rel2 (most recently updated)
@@ -291,8 +286,8 @@ func TestFileReleaseRepository_FindLatest_MultipleReleases(t *testing.T) {
 
 	// Note: The actual latest depends on which has newer UpdatedAt timestamp
 	// Both releases are valid results since the test depends on timing
-	if latest.RepositoryPath() != "/path/to/repo" {
-		t.Errorf("FindLatest() returned wrong repo path: %v", latest.RepositoryPath())
+	if latest.RepoRoot() != "/path/to/repo" {
+		t.Errorf("FindLatest() returned wrong repo path: %v", latest.RepoRoot())
 	}
 }
 
@@ -302,8 +297,8 @@ func TestFileReleaseRepository_FindLatest_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := repo.FindLatest(ctx, "/nonexistent/repo")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("FindLatest() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("FindLatest() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -313,9 +308,9 @@ func TestFileReleaseRepository_FindByState(t *testing.T) {
 	ctx := context.Background()
 
 	// Create releases in different states
-	rel1 := release.NewRelease("release-1", "main", "/repo")
-	rel2 := release.NewRelease("release-2", "main", "/repo")
-	rel3 := release.NewRelease("release-3", "main", "/repo")
+	rel1 := release.NewReleaseRunForTest("release-1", "main", "/repo")
+	rel2 := release.NewReleaseRunForTest("release-2", "main", "/repo")
+	rel3 := release.NewReleaseRunForTest("release-3", "main", "/repo")
 
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
 	plan := release.NewReleasePlan(
@@ -326,15 +321,15 @@ func TestFileReleaseRepository_FindByState(t *testing.T) {
 		false,
 	)
 
-	// rel1: initialized
+	// rel1: draft (initialized)
 	_ = repo.Save(ctx, rel1)
 
 	// rel2: planned
-	_ = rel2.SetPlan(plan)
+	_ = release.SetPlan(rel2, plan)
 	_ = repo.Save(ctx, rel2)
 
 	// rel3: planned
-	_ = rel3.SetPlan(plan)
+	_ = release.SetPlan(rel3, plan)
 	_ = repo.Save(ctx, rel3)
 
 	// Find planned releases
@@ -347,14 +342,14 @@ func TestFileReleaseRepository_FindByState(t *testing.T) {
 		t.Errorf("FindByState() returned %d releases, want 2", len(planned))
 	}
 
-	// Find initialized releases
-	initialized, err := repo.FindByState(ctx, release.StateInitialized)
+	// Find draft releases
+	draft, err := repo.FindByState(ctx, release.StateDraft)
 	if err != nil {
 		t.Fatalf("FindByState() error = %v", err)
 	}
 
-	if len(initialized) != 1 {
-		t.Errorf("FindByState() returned %d releases, want 1", len(initialized))
+	if len(draft) != 1 {
+		t.Errorf("FindByState() returned %d releases, want 1", len(draft))
 	}
 }
 
@@ -364,8 +359,8 @@ func TestFileReleaseRepository_FindActive(t *testing.T) {
 	ctx := context.Background()
 
 	// Create releases
-	rel1 := release.NewRelease("active-1", "main", "/repo")
-	rel2 := release.NewRelease("active-2", "main", "/repo")
+	rel1 := release.NewReleaseRunForTest("active-1", "main", "/repo")
+	rel2 := release.NewReleaseRunForTest("active-2", "main", "/repo")
 
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
 	plan := release.NewReleasePlan(
@@ -377,7 +372,7 @@ func TestFileReleaseRepository_FindActive(t *testing.T) {
 	)
 
 	// rel1: planned (active)
-	_ = rel1.SetPlan(plan)
+	_ = release.SetPlan(rel1, plan)
 	_ = repo.Save(ctx, rel1)
 
 	// rel2: canceled (final, not active)
@@ -403,7 +398,7 @@ func TestFileReleaseRepository_Delete(t *testing.T) {
 	repo, _ := NewFileReleaseRepository(tmpDir)
 	ctx := context.Background()
 
-	rel := release.NewRelease("to-delete", "main", "/repo")
+	rel := release.NewReleaseRunForTest("to-delete", "main", "/repo")
 	_ = repo.Save(ctx, rel)
 
 	// Verify it exists
@@ -420,7 +415,7 @@ func TestFileReleaseRepository_Delete(t *testing.T) {
 
 	// Verify it's gone
 	_, err = repo.FindByID(ctx, "to-delete")
-	if err != release.ErrReleaseNotFound {
+	if err != release.ErrRunNotFound {
 		t.Errorf("Release should not exist after delete")
 	}
 }
@@ -431,8 +426,8 @@ func TestFileReleaseRepository_Delete_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	err := repo.Delete(ctx, "nonexistent")
-	if err != release.ErrReleaseNotFound {
-		t.Errorf("Delete() error = %v, want %v", err, release.ErrReleaseNotFound)
+	if err != release.ErrRunNotFound {
+		t.Errorf("Delete() error = %v, want %v", err, release.ErrRunNotFound)
 	}
 }
 
@@ -442,7 +437,7 @@ func TestFileReleaseRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	// Create and save initial release
-	rel := release.NewRelease("update-test", "main", "/repo")
+	rel := release.NewReleaseRunForTest("update-test", "main", "/repo")
 	_ = repo.Save(ctx, rel)
 
 	// Modify the release
@@ -454,7 +449,7 @@ func TestFileReleaseRepository_Update(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 
 	// Save again (update)
 	_ = repo.Save(ctx, rel)
@@ -472,7 +467,7 @@ func TestFileReleaseRepository_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 
 	// Create initial release
-	rel := release.NewRelease("concurrent-test", "main", "/repo")
+	rel := release.NewReleaseRunForTest("concurrent-test", "main", "/repo")
 	_ = repo.Save(ctx, rel)
 
 	// Concurrent reads
@@ -496,7 +491,7 @@ func TestFileReleaseRepository_PublishedRelease(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a fully published release
-	rel := release.NewRelease("published-test", "main", "/repo")
+	rel := release.NewReleaseRunForTest("published-test", "main", "/repo")
 
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
 	plan := release.NewReleasePlan(
@@ -506,11 +501,12 @@ func TestFileReleaseRepository_PublishedRelease(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
-	_ = rel.SetNotes(&release.ReleaseNotes{Changelog: "test", GeneratedAt: time.Now()})
+	_ = rel.Bump("test-actor")
+	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
-	_ = rel.StartPublishing([]string{"github"})
+	_ = rel.StartPublishing("user")
 	_ = rel.MarkPublished("https://github.com/owner/repo/releases/v1.1.0")
 
 	_ = repo.Save(ctx, rel)
@@ -534,7 +530,7 @@ func TestFileReleaseRepository_FailedRelease(t *testing.T) {
 	repo, _ := NewFileReleaseRepository(tmpDir)
 	ctx := context.Background()
 
-	rel := release.NewRelease("failed-test", "main", "/repo")
+	rel := release.NewReleaseRunForTest("failed-test", "main", "/repo")
 
 	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
 	plan := release.NewReleasePlan(
@@ -544,12 +540,13 @@ func TestFileReleaseRepository_FailedRelease(t *testing.T) {
 		changeSet,
 		false,
 	)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
-	_ = rel.SetNotes(&release.ReleaseNotes{Changelog: "test", GeneratedAt: time.Now()})
+	_ = rel.Bump("test-actor")
+	_ = rel.GenerateNotes(&release.ReleaseNotes{Text: "test", GeneratedAt: time.Now()}, "", "system")
 	_ = rel.Approve("user", false)
-	_ = rel.StartPublishing([]string{"github"})
-	_ = rel.MarkFailed("network error", true)
+	_ = rel.StartPublishing("user")
+	_ = rel.MarkFailed("network error", "system")
 
 	_ = repo.Save(ctx, rel)
 
@@ -573,9 +570,8 @@ func TestFileReleaseRepository_ConcurrentScanReleases(t *testing.T) {
 
 	// Create multiple releases with different states
 	for i := 0; i < numReleases; i++ {
-		id := release.ReleaseID("test-concurrent-" + string(rune('a'+i)))
-		rel := release.NewRelease(id, "main", "/path/to/repo")
-		rel.SetRepositoryName("test-repo")
+		id := release.RunID("test-concurrent-" + string(rune('a'+i)))
+		rel := release.NewReleaseRunForTest(id, "main", "/path/to/repo")
 
 		// Vary the states to test filtering
 		if i < 5 {
@@ -588,7 +584,7 @@ func TestFileReleaseRepository_ConcurrentScanReleases(t *testing.T) {
 				changeSet,
 				false,
 			)
-			_ = rel.SetPlan(plan)
+			_ = release.SetPlan(rel, plan)
 		}
 
 		err := repo.Save(ctx, rel)

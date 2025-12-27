@@ -125,7 +125,7 @@ func TestRunPlanReview_Success(t *testing.T) {
 				{Hash: hash, Subject: "fix bug"},
 			},
 			executeOutput: &apprelease.PlanReleaseOutput{
-				ReleaseID:      domainrelease.ReleaseID("test-release"),
+				ReleaseID:      domainrelease.RunID("test-release"),
 				CurrentVersion: domainversion.MustParse("1.0.0"),
 				NextVersion:    domainversion.MustParse("1.1.0"),
 				ReleaseType:    changes.ReleaseTypeMinor,
@@ -409,7 +409,7 @@ func newTestChangeSet() *changes.ChangeSet {
 
 func newPlanOutput() *apprelease.PlanReleaseOutput {
 	return &apprelease.PlanReleaseOutput{
-		ReleaseID:      domainrelease.ReleaseID("release-123"),
+		ReleaseID:      domainrelease.RunID("release-123"),
 		CurrentVersion: domainversion.MustParse("1.0.0"),
 		NextVersion:    domainversion.MustParse("1.1.0"),
 		ReleaseType:    changes.ReleaseTypeMinor,

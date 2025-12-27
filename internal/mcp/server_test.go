@@ -392,7 +392,7 @@ func TestStdioTransport(t *testing.T) {
 func TestToolCallWithAdapter(t *testing.T) {
 	// Create a mock release for the adapter
 	rel := createTestRelease("test-release-1", "1.0.0", "1.1.0")
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 
 	// Create an adapter with repository
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -493,7 +493,7 @@ func TestToolCallWithAdapter(t *testing.T) {
 
 func TestResourceReadWithAdapter(t *testing.T) {
 	rel := createTestRelease("test-release-2", "1.0.0", "1.2.0")
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 
 	server, err := NewServer("1.0.0",
 		WithConfig(config.DefaultConfig()),
@@ -713,7 +713,7 @@ func TestResourceStateEdgeCases(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("state with empty releases returns no active", func(t *testing.T) {
-		repo := &mockReleaseRepository{releases: []*release.Release{}}
+		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
@@ -861,7 +861,7 @@ func TestToolStatusWithReleaseRepo(t *testing.T) {
 
 	t.Run("status with release repo and active release", func(t *testing.T) {
 		rel := createTestRelease("repo-test", "1.0.0", "1.1.0")
-		repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
@@ -885,7 +885,7 @@ func TestToolStatusWithReleaseRepo(t *testing.T) {
 	})
 
 	t.Run("status with release repo but no releases", func(t *testing.T) {
-		repo := &mockReleaseRepository{releases: []*release.Release{}}
+		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
@@ -1040,14 +1040,14 @@ func TestToolFallbackPaths(t *testing.T) {
 
 func TestResourceStateWithVersion(t *testing.T) {
 	// Create release with explicit version set
-	rel := release.NewRelease(release.ReleaseID("version-test"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("version-test"), "main", "")
 	v, _ := version.Parse("1.5.0")
 	nextV, _ := version.Parse("1.6.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(v, "v1.5.0")
 
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 
 	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 	require.NoError(t, err)
@@ -1258,7 +1258,7 @@ func TestToolHandlersWithAdapterAndRepo(t *testing.T) {
 
 	// Create release for the repo
 	rel := createTestRelease("adapter-test-123", "1.0.0", "1.1.0")
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 
 	// Create adapter with just the release repo (no use cases configured)
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -1375,7 +1375,7 @@ func TestToolStatusWithAdapterError(t *testing.T) {
 	ctx := context.Background()
 
 	// Create adapter with empty repo
-	repo := &mockReleaseRepository{releases: []*release.Release{}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
@@ -1404,14 +1404,14 @@ func TestResourceStateWithDirectVersion(t *testing.T) {
 	ctx := context.Background()
 
 	// Create release with explicit version set (not just from plan)
-	rel := release.NewRelease(release.ReleaseID("version-direct-test"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("version-direct-test"), "main", "")
 	v, _ := version.Parse("2.0.0")
 	nextV, _ := version.Parse("2.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(nextV, "v2.1.0")
 
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 	require.NoError(t, err)
 
@@ -1535,14 +1535,14 @@ func TestToolStatusWithVersionedRelease(t *testing.T) {
 	ctx := context.Background()
 
 	// Create release with direct version
-	rel := release.NewRelease(release.ReleaseID("versioned-release"), "main", "")
+	rel := release.NewReleaseRunForTest(release.RunID("versioned-release"), "main", "")
 	v, _ := version.Parse("3.0.0")
 	nextV, _ := version.Parse("3.1.0")
 	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	_ = rel.SetVersion(nextV, "v3.1.0")
 
-	repo := &mockReleaseRepository{releases: []*release.Release{rel}}
+	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
 	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 	require.NoError(t, err)
 
@@ -2523,11 +2523,11 @@ func TestToolHandlerArgumentTypes(t *testing.T) {
 // Note: mockReleaseRepository is defined in adapters_test.go
 
 // createTestRelease creates a release with a plan for testing
-func createTestRelease(id, currentVersion, nextVersion string) *release.Release {
-	rel := release.NewRelease(release.ReleaseID(id), "main", "")
+func createTestRelease(id, currentVersion, nextVersion string) *release.ReleaseRun {
+	rel := release.NewReleaseRunForTest(release.RunID(id), "main", "")
 	curr, _ := version.Parse(currentVersion)
 	next, _ := version.Parse(nextVersion)
 	plan := release.NewReleasePlan(curr, next, changes.ReleaseTypeMinor, nil, false)
-	_ = rel.SetPlan(plan)
+	_ = release.SetPlan(rel, plan)
 	return rel
 }

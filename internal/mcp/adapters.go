@@ -334,7 +334,7 @@ func (a *Adapter) Notes(ctx context.Context, input NotesInput) (*NotesOutput, er
 	}
 
 	ucInput := release.GenerateNotesInput{
-		ReleaseID:        domainrelease.ReleaseID(input.ReleaseID),
+		ReleaseID:        domainrelease.RunID(input.ReleaseID),
 		UseAI:            input.UseAI,
 		IncludeChangelog: input.IncludeChangelog,
 		RepositoryURL:    input.RepositoryURL,
@@ -388,7 +388,7 @@ func (a *Adapter) Evaluate(ctx context.Context, input EvaluateInput) (*EvaluateO
 	}
 
 	// Find the release
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.ReleaseID(input.ReleaseID))
+	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
@@ -456,7 +456,7 @@ func (a *Adapter) Approve(ctx context.Context, input ApproveInput) (*ApproveOutp
 	}
 
 	ucInput := release.ApproveReleaseInput{
-		ReleaseID:   domainrelease.ReleaseID(input.ReleaseID),
+		ReleaseID:   domainrelease.RunID(input.ReleaseID),
 		ApprovedBy:  input.ApprovedBy,
 		AutoApprove: input.AutoApprove,
 	}
@@ -514,7 +514,7 @@ func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutp
 	}
 
 	ucInput := release.PublishReleaseInput{
-		ReleaseID: domainrelease.ReleaseID(input.ReleaseID),
+		ReleaseID: domainrelease.RunID(input.ReleaseID),
 		DryRun:    input.DryRun,
 		CreateTag: input.CreateTag,
 		PushTag:   input.PushTag,
@@ -581,11 +581,9 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 		UpdatedAt: rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
-	// Get version - prefer direct version, fall back to plan's next version
-	if rel.Version() != nil {
-		result.Version = rel.Version().String()
-	} else if rel.Plan() != nil {
-		result.Version = rel.Plan().NextVersion.String()
+	// Get version from aggregate
+	if !rel.VersionNext().IsZero() {
+		result.Version = rel.VersionNext().String()
 	}
 
 	status := rel.ApprovalStatus()

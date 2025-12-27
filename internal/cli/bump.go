@@ -89,10 +89,10 @@ func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr strin
 	}
 
 	// Update release state if there's an active release (same as normal bump flow)
-	// ErrReleaseNotFound is expected when bump runs standalone without prior plan
+	// ErrRunNotFound is expected when bump runs standalone without prior plan
 	if !dryRun {
 		if err := updateReleaseVersion(ctx, app, forcedVersion); err != nil {
-			if !errors.Is(err, release.ErrReleaseNotFound) {
+			if !errors.Is(err, release.ErrRunNotFound) {
 				return fmt.Errorf("failed to update release state: %w", err)
 			}
 		}
@@ -237,9 +237,9 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update release state if there's an active release
-	// ErrReleaseNotFound is expected when bump runs standalone without prior plan
+	// ErrRunNotFound is expected when bump runs standalone without prior plan
 	if err := updateReleaseVersion(ctx, app, nextVersion); err != nil {
-		if !errors.Is(err, release.ErrReleaseNotFound) {
+		if !errors.Is(err, release.ErrRunNotFound) {
 			return fmt.Errorf("failed to update release state: %w", err)
 		}
 	}
@@ -317,7 +317,7 @@ func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer v
 	// Update release state
 	if !dryRun {
 		if err := updateReleaseVersion(ctx, app, targetVer); err != nil {
-			if errors.Is(err, release.ErrReleaseNotFound) {
+			if errors.Is(err, release.ErrRunNotFound) {
 				printInfo("No active release to update")
 			} else {
 				return fmt.Errorf("failed to update release state: %w", err)
@@ -369,6 +369,11 @@ func updateReleaseVersion(ctx context.Context, app cliApp, ver version.SemanticV
 
 	tagName := cfg.Versioning.TagPrefix + ver.String()
 	if err := rel.SetVersion(ver, tagName); err != nil {
+		return err
+	}
+
+	// Transition from Planned to Versioned state
+	if err := rel.Bump("cli"); err != nil {
 		return err
 	}
 

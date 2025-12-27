@@ -104,7 +104,7 @@ func TestPrintApproveNextSteps(t *testing.T) {
 func TestIsReleaseAlreadyApproved(t *testing.T) {
 	tests := []struct {
 		name  string
-		state release.ReleaseState
+		state release.RunState
 		want  bool
 	}{
 		{
@@ -144,31 +144,33 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 				false,
 			)
 
-			rel := release.NewRelease(
-				release.ReleaseID("test-release"),
+			rel := release.NewReleaseRunForTest(
+				release.RunID("test-release"),
 				"main",
 				"test-repo",
 			)
 
 			// Set plan to transition to StatePlanned
-			if err := rel.SetPlan(plan); err != nil {
+			if err := release.SetPlan(rel, plan); err != nil {
 				t.Fatalf("failed to set plan: %v", err)
 			}
 
 			// For approved state, approve the release
 			if tt.state == release.StateApproved {
-				// First set version and notes to allow approval
+				// First set version and bump to transition to Versioned state
 				if err := rel.SetVersion(v2, "v1.1.0"); err != nil {
 					t.Fatalf("failed to set version: %v", err)
 				}
+				if err := rel.Bump("test-actor"); err != nil {
+					t.Fatalf("failed to bump: %v", err)
+				}
 
 				notes := &release.ReleaseNotes{
-					Changelog:   "Test changelog",
-					Summary:     "Test summary",
-					AIGenerated: false,
+					Text:        "Test changelog",
+					Provider:    "test",
 					GeneratedAt: time.Now(),
 				}
-				if err := rel.SetNotes(notes); err != nil {
+				if err := rel.GenerateNotes(notes, "", "system"); err != nil {
 					t.Fatalf("failed to set notes: %v", err)
 				}
 
@@ -186,7 +188,7 @@ func TestIsReleaseAlreadyApproved(t *testing.T) {
 }
 
 func TestHandleEditApprovalResultWithoutNotes(t *testing.T) {
-	rel := release.NewRelease(release.ReleaseID("no-notes-edit"), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID("no-notes-edit"), "main", ".")
 	notes, proceed, err := handleEditApprovalResult(rel)
 	if err != nil {
 		t.Fatalf("handleEditApprovalResult returned error: %v", err)
@@ -200,7 +202,7 @@ func TestHandleEditApprovalResultWithoutNotes(t *testing.T) {
 }
 
 func TestProcessTUIApprovalResultPaths(t *testing.T) {
-	rel := release.NewRelease(release.ReleaseID("tui-result"), "main", ".")
+	rel := release.NewReleaseRunForTest(release.RunID("tui-result"), "main", ".")
 	tests := []struct {
 		name    string
 		result  ui.ApprovalResult

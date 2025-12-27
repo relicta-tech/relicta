@@ -48,7 +48,7 @@ func TestRunReleaseWorkflowAutoApprove(t *testing.T) {
 		approve:    fakeApprove,
 		publish:    fakePublish,
 		releaseRepo: testReleaseRepo{
-			latest: newTestRelease(t, "release-flow"),
+			latest: newPlannedRelease(t, "release-flow"),
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestRunReleaseDryRunSkipsPublish(t *testing.T) {
 		approve:    &fakeApproveReleaseUseCase{},
 		publish:    &fakePublishReleaseUseCase{},
 		releaseRepo: testReleaseRepo{
-			latest: newTestRelease(t, "release-dryrun"),
+			latest: newPlannedRelease(t, "release-dryrun"),
 		},
 	}
 	newContainerApp = func(ctx context.Context, cfg *config.Config) (cliApp, error) {

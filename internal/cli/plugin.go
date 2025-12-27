@@ -482,13 +482,14 @@ func runPluginInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	// Next steps
-	if entry.Installed == nil {
+	switch {
+	case entry.Installed == nil:
 		fmt.Println("Next steps:")
 		fmt.Printf("  relicta plugin install %s\n", pluginName)
-	} else if !entry.Installed.Enabled {
+	case !entry.Installed.Enabled:
 		fmt.Println("Next steps:")
 		fmt.Printf("  relicta plugin enable %s\n", pluginName)
-	} else if entry.Status == manager.StatusUpdateAvailable {
+	case entry.Status == manager.StatusUpdateAvailable:
 		fmt.Println("Next steps:")
 		fmt.Printf("  relicta plugin update %s\n", pluginName)
 	}
@@ -622,11 +623,12 @@ func runPluginConfigure(cmd *cobra.Command, args []string) error {
 			schema := entry.Info.ConfigSchema[key]
 			fmt.Printf("    # %s: ", key)
 
-			if schema.Default != nil {
+			switch {
+			case schema.Default != nil:
 				fmt.Printf("%v  # default: %v\n", schema.Default, schema.Description)
-			} else if schema.Env != "" {
+			case schema.Env != "":
 				fmt.Printf("${%s}  # %s\n", schema.Env, schema.Description)
-			} else {
+			default:
 				fmt.Printf("<value>  # %s\n", schema.Description)
 			}
 		}

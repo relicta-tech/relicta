@@ -12,7 +12,7 @@ import (
 
 // GenerateNotesInput represents the input for the GenerateNotes use case.
 type GenerateNotesInput struct {
-	ReleaseID        release.ReleaseID
+	ReleaseID        release.RunID
 	UseAI            bool
 	Tone             communication.NoteTone
 	Audience         communication.NoteAudience
@@ -56,7 +56,7 @@ type AINotesGenerator interface {
 
 // AIGenerateInput represents input for AI generation.
 type AIGenerateInput struct {
-	ReleaseContext *release.Release
+	ReleaseContext *release.ReleaseRun
 	Tone           communication.NoteTone
 	Audience       communication.NoteAudience
 }
@@ -96,19 +96,22 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
 
-	if rel.Plan() == nil {
-		return nil, release.ErrNilPlan
+	plan := release.GetPlan(rel)
+	if plan == nil {
+		return nil, release.ErrVersionNotSet
 	}
 
-	plan := rel.Plan()
 	changeSet := plan.GetChangeSet()
+	if changeSet == nil {
+		return nil, fmt.Errorf("changeset not available: run 'relicta plan' first to analyze commits")
+	}
 
 	// Use actual release version if set (by SetVersion in bump step),
 	// otherwise fall back to planned version. This handles tag-push mode
 	// where the existing tag version may differ from the calculated one.
 	releaseVersion := plan.NextVersion
-	if rel.Version() != nil {
-		releaseVersion = *rel.Version()
+	if !rel.VersionNext().IsZero() {
+		releaseVersion = rel.VersionNext()
 	}
 
 	var notes *communication.ReleaseNotes
@@ -143,21 +146,28 @@ func (uc *GenerateNotesUseCase) Execute(ctx context.Context, input GenerateNotes
 	}
 
 	// Update release with notes
-	// Use RenderEntries() to get just the version entry without the "# Changelog" header
-	// This is important because when updating an existing file, we don't want duplicate headers
-	var changelogContent string
+	// Use notes.Render() for the full content, or changelog entries if changelog was generated
+	var notesText string
 	if changelog != nil {
-		changelogContent = changelog.RenderEntries()
+		// Use RenderEntries() to get just the version entry without the "# Changelog" header
+		// This is important because when updating an existing file, we don't want duplicate headers
+		notesText = changelog.RenderEntries()
+	} else {
+		// Use the generated release notes content
+		notesText = notes.Render()
 	}
 
+	provider := ""
+	if notes.IsAIGenerated() {
+		provider = "ai"
+	}
 	releaseNotes := &release.ReleaseNotes{
-		Changelog:   changelogContent,
-		Summary:     notes.Summary(),
-		AIGenerated: notes.IsAIGenerated(),
+		Text:        notesText,
+		Provider:    provider,
 		GeneratedAt: notes.GeneratedAt(),
 	}
 
-	if err := rel.SetNotes(releaseNotes); err != nil {
+	if err := rel.GenerateNotes(releaseNotes, "", "system"); err != nil {
 		return nil, fmt.Errorf("failed to set release notes: %w", err)
 	}
 
