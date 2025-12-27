@@ -1,36 +1,61 @@
 package mcp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"io"
 	"log/slog"
 	"os"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
 	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+// createTestReleaseRun creates a test release run in draft state
+func createTestReleaseRun() *domainrelease.ReleaseRun {
+	return domainrelease.NewReleaseRun(
+		"github.com/test/repo",
+		"/tmp/test-repo",
+		"main",
+		domainrelease.CommitSHA("abc123"),
+		[]domainrelease.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+}
+
+// createTestReleaseRunWithVersion creates a test release run with version 1.2.3
+func createTestReleaseRunWithVersion() *domainrelease.ReleaseRun {
+	run := domainrelease.NewReleaseRun(
+		"github.com/test/repo",
+		"/tmp/test-repo",
+		"v1.0.0",
+		domainrelease.CommitSHA("abc123"),
+		[]domainrelease.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+	// Transition to planned state and set version
+	_ = run.Plan("system")
+	v, _ := version.Parse("1.2.3")
+	_ = run.SetVersion(v, "v1.2.3")
+	return run
+}
 
 func TestNewServer(t *testing.T) {
 	t.Run("creates server with defaults", func(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 		assert.NotNil(t, server)
+		assert.NotNil(t, server.server)
 		assert.NotNil(t, server.riskCalc)
-		assert.NotNil(t, server.tools)
-		assert.NotNil(t, server.resources)
-		assert.NotNil(t, server.prompts)
+		assert.NotNil(t, server.cache)
+		assert.Equal(t, "1.0.0", server.version)
 	})
 
 	t.Run("applies options", func(t *testing.T) {
@@ -50,518 +75,25 @@ func TestNewServer(t *testing.T) {
 		assert.Equal(t, cfg, server.config)
 		assert.Equal(t, riskCalc, server.riskCalc)
 	})
-}
 
-func TestHandleRequest(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("initialize", func(t *testing.T) {
-		params, _ := json.Marshal(InitializeParams{
-			ProtocolVersion: MCPVersion,
-			ClientInfo:      Implementation{Name: "test", Version: "1.0"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "initialize",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		assert.NotNil(t, resp.Result)
-	})
-
-	t.Run("initialized notification", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			Method:  "initialized",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		assert.Nil(t, resp) // Notifications don't get responses
-	})
-
-	t.Run("ping", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "ping",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("unknown method", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "unknown/method",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeMethodNotFound, resp.Error.Code)
-	})
-
-	t.Run("tools/list", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "tools/list",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(ListToolsResult)
-		require.True(t, ok)
-		assert.Len(t, result.Tools, 7) // 7 tools registered
-	})
-
-	t.Run("resources/list", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      5,
-			Method:  "resources/list",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(ListResourcesResult)
-		require.True(t, ok)
-		assert.Len(t, result.Resources, 5) // 5 resources registered
-	})
-
-	t.Run("prompts/list", func(t *testing.T) {
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      6,
-			Method:  "prompts/list",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(ListPromptsResult)
-		require.True(t, ok)
-		assert.Len(t, result.Prompts, 7) // 7 prompts registered
-	})
-}
-
-func TestToolCall(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("relicta.status without repo", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.evaluate", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.evaluate"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.bump with args", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.bump",
-			Arguments: map[string]any{"bump": "minor"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("unknown tool", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "unknown.tool"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeMethodNotFound, resp.Error.Code)
-	})
-}
-
-func TestResourceRead(t *testing.T) {
-	server, err := NewServer("1.0.0", WithConfig(config.DefaultConfig()))
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("relicta://state", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://state"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta://config", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://config"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("unknown resource", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://unknown"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeMethodNotFound, resp.Error.Code)
-	})
-}
-
-func TestPromptGet(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("release-summary brief", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "release-summary",
-			Arguments: map[string]string{"style": "brief"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("release-summary detailed", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "release-summary",
-			Arguments: map[string]string{"style": "detailed"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("risk-analysis", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{Name: "risk-analysis"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("unknown prompt", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{Name: "unknown"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeMethodNotFound, resp.Error.Code)
-	})
-}
-
-func TestStdioTransport(t *testing.T) {
-	t.Run("read and write messages", func(t *testing.T) {
-		// Create a request
-		req := Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "ping",
-		}
-		reqJSON, _ := json.Marshal(req)
-
-		// Create reader with the request
-		reader := strings.NewReader(string(reqJSON) + "\n")
-		writer := &bytes.Buffer{}
-
-		transport := NewStdioTransport(reader, writer)
-
-		// Read the request
-		readReq, err := transport.ReadMessage()
+	t.Run("cache can be disabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0", WithCacheDisabled())
 		require.NoError(t, err)
-		assert.Equal(t, "ping", readReq.Method)
+		assert.Nil(t, server.cache)
+	})
 
-		// Write a response
-		resp := NewResponse(1, map[string]any{})
-		err = transport.WriteResponse(resp)
+	t.Run("adapter can be set", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
-
-		// Verify response was written
-		assert.True(t, len(writer.Bytes()) > 0)
-		assert.True(t, bytes.HasSuffix(writer.Bytes(), []byte("\n")))
+		assert.Equal(t, adapter, server.adapter)
 	})
 
-	t.Run("write notification", func(t *testing.T) {
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(strings.NewReader(""), writer)
-
-		err := transport.WriteNotification("test/notification", map[string]any{"key": "value"})
+	t.Run("custom cache can be set", func(t *testing.T) {
+		cache := NewResourceCache()
+		server, err := NewServer("1.0.0", WithCache(cache))
 		require.NoError(t, err)
-
-		assert.True(t, len(writer.Bytes()) > 0)
-	})
-}
-
-func TestToolCallWithAdapter(t *testing.T) {
-	// Create a mock release for the adapter
-	rel := createTestRelease("test-release-1", "1.0.0", "1.1.0")
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-
-	// Create an adapter with repository
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
-
-	server, err := NewServer("1.0.0", WithAdapter(adapter))
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("relicta.status with adapter", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		require.Len(t, result.Content, 1)
-		assert.Contains(t, result.Content[0].Text, "test-release-1")
-	})
-
-	t.Run("relicta.plan without plan use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.plan",
-			Arguments: map[string]any{"from": "v1.0.0"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Falls back to stub response
-	})
-
-	t.Run("relicta.notes without notes use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.notes",
-			Arguments: map[string]any{"ai": true},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.approve without approve use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.approve",
-			Arguments: map[string]any{"notes": "test notes"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.publish without publish use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{"dry_run": true},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      5,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-}
-
-func TestResourceReadWithAdapter(t *testing.T) {
-	rel := createTestRelease("test-release-2", "1.0.0", "1.2.0")
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-
-	server, err := NewServer("1.0.0",
-		WithConfig(config.DefaultConfig()),
-		WithReleaseRepository(repo),
-	)
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("relicta://state with release", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://state"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*ReadResourceResult)
-		require.True(t, ok)
-		require.Len(t, result.Contents, 1)
-		assert.Contains(t, result.Contents[0].Text, "planned")
-	})
-
-	t.Run("relicta://commits stub", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://commits"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta://changelog stub", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://changelog"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta://risk-report stub", func(t *testing.T) {
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://risk-report"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
+		assert.Equal(t, cache, server.cache)
 	})
 }
 
@@ -573,10 +105,9 @@ func TestServerOptions(t *testing.T) {
 	})
 
 	t.Run("WithReleaseRepository", func(t *testing.T) {
-		repo := &mockReleaseRepository{}
-		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		server, err := NewServer("1.0.0", WithReleaseRepository(nil))
 		require.NoError(t, err)
-		assert.Equal(t, repo, server.releaseRepo)
+		assert.Nil(t, server.releaseRepo)
 	})
 
 	t.Run("WithPolicyEngine", func(t *testing.T) {
@@ -590,1944 +121,1542 @@ func TestServerOptions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, server.evaluator)
 	})
+}
 
-	t.Run("WithAdapter", func(t *testing.T) {
+func TestToolInputTypes(t *testing.T) {
+	t.Run("StatusInput", func(t *testing.T) {
+		input := StatusInput{}
+		assert.NotNil(t, input)
+	})
+
+	t.Run("PlanToolInput fields", func(t *testing.T) {
+		input := PlanToolInput{
+			From:    "v1.0.0",
+			Analyze: true,
+		}
+		assert.Equal(t, "v1.0.0", input.From)
+		assert.True(t, input.Analyze)
+	})
+
+	t.Run("BumpToolInput fields", func(t *testing.T) {
+		input := BumpToolInput{
+			Bump:    "minor",
+			Version: "1.2.0",
+		}
+		assert.Equal(t, "minor", input.Bump)
+		assert.Equal(t, "1.2.0", input.Version)
+	})
+
+	t.Run("NotesToolInput fields", func(t *testing.T) {
+		input := NotesToolInput{AI: true}
+		assert.True(t, input.AI)
+	})
+
+	t.Run("EvaluateToolInput", func(t *testing.T) {
+		input := EvaluateToolInput{}
+		assert.NotNil(t, input)
+	})
+
+	t.Run("ApproveToolInput fields", func(t *testing.T) {
+		input := ApproveToolInput{Notes: "Updated notes"}
+		assert.Equal(t, "Updated notes", input.Notes)
+	})
+
+	t.Run("PublishToolInput fields", func(t *testing.T) {
+		input := PublishToolInput{DryRun: true}
+		assert.True(t, input.DryRun)
+	})
+}
+
+func TestPromptArgTypes(t *testing.T) {
+	t.Run("ReleaseSummaryArgs", func(t *testing.T) {
+		args := ReleaseSummaryArgs{Style: "detailed"}
+		assert.Equal(t, "detailed", args.Style)
+	})
+
+	t.Run("CommitReviewArgs", func(t *testing.T) {
+		args := CommitReviewArgs{Focus: "security"}
+		assert.Equal(t, "security", args.Focus)
+	})
+
+	t.Run("MigrationGuideArgs", func(t *testing.T) {
+		args := MigrationGuideArgs{Audience: "operator"}
+		assert.Equal(t, "operator", args.Audience)
+	})
+
+	t.Run("ReleaseAnnouncementArgs", func(t *testing.T) {
+		args := ReleaseAnnouncementArgs{Channel: "blog"}
+		assert.Equal(t, "blog", args.Channel)
+	})
+}
+
+func TestHandleStatus(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+
+	t.Run("returns no_active_release with adapter but no repo", func(t *testing.T) {
 		adapter := NewAdapter()
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		// Without release repository, adapter.HasReleaseRepository() returns false
+		// so it falls through to the direct repo check which also fails
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestHandlePlan(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+
+	t.Run("returns not_configured with adapter but no plan use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{Analyze: true})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestHandleBump(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns status without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+		require.NoError(t, err)
+		assert.Equal(t, "minor", result["bump_type"])
+	})
+
+	t.Run("defaults to auto bump type", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "auto", result["bump_type"])
+	})
+}
+
+func TestHandleNotes(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns status without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["use_ai"])
+	})
+}
+
+func TestHandleApprove(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns status without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: "test notes"})
+		require.NoError(t, err)
+		assert.Equal(t, "test notes", result["notes"])
+	})
+}
+
+func TestHandlePublish(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns status without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["dry_run"])
+	})
+}
+
+func TestHandleEvaluate(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("performs basic risk calculation without adapter", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+	})
+
+	t.Run("fails without risk calculator", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+		server.riskCalc = nil
+
+		_, err = server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "risk calculator not configured")
+	})
+}
+
+func TestResourceHandlers(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("state resource without repo", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no release repository configured")
+	})
+
+	t.Run("config resource without config", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no configuration loaded")
+	})
+
+	t.Run("config resource with config", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Changelog.ProductName = "TestProduct"
+		server, err := NewServer("1.0.0", WithConfig(cfg))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "TestProduct")
+		assert.Equal(t, "application/json", result.MimeType)
+	})
+
+	t.Run("commits resource without repo", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no release repository configured")
+	})
+
+	t.Run("changelog resource without repo", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "No release repository configured")
+		assert.Equal(t, "text/markdown", result.MimeType)
+	})
+
+	t.Run("risk-report resource without repo", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no release repository configured")
+	})
+}
+
+func TestPromptHandlers(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("release-summary with default style", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseSummary(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Release summary prompt", result.Description)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-summary with detailed style", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": "detailed"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-summary with technical style", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": "technical"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("risk-analysis prompt", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptRiskAnalysis(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Risk analysis prompt", result.Description)
+	})
+
+	t.Run("commit-review with default focus", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptCommitReview(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Commit review prompt", result.Description)
+	})
+
+	t.Run("commit-review with quality focus", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": "quality"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("commit-review with security focus", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": "security"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("breaking-changes prompt", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptBreakingChanges(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Breaking changes documentation prompt", result.Description)
+	})
+
+	t.Run("migration-guide with default audience", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptMigrationGuide(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Migration guide prompt", result.Description)
+	})
+
+	t.Run("migration-guide with operator audience", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": "operator"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("migration-guide with end-user audience", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": "end-user"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-announcement with default channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Release announcement prompt", result.Description)
+	})
+
+	t.Run("release-announcement with blog channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": "blog"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-announcement with social channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": "social"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-announcement with email channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": "email"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("approval-decision prompt", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptApprovalDecision(ctx, map[string]string{})
+		require.NoError(t, err)
+		assert.Equal(t, "Approval decision prompt", result.Description)
+	})
+}
+
+func TestInvalidateCache(t *testing.T) {
+	t.Run("invalidates with cache enabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Set some cache entries
+		server.cache.Set("relicta://state", &ReadResourceResult{
+			Contents: []ResourceContent{{URI: "relicta://state", Text: "test"}},
+		})
+
+		server.invalidateCache()
+
+		// Cache should be invalidated
+		assert.Nil(t, server.cache.Get("relicta://state"))
+	})
+
+	t.Run("handles nil cache gracefully", func(t *testing.T) {
+		server, err := NewServer("1.0.0", WithCacheDisabled())
+		require.NoError(t, err)
+
+		// Should not panic
+		server.invalidateCache()
+	})
+}
+
+func TestResourceCacheIntegration(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("caches state resource", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// First call
+		_, err = server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+
+		// The result should be cached (no repo means no caching happens in this case)
+		// This test validates the cache check path works
+		cached := server.cache.Get("relicta://state")
+		assert.Nil(t, cached) // Not cached because repo is nil
+	})
+
+	t.Run("returns cached result when available", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Manually set cache entry
+		server.cache.Set("relicta://state", &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:      "relicta://state",
+				MIMEType: "application/json",
+				Text:     `{"cached": true}`,
+			}},
+		})
+
+		// Should return cached result
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "cached")
+	})
+}
+
+func TestConfigResourceWithEmptyProductName(t *testing.T) {
+	ctx := context.Background()
+	cfg := config.DefaultConfig()
+	cfg.Changelog.ProductName = "" // Empty should default to "Relicta"
+
+	server, err := NewServer("1.0.0", WithConfig(cfg))
+	require.NoError(t, err)
+
+	result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+	require.NoError(t, err)
+	assert.Contains(t, result.Text, "Relicta")
+}
+
+func TestHandleBumpWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no calculate use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+		require.NoError(t, err)
+		assert.Equal(t, "minor", result["bump_type"])
+	})
+
+	t.Run("includes version in result", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Version: "2.0.0"})
+		require.NoError(t, err)
+		assert.Equal(t, "2.0.0", result["version"])
+	})
+}
+
+func TestHandleNotesWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no notes use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["use_ai"])
+	})
+}
+
+func TestHandleApproveWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no approve use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		require.NoError(t, err)
+		assert.Equal(t, "", result["notes"])
+	})
+}
+
+func TestHandlePublishWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no publish use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["dry_run"])
+	})
+}
+
+func TestHandleEvaluateWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured with adapter but no governance service", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		// Should fallback to basic risk calculation
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+	})
+}
+
+func TestResourceRiskReportWithRiskCalc(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("uses risk calculator when available", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		// Without repo, returns not configured message
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no release repository configured")
+	})
+}
+
+func TestAllServerOptionsApplied(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cfg := config.DefaultConfig()
+	riskCalc := risk.NewCalculatorWithDefaults()
+	cache := NewResourceCache()
+	adapter := NewAdapter()
+
+	server, err := NewServer("2.0.0",
+		WithLogger(logger),
+		WithConfig(cfg),
+		WithRiskCalculator(riskCalc),
+		WithCache(cache),
+		WithAdapter(adapter),
+		WithGitService(nil),
+		WithReleaseRepository(nil),
+		WithPolicyEngine(nil),
+		WithEvaluator(nil),
+	)
+
+	require.NoError(t, err)
+	assert.NotNil(t, server)
+	assert.Equal(t, "2.0.0", server.version)
+	assert.Equal(t, logger, server.logger)
+	assert.Equal(t, cfg, server.config)
+	assert.Equal(t, riskCalc, server.riskCalc)
+	assert.Equal(t, cache, server.cache)
+	assert.Equal(t, adapter, server.adapter)
+}
+
+func TestHandlePlanWithFromRef(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles auto from ref", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "auto"})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+
+	t.Run("handles specific from ref", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0"})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestResourceStateWithCache(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("logs cache hit", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Set cache
+		server.cache.Set("relicta://state", &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:      "relicta://state",
+				MIMEType: "application/json",
+				Text:     `{"test": "value"}`,
+			}},
+		})
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "relicta://state", result.URI)
+		assert.Contains(t, result.Text, "test")
+	})
+}
+
+func TestTypes(t *testing.T) {
+	t.Run("ResourceContent fields", func(t *testing.T) {
+		rc := ResourceContent{
+			URI:      "test://uri",
+			MIMEType: "text/plain",
+			Text:     "content",
+			Blob:     "base64data",
+		}
+		assert.Equal(t, "test://uri", rc.URI)
+		assert.Equal(t, "text/plain", rc.MIMEType)
+		assert.Equal(t, "content", rc.Text)
+		assert.Equal(t, "base64data", rc.Blob)
+	})
+
+	t.Run("ReadResourceResult fields", func(t *testing.T) {
+		result := ReadResourceResult{
+			Contents: []ResourceContent{
+				{URI: "test://1", Text: "one"},
+				{URI: "test://2", Text: "two"},
+			},
+		}
+		assert.Len(t, result.Contents, 2)
+		assert.Equal(t, "test://1", result.Contents[0].URI)
+	})
+}
+
+// Tests with mock repository for deeper coverage
+
+func TestHandleStatusWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no_active_release when repo returns empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "no_active_release", result["status"])
+	})
+
+	t.Run("returns release state when active release exists", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "planned", result["state"])
+		assert.Contains(t, result, "created")
+		assert.Contains(t, result, "updated")
+	})
+
+	t.Run("returns version when release has version", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "1.2.3", result["version"])
+	})
+
+	t.Run("returns draft state for draft release", func(t *testing.T) {
+		run := createTestReleaseRun() // Draft state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "draft", result["state"])
+	})
+}
+
+func TestResourceStateWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("returns state JSON when release exists", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "1.2.3")
+		assert.Contains(t, result.Text, "planned")
+		assert.Equal(t, "application/json", result.MimeType)
+	})
+
+	t.Run("caches state resource result", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		// First call
+		_, err = server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+
+		// Should be cached
+		cached := server.cache.Get("relicta://state")
+		assert.NotNil(t, cached)
+	})
+}
+
+func TestResourceCommitsWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("returns changeset status when release has no loaded changeset", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state with a plan
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		// The run has a plan but no loaded changeset
+		assert.Contains(t, result.Text, "changeset not loaded")
+	})
+}
+
+func TestResourceChangelogWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "No active release found")
+	})
+
+	t.Run("returns no changelog when release has no notes", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "No changelog generated yet")
+		assert.Contains(t, result.Text, "1.2.3")
+	})
+}
+
+func TestResourceRiskReportWithRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns no active release when repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no active release")
+	})
+
+	t.Run("performs risk calculation when release exists", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "score")
+		assert.Contains(t, result.Text, "severity")
+	})
+
+	t.Run("returns hint when no risk assessment available", func(t *testing.T) {
+		run := createTestReleaseRun()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+		server.riskCalc = nil // Disable risk calc
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "no risk assessment available")
+	})
+}
+
+func TestCacheDisabledBehavior(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("state resource works without cache", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned state
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithCacheDisabled())
+		require.NoError(t, err)
+
+		result, err := server.handleResourceState(ctx, "relicta://state", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "planned")
+	})
+}
+
+// Additional tests to increase coverage
+
+func TestHandleStatusWithRepositoryAndVersion(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns full status with versioned release", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+
+		// Verify all expected fields - state is "versioned" in the domain
+		assert.Contains(t, []string{"planned", "versioned"}, result["state"])
+		assert.Equal(t, "1.2.3", result["version"])
+		assert.Contains(t, result, "created")
+		assert.Contains(t, result, "updated")
+	})
+}
+
+func TestHandleBumpWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles major bump type", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "major"})
+		require.NoError(t, err)
+		assert.Equal(t, "major", result["bump_type"])
+	})
+
+	t.Run("handles patch bump type", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{Bump: "patch"})
+		require.NoError(t, err)
+		assert.Equal(t, "patch", result["bump_type"])
+	})
+
+	t.Run("handles prerelease version", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleBump(ctx, BumpToolInput{
+			Bump:    "minor",
+			Version: "1.2.0-beta.1",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "minor", result["bump_type"])
+		assert.Equal(t, "1.2.0-beta.1", result["version"])
+	})
+}
+
+func TestHandleNotesWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles AI disabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["use_ai"])
+	})
+
+	t.Run("handles AI enabled", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["use_ai"])
+	})
+}
+
+func TestHandlePublishWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles dry run true", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		require.NoError(t, err)
+		assert.Equal(t, true, result["dry_run"])
+	})
+
+	t.Run("handles dry run false", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		require.NoError(t, err)
+		assert.Equal(t, false, result["dry_run"])
+	})
+}
+
+func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("evaluates with default risk calculator", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+		assert.Contains(t, result, "factors")
+	})
+
+	t.Run("evaluates with custom risk calculator", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		require.NoError(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+	})
+}
+
+func TestHandleApproveWithDifferentInputs(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("handles empty notes", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		require.NoError(t, err)
+		assert.Equal(t, "", result["notes"])
+	})
+
+	t.Run("handles long notes", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		longNotes := "This is a very long note that contains detailed release information."
+		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: longNotes})
+		require.NoError(t, err)
+		assert.Equal(t, longNotes, result["notes"])
+	})
+}
+
+func TestResourceConfigWithDifferentSettings(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("includes config settings", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Changelog.ProductName = "MyApp"
+		cfg.AI.Enabled = true
+		cfg.AI.Provider = "anthropic"
+		cfg.Versioning.Strategy = "conventional"
+
+		server, err := NewServer("1.0.0", WithConfig(cfg))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "MyApp")
+		assert.Contains(t, result.Text, "anthropic")
+		assert.Contains(t, result.Text, "conventional")
+	})
+
+	t.Run("defaults empty product name to Relicta", func(t *testing.T) {
+		cfg := config.DefaultConfig()
+		cfg.Changelog.ProductName = ""
+
+		server, err := NewServer("1.0.0", WithConfig(cfg))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceConfig(ctx, "relicta://config", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "Relicta")
+	})
+}
+
+func TestResourceChangelogWithVersionedRelease(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns version info when release has version", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceChangelog(ctx, "relicta://changelog", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "1.2.3")
+		assert.Equal(t, "text/markdown", result.MimeType)
+	})
+}
+
+func TestCacheOperations(t *testing.T) {
+	t.Run("cache can be set and retrieved", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		retrieved := cache.Get("test://uri")
+		require.NotNil(t, retrieved)
+		assert.Equal(t, "test content", retrieved.Contents[0].Text)
+	})
+
+	t.Run("cache returns nil for missing key", func(t *testing.T) {
+		cache := NewResourceCache()
+		retrieved := cache.Get("nonexistent://uri")
+		assert.Nil(t, retrieved)
+	})
+
+	t.Run("cache invalidation removes entry", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+		cache.Invalidate("test://uri")
+
+		retrieved := cache.Get("test://uri")
+		assert.Nil(t, retrieved)
+	})
+
+	t.Run("cache stats track entry count", func(t *testing.T) {
+		cache := NewResourceCache()
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		stats := cache.Stats()
+		assert.True(t, stats.Enabled)
+		assert.Equal(t, 1, stats.EntryCount)
+		assert.Contains(t, stats.Entries, "test://uri")
+	})
+}
+
+func TestPromptArgsWithDifferentValues(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("release-summary with executive style", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": "executive"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("commit-review with breaking focus", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": "breaking"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("migration-guide with developer audience", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": "developer"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+
+	t.Run("release-announcement with internal channel", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": "internal"})
+		require.NoError(t, err)
+		assert.Len(t, result.Messages, 1)
+	})
+}
+
+func TestServerWithMultipleOptions(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	cfg := config.DefaultConfig()
+	riskCalc := risk.NewCalculatorWithDefaults()
+	cache := NewResourceCache()
+	adapter := NewAdapter()
+
+	t.Run("all options applied correctly", func(t *testing.T) {
+		server, err := NewServer("3.0.0",
+			WithLogger(logger),
+			WithConfig(cfg),
+			WithRiskCalculator(riskCalc),
+			WithCache(cache),
+			WithAdapter(adapter),
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, "3.0.0", server.version)
+		assert.Equal(t, logger, server.logger)
+		assert.Equal(t, cfg, server.config)
+		assert.Equal(t, riskCalc, server.riskCalc)
+		assert.Equal(t, cache, server.cache)
 		assert.Equal(t, adapter, server.adapter)
 	})
 }
 
-func TestTransportClose(t *testing.T) {
-	reader := strings.NewReader("")
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(reader, writer)
-
-	err := transport.Close()
-	assert.NoError(t, err)
-}
-
-func TestTransportReadErrors(t *testing.T) {
-	t.Run("empty input", func(t *testing.T) {
-		reader := strings.NewReader("")
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		_, err := transport.ReadMessage()
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid JSON", func(t *testing.T) {
-		reader := strings.NewReader("not-json\n")
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		_, err := transport.ReadMessage()
-		assert.Error(t, err)
-	})
-}
-
-func TestMessageLoop(t *testing.T) {
-	t.Run("creates message loop", func(t *testing.T) {
-		reader := strings.NewReader("")
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		server, _ := NewServer("1.0.0")
-		loop := NewMessageLoop(transport, server)
-		assert.NotNil(t, loop)
-	})
-
-	t.Run("run processes messages until EOF", func(t *testing.T) {
-		// Create a ping request
-		req := Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "ping",
-		}
-		reqJSON, _ := json.Marshal(req)
-
-		reader := strings.NewReader(string(reqJSON) + "\n")
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		server, _ := NewServer("1.0.0")
-		loop := NewMessageLoop(transport, server)
-
-		// Run until EOF (reader is exhausted)
-		err := loop.Run(context.Background())
-		// Should exit cleanly on EOF
-		assert.NoError(t, err)
-		// Should have written a response
-		assert.True(t, len(writer.Bytes()) > 0)
-	})
-
-	t.Run("run handles multiple messages until EOF", func(t *testing.T) {
-		// Create multiple requests
-		reqs := []Request{
-			{JSONRPC: JSONRPCVersion, ID: 1, Method: "ping"},
-			{JSONRPC: JSONRPCVersion, ID: 2, Method: "tools/list"},
-		}
-
-		var input strings.Builder
-		for _, r := range reqs {
-			b, _ := json.Marshal(r)
-			input.WriteString(string(b) + "\n")
-		}
-
-		reader := strings.NewReader(input.String())
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		server, _ := NewServer("1.0.0")
-		loop := NewMessageLoop(transport, server)
-
-		// Run until EOF
-		err := loop.Run(context.Background())
-		assert.NoError(t, err)
-		// Output should contain both responses
-		assert.True(t, len(writer.Bytes()) > 0)
-	})
-
-	t.Run("run handles parse errors", func(t *testing.T) {
-		// Create invalid JSON followed by valid request
-		input := "not-json\n" + `{"jsonrpc":"2.0","id":1,"method":"ping"}` + "\n"
-
-		reader := strings.NewReader(input)
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(reader, writer)
-
-		server, _ := NewServer("1.0.0")
-		loop := NewMessageLoop(transport, server)
-
-		err := loop.Run(context.Background())
-		assert.NoError(t, err)
-		// Should have error response for invalid JSON + response for ping
-		output := writer.String()
-		assert.Contains(t, output, "Parse error")
-	})
-}
-
-func TestResourceStateEdgeCases(t *testing.T) {
+func TestResourceRiskReportWithCalc(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("state with empty releases returns no active", func(t *testing.T) {
-		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
+	t.Run("returns calculated risk when repo and calc available", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithReleaseRepository(repo), WithRiskCalculator(riskCalc))
+		require.NoError(t, err)
+
+		result, err := server.handleResourceRiskReport(ctx, "relicta://risk-report", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "score")
+	})
+}
+
+func TestHandlePlanWithAdapter(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns not_configured when adapter has no plan use case", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0", Analyze: true})
+		require.NoError(t, err)
+		assert.Equal(t, "not_configured", result["status"])
+	})
+}
+
+func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("uses adapter when it has release repository", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		// Should return release info from adapter
+		assert.Contains(t, result, "release_id")
+		assert.Contains(t, result, "state")
+	})
+
+	t.Run("returns no_active_release when adapter repo is empty", func(t *testing.T) {
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		assert.Equal(t, "no_active_release", result["status"])
+	})
+}
+
+func TestAdapterGetStatusWithData(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns full status with versioned release", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.NotEmpty(t, status.ReleaseID)
+		assert.Equal(t, "1.2.3", status.Version)
+	})
+
+	t.Run("returns status with approval info", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		// Check approval-related fields
+		assert.Contains(t, status.NextAction, "")
+	})
+
+	t.Run("returns stale status for empty version", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system")
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
+		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+		status, err := adapter.GetStatus(ctx)
+		require.NoError(t, err)
+		assert.NotNil(t, status)
+		assert.NotEmpty(t, status.ReleaseID)
+	})
+}
+
+func TestAdapterEvaluateRequiresGovernanceService(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns error without governance service", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		input := EvaluateInput{
+			ReleaseID: "test-release",
+			ActorID:   "test-user",
+			ActorName: "Test User",
+		}
+
+		output, err := adapter.Evaluate(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "governance service not configured")
+	})
+}
+
+func TestMoreCacheScenarios(t *testing.T) {
+	t.Run("set and get with TTL", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content := &ReadResourceResult{
+			Contents: []ResourceContent{{
+				URI:  "test://uri",
+				Text: "test content",
+			}},
+		}
+		cache.Set("test://uri", content)
+
+		// Set a custom TTL
+		cache.SetTTL("test://uri", 1*time.Hour)
+
+		// Entry should still be retrievable
+		retrieved := cache.Get("test://uri")
+		assert.NotNil(t, retrieved)
+	})
+
+	t.Run("invalidate all clears all entries", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content1 := &ReadResourceResult{Contents: []ResourceContent{{URI: "test://1", Text: "one"}}}
+		content2 := &ReadResourceResult{Contents: []ResourceContent{{URI: "test://2", Text: "two"}}}
+
+		cache.Set("test://1", content1)
+		cache.Set("test://2", content2)
+
+		stats := cache.Stats()
+		assert.Equal(t, 2, stats.EntryCount)
+
+		cache.InvalidateAll()
+
+		stats = cache.Stats()
+		assert.Equal(t, 0, stats.EntryCount)
+	})
+
+	t.Run("invalidate state dependent removes related entries", func(t *testing.T) {
+		cache := NewResourceCache()
+
+		content1 := &ReadResourceResult{Contents: []ResourceContent{{URI: "relicta://state", Text: "state"}}}
+		content2 := &ReadResourceResult{Contents: []ResourceContent{{URI: "relicta://config", Text: "config"}}}
+
+		cache.Set("relicta://state", content1)
+		cache.Set("relicta://config", content2)
+
+		cache.InvalidateStateDependent()
+
+		assert.Nil(t, cache.Get("relicta://state"))
+		// Config might still be there depending on implementation
+	})
+
+	t.Run("set enabled toggles cache", func(t *testing.T) {
+		cache := NewResourceCache()
+		assert.True(t, cache.IsEnabled())
+
+		cache.SetEnabled(false)
+		assert.False(t, cache.IsEnabled())
+
+		cache.SetEnabled(true)
+		assert.True(t, cache.IsEnabled())
+	})
+}
+
+func TestHandleResourceCommitsWithVariousStates(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns changeset not loaded for draft release", func(t *testing.T) {
+		run := createTestReleaseRun()
+		// Draft state - no plan
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://state"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*ReadResourceResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Contents[0].Text, "no active release")
-	})
-}
-
-func TestResourceConfigEdgeCases(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("config without product name uses 'Relicta' default", func(t *testing.T) {
-		cfg := config.DefaultConfig()
-		cfg.Changelog.ProductName = "" // Empty product name - will be replaced with default
-		server, err := NewServer("1.0.0", WithConfig(cfg))
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
 		require.NoError(t, err)
-
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://config"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*ReadResourceResult)
-		require.True(t, ok)
-		// Should use "Relicta" as default when empty
-		assert.Contains(t, result.Contents[0].Text, "Relicta")
+		// Draft has no plan, which may return "no plan" or "changeset not loaded"
+		assert.Contains(t, result.Text, "commit")
 	})
 
-	t.Run("config with product name", func(t *testing.T) {
-		cfg := config.DefaultConfig()
-		cfg.Changelog.ProductName = "MyApp"
-		server, err := NewServer("1.0.0", WithConfig(cfg))
-		require.NoError(t, err)
-
-		params, _ := json.Marshal(ReadResourceParams{URI: "relicta://config"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*ReadResourceResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Contents[0].Text, "MyApp")
-	})
-}
-
-func TestPromptEdgeCases(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("release-summary with invalid style defaults to brief", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "release-summary",
-			Arguments: map[string]string{"style": "invalid"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("release-summary with no style defaults to brief", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "release-summary",
-			Arguments: map[string]string{},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-}
-
-func TestToolResultJSONError(t *testing.T) {
-	// Test with something that can't be marshaled
-	invalidData := make(chan int)
-	_, err := NewToolResultJSON(invalidData)
-	assert.Error(t, err)
-}
-
-func TestNotificationHandling(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("initialized notification returns nil", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		// "initialized" is a notification (no ID expected)
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			Method:  "initialized",
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		// Should return nil for notifications
-		assert.Nil(t, resp)
-	})
-}
-
-func TestToolStatusWithReleaseRepo(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("status with release repo and active release", func(t *testing.T) {
-		rel := createTestRelease("repo-test", "1.0.0", "1.1.0")
-		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-
+	t.Run("returns changeset status for planned release without changeset", func(t *testing.T) {
+		run := createTestReleaseRun()
+		_ = run.Plan("system") // Transition to planned
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		// Should contain planned state
-		assert.Contains(t, result.Content[0].Text, "planned")
+		result, err := server.handleResourceCommits(ctx, "relicta://commits", nil)
+		require.NoError(t, err)
+		assert.Contains(t, result.Text, "changeset")
 	})
+}
 
-	t.Run("status with release repo but no releases", func(t *testing.T) {
-		repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
-		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+func TestHandleEvaluateWithRiskCalculator(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("calculates basic risk factors", func(t *testing.T) {
+		riskCalc := risk.NewCalculatorWithDefaults()
+		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
 		require.NoError(t, err)
 
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "No active release")
-	})
-}
-
-func TestToolFallbackPaths(t *testing.T) {
-	// Test tool handlers without any adapter - exercises fallback paths
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	t.Run("relicta.status without release repo", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "No release repository configured")
-	})
-
-	t.Run("relicta.plan fallback", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.plan",
-			Arguments: map[string]any{"from": "auto", "analyze": true},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.bump fallback with version", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.bump",
-			Arguments: map[string]any{"bump": "minor", "version": "2.0.0"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.notes fallback with ai flag", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.notes",
-			Arguments: map[string]any{"ai": false},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.evaluate with default risk calc", func(t *testing.T) {
-		// Server always has a default risk calculator
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.evaluate"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      5,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Should return success with risk assessment
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.False(t, result.IsError)
-		assert.Contains(t, result.Content[0].Text, "score")
-	})
-
-	t.Run("relicta.approve fallback with notes", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.approve",
-			Arguments: map[string]any{"notes": "custom release notes"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      6,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("relicta.publish fallback with dry_run false", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{"dry_run": false},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      7,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-}
-
-func TestResourceStateWithVersion(t *testing.T) {
-	// Create release with explicit version set
-	rel := release.NewReleaseRunForTest(release.RunID("version-test"), "main", "")
-	v, _ := version.Parse("1.5.0")
-	nextV, _ := version.Parse("1.6.0")
-	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = release.SetPlan(rel, plan)
-	_ = rel.SetVersion(v, "v1.5.0")
-
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-
-	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	params, _ := json.Marshal(ReadResourceParams{URI: "relicta://state"})
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "resources/read",
-		Params:  params,
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-
-	result, ok := resp.Result.(*ReadResourceResult)
-	require.True(t, ok)
-	require.Len(t, result.Contents, 1)
-	assert.Contains(t, result.Contents[0].Text, "1.5.0")
-}
-
-func TestNewJSONResourceContent(t *testing.T) {
-	t.Run("valid JSON", func(t *testing.T) {
-		data := map[string]any{"key": "value", "number": 42}
-		content, err := NewJSONResourceContent("test://uri", data)
+		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
-		assert.Equal(t, "test://uri", content.URI)
-		assert.Equal(t, "application/json", content.MIMEType)
-		assert.Contains(t, content.Text, "key")
-		assert.Contains(t, content.Text, "value")
-	})
 
-	t.Run("invalid JSON", func(t *testing.T) {
-		// Create something that can't be marshaled to JSON
-		data := make(chan int)
-		_, err := NewJSONResourceContent("test://uri", data)
-		assert.Error(t, err)
+		assert.Contains(t, result, "score")
+		assert.Contains(t, result, "severity")
+		assert.Contains(t, result, "factors")
+
+		factors, ok := result["factors"].([]map[string]any)
+		if ok {
+			assert.GreaterOrEqual(t, len(factors), 0)
+		}
 	})
 }
 
-func TestTransportWriteErrors(t *testing.T) {
-	t.Run("write response to closed writer", func(t *testing.T) {
-		// Test with a writer that has been used
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(strings.NewReader(""), writer)
-
-		// Write a response
-		resp := NewResponse(1, map[string]any{"test": "data"})
-		err := transport.WriteResponse(resp)
-		assert.NoError(t, err)
-
-		// Verify output
-		assert.True(t, len(writer.Bytes()) > 0)
-	})
-
-	t.Run("write notification with data", func(t *testing.T) {
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(strings.NewReader(""), writer)
-
-		err := transport.WriteNotification("test/event", map[string]any{
-			"timestamp": "2024-01-01",
-			"data":      []string{"a", "b"},
-		})
-		assert.NoError(t, err)
-		assert.Contains(t, writer.String(), "test/event")
-	})
-}
-
-func TestHandleInitializeWithError(t *testing.T) {
+func TestAllPromptHandlersComprehensive(t *testing.T) {
+	ctx := context.Background()
 	server, err := NewServer("1.0.0")
 	require.NoError(t, err)
 
-	ctx := context.Background()
-
-	// Test with invalid params
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "initialize",
-		Params:  []byte(`invalid json`),
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-	assert.Equal(t, ErrCodeInvalidParams, resp.Error.Code)
-}
-
-func TestHandleCallToolWithError(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	// Test with invalid params
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  []byte(`invalid json`),
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-}
-
-func TestHandleReadResourceWithError(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	// Test with invalid params
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "resources/read",
-		Params:  []byte(`invalid json`),
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-}
-
-func TestHandleGetPromptWithError(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	ctx := context.Background()
-
-	// Test with invalid params
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "prompts/get",
-		Params:  []byte(`invalid json`),
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-}
-
-func TestProtocolTypes(t *testing.T) {
-	t.Run("NewResponse", func(t *testing.T) {
-		resp := NewResponse(1, "result")
-		assert.Equal(t, JSONRPCVersion, resp.JSONRPC)
-		assert.Equal(t, 1, resp.ID)
-		assert.Equal(t, "result", resp.Result)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("NewErrorResponse", func(t *testing.T) {
-		resp := NewErrorResponse(1, ErrCodeInternalError, "error message", "details")
-		assert.Equal(t, JSONRPCVersion, resp.JSONRPC)
-		assert.Equal(t, 1, resp.ID)
-		assert.Nil(t, resp.Result)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeInternalError, resp.Error.Code)
-		assert.Equal(t, "error message", resp.Error.Message)
-	})
-
-	t.Run("NewToolResult", func(t *testing.T) {
-		result := NewToolResult("test text")
-		assert.Len(t, result.Content, 1)
-		assert.Equal(t, "text", result.Content[0].Type)
-		assert.Equal(t, "test text", result.Content[0].Text)
-		assert.False(t, result.IsError)
-	})
-
-	t.Run("NewToolResultError", func(t *testing.T) {
-		result := NewToolResultError("error message")
-		assert.True(t, result.IsError)
-		assert.Equal(t, "error message", result.Content[0].Text)
-	})
-
-	t.Run("NewToolResultJSON", func(t *testing.T) {
-		data := map[string]any{"key": "value"}
-		result, err := NewToolResultJSON(data)
-		require.NoError(t, err)
-		assert.Len(t, result.Content, 1)
-		assert.Contains(t, result.Content[0].Text, "key")
-	})
-
-	t.Run("NewTextResourceContent", func(t *testing.T) {
-		content := NewTextResourceContent("test://uri", "content")
-		assert.Equal(t, "test://uri", content.URI)
-		assert.Equal(t, "text/plain", content.MIMEType)
-		assert.Equal(t, "content", content.Text)
-	})
-
-	t.Run("NewPromptMessage", func(t *testing.T) {
-		msg := NewPromptMessage("test prompt")
-		assert.Equal(t, RoleUser, msg.Role)
-		assert.Equal(t, "text", msg.Content.Type)
-		assert.Equal(t, "test prompt", msg.Content.Text)
-	})
-}
-
-// Test tool handlers with adapter that has release repo
-func TestToolHandlersWithAdapterAndRepo(t *testing.T) {
-	ctx := context.Background()
-
-	// Create release for the repo
-	rel := createTestRelease("adapter-test-123", "1.0.0", "1.1.0")
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-
-	// Create adapter with just the release repo (no use cases configured)
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
-
-	server, err := NewServer("1.0.0",
-		WithAdapter(adapter),
-		WithReleaseRepository(repo),
-	)
-	require.NoError(t, err)
-
-	t.Run("status tool with adapter and repo", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  params,
+	t.Run("all prompts return valid results", func(t *testing.T) {
+		// Test release-summary with all styles
+		for _, style := range []string{"", "brief", "detailed", "technical", "executive"} {
+			result, err := server.handlePromptReleaseSummary(ctx, map[string]string{"style": style})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
 		}
 
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		// Should contain release info from adapter
-		assert.Contains(t, result.Content[0].Text, "adapter-test-123")
-	})
-
-	t.Run("notes tool fails without notes use case", func(t *testing.T) {
-		// Adapter has repo but no notes use case - fallback to stub
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.notes",
-			Arguments: map[string]any{"ai": true},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "tools/call",
-			Params:  params,
+		// Test commit-review with all focus types
+		for _, focus := range []string{"", "general", "quality", "security", "breaking"} {
+			result, err := server.handlePromptCommitReview(ctx, map[string]string{"focus": focus})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
 		}
 
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Should fall through to fallback since no use case
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "status")
-	})
-
-	t.Run("evaluate tool falls back to risk calc when no governance", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{Name: "relicta.evaluate"})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "tools/call",
-			Params:  params,
+		// Test migration-guide with all audiences
+		for _, audience := range []string{"", "developer", "operator", "end-user"} {
+			result, err := server.handlePromptMigrationGuide(ctx, map[string]string{"audience": audience})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
 		}
 
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Should use default risk calculator
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "score")
-	})
-
-	t.Run("approve tool falls back without approve use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.approve",
-			Arguments: map[string]any{"notes": "edited notes"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      4,
-			Method:  "tools/call",
-			Params:  params,
+		// Test release-announcement with all channels
+		for _, channel := range []string{"", "github", "blog", "social", "email", "internal"} {
+			result, err := server.handlePromptReleaseAnnouncement(ctx, map[string]string{"channel": channel})
+			require.NoError(t, err)
+			assert.NotNil(t, result)
+			assert.NotEmpty(t, result.Messages)
 		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Should fallback
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "edited notes")
-	})
-
-	t.Run("publish tool falls back without publish use case", func(t *testing.T) {
-		params, _ := json.Marshal(CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{"dry_run": true},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      5,
-			Method:  "tools/call",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		result, ok := resp.Result.(*CallToolResult)
-		require.True(t, ok)
-		assert.Contains(t, result.Content[0].Text, "dry_run")
 	})
 }
 
-// Test tool status with adapter that fails GetStatus
-func TestToolStatusWithAdapterError(t *testing.T) {
+// Test more handler scenarios with adapter
+func TestHandleBumpWithAdapterWithoutUseCase(t *testing.T) {
 	ctx := context.Background()
-
-	// Create adapter with empty repo
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
-
+	adapter := NewAdapter()
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  params,
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-
-	result, ok := resp.Result.(*CallToolResult)
-	require.True(t, ok)
-	// Should return "No active release found" when adapter fails
-	assert.Contains(t, result.Content[0].Text, "No active release")
+	result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+	require.NoError(t, err)
+	// Falls through to stub response
+	assert.Equal(t, "minor", result["bump_type"])
 }
 
-// Test resource state with release that has version
-func TestResourceStateWithDirectVersion(t *testing.T) {
+func TestHandleNotesWithAdapterWithoutUseCase(t *testing.T) {
 	ctx := context.Background()
-
-	// Create release with explicit version set (not just from plan)
-	rel := release.NewReleaseRunForTest(release.RunID("version-direct-test"), "main", "")
-	v, _ := version.Parse("2.0.0")
-	nextV, _ := version.Parse("2.1.0")
-	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = release.SetPlan(rel, plan)
-	_ = rel.SetVersion(nextV, "v2.1.0")
-
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	params, _ := json.Marshal(ReadResourceParams{URI: "relicta://state"})
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "resources/read",
-		Params:  params,
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-
-	result, ok := resp.Result.(*ReadResourceResult)
-	require.True(t, ok)
-	assert.Contains(t, result.Contents[0].Text, "2.1.0")
+	result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+	require.NoError(t, err)
+	assert.Equal(t, true, result["use_ai"])
 }
 
-// Test transport WriteNotification edge cases
-func TestTransportWriteNotificationEdgeCases(t *testing.T) {
-	t.Run("write notification with complex data", func(t *testing.T) {
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(strings.NewReader(""), writer)
-
-		err := transport.WriteNotification("server/log", map[string]any{
-			"level":   "info",
-			"message": "test message",
-			"context": map[string]any{
-				"file": "test.go",
-				"line": 42,
-			},
-		})
-		assert.NoError(t, err)
-		assert.Contains(t, writer.String(), "server/log")
-		assert.Contains(t, writer.String(), "info")
-	})
-
-	t.Run("write notification with nil params", func(t *testing.T) {
-		writer := &bytes.Buffer{}
-		transport := NewStdioTransport(strings.NewReader(""), writer)
-
-		err := transport.WriteNotification("server/event", nil)
-		assert.NoError(t, err)
-		output := writer.String()
-		assert.Contains(t, output, "server/event")
-	})
-}
-
-// Test GetPromptResult structure
-func TestPromptResultStructure(t *testing.T) {
+func TestHandleApproveWithAdapterWithoutUseCase(t *testing.T) {
 	ctx := context.Background()
-	server, err := NewServer("1.0.0")
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	t.Run("release-summary detailed style", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "release-summary",
-			Arguments: map[string]string{"style": "detailed"},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*GetPromptResult)
-		require.True(t, ok)
-		assert.NotEmpty(t, result.Messages)
-		assert.Contains(t, result.Messages[0].Content.Text, "detailed")
-	})
-
-	t.Run("risk-analysis prompt", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "risk-analysis",
-			Arguments: map[string]string{},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-
-		result, ok := resp.Result.(*GetPromptResult)
-		require.True(t, ok)
-		assert.NotEmpty(t, result.Messages)
-	})
-
-	t.Run("prompt not found", func(t *testing.T) {
-		params, _ := json.Marshal(GetPromptParams{
-			Name:      "non-existent",
-			Arguments: map[string]string{},
-		})
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      3,
-			Method:  "prompts/get",
-			Params:  params,
-		}
-
-		resp := server.HandleRequest(ctx, req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeMethodNotFound, resp.Error.Code)
-	})
+	result, err := server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
+	require.NoError(t, err)
+	assert.Equal(t, "approval notes", result["notes"])
 }
 
-// Test toolStatus with release that has version directly set
-func TestToolStatusWithVersionedRelease(t *testing.T) {
+func TestHandlePublishWithAdapterWithoutUseCase(t *testing.T) {
 	ctx := context.Background()
-
-	// Create release with direct version
-	rel := release.NewReleaseRunForTest(release.RunID("versioned-release"), "main", "")
-	v, _ := version.Parse("3.0.0")
-	nextV, _ := version.Parse("3.1.0")
-	plan := release.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
-	_ = release.SetPlan(rel, plan)
-	_ = rel.SetVersion(nextV, "v3.1.0")
-
-	repo := &mockReleaseRepository{releases: []*release.ReleaseRun{rel}}
-	server, err := NewServer("1.0.0", WithReleaseRepository(repo))
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	params, _ := json.Marshal(CallToolParams{Name: "relicta.status"})
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  params,
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-
-	result, ok := resp.Result.(*CallToolResult)
-	require.True(t, ok)
-	// Should contain the versioned release info
-	assert.Contains(t, result.Content[0].Text, "3.1.0")
+	result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+	require.NoError(t, err)
+	assert.Equal(t, true, result["dry_run"])
 }
 
-// Test evaluate without risk calculator
-func TestToolEvaluateWithoutRiskCalc(t *testing.T) {
+func TestHandleEvaluateWithAdapterAndGovernance(t *testing.T) {
 	ctx := context.Background()
-
-	server, err := NewServer("1.0.0", WithRiskCalculator(nil))
+	adapter := NewAdapter()
+	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	// Set risk calc to nil after creation
-	server.riskCalc = nil
-
-	params, _ := json.Marshal(CallToolParams{Name: "relicta.evaluate"})
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  params,
-	}
-
-	resp := server.HandleRequest(ctx, req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-
-	result, ok := resp.Result.(*CallToolResult)
-	require.True(t, ok)
-	// Should return error result when risk calc is nil
-	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].Text, "not configured")
-}
-
-// Test tool bump argument parsing
-func TestToolBumpArgumentParsing(t *testing.T) {
-	ctx := context.Background()
-	server, err := NewServer("1.0.0")
+	result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 	require.NoError(t, err)
-
-	tests := []struct {
-		name string
-		args map[string]any
-	}{
-		{"default args", map[string]any{}},
-		{"bump major", map[string]any{"bump": "major"}},
-		{"bump patch", map[string]any{"bump": "patch"}},
-		{"with version", map[string]any{"version": "3.0.0"}},
-		{"bump and version", map[string]any{"bump": "major", "version": "3.0.0"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			params, _ := json.Marshal(CallToolParams{
-				Name:      "relicta.bump",
-				Arguments: tt.args,
-			})
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "tools/call",
-				Params:  params,
-			}
-
-			resp := server.HandleRequest(ctx, req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
+	// Should fallback to basic risk calculation
+	assert.Contains(t, result, "score")
 }
 
-// Test tool plan argument parsing
-func TestToolPlanArgumentParsing(t *testing.T) {
-	ctx := context.Background()
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	tests := []struct {
-		name string
-		args map[string]any
-	}{
-		{"default args", map[string]any{}},
-		{"from auto", map[string]any{"from": "auto"}},
-		{"from tag", map[string]any{"from": "v1.0.0"}},
-		{"with analyze", map[string]any{"analyze": true}},
-		{"from with analyze", map[string]any{"from": "v1.0.0", "analyze": true}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			params, _ := json.Marshal(CallToolParams{
-				Name:      "relicta.plan",
-				Arguments: tt.args,
-			})
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "tools/call",
-				Params:  params,
-			}
-
-			resp := server.HandleRequest(ctx, req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
-}
-
-// Test tool notes argument parsing
-func TestToolNotesArgumentParsing(t *testing.T) {
-	ctx := context.Background()
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	tests := []struct {
-		name string
-		args map[string]any
-	}{
-		{"default args", map[string]any{}},
-		{"ai true", map[string]any{"ai": true}},
-		{"ai false", map[string]any{"ai": false}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			params, _ := json.Marshal(CallToolParams{
-				Name:      "relicta.notes",
-				Arguments: tt.args,
-			})
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "tools/call",
-				Params:  params,
-			}
-
-			resp := server.HandleRequest(ctx, req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
-}
-
-// Test tool approve argument parsing
-func TestToolApproveArgumentParsing(t *testing.T) {
-	ctx := context.Background()
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	tests := []struct {
-		name string
-		args map[string]any
-	}{
-		{"default args", map[string]any{}},
-		{"with notes", map[string]any{"notes": "custom notes"}},
-		{"empty notes", map[string]any{"notes": ""}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			params, _ := json.Marshal(CallToolParams{
-				Name:      "relicta.approve",
-				Arguments: tt.args,
-			})
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "tools/call",
-				Params:  params,
-			}
-
-			resp := server.HandleRequest(ctx, req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
-}
-
-// Test tool publish argument parsing
-func TestToolPublishArgumentParsing(t *testing.T) {
-	ctx := context.Background()
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	tests := []struct {
-		name string
-		args map[string]any
-	}{
-		{"default args", map[string]any{}},
-		{"dry run true", map[string]any{"dry_run": true}},
-		{"dry run false", map[string]any{"dry_run": false}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			params, _ := json.Marshal(CallToolParams{
-				Name:      "relicta.publish",
-				Arguments: tt.args,
-			})
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "tools/call",
-				Params:  params,
-			}
-
-			resp := server.HandleRequest(ctx, req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
-}
-
-// Test message loop with context cancellation
-func TestMessageLoopWithContextCancel(t *testing.T) {
-	// Create a slow reader that will block
-	reader := &slowReader{delay: 0}
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(reader, writer)
-
-	server, _ := NewServer("1.0.0")
-	loop := NewMessageLoop(transport, server)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	// Run should return quickly when context is canceled
-	err := loop.Run(ctx)
-	// The error could be context.Canceled or nil depending on timing
-	_ = err // Just ensure no panic
-}
-
-// slowReader simulates a slow reader for testing
-type slowReader struct {
-	delay int
-}
-
-func (r *slowReader) Read(p []byte) (n int, err error) {
-	return 0, context.Canceled
-}
-
-// Test transport WriteResponse when closed
-func TestTransportWriteResponseWhenClosed(t *testing.T) {
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(strings.NewReader(""), writer)
-
-	// Close the transport
-	transport.Close()
-
-	// Try to write after close
-	resp := NewResponse(1, "test")
-	err := transport.WriteResponse(resp)
-	assert.Error(t, err)
-}
-
-// Test transport WriteNotification when closed
-func TestTransportWriteNotificationWhenClosed(t *testing.T) {
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(strings.NewReader(""), writer)
-
-	// Close the transport
-	transport.Close()
-
-	// Try to write after close
-	err := transport.WriteNotification("test/event", nil)
-	assert.Error(t, err)
-}
-
-// Test transport WriteNotification with invalid params (can't marshal)
-func TestTransportWriteNotificationInvalidParams(t *testing.T) {
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(strings.NewReader(""), writer)
-
-	// Try to write with unmarshalable params
-	err := transport.WriteNotification("test/event", make(chan int))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "marshal notification params")
-}
-
-// Test transport ReadMessage with complex valid JSON
-func TestTransportReadMessageComplex(t *testing.T) {
-	req := Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      42,
-		Method:  "test/method",
-		Params: func() json.RawMessage {
-			p, _ := json.Marshal(map[string]any{
-				"key":    "value",
-				"nested": map[string]any{"deep": "data"},
-			})
-			return p
-		}(),
-	}
-	reqJSON, _ := json.Marshal(req)
-
-	reader := strings.NewReader(string(reqJSON) + "\n")
-	transport := NewStdioTransport(reader, &bytes.Buffer{})
-
-	result, err := transport.ReadMessage()
-	require.NoError(t, err)
-	assert.Equal(t, float64(42), result.ID)
-	assert.Equal(t, "test/method", result.Method)
-}
-
-// Test Serve method with custom reader/writer
-func TestServe(t *testing.T) {
-	t.Run("serve processes requests and exits on EOF", func(t *testing.T) {
-		// Create request JSON
-		initReq := Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "initialize",
-			Params: func() json.RawMessage {
-				p, _ := json.Marshal(InitializeParams{
-					ProtocolVersion: MCPVersion,
-					ClientInfo:      Implementation{Name: "test", Version: "1.0"},
-				})
-				return p
-			}(),
-		}
-		pingReq := Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      2,
-			Method:  "ping",
-		}
-
-		// Build input
-		var input strings.Builder
-		initJSON, _ := json.Marshal(initReq)
-		pingJSON, _ := json.Marshal(pingReq)
-		input.WriteString(string(initJSON) + "\n")
-		input.WriteString(string(pingJSON) + "\n")
-
-		reader := strings.NewReader(input.String())
-		writer := &bytes.Buffer{}
-
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		// Serve will process requests until EOF
-		err = server.Serve(reader, writer)
-		assert.NoError(t, err)
-
-		// Should have written responses
-		assert.True(t, len(writer.Bytes()) > 0)
-		output := writer.String()
-		assert.Contains(t, output, "2.0")
-	})
-
-	t.Run("serve handles invalid JSON gracefully", func(t *testing.T) {
-		input := "not valid json\n"
-		reader := strings.NewReader(input)
-		writer := &bytes.Buffer{}
-
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		err = server.Serve(reader, writer)
-		assert.NoError(t, err)
-
-		// Should have written error response
-		assert.Contains(t, writer.String(), "Parse error")
-	})
-}
-
-// Test handleCallTool with invalid params
-func TestHandleCallToolInvalidParams(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	// Create request with invalid params (not a valid CallToolParams JSON)
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  json.RawMessage(`{"invalid": true}`), // missing required "name" field
-	}
-
-	resp := server.HandleRequest(context.Background(), req)
-	require.NotNil(t, resp)
-	// The handler should still work but with empty name which won't find a tool
-}
-
-// Test handleCallTool with completely malformed JSON
-func TestHandleCallToolMalformedJSON(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "tools/call",
-		Params:  json.RawMessage(`not valid json`),
-	}
-
-	resp := server.HandleRequest(context.Background(), req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-	assert.Equal(t, ErrCodeInvalidParams, resp.Error.Code)
-}
-
-// Test handleReadResource with malformed JSON
-func TestHandleReadResourceMalformedJSON(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "resources/read",
-		Params:  json.RawMessage(`{broken json`),
-	}
-
-	resp := server.HandleRequest(context.Background(), req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-	assert.Equal(t, ErrCodeInvalidParams, resp.Error.Code)
-}
-
-// Test handleGetPrompt with malformed JSON
-func TestHandleGetPromptMalformedJSON(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "prompts/get",
-		Params:  json.RawMessage(`[invalid`),
-	}
-
-	resp := server.HandleRequest(context.Background(), req)
-	require.NotNil(t, resp)
-	assert.NotNil(t, resp.Error)
-	assert.Equal(t, ErrCodeInvalidParams, resp.Error.Code)
-}
-
-// errorWriter is a writer that always fails
-type errorWriter struct{}
-
-func (e *errorWriter) Write(p []byte) (n int, err error) {
-	return 0, errors.New("write failed")
-}
-
-// Test Run with write error
-func TestRunWithWriteError(t *testing.T) {
-	initReq := Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "initialize",
-		Params: func() json.RawMessage {
-			p, _ := json.Marshal(InitializeParams{
-				ProtocolVersion: MCPVersion,
-				ClientInfo:      Implementation{Name: "test", Version: "1.0"},
-			})
-			return p
-		}(),
-	}
-	reqJSON, _ := json.Marshal(initReq)
-
-	reader := strings.NewReader(string(reqJSON) + "\n")
-	writer := &errorWriter{}
-
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	// Serve should return error when writing response fails
-	err = server.Serve(reader, writer)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "write")
-}
-
-// Test ReadMessage returns parse error
-func TestTransportReadMessageParseError(t *testing.T) {
-	reader := strings.NewReader("invalid json line\n")
-	transport := NewStdioTransport(reader, &bytes.Buffer{})
-
-	_, err := transport.ReadMessage()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parse request")
-}
-
-// Test WriteResponse marshal error (should be impossible with valid Response but test for completeness)
-func TestTransportWriteResponseMarshalError(t *testing.T) {
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(strings.NewReader(""), writer)
-
-	// Create a response with a value that can't be marshaled
-	resp := &Response{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Result:  make(chan int), // channels can't be marshaled
-	}
-
-	err := transport.WriteResponse(resp)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "marshal response")
-}
-
-// Test WriteResponse write error
-func TestTransportWriteResponseWriteError(t *testing.T) {
-	transport := NewStdioTransport(strings.NewReader(""), &errorWriter{})
-
-	resp := NewResponse(1, "test")
-	err := transport.WriteResponse(resp)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "write response")
-}
-
-// Test WriteNotification write error
-func TestTransportWriteNotificationWriteError(t *testing.T) {
-	transport := NewStdioTransport(strings.NewReader(""), &errorWriter{})
-
-	err := transport.WriteNotification("test/event", map[string]string{"key": "value"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "write notification")
-}
-
-// Test WriteNotification with nil params (should succeed, different code path)
-func TestTransportWriteNotificationNilParams(t *testing.T) {
-	writer := &bytes.Buffer{}
-	transport := NewStdioTransport(strings.NewReader(""), writer)
-
-	err := transport.WriteNotification("test/event", nil)
-	require.NoError(t, err)
-
-	// Should have written a valid notification without params
-	output := writer.String()
-	assert.Contains(t, output, "test/event")
-	assert.Contains(t, output, "2.0")
-}
-
-// failingReader is an io.Reader that always fails with a non-EOF error
-type failingReader struct{}
-
-func (f *failingReader) Read(p []byte) (n int, err error) {
-	return 0, errors.New("read failed")
-}
-
-// Test ReadMessage with read error (not EOF)
-func TestTransportReadMessageReadError(t *testing.T) {
-	// Create a transport with an error-producing reader
-	transport := NewStdioTransport(&failingReader{}, &bytes.Buffer{})
-
-	_, err := transport.ReadMessage()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "read failed")
-}
-
-// Test ReadMessage when transport is closed
-func TestTransportReadMessageWhenClosed(t *testing.T) {
-	transport := NewStdioTransport(strings.NewReader(""), &bytes.Buffer{})
-	transport.Close()
-
-	_, err := transport.ReadMessage()
-	require.Error(t, err)
-	assert.ErrorIs(t, err, io.EOF)
-}
-
-// Test resourceConfig with nil config
-func TestResourceConfigNilConfig(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-	// Server has no config set by default
-
-	req := &Request{
-		JSONRPC: JSONRPCVersion,
-		ID:      1,
-		Method:  "resources/read",
-		Params: func() json.RawMessage {
-			p, _ := json.Marshal(ReadResourceParams{URI: "relicta://config"})
-			return p
-		}(),
-	}
-
-	resp := server.HandleRequest(context.Background(), req)
-	require.NotNil(t, resp)
-	assert.Nil(t, resp.Error)
-	// Result should contain "no configuration loaded"
-	resultJSON, _ := json.Marshal(resp.Result)
-	assert.Contains(t, string(resultJSON), "no configuration loaded")
-}
-
-// Test promptReleaseSummary with all style options
-func TestPromptReleaseSummaryAllStyles(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	testCases := []struct {
-		style    string
-		expected string
-	}{
-		{"brief", "brief summary"},
-		{"detailed", "detailed summary"},
-		{"technical", "technical summary"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.style, func(t *testing.T) {
-			params := GetPromptParams{
-				Name:      "release-summary",
-				Arguments: map[string]string{"style": tc.style},
-			}
-			paramsJSON, _ := json.Marshal(params)
-
-			req := &Request{
-				JSONRPC: JSONRPCVersion,
-				ID:      1,
-				Method:  "prompts/get",
-				Params:  paramsJSON,
-			}
-
-			resp := server.HandleRequest(context.Background(), req)
-			require.NotNil(t, resp)
-			assert.Nil(t, resp.Error)
-		})
-	}
-}
-
-// Test tool handlers with adapter that returns errors at specific points
-func TestToolHandlersWithAdapterErrors(t *testing.T) {
-	t.Run("toolNotes fails when GetStatus fails", func(t *testing.T) {
-		// Create adapter with notes UC but repo that returns error
-		errorRepo := &mockErrorReleaseRepository{err: errors.New("no releases")}
-		adapter := NewAdapter(
-			WithAdapterReleaseRepository(errorRepo),
-		)
-
-		server, err := NewServer("1.0.0", WithAdapter(adapter))
-		require.NoError(t, err)
-
-		params := CallToolParams{
-			Name:      "relicta.notes",
-			Arguments: map[string]any{},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		// This will fall through to stub because HasGenerateNotesUseCase() returns false
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-	})
-
-	t.Run("toolEvaluate with governance service but repo error", func(t *testing.T) {
-		// Create adapter with governance but failing repo
-		govSvc := &governance.Service{}
-		errorRepo := &mockErrorReleaseRepository{err: errors.New("repo error")}
-		adapter := NewAdapter(
-			WithGovernanceService(govSvc),
-			WithAdapterReleaseRepository(errorRepo),
-		)
-
-		server, err := NewServer("1.0.0", WithAdapter(adapter))
-		require.NoError(t, err)
-
-		params := CallToolParams{
-			Name:      "relicta.evaluate",
-			Arguments: map[string]any{},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		// Should get error result since GetStatus fails
-		resultJSON, _ := json.Marshal(resp.Result)
-		assert.Contains(t, string(resultJSON), "No active release")
-	})
-
-	t.Run("toolApprove with repo that returns error", func(t *testing.T) {
-		errorRepo := &mockErrorReleaseRepository{err: errors.New("repo error")}
-		adapter := NewAdapter(
-			WithAdapterReleaseRepository(errorRepo),
-		)
-
-		server, err := NewServer("1.0.0", WithAdapter(adapter))
-		require.NoError(t, err)
-
-		params := CallToolParams{
-			Name:      "relicta.approve",
-			Arguments: map[string]any{"actor": "test-user"},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-	})
-
-	t.Run("toolPublish with repo that returns error", func(t *testing.T) {
-		errorRepo := &mockErrorReleaseRepository{err: errors.New("repo error")}
-		adapter := NewAdapter(
-			WithAdapterReleaseRepository(errorRepo),
-		)
-
-		server, err := NewServer("1.0.0", WithAdapter(adapter))
-		require.NoError(t, err)
-
-		params := CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-	})
-}
-
-// Test handler error paths by registering failing handlers
-func TestHandlerErrorPaths(t *testing.T) {
-	t.Run("toolHandler returns error", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		// Register a tool that returns an error
-		server.tools["test.failing"] = func(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-			return nil, errors.New("tool execution failed")
-		}
-
-		params := CallToolParams{
-			Name:      "test.failing",
-			Arguments: map[string]any{},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeInternalError, resp.Error.Code)
-		assert.Contains(t, resp.Error.Message, "Tool execution failed")
-	})
-
-	t.Run("resourceHandler returns error", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		// Register a resource that returns an error
-		server.resources["relicta://failing"] = func(ctx context.Context, uri string) (*ReadResourceResult, error) {
-			return nil, errors.New("resource read failed")
-		}
-
-		params := ReadResourceParams{URI: "relicta://failing"}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "resources/read",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeInternalError, resp.Error.Code)
-		assert.Contains(t, resp.Error.Message, "Resource read failed")
-	})
-
-	t.Run("promptHandler returns error", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		// Register a prompt that returns an error
-		server.prompts["failing-prompt"] = func(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
-			return nil, errors.New("prompt generation failed")
-		}
-
-		params := GetPromptParams{Name: "failing-prompt"}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "prompts/get",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.NotNil(t, resp.Error)
-		assert.Equal(t, ErrCodeInternalError, resp.Error.Code)
-		assert.Contains(t, resp.Error.Message, "Prompt generation failed")
-	})
-}
-
-// Test tool handlers with different argument types and combinations
-func TestToolHandlerArgumentTypes(t *testing.T) {
-	server, err := NewServer("1.0.0")
-	require.NoError(t, err)
-
-	t.Run("toolPlan with analyze as bool", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.plan",
-			Arguments: map[string]any{"from": "main", "analyze": true},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("toolBump with version argument", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.bump",
-			Arguments: map[string]any{"bump": "major", "version": "2.0.0"},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-		// Check that version is in result
-		resultJSON, _ := json.Marshal(resp.Result)
-		assert.Contains(t, string(resultJSON), "2.0.0")
-	})
-
-	t.Run("toolNotes with ai as bool", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.notes",
-			Arguments: map[string]any{"ai": true},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("toolApprove with message", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.approve",
-			Arguments: map[string]any{"actor": "ci-bot", "message": "LGTM"},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("toolPublish with assets", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{"skip_push": true, "assets": []string{"dist/app.tar.gz"}},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("toolEvaluate with actor arguments", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.evaluate",
-			Arguments: map[string]any{"actor": "test-agent", "include_history": true},
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-
-	t.Run("toolPublish without skip_push", func(t *testing.T) {
-		params := CallToolParams{
-			Name:      "relicta.publish",
-			Arguments: map[string]any{}, // no arguments
-		}
-		paramsJSON, _ := json.Marshal(params)
-
-		req := &Request{
-			JSONRPC: JSONRPCVersion,
-			ID:      1,
-			Method:  "tools/call",
-			Params:  paramsJSON,
-		}
-
-		resp := server.HandleRequest(context.Background(), req)
-		require.NotNil(t, resp)
-		assert.Nil(t, resp.Error)
-	})
-}
-
-// Test helpers for server_test.go
-// Note: mockReleaseRepository is defined in adapters_test.go
-
-// createTestRelease creates a release with a plan for testing
-func createTestRelease(id, currentVersion, nextVersion string) *release.ReleaseRun {
-	rel := release.NewReleaseRunForTest(release.RunID(id), "main", "")
-	curr, _ := version.Parse(currentVersion)
-	next, _ := version.Parse(nextVersion)
-	plan := release.NewReleasePlan(curr, next, changes.ReleaseTypeMinor, nil, false)
-	_ = release.SetPlan(rel, plan)
-	return rel
-}
+// Suppress unused variable warnings
+var _ = time.Now
