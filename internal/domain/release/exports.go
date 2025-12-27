@@ -158,16 +158,6 @@ func SetPlan(r *ReleaseRun, plan *ReleasePlan) error {
 	return nil
 }
 
-// SetRepositoryName is a no-op for backwards compatibility.
-// In the new model, the repository ID is set at creation time.
-//
-// Deprecated: RepositoryName is now immutable and set at creation time via
-// NewReleaseRun. This function exists only for backward compatibility and
-// will be removed in a future version.
-func SetRepositoryName(r *ReleaseRun, name string) {
-	// No-op - repoID is immutable in new model
-}
-
 // GetPlan extracts a ReleasePlan from a ReleaseRun for backwards compatibility.
 // If the plan was previously set via SetPlan, it returns the cached plan with its changeset.
 // Otherwise, it reconstructs a plan from the run's version info (without changeset).
@@ -291,19 +281,6 @@ type (
 	StepCompletedEvent        = domain.StepCompletedEvent
 	PluginExecutedEvent       = domain.PluginExecutedEvent
 
-	// Backwards-compatible event type aliases (old names -> new names)
-	ReleaseInitializedEvent       = domain.RunCreatedEvent
-	ReleasePlannedEvent           = domain.RunPlannedEvent
-	ReleaseVersionedEvent         = domain.RunVersionedEvent
-	ReleaseNotesGeneratedEvent    = domain.RunNotesGeneratedEvent
-	ReleaseNotesUpdatedEvent      = domain.RunNotesUpdatedEvent
-	ReleaseApprovedEvent          = domain.RunApprovedEvent
-	ReleasePublishingStartedEvent = domain.RunPublishingStartedEvent
-	ReleasePublishedEvent         = domain.RunPublishedEvent
-	ReleaseFailedEvent            = domain.RunFailedEvent
-	ReleaseCanceledEvent          = domain.RunCanceledEvent
-	ReleaseRetriedEvent           = domain.RunRetriedEvent
-
 	// ReleaseSummary alias for backwards compatibility
 	ReleaseSummary = domain.RunSummary
 )
@@ -354,7 +331,6 @@ const (
 const (
 	StateInitialized    = domain.StateDraft      // Old name for StateDraft
 	StateNotesGenerated = domain.StateNotesReady // Old name for StateNotesReady
-	StateCancelled      = domain.StateCanceled   // British spelling alias (deprecated)
 )
 
 // Actor type constants

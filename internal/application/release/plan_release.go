@@ -222,7 +222,6 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	rel := release.NewRelease(releaseID, branch, input.RepositoryPath)
-	release.SetRepositoryName(rel, repoInfo.Name)
 
 	// Set release plan using constructor for proper aggregate references
 	plan := release.NewReleasePlan(
