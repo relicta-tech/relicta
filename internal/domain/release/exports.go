@@ -11,7 +11,7 @@ import (
 )
 
 // ReleasePlan holds the planned release information.
-// This type provides backwards compatibility with the old Release aggregate.
+// It captures version transitions and the associated changeset.
 type ReleasePlan struct {
 	CurrentVersion version.SemanticVersion
 	NextVersion    version.SemanticVersion
