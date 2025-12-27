@@ -1,13 +1,13 @@
+// Package mcp provides MCP server implementation for Relicta using felixgeelhaar/mcp-go.
 package mcp
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
-	"sync"
+
+	"github.com/felixgeelhaar/mcp-go"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
@@ -18,98 +18,9 @@ import (
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
-// Context keys for progress tracking.
-type ctxKey string
-
-const (
-	ctxKeyProgressToken   ctxKey = "progressToken"
-	ctxKeyProgressWriter  ctxKey = "progressWriter"
-	ctxKeyProgressCounter ctxKey = "progressCounter"
-)
-
-// ProgressWriter is used by tool handlers to send progress notifications.
-type ProgressWriter interface {
-	WriteProgress(notification *ProgressNotification) error
-}
-
-// ContextWithProgress adds progress tracking to a context.
-func ContextWithProgress(ctx context.Context, token string, writer ProgressWriter) context.Context {
-	ctx = context.WithValue(ctx, ctxKeyProgressToken, token)
-	ctx = context.WithValue(ctx, ctxKeyProgressWriter, writer)
-	ctx = context.WithValue(ctx, ctxKeyProgressCounter, &progressCounter{})
-	return ctx
-}
-
-// progressCounter tracks the current progress value to ensure it increases.
-type progressCounter struct {
-	mu      sync.Mutex
-	current float64
-}
-
-func (c *progressCounter) next(delta float64) float64 {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.current += delta
-	return c.current
-}
-
-// SendProgress sends a progress notification if a progress token is present in the context.
-// Returns silently if no progress tracking is configured.
-func SendProgress(ctx context.Context, message string, total float64) error {
-	token, ok := ctx.Value(ctxKeyProgressToken).(string)
-	if !ok || token == "" {
-		return nil // No progress tracking, silently succeed
-	}
-
-	writer, ok := ctx.Value(ctxKeyProgressWriter).(ProgressWriter)
-	if !ok || writer == nil {
-		return nil
-	}
-
-	counter, ok := ctx.Value(ctxKeyProgressCounter).(*progressCounter)
-	if !ok {
-		return nil
-	}
-
-	notification := &ProgressNotification{
-		ProgressToken: token,
-		Progress:      counter.next(1),
-		Total:         total,
-		Message:       message,
-	}
-
-	return writer.WriteProgress(notification)
-}
-
-// SendProgressPercent sends a progress notification with a percentage value.
-func SendProgressPercent(ctx context.Context, message string, percent float64) error {
-	token, ok := ctx.Value(ctxKeyProgressToken).(string)
-	if !ok || token == "" {
-		return nil
-	}
-
-	writer, ok := ctx.Value(ctxKeyProgressWriter).(ProgressWriter)
-	if !ok || writer == nil {
-		return nil
-	}
-
-	counter, ok := ctx.Value(ctxKeyProgressCounter).(*progressCounter)
-	if !ok {
-		return nil
-	}
-
-	notification := &ProgressNotification{
-		ProgressToken: token,
-		Progress:      counter.next(percent),
-		Total:         100,
-		Message:       message,
-	}
-
-	return writer.WriteProgress(notification)
-}
-
-// Server implements the MCP server for Relicta.
+// Server wraps the MCP server for Relicta.
 type Server struct {
+	server  *mcp.Server
 	version string
 	logger  *slog.Logger
 
@@ -124,26 +35,9 @@ type Server struct {
 	// Application layer adapter
 	adapter *Adapter
 
-	// Tool and resource handlers
-	tools     map[string]ToolHandler
-	resources map[string]ResourceHandler
-	prompts   map[string]PromptHandler
-
-	// Progress notification writer (set during ServeStdio)
-	progressWriter ProgressWriter
-
 	// Resource cache for improved read performance
 	cache *ResourceCache
 }
-
-// ToolHandler handles a tool call.
-type ToolHandler func(ctx context.Context, args map[string]any) (*CallToolResult, error)
-
-// ResourceHandler handles a resource read.
-type ResourceHandler func(ctx context.Context, uri string) (*ReadResourceResult, error)
-
-// PromptHandler handles a prompt request.
-type PromptHandler func(ctx context.Context, args map[string]string) (*GetPromptResult, error)
 
 // ServerOption configures the MCP server.
 type ServerOption func(*Server)
@@ -218,15 +112,70 @@ func WithCacheDisabled() ServerOption {
 	}
 }
 
+// Tool input types with JSON Schema generation via struct tags.
+
+// StatusInput represents input for the status tool.
+type StatusInput struct{}
+
+// PlanToolInput represents input for the plan tool.
+type PlanToolInput struct {
+	From    string `json:"from,omitempty" jsonschema:"description=Starting point for commit analysis (tag or commit SHA). Use 'auto' or leave empty for automatic detection."`
+	Analyze bool   `json:"analyze,omitempty" jsonschema:"description=Include detailed commit analysis in output"`
+}
+
+// BumpToolInput represents input for the bump tool.
+type BumpToolInput struct {
+	Bump    string `json:"bump,omitempty" jsonschema:"description=Version bump type: major, minor, patch, or auto,enum=major|minor|patch|auto,default=auto"`
+	Version string `json:"version,omitempty" jsonschema:"description=Explicit version to set (overrides bump type)"`
+}
+
+// NotesToolInput represents input for the notes tool.
+type NotesToolInput struct {
+	AI bool `json:"ai,omitempty" jsonschema:"description=Use AI to enhance release notes"`
+}
+
+// EvaluateToolInput represents input for the evaluate tool.
+type EvaluateToolInput struct{}
+
+// ApproveToolInput represents input for the approve tool.
+type ApproveToolInput struct {
+	Notes string `json:"notes,omitempty" jsonschema:"description=Updated release notes (optional)"`
+}
+
+// PublishToolInput represents input for the publish tool.
+type PublishToolInput struct {
+	DryRun bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making changes"`
+}
+
+// Prompt argument input types.
+
+// ReleaseSummaryArgs represents arguments for the release-summary prompt.
+type ReleaseSummaryArgs struct {
+	Style string `json:"style,omitempty" jsonschema:"description=Summary style: brief, detailed, or technical,enum=brief|detailed|technical,default=brief"`
+}
+
+// CommitReviewArgs represents arguments for the commit-review prompt.
+type CommitReviewArgs struct {
+	Focus string `json:"focus,omitempty" jsonschema:"description=Review focus: compliance, quality, or security,enum=compliance|quality|security,default=compliance"`
+}
+
+// MigrationGuideArgs represents arguments for the migration-guide prompt.
+type MigrationGuideArgs struct {
+	Audience string `json:"audience,omitempty" jsonschema:"description=Target audience: developer, operator, or end-user,enum=developer|operator|end-user,default=developer"`
+}
+
+// ReleaseAnnouncementArgs represents arguments for the release-announcement prompt.
+type ReleaseAnnouncementArgs struct {
+	Channel string `json:"channel,omitempty" jsonschema:"description=Target channel: github, blog, social, or email,enum=github|blog|social|email,default=github"`
+}
+
 // NewServer creates a new MCP server for Relicta.
 func NewServer(version string, opts ...ServerOption) (*Server, error) {
 	s := &Server{
-		version:   version,
-		logger:    slog.Default(),
-		tools:     make(map[string]ToolHandler),
-		resources: make(map[string]ResourceHandler),
-		prompts:   make(map[string]PromptHandler),
-		cache:     NewResourceCache(), // Enable caching by default
+		version:  version,
+		logger:   slog.Default(),
+		cache:    NewResourceCache(),
+		riskCalc: risk.NewCalculatorWithDefaults(),
 	}
 
 	// Apply options
@@ -234,84 +183,19 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 		opt(s)
 	}
 
-	// Create defaults if not provided
-	if s.riskCalc == nil {
-		s.riskCalc = risk.NewCalculatorWithDefaults()
-	}
-
-	// Register handlers
-	s.registerTools()
-	s.registerResources()
-	s.registerPrompts()
-
-	return s, nil
-}
-
-// ServeStdio starts the MCP server on stdio transport.
-func (s *Server) ServeStdio() error {
-	return s.Serve(os.Stdin, os.Stdout)
-}
-
-// Serve starts the MCP server with custom reader/writer.
-func (s *Server) Serve(reader io.Reader, writer io.Writer) error {
-	transport := NewStdioTransport(reader, writer)
-	loop := NewMessageLoop(transport, s)
-
-	// Set progress writer for streaming progress notifications
-	s.progressWriter = transport
-
-	s.logger.Info("MCP server started", "version", s.version)
-	return loop.Run(context.Background())
-}
-
-// HandleRequest implements MessageHandler.
-func (s *Server) HandleRequest(ctx context.Context, req *Request) *Response {
-	s.logger.Debug("handling request", "method", req.Method, "id", req.ID)
-
-	switch req.Method {
-	case "initialize":
-		return s.handleInitialize(req)
-	case "initialized":
-		// Notification, no response needed
-		return nil
-	case "tools/list":
-		return s.handleListTools(req)
-	case "tools/call":
-		return s.handleCallTool(ctx, req)
-	case "resources/list":
-		return s.handleListResources(req)
-	case "resources/read":
-		return s.handleReadResource(ctx, req)
-	case "prompts/list":
-		return s.handleListPrompts(req)
-	case "prompts/get":
-		return s.handleGetPrompt(ctx, req)
-	case "ping":
-		return NewResponse(req.ID, map[string]any{})
-	default:
-		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Method not found", req.Method)
-	}
-}
-
-func (s *Server) handleInitialize(req *Request) *Response {
-	var params InitializeParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInvalidParams, "Invalid params", err.Error())
-	}
-
-	result := InitializeResult{
-		ProtocolVersion: MCPVersion,
-		Capabilities: ServerCapabilities{
-			Tools:     &ToolsCapability{},
-			Resources: &ResourcesCapability{Subscribe: false, ListChanged: false},
-			Prompts:   &PromptsCapability{},
-			Logging:   &LoggingCapability{},
+	// Create the MCP server with felixgeelhaar/mcp-go
+	s.server = mcp.NewServer(mcp.ServerInfo{
+		Name:    "relicta",
+		Version: version,
+		Capabilities: mcp.Capabilities{
+			Tools:     true,
+			Resources: true,
+			Prompts:   true,
 		},
-		ServerInfo: Implementation{
-			Name:    "relicta",
-			Version: s.version,
-		},
-		Instructions: `Relicta is an AI-powered release management tool.
+	})
+
+	// Set server instructions
+	s.server.SetInstructions(`Relicta is an AI-powered release management tool.
 
 Use these tools to manage software releases:
 - relicta.status: Get current release state
@@ -325,264 +209,152 @@ Use these tools to manage software releases:
 Resources provide read-only access to:
 - relicta://state: Current release state
 - relicta://config: Configuration settings
-- relicta://commits: Recent commit history
+- relicta://commits: Recent commits
 - relicta://changelog: Generated changelog
-- relicta://risk-report: CGP risk assessment`,
-	}
+- relicta://risk-report: CGP risk assessment`)
 
-	return NewResponse(req.ID, result)
+	// Register tools
+	s.registerTools()
+
+	// Register resources
+	s.registerResources()
+
+	// Register prompts
+	s.registerPrompts()
+
+	return s, nil
 }
 
-func (s *Server) handleListTools(req *Request) *Response {
-	tools := []Tool{
-		{
-			Name:        "relicta.status",
-			Description: "Get the current release state and pending actions",
-			InputSchema: InputSchema{Type: "object"},
-		},
-		{
-			Name:        "relicta.plan",
-			Description: "Analyze commits since the last release and suggest a version bump",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"from":    {Type: "string", Description: "Starting point for commit analysis (tag, commit SHA, or 'auto')", Default: "auto"},
-					"analyze": {Type: "boolean", Description: "Include detailed commit analysis"},
-				},
-			},
-		},
-		{
-			Name:        "relicta.bump",
-			Description: "Calculate and set the next version based on commits",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"bump":    {Type: "string", Description: "Version bump type: major, minor, patch, or auto", Default: "auto"},
-					"version": {Type: "string", Description: "Explicit version to set (overrides bump type)"},
-				},
-			},
-		},
-		{
-			Name:        "relicta.notes",
-			Description: "Generate changelog and release notes for the current release",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"ai": {Type: "boolean", Description: "Use AI to enhance release notes"},
-				},
-			},
-		},
-		{
-			Name:        "relicta.evaluate",
-			Description: "Evaluate release risk using the Change Governance Protocol (CGP)",
-			InputSchema: InputSchema{Type: "object"},
-		},
-		{
-			Name:        "relicta.approve",
-			Description: "Approve the release for publishing",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"notes": {Type: "string", Description: "Updated release notes (optional)"},
-				},
-			},
-		},
-		{
-			Name:        "relicta.publish",
-			Description: "Execute the release by creating tags and running plugins",
-			InputSchema: InputSchema{
-				Type: "object",
-				Properties: map[string]Property{
-					"dry_run": {Type: "boolean", Description: "Simulate the release without making changes"},
-				},
-			},
-		},
-	}
-
-	return NewResponse(req.ID, ListToolsResult{Tools: tools})
-}
-
-func (s *Server) handleCallTool(ctx context.Context, req *Request) *Response {
-	var params CallToolParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInvalidParams, "Invalid params", err.Error())
-	}
-
-	handler, ok := s.tools[params.Name]
-	if !ok {
-		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Tool not found", params.Name)
-	}
-
-	// Inject progress tracking into context if a progress token was provided
-	if params.Meta != nil && params.Meta.ProgressToken != "" && s.progressWriter != nil {
-		ctx = ContextWithProgress(ctx, params.Meta.ProgressToken, s.progressWriter)
-	}
-
-	result, err := handler(ctx, params.Arguments)
-	if err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInternalError, "Tool execution failed", err.Error())
-	}
-
-	return NewResponse(req.ID, result)
-}
-
-func (s *Server) handleListResources(req *Request) *Response {
-	resources := []Resource{
-		{URI: "relicta://state", Name: "Release State", Description: "Current release state machine status", MIMEType: "application/json"},
-		{URI: "relicta://config", Name: "Configuration", Description: "Current Relicta configuration", MIMEType: "application/json"},
-		{URI: "relicta://commits", Name: "Commits", Description: "Recent commits since last release", MIMEType: "application/json"},
-		{URI: "relicta://changelog", Name: "Changelog", Description: "Generated changelog for current release", MIMEType: "text/markdown"},
-		{URI: "relicta://risk-report", Name: "Risk Report", Description: "CGP risk assessment for current release", MIMEType: "application/json"},
-	}
-
-	return NewResponse(req.ID, ListResourcesResult{Resources: resources})
-}
-
-func (s *Server) handleReadResource(ctx context.Context, req *Request) *Response {
-	var params ReadResourceParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInvalidParams, "Invalid params", err.Error())
-	}
-
-	handler, ok := s.resources[params.URI]
-	if !ok {
-		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Resource not found", params.URI)
-	}
-
-	// Check cache first
-	if s.cache != nil {
-		if cached := s.cache.Get(params.URI); cached != nil {
-			s.logger.Debug("cache hit", "uri", params.URI)
-			return NewResponse(req.ID, cached)
-		}
-	}
-
-	result, err := handler(ctx, params.URI)
-	if err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInternalError, "Resource read failed", err.Error())
-	}
-
-	// Cache the result
-	if s.cache != nil {
-		s.cache.Set(params.URI, result)
-	}
-
-	return NewResponse(req.ID, result)
-}
-
-func (s *Server) handleListPrompts(req *Request) *Response {
-	prompts := []Prompt{
-		{
-			Name:        "release-summary",
-			Description: "Generate a summary of the upcoming release",
-			Arguments: []PromptArgument{
-				{Name: "style", Description: "Summary style: brief, detailed, or technical"},
-			},
-		},
-		{
-			Name:        "risk-analysis",
-			Description: "Analyze and explain the risk factors for the current release",
-		},
-		{
-			Name:        "commit-review",
-			Description: "Review commits for conventional commit compliance and quality",
-			Arguments: []PromptArgument{
-				{Name: "focus", Description: "Review focus: compliance, quality, or security"},
-			},
-		},
-		{
-			Name:        "breaking-changes",
-			Description: "Document breaking changes and their impact on users",
-		},
-		{
-			Name:        "migration-guide",
-			Description: "Generate migration instructions for upgrading to this release",
-			Arguments: []PromptArgument{
-				{Name: "audience", Description: "Target audience: developer, operator, or end-user"},
-			},
-		},
-		{
-			Name:        "release-announcement",
-			Description: "Generate a release announcement for publishing",
-			Arguments: []PromptArgument{
-				{Name: "channel", Description: "Target channel: github, blog, social, or email"},
-			},
-		},
-		{
-			Name:        "approval-decision",
-			Description: "Help make an informed approval decision based on CGP analysis",
-		},
-	}
-
-	return NewResponse(req.ID, ListPromptsResult{Prompts: prompts})
-}
-
-func (s *Server) handleGetPrompt(ctx context.Context, req *Request) *Response {
-	var params GetPromptParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInvalidParams, "Invalid params", err.Error())
-	}
-
-	handler, ok := s.prompts[params.Name]
-	if !ok {
-		return NewErrorResponse(req.ID, ErrCodeMethodNotFound, "Prompt not found", params.Name)
-	}
-
-	result, err := handler(ctx, params.Arguments)
-	if err != nil {
-		return NewErrorResponse(req.ID, ErrCodeInternalError, "Prompt generation failed", err.Error())
-	}
-
-	return NewResponse(req.ID, result)
+// ServeStdio starts the MCP server on stdio transport.
+func (s *Server) ServeStdio() error {
+	s.logger.Info("MCP server started", "version", s.version)
+	return mcp.ServeStdio(context.Background(), s.server)
 }
 
 // registerTools registers all tool handlers.
 func (s *Server) registerTools() {
-	s.tools["relicta.status"] = s.toolStatus
-	s.tools["relicta.plan"] = s.toolPlan
-	s.tools["relicta.bump"] = s.toolBump
-	s.tools["relicta.notes"] = s.toolNotes
-	s.tools["relicta.evaluate"] = s.toolEvaluate
-	s.tools["relicta.approve"] = s.toolApprove
-	s.tools["relicta.publish"] = s.toolPublish
+	// Status tool
+	s.server.Tool("relicta.status").
+		Description("Get the current release state and pending actions").
+		Handler(s.handleStatus)
+
+	// Plan tool
+	s.server.Tool("relicta.plan").
+		Description("Analyze commits since the last release and suggest a version bump").
+		Handler(s.handlePlan)
+
+	// Bump tool
+	s.server.Tool("relicta.bump").
+		Description("Calculate and set the next version based on commits").
+		Handler(s.handleBump)
+
+	// Notes tool
+	s.server.Tool("relicta.notes").
+		Description("Generate changelog and release notes for the current release").
+		Handler(s.handleNotes)
+
+	// Evaluate tool
+	s.server.Tool("relicta.evaluate").
+		Description("Evaluate release risk using the Change Governance Protocol (CGP)").
+		Handler(s.handleEvaluate)
+
+	// Approve tool
+	s.server.Tool("relicta.approve").
+		Description("Approve the release for publishing").
+		Handler(s.handleApprove)
+
+	// Publish tool
+	s.server.Tool("relicta.publish").
+		Description("Execute the release by creating tags and running plugins").
+		Handler(s.handlePublish)
 }
 
 // registerResources registers all resource handlers.
 func (s *Server) registerResources() {
-	s.resources["relicta://state"] = s.resourceState
-	s.resources["relicta://config"] = s.resourceConfig
-	s.resources["relicta://commits"] = s.resourceCommits
-	s.resources["relicta://changelog"] = s.resourceChangelog
-	s.resources["relicta://risk-report"] = s.resourceRiskReport
+	s.server.Resource("relicta://state").
+		Name("Release State").
+		Description("Current release state machine status").
+		MimeType("application/json").
+		Handler(s.handleResourceState)
+
+	s.server.Resource("relicta://config").
+		Name("Configuration").
+		Description("Current Relicta configuration").
+		MimeType("application/json").
+		Handler(s.handleResourceConfig)
+
+	s.server.Resource("relicta://commits").
+		Name("Commits").
+		Description("Recent commits since last release").
+		MimeType("application/json").
+		Handler(s.handleResourceCommits)
+
+	s.server.Resource("relicta://changelog").
+		Name("Changelog").
+		Description("Generated changelog for current release").
+		MimeType("text/markdown").
+		Handler(s.handleResourceChangelog)
+
+	s.server.Resource("relicta://risk-report").
+		Name("Risk Report").
+		Description("CGP risk assessment for current release").
+		MimeType("application/json").
+		Handler(s.handleResourceRiskReport)
 }
 
 // registerPrompts registers all prompt handlers.
 func (s *Server) registerPrompts() {
-	s.prompts["release-summary"] = s.promptReleaseSummary
-	s.prompts["risk-analysis"] = s.promptRiskAnalysis
-	s.prompts["commit-review"] = s.promptCommitReview
-	s.prompts["breaking-changes"] = s.promptBreakingChanges
-	s.prompts["migration-guide"] = s.promptMigrationGuide
-	s.prompts["release-announcement"] = s.promptReleaseAnnouncement
-	s.prompts["approval-decision"] = s.promptApprovalDecision
+	s.server.Prompt("release-summary").
+		Description("Generate a summary of the upcoming release").
+		Argument("style", "Summary style: brief, detailed, or technical", false).
+		Handler(s.handlePromptReleaseSummary)
+
+	s.server.Prompt("risk-analysis").
+		Description("Analyze and explain the risk factors for the current release").
+		Handler(s.handlePromptRiskAnalysis)
+
+	s.server.Prompt("commit-review").
+		Description("Review commits for conventional commit compliance and quality").
+		Argument("focus", "Review focus: compliance, quality, or security", false).
+		Handler(s.handlePromptCommitReview)
+
+	s.server.Prompt("breaking-changes").
+		Description("Document breaking changes and their impact on users").
+		Handler(s.handlePromptBreakingChanges)
+
+	s.server.Prompt("migration-guide").
+		Description("Generate migration instructions for upgrading to this release").
+		Argument("audience", "Target audience: developer, operator, or end-user", false).
+		Handler(s.handlePromptMigrationGuide)
+
+	s.server.Prompt("release-announcement").
+		Description("Generate a release announcement for publishing").
+		Argument("channel", "Target channel: github, blog, social, or email", false).
+		Handler(s.handlePromptReleaseAnnouncement)
+
+	s.server.Prompt("approval-decision").
+		Description("Help make an informed approval decision based on CGP analysis").
+		Handler(s.handlePromptApprovalDecision)
 }
 
 // invalidateCache invalidates state-dependent resources in the cache.
-// Called after tools that modify release state.
 func (s *Server) invalidateCache() {
 	if s.cache != nil {
 		s.cache.InvalidateStateDependent()
 	}
 }
 
-// Tool implementations
+// Tool handlers
 
-func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[string]any, error) {
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return NewToolResult("No active release found. Run 'relicta plan' to start a new release."), nil
+			return map[string]any{
+				"status":  "no_active_release",
+				"message": "No active release found. Run 'relicta plan' to start a new release.",
+			}, nil
 		}
 
 		result := map[string]any{
@@ -604,17 +376,23 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 			result["warning"] = status.Warning
 		}
 
-		return NewToolResultJSON(result)
+		return result, nil
 	}
 
 	// Fallback to direct repository access
 	if s.releaseRepo == nil {
-		return NewToolResult("No release repository configured. Run 'relicta plan' first."), nil
+		return map[string]any{
+			"status":  "not_configured",
+			"message": "No release repository configured. Run 'relicta plan' first.",
+		}, nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return NewToolResult("No active release found. Run 'relicta plan' to start a new release."), nil
+		return map[string]any{
+			"status":  "no_active_release",
+			"message": "No active release found. Run 'relicta plan' to start a new release.",
+		}, nil
 	}
 
 	rel := releases[0]
@@ -629,22 +407,18 @@ func (s *Server) toolStatus(ctx context.Context, args map[string]any) (*CallTool
 		result["version"] = rel.VersionNext().String()
 	}
 
-	return NewToolResultJSON(result)
+	return result, nil
 }
 
-func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[string]any, error) {
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasPlanUseCase() {
 		fromRef := ""
-		if v, ok := args["from"].(string); ok && v != "auto" {
-			fromRef = v
-		}
-		analyze := false
-		if v, ok := args["analyze"].(bool); ok {
-			analyze = v
+		if input.From != "" && input.From != "auto" {
+			fromRef = input.From
 		}
 
-		// Get repository path from git service (required for release tracking)
+		// Get repository path from git service
 		repoPath := ""
 		if s.gitService != nil {
 			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
@@ -652,22 +426,27 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			}
 		}
 
-		input := PlanInput{
+		planInput := PlanInput{
 			RepositoryPath: repoPath,
 			FromRef:        fromRef,
-			Analyze:        analyze,
+			Analyze:        input.Analyze,
 		}
 
-		// Send progress: starting plan
-		_ = SendProgress(ctx, "Analyzing commit history...", 3)
+		// Report progress
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 3.0
+			progress.Report(1, &total)
+		}
 
-		output, err := s.adapter.Plan(ctx, input)
+		output, err := s.adapter.Plan(ctx, planInput)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Plan failed: %v", err)), nil
+			return nil, fmt.Errorf("plan failed: %w", err)
 		}
 
-		// Send progress: plan complete
-		_ = SendProgress(ctx, "Computing version bump...", 3)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 3.0
+			progress.Report(2, &total)
+		}
 
 		result := map[string]any{
 			"release_id":      output.ReleaseID,
@@ -681,7 +460,7 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 		}
 
 		// Include commit details when analyze=true
-		if analyze && len(output.Commits) > 0 {
+		if input.Analyze && len(output.Commits) > 0 {
 			commits := make([]map[string]any, 0, len(output.Commits))
 			for _, c := range output.Commits {
 				commit := map[string]any{
@@ -698,31 +477,29 @@ func (s *Server) toolPlan(ctx context.Context, args map[string]any) (*CallToolRe
 			result["commits"] = commits
 		}
 
-		// Send progress: complete
-		_ = SendProgress(ctx, "Plan complete", 3)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 3.0
+			progress.Report(3, &total)
+		}
 
-		// Invalidate cache since plan modifies state
 		s.invalidateCache()
-
-		return NewToolResultJSON(result)
+		return result, nil
 	}
 
-	return NewToolResult("Plan tool called - run 'relicta mcp serve' with configured dependencies"), nil
+	return map[string]any{
+		"status":  "not_configured",
+		"message": "Run 'relicta mcp serve' with configured dependencies",
+	}, nil
 }
 
-func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-	bumpType := "auto"
-	if v, ok := args["bump"].(string); ok {
-		bumpType = v
-	}
-	version := ""
-	if v, ok := args["version"].(string); ok {
-		version = v
+func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[string]any, error) {
+	bumpType := input.Bump
+	if bumpType == "" {
+		bumpType = "auto"
 	}
 
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasCalculateVersionUseCase() {
-		// Get repository path from git service (required for release state update)
 		repoPath := ""
 		if s.gitService != nil {
 			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
@@ -730,15 +507,15 @@ func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolRe
 			}
 		}
 
-		input := BumpInput{
+		bumpInput := BumpInput{
 			RepositoryPath: repoPath,
 			BumpType:       bumpType,
-			Version:        version,
+			Version:        input.Version,
 		}
 
-		output, err := s.adapter.Bump(ctx, input)
+		output, err := s.adapter.Bump(ctx, bumpInput)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Bump failed: %v", err)), nil
+			return nil, fmt.Errorf("bump failed: %w", err)
 		}
 
 		result := map[string]any{
@@ -753,60 +530,52 @@ func (s *Server) toolBump(ctx context.Context, args map[string]any) (*CallToolRe
 			result["tag_created"] = output.TagCreated
 		}
 
-		// Invalidate cache since bump modifies state
 		s.invalidateCache()
-
-		return NewToolResultJSON(result)
+		return result, nil
 	}
 
-	result := map[string]any{
+	return map[string]any{
 		"bump_type": bumpType,
-		"version":   version,
+		"version":   input.Version,
 		"status":    "run 'relicta mcp serve' with configured dependencies",
-	}
-
-	return NewToolResultJSON(result)
+	}, nil
 }
 
-func (s *Server) toolNotes(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-	useAI := false
-	if v, ok := args["ai"].(bool); ok {
-		useAI = v
-	}
-
+func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[string]any, error) {
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasGenerateNotesUseCase() && s.adapter.HasReleaseRepository() {
-		// Get active release ID
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+			return nil, fmt.Errorf("no active release: %w", err)
 		}
 
-		// Send progress: starting notes generation
-		totalSteps := float64(3)
-		if useAI {
-			totalSteps = 5 // AI adds extra steps
+		// Report progress
+		totalSteps := 3.0
+		if input.AI {
+			totalSteps = 5.0
 		}
-		_ = SendProgress(ctx, "Loading release context...", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			progress.Report(1, &totalSteps)
+		}
 
-		input := NotesInput{
+		notesInput := NotesInput{
 			ReleaseID:        status.ReleaseID,
-			UseAI:            useAI,
+			UseAI:            input.AI,
 			IncludeChangelog: true,
 		}
 
-		if useAI {
-			_ = SendProgress(ctx, "Generating AI-enhanced release notes...", totalSteps)
-		} else {
-			_ = SendProgress(ctx, "Generating changelog from commits...", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			progress.Report(2, &totalSteps)
 		}
 
-		output, err := s.adapter.Notes(ctx, input)
+		output, err := s.adapter.Notes(ctx, notesInput)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Notes generation failed: %v", err)), nil
+			return nil, fmt.Errorf("notes generation failed: %w", err)
 		}
 
-		_ = SendProgress(ctx, "Formatting release notes...", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			progress.Report(totalSteps, &totalSteps)
+		}
 
 		result := map[string]any{
 			"summary":      output.Summary,
@@ -817,49 +586,51 @@ func (s *Server) toolNotes(ctx context.Context, args map[string]any) (*CallToolR
 			result["changelog"] = output.Changelog
 		}
 
-		_ = SendProgress(ctx, "Notes generation complete", totalSteps)
-
-		// Invalidate cache since notes modifies changelog
 		s.invalidateCache()
-
-		return NewToolResultJSON(result)
+		return result, nil
 	}
 
-	result := map[string]any{
-		"use_ai": useAI,
+	return map[string]any{
+		"use_ai": input.AI,
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}
-
-	return NewToolResultJSON(result)
+	}, nil
 }
 
-func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallToolResult, error) {
+func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (map[string]any, error) {
 	// Use adapter for full governance evaluation if available
 	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseRepository() {
-		// Get active release ID
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+			return nil, fmt.Errorf("no active release: %w", err)
 		}
 
-		// Send progress: starting evaluation
-		_ = SendProgress(ctx, "Loading release data...", 4)
+		// Report progress
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 4.0
+			progress.Report(1, &total)
+		}
 
-		input := EvaluateInput{
+		evalInput := EvaluateInput{
 			ReleaseID:      status.ReleaseID,
 			IncludeHistory: true,
 		}
 
-		_ = SendProgress(ctx, "Calculating risk factors...", 4)
-
-		output, err := s.adapter.Evaluate(ctx, input)
-		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Evaluation failed: %v", err)), nil
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 4.0
+			progress.Report(2, &total)
 		}
 
-		_ = SendProgress(ctx, "Applying governance policies...", 4)
+		output, err := s.adapter.Evaluate(ctx, evalInput)
+		if err != nil {
+			return nil, fmt.Errorf("evaluation failed: %w", err)
+		}
 
-		result := map[string]any{
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 4.0
+			progress.Report(4, &total)
+		}
+
+		return map[string]any{
 			"decision":         output.Decision,
 			"risk_score":       output.RiskScore,
 			"severity":         output.Severity,
@@ -867,16 +638,12 @@ func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallTo
 			"required_actions": output.RequiredActions,
 			"risk_factors":     output.RiskFactors,
 			"rationale":        output.Rationale,
-		}
-
-		_ = SendProgress(ctx, "Evaluation complete", 4)
-
-		return NewToolResultJSON(result)
+		}, nil
 	}
 
 	// Fallback to basic risk calculation
 	if s.riskCalc == nil {
-		return NewToolResultError("Risk calculator not configured"), nil
+		return nil, fmt.Errorf("risk calculator not configured")
 	}
 
 	proposal := cgp.NewProposal(
@@ -897,107 +664,91 @@ func (s *Server) toolEvaluate(ctx context.Context, args map[string]any) (*CallTo
 
 	assessment, err := s.riskCalc.Calculate(ctx, proposal, nil)
 	if err != nil {
-		return NewToolResultError(fmt.Sprintf("Failed to calculate risk: %v", err)), nil
+		return nil, fmt.Errorf("failed to calculate risk: %w", err)
 	}
 
-	result := map[string]any{
+	return map[string]any{
 		"score":    assessment.Score,
 		"severity": string(assessment.Severity),
 		"summary":  assessment.Summary,
 		"factors":  assessment.Factors,
-	}
-
-	return NewToolResultJSON(result)
+	}, nil
 }
 
-func (s *Server) toolApprove(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-	notes := ""
-	if v, ok := args["notes"].(string); ok {
-		notes = v
-	}
-
+func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map[string]any, error) {
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasApproveUseCase() && s.adapter.HasReleaseRepository() {
-		// Get active release ID
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+			return nil, fmt.Errorf("no active release: %w", err)
 		}
 
-		input := ApproveInput{
+		approveInput := ApproveInput{
 			ReleaseID:   status.ReleaseID,
 			ApprovedBy:  "mcp-agent",
 			AutoApprove: true,
-			EditedNotes: notes,
+			EditedNotes: input.Notes,
 		}
 
-		output, err := s.adapter.Approve(ctx, input)
+		output, err := s.adapter.Approve(ctx, approveInput)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Approval failed: %v", err)), nil
+			return nil, fmt.Errorf("approval failed: %w", err)
 		}
 
-		result := map[string]any{
+		s.invalidateCache()
+		return map[string]any{
 			"approved":    output.Approved,
 			"approved_by": output.ApprovedBy,
 			"version":     output.Version,
-		}
-
-		// Invalidate cache since approve modifies state
-		s.invalidateCache()
-
-		return NewToolResultJSON(result)
+		}, nil
 	}
 
-	result := map[string]any{
-		"notes":  notes,
+	return map[string]any{
+		"notes":  input.Notes,
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}
-
-	return NewToolResultJSON(result)
+	}, nil
 }
 
-func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToolResult, error) {
-	dryRun := true
-	if v, ok := args["dry_run"].(bool); ok {
-		dryRun = v
-	}
-
+func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map[string]any, error) {
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasPublishUseCase() && s.adapter.HasReleaseRepository() {
-		// Get active release ID
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("No active release: %v", err)), nil
+			return nil, fmt.Errorf("no active release: %w", err)
 		}
 
-		// Send progress: starting publish
-		totalSteps := float64(5)
-		_ = SendProgress(ctx, "Preparing release...", totalSteps)
+		// Report progress
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 5.0
+			progress.Report(1, &total)
+		}
 
-		input := PublishInput{
+		publishInput := PublishInput{
 			ReleaseID: status.ReleaseID,
-			DryRun:    dryRun,
+			DryRun:    input.DryRun,
 			CreateTag: true,
-			PushTag:   !dryRun,
+			PushTag:   !input.DryRun,
 		}
 
-		if dryRun {
-			_ = SendProgress(ctx, "Validating release (dry run)...", totalSteps)
-		} else {
-			_ = SendProgress(ctx, "Creating git tag...", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 5.0
+			progress.Report(2, &total)
 		}
 
-		output, err := s.adapter.Publish(ctx, input)
+		output, err := s.adapter.Publish(ctx, publishInput)
 		if err != nil {
-			return NewToolResultError(fmt.Sprintf("Publish failed: %v", err)), nil
+			return nil, fmt.Errorf("publish failed: %w", err)
 		}
 
-		_ = SendProgress(ctx, "Running plugins...", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 5.0
+			progress.Report(4, &total)
+		}
 
 		result := map[string]any{
 			"tag_name":    output.TagName,
 			"release_url": output.ReleaseURL,
-			"dry_run":     dryRun,
+			"dry_run":     input.DryRun,
 		}
 
 		if len(output.PluginResults) > 0 {
@@ -1013,39 +764,52 @@ func (s *Server) toolPublish(ctx context.Context, args map[string]any) (*CallToo
 			result["plugin_results"] = plugins
 		}
 
-		_ = SendProgress(ctx, "Publish complete", totalSteps)
+		if progress := mcp.ProgressFromContext(ctx); progress != nil {
+			total := 5.0
+			progress.Report(5, &total)
+		}
 
-		// Invalidate cache since publish modifies state
 		s.invalidateCache()
-
-		return NewToolResultJSON(result)
+		return result, nil
 	}
 
-	result := map[string]any{
-		"dry_run": dryRun,
+	return map[string]any{
+		"dry_run": input.DryRun,
 		"status":  "run 'relicta mcp serve' with configured dependencies",
-	}
-
-	return NewToolResultJSON(result)
+	}, nil
 }
 
-// Resource implementations
+// Resource handlers
 
-func (s *Server) resourceState(ctx context.Context, uri string) (*ReadResourceResult, error) {
+func (s *Server) handleResourceState(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
+	// Check cache first
+	if s.cache != nil {
+		if cached := s.cache.Get(uri); cached != nil {
+			s.logger.Debug("cache hit", "uri", uri)
+			if len(cached.Contents) > 0 {
+				return &mcp.ResourceContent{
+					URI:      cached.Contents[0].URI,
+					MimeType: cached.Contents[0].MIMEType,
+					Text:     cached.Contents[0].Text,
+				}, nil
+			}
+		}
+	}
+
 	if s.releaseRepo == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no release repository configured"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no release repository configured"}`,
 		}, nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no active release"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no active release"}`,
 		}, nil
 	}
 
@@ -1062,17 +826,28 @@ func (s *Server) resourceState(ctx context.Context, uri string) (*ReadResourceRe
   "updated_at": %q
 }`, rel.State().String(), version, rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"), rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"))
 
-	return &ReadResourceResult{
-		Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: content}},
-	}, nil
+	result := &mcp.ResourceContent{
+		URI:      uri,
+		MimeType: "application/json",
+		Text:     content,
+	}
+
+	// Cache the result
+	if s.cache != nil {
+		s.cache.Set(uri, &ReadResourceResult{
+			Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: content}},
+		})
+	}
+
+	return result, nil
 }
 
-func (s *Server) resourceConfig(ctx context.Context, uri string) (*ReadResourceResult, error) {
+func (s *Server) handleResourceConfig(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
 	if s.config == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no configuration loaded"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no configuration loaded"}`,
 		}, nil
 	}
 
@@ -1088,42 +863,43 @@ func (s *Server) resourceConfig(ctx context.Context, uri string) (*ReadResourceR
   "versioning_strategy": %q
 }`, productName, s.config.AI.Enabled, s.config.AI.Provider, s.config.Versioning.Strategy)
 
-	return &ReadResourceResult{
-		Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: content}},
+	return &mcp.ResourceContent{
+		URI:      uri,
+		MimeType: "application/json",
+		Text:     content,
 	}, nil
 }
 
-func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResourceResult, error) {
+func (s *Server) handleResourceCommits(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
 	if s.releaseRepo == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no release repository configured"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no release repository configured"}`,
 		}, nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no active release", "commits": []}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no active release", "commits": []}`,
 		}, nil
 	}
 
 	rel := releases[0]
 	plan := release.GetPlan(rel)
 	if plan == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no plan available", "commits": []}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no plan available", "commits": []}`,
 		}, nil
 	}
 
 	// Check if changeset is loaded
 	if !plan.HasChangeSet() {
-		// Return plan metadata without commits
 		content := fmt.Sprintf(`{
   "status": "changeset not loaded",
   "changeset_id": %q,
@@ -1132,8 +908,10 @@ func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResource
   "next_version": %q,
   "commits": []
 }`, plan.ChangeSetID, plan.ReleaseType, plan.CurrentVersion.String(), plan.NextVersion.String())
-		return &ReadResourceResult{
-			Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: content}},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     content,
 		}, nil
 	}
 
@@ -1171,29 +949,35 @@ func (s *Server) resourceCommits(ctx context.Context, uri string) (*ReadResource
 
 	jsonBytes, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, fmt.Sprintf(`{"status": "error", "error": %q}`, err.Error())),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     fmt.Sprintf(`{"status": "error", "error": %q}`, err.Error()),
 		}, nil
 	}
 
-	return &ReadResourceResult{
-		Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
+	return &mcp.ResourceContent{
+		URI:      uri,
+		MimeType: "application/json",
+		Text:     string(jsonBytes),
 	}, nil
 }
 
-func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResourceResult, error) {
+func (s *Server) handleResourceChangelog(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
 	if s.releaseRepo == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: "# Changelog\n\nNo release repository configured."}},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "text/markdown",
+			Text:     "# Changelog\n\nNo release repository configured.",
 		}, nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: "# Changelog\n\nNo active release found. Run `relicta plan` to start a new release."}},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "text/markdown",
+			Text:     "# Changelog\n\nNo active release found. Run `relicta plan` to start a new release.",
 		}, nil
 	}
 
@@ -1201,44 +985,46 @@ func (s *Server) resourceChangelog(ctx context.Context, uri string) (*ReadResour
 	notes := rel.Notes()
 
 	if notes == nil {
-		// No notes generated yet - provide helpful message
 		version := ""
 		if !rel.VersionNext().IsZero() {
 			version = rel.VersionNext().String()
 		}
 
 		content := fmt.Sprintf("# Changelog\n\nNo changelog generated yet for version %s.\n\nRun `relicta notes` to generate release notes.", version)
-		return &ReadResourceResult{
-			Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: content}},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "text/markdown",
+			Text:     content,
 		}, nil
 	}
 
-	// Return the actual notes text
 	changelog := notes.Text
 	if changelog == "" {
 		changelog = "# Release Notes\n\nNo content available."
 	}
 
-	return &ReadResourceResult{
-		Contents: []ResourceContent{{URI: uri, MIMEType: "text/markdown", Text: changelog}},
+	return &mcp.ResourceContent{
+		URI:      uri,
+		MimeType: "text/markdown",
+		Text:     changelog,
 	}, nil
 }
 
-func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResourceResult, error) {
+func (s *Server) handleResourceRiskReport(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {
 	if s.releaseRepo == nil {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no release repository configured"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no release repository configured"}`,
 		}, nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return &ReadResourceResult{
-			Contents: []ResourceContent{
-				NewTextResourceContent(uri, `{"status": "no active release"}`),
-			},
+		return &mcp.ResourceContent{
+			URI:      uri,
+			MimeType: "application/json",
+			Text:     `{"status": "no active release"}`,
 		}, nil
 	}
 
@@ -1266,8 +1052,10 @@ func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResou
 
 			jsonBytes, err := json.MarshalIndent(result, "", "  ")
 			if err == nil {
-				return &ReadResourceResult{
-					Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
+				return &mcp.ResourceContent{
+					URI:      uri,
+					MimeType: "application/json",
+					Text:     string(jsonBytes),
 				}, nil
 			}
 		}
@@ -1303,26 +1091,28 @@ func (s *Server) resourceRiskReport(ctx context.Context, uri string) (*ReadResou
 
 			jsonBytes, err := json.MarshalIndent(result, "", "  ")
 			if err == nil {
-				return &ReadResourceResult{
-					Contents: []ResourceContent{{URI: uri, MIMEType: "application/json", Text: string(jsonBytes)}},
+				return &mcp.ResourceContent{
+					URI:      uri,
+					MimeType: "application/json",
+					Text:     string(jsonBytes),
 				}, nil
 			}
 		}
 	}
 
-	return &ReadResourceResult{
-		Contents: []ResourceContent{
-			NewTextResourceContent(uri, `{"status": "no risk assessment available", "hint": "Run 'relicta evaluate' to perform risk assessment"}`),
-		},
+	return &mcp.ResourceContent{
+		URI:      uri,
+		MimeType: "application/json",
+		Text:     `{"status": "no risk assessment available", "hint": "Run 'relicta evaluate' to perform risk assessment"}`,
 	}, nil
 }
 
-// Prompt implementations
+// Prompt handlers
 
-func (s *Server) promptReleaseSummary(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptReleaseSummary(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	style := "brief"
-	if s, ok := args["style"]; ok {
-		style = s
+	if v, ok := args["style"]; ok && v != "" {
+		style = v
 	}
 
 	var content string
@@ -1346,13 +1136,15 @@ func (s *Server) promptReleaseSummary(ctx context.Context, args map[string]strin
 - Release readiness status`
 	}
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Release summary prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptRiskAnalysis(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptRiskAnalysis(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	content := `You are a release risk analyst using the Change Governance Protocol (CGP).
 
 Analyze the current release and provide:
@@ -1370,16 +1162,18 @@ Analyze the current release and provide:
 
 Base your analysis on the commit history, change analysis, and CGP policies.`
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Risk analysis prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptCommitReview(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptCommitReview(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	focus := "compliance"
-	if f, ok := args["focus"]; ok {
-		focus = f
+	if v, ok := args["focus"]; ok && v != "" {
+		focus = v
 	}
 
 	var content string
@@ -1420,13 +1214,15 @@ Analyze each commit for compliance with Conventional Commits specification:
 List non-compliant commits with specific corrections needed.`
 	}
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Commit review prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptBreakingChanges(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptBreakingChanges(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	content := `You are a technical writer documenting breaking changes for users.
 
 For each breaking change in this release, provide:
@@ -1441,16 +1237,18 @@ Format the output as a structured breaking changes document suitable for inclusi
 
 If there are no breaking changes, confirm this and explain what safeguards prevented them.`
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Breaking changes documentation prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptMigrationGuide(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptMigrationGuide(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	audience := "developer"
-	if a, ok := args["audience"]; ok {
-		audience = a
+	if v, ok := args["audience"]; ok && v != "" {
+		audience = v
 	}
 
 	var content string
@@ -1516,16 +1314,18 @@ Create a developer migration guide covering:
 Include code examples for all significant changes.`
 	}
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Migration guide prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptReleaseAnnouncement(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptReleaseAnnouncement(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	channel := "github"
-	if c, ok := args["channel"]; ok {
-		channel = c
+	if v, ok := args["channel"]; ok && v != "" {
+		channel = v
 	}
 
 	var content string
@@ -1585,23 +1385,25 @@ Structure the release notes:
 2. **Summary**: 2-3 sentence release overview
 3. **Highlights**: Top 3-5 changes as bullet points
 4. **What's Changed**: Categorized changes
-   - ✨ Features
-   - 🐛 Bug Fixes
-   - 📚 Documentation
-   - ⚠️ Breaking Changes
+   - Features
+   - Bug Fixes
+   - Documentation
+   - Breaking Changes
 5. **Upgrade Notes**: Critical information for upgrading
 6. **Contributors**: @mention contributors
 
 Use GitHub-flavored markdown with appropriate emoji.`
 	}
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Release announcement prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
 
-func (s *Server) promptApprovalDecision(ctx context.Context, args map[string]string) (*GetPromptResult, error) {
+func (s *Server) handlePromptApprovalDecision(ctx context.Context, args map[string]string) (*mcp.PromptResult, error) {
 	content := `You are a release governance advisor helping make approval decisions.
 
 Based on the Change Governance Protocol (CGP) analysis, provide:
@@ -1632,8 +1434,10 @@ Based on the Change Governance Protocol (CGP) analysis, provide:
 
 Provide actionable guidance that enables confident decision-making.`
 
-	return &GetPromptResult{
+	return &mcp.PromptResult{
 		Description: "Approval decision prompt",
-		Messages:    []PromptMessage{NewPromptMessage(content)},
+		Messages: []mcp.PromptMessage{
+			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
+		},
 	}, nil
 }
