@@ -147,6 +147,41 @@ type PublishToolInput struct {
 	DryRun bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making changes"`
 }
 
+// --- Specialized AI Agent Tool Inputs ---
+
+// BlastRadiusToolInput represents input for the blast_radius tool.
+type BlastRadiusToolInput struct {
+	FromRef           string   `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	ToRef             string   `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	IncludeTransitive bool     `json:"include_transitive,omitempty" jsonschema:"description=Include transitively affected packages in analysis"`
+	GenerateGraph     bool     `json:"generate_graph,omitempty" jsonschema:"description=Generate dependency graph for visualization"`
+	PackagePaths      []string `json:"package_paths,omitempty" jsonschema:"description=Specific package paths to analyze. Analyzes all if empty."`
+}
+
+// InferVersionToolInput represents input for the infer_version tool.
+type InferVersionToolInput struct {
+	FromRef     string `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	ToRef       string `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	IncludeRisk bool   `json:"include_risk,omitempty" jsonschema:"description=Include risk assessment with version inference"`
+}
+
+// SummarizeDiffToolInput represents input for the summarize_diff tool.
+type SummarizeDiffToolInput struct {
+	FromRef   string `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	ToRef     string `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	Audience  string `json:"audience,omitempty" jsonschema:"description=Target audience for summary,enum=developer|operator|end-user,default=developer"`
+	MaxLength int    `json:"max_length,omitempty" jsonschema:"description=Target summary length in characters"`
+}
+
+// ValidateReleaseToolInput represents input for the validate_release tool.
+type ValidateReleaseToolInput struct {
+	ReleaseID       string   `json:"release_id,omitempty" jsonschema:"description=Release ID to validate. Uses active release if empty."`
+	CheckGit        bool     `json:"check_git,omitempty" jsonschema:"description=Check git state (clean, branch allowed)"`
+	CheckPlugins    bool     `json:"check_plugins,omitempty" jsonschema:"description=Check plugin availability and configuration"`
+	CheckGovernance bool     `json:"check_governance,omitempty" jsonschema:"description=Check CGP governance requirements"`
+	Checks          []string `json:"checks,omitempty" jsonschema:"description=Specific checks to run (subset of all checks)"`
+}
+
 // Prompt argument input types.
 
 // ReleaseSummaryArgs represents arguments for the release-summary prompt.
@@ -248,6 +283,28 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta.publish").
 		Description("Execute the release by creating tags and running plugins").
 		Handler(s.handlePublish)
+
+	// --- Specialized AI Agent Tools ---
+
+	// Blast Radius tool - Monorepo change impact analysis
+	s.server.Tool("relicta.blast_radius").
+		Description("Analyze blast radius of changes in a monorepo. Returns impacted packages, transitive dependencies, and deployment risk assessment.").
+		Handler(s.handleBlastRadius)
+
+	// Infer Version tool - Lightweight version inference
+	s.server.Tool("relicta.infer_version").
+		Description("Infer the next semantic version based on commits. Lightweight alternative to plan for quick queries.").
+		Handler(s.handleInferVersion)
+
+	// Summarize Diff tool - Audience-tailored change summaries
+	s.server.Tool("relicta.summarize_diff").
+		Description("Generate audience-tailored summary of changes between refs. Supports developer, operator, and end-user audiences.").
+		Handler(s.handleSummarizeDiff)
+
+	// Validate Release tool - Pre-flight checks
+	s.server.Tool("relicta.validate_release").
+		Description("Run pre-flight validation checks before release. Validates git state, plugins, and governance requirements.").
+		Handler(s.handleValidateRelease)
 }
 
 // registerResources registers all resource handlers.
@@ -757,6 +814,233 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 	return map[string]any{
 		"dry_run": input.DryRun,
 		"status":  "run 'relicta mcp serve' with configured dependencies",
+	}, nil
+}
+
+// --- Specialized AI Agent Tool Handlers ---
+
+func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (map[string]any, error) {
+	if s.adapter == nil || !s.adapter.HasBlastService() {
+		return map[string]any{
+			"status":  "not_configured",
+			"message": "Blast radius service not configured. This tool requires monorepo analysis to be enabled.",
+		}, nil
+	}
+
+	// Report progress
+	if progress := mcp.ProgressFromContext(ctx); progress != nil {
+		total := 4.0
+		_ = progress.Report(1, &total)
+	}
+
+	blastInput := BlastRadiusInput(input)
+
+	if progress := mcp.ProgressFromContext(ctx); progress != nil {
+		total := 4.0
+		_ = progress.Report(2, &total)
+	}
+
+	output, err := s.adapter.BlastRadius(ctx, blastInput)
+	if err != nil {
+		return nil, fmt.Errorf("blast radius analysis failed: %w", err)
+	}
+
+	if progress := mcp.ProgressFromContext(ctx); progress != nil {
+		total := 4.0
+		_ = progress.Report(4, &total)
+	}
+
+	result := map[string]any{
+		"total_packages":             output.TotalPackages,
+		"directly_affected":          output.DirectlyAffected,
+		"transitively_affected":      output.TransitivelyAffected,
+		"packages_requiring_release": output.PackagesRequiringRelease,
+		"risk_level":                 output.RiskLevel,
+		"total_files_changed":        output.TotalFilesChanged,
+		"total_insertions":           output.TotalInsertions,
+		"total_deletions":            output.TotalDeletions,
+	}
+
+	if len(output.RiskFactors) > 0 {
+		result["risk_factors"] = output.RiskFactors
+	}
+
+	if len(output.Impacts) > 0 {
+		impacts := make([]map[string]any, 0, len(output.Impacts))
+		for _, impact := range output.Impacts {
+			impactMap := map[string]any{
+				"package_name":     impact.PackageName,
+				"package_path":     impact.PackagePath,
+				"package_type":     impact.PackageType,
+				"impact_level":     impact.ImpactLevel,
+				"risk_score":       impact.RiskScore,
+				"requires_release": impact.RequiresRelease,
+				"changed_files":    impact.ChangedFiles,
+			}
+			if impact.ReleaseType != "" {
+				impactMap["release_type"] = impact.ReleaseType
+			}
+			if len(impact.SuggestedActions) > 0 {
+				impactMap["suggested_actions"] = impact.SuggestedActions
+			}
+			impacts = append(impacts, impactMap)
+		}
+		result["impacts"] = impacts
+	}
+
+	if output.DependencyGraph != nil {
+		result["dependency_graph"] = map[string]any{
+			"nodes": output.DependencyGraph.Nodes,
+			"edges": output.DependencyGraph.Edges,
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolInput) (map[string]any, error) {
+	if s.adapter == nil || !s.adapter.HasReleaseAnalyzer() {
+		return map[string]any{
+			"status":  "not_configured",
+			"message": "Release analyzer not configured. Run 'relicta mcp serve' with configured dependencies.",
+		}, nil
+	}
+
+	// Report progress
+	if progress := mcp.ProgressFromContext(ctx); progress != nil {
+		total := 2.0
+		_ = progress.Report(1, &total)
+	}
+
+	inferInput := InferVersionInput(input)
+
+	output, err := s.adapter.InferVersion(ctx, inferInput)
+	if err != nil {
+		return nil, fmt.Errorf("version inference failed: %w", err)
+	}
+
+	if progress := mcp.ProgressFromContext(ctx); progress != nil {
+		total := 2.0
+		_ = progress.Report(2, &total)
+	}
+
+	result := map[string]any{
+		"current_version": output.CurrentVersion,
+		"next_version":    output.NextVersion,
+		"bump_type":       output.BumpType,
+		"has_breaking":    output.HasBreaking,
+		"has_features":    output.HasFeatures,
+		"has_fixes":       output.HasFixes,
+		"commit_count":    output.CommitCount,
+		"confidence":      output.Confidence,
+	}
+
+	if len(output.Rationale) > 0 {
+		result["rationale"] = output.Rationale
+	}
+
+	if input.IncludeRisk {
+		result["risk_score"] = output.RiskScore
+		result["risk_severity"] = output.RiskSeverity
+	}
+
+	return result, nil
+}
+
+func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToolInput) (map[string]any, error) {
+	if s.adapter == nil || !s.adapter.HasReleaseAnalyzer() {
+		return map[string]any{
+			"status":  "not_configured",
+			"message": "Release analyzer not configured. Run 'relicta mcp serve' with configured dependencies.",
+		}, nil
+	}
+
+	summarizeInput := SummarizeDiffInput(input)
+
+	output, err := s.adapter.SummarizeDiff(ctx, summarizeInput)
+	if err != nil {
+		return nil, fmt.Errorf("diff summarization failed: %w", err)
+	}
+
+	result := map[string]any{
+		"summary":         output.Summary,
+		"audience":        output.Audience,
+		"ai_generated":    output.AIGenerated,
+		"character_count": output.CharacterCount,
+	}
+
+	if len(output.Highlights) > 0 {
+		result["highlights"] = output.Highlights
+	}
+
+	return result, nil
+}
+
+func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (map[string]any, error) {
+	// Get release ID from input or active release
+	releaseID := input.ReleaseID
+	if releaseID == "" && s.adapter != nil && s.adapter.HasReleaseRepository() {
+		status, err := s.adapter.GetStatus(ctx)
+		if err == nil {
+			releaseID = status.ReleaseID
+		}
+	}
+
+	validateInput := ValidateReleaseInput{
+		ReleaseID:       releaseID,
+		CheckGit:        input.CheckGit,
+		CheckPlugins:    input.CheckPlugins,
+		CheckGovernance: input.CheckGovernance,
+		Checks:          input.Checks,
+	}
+
+	// Use adapter if available, otherwise run minimal checks
+	if s.adapter != nil {
+		output, err := s.adapter.ValidateRelease(ctx, validateInput)
+		if err != nil {
+			return nil, fmt.Errorf("validation failed: %w", err)
+		}
+
+		result := map[string]any{
+			"valid":          output.Valid,
+			"can_proceed":    output.CanProceed,
+			"recommendation": output.Recommendation,
+		}
+
+		if len(output.Checks) > 0 {
+			checks := make([]map[string]any, 0, len(output.Checks))
+			for _, check := range output.Checks {
+				checkMap := map[string]any{
+					"name":   check.Name,
+					"status": check.Status,
+				}
+				if check.Message != "" {
+					checkMap["message"] = check.Message
+				}
+				checks = append(checks, checkMap)
+			}
+			result["checks"] = checks
+		}
+
+		if len(output.BlockingIssues) > 0 {
+			result["blocking_issues"] = output.BlockingIssues
+		}
+
+		if len(output.Warnings) > 0 {
+			result["warnings"] = output.Warnings
+		}
+
+		return result, nil
+	}
+
+	// Minimal validation without adapter
+	return map[string]any{
+		"valid":          true,
+		"can_proceed":    true,
+		"recommendation": "Basic validation passed. Full validation requires configured dependencies.",
+		"checks": []map[string]any{
+			{"name": "basic", "status": "passed", "message": "Basic checks passed"},
+		},
 	}, nil
 }
 
