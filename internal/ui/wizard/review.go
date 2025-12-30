@@ -168,7 +168,7 @@ func (m ReviewModel) View() string {
 	b.WriteString("\n\n")
 
 	// Instructions
-	b.WriteString(m.styles.info.Render("📝 release.config.yaml"))
+	b.WriteString(m.styles.info.Render("📝 .relicta.yaml"))
 	b.WriteString("\n")
 	b.WriteString(m.styles.subtle.Render("This configuration will be saved to your project root"))
 	b.WriteString("\n\n")

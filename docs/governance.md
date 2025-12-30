@@ -19,7 +19,7 @@ As AI agents and CI systems generate more code, deciding what reaches production
 
 ### Enable Governance
 
-Add to your `relicta.config.yaml`:
+Add to your `.relicta.yaml`:
 
 ```yaml
 governance:

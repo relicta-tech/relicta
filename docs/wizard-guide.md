@@ -435,7 +435,7 @@ Each template asks specific questions to customize the configuration:
 │                                             │
 │    ✅ Configuration Created!                │
 │                                             │
-│    Created: release.config.yaml             │
+│    Created: .relicta.yaml             │
 │                                             │
 │    Next Steps:                              │
 │                                             │
@@ -529,7 +529,7 @@ If detection is incorrect:
 
 ### After Wizard Completion
 
-Edit `release.config.yaml` to customize:
+Edit `.relicta.yaml` to customize:
 
 ```yaml
 # Add more plugins
@@ -882,11 +882,11 @@ Not directly, but you can:
 
 ### How do I update my configuration later?
 
-Edit `release.config.yaml` directly:
+Edit `.relicta.yaml` directly:
 ```bash
 # Edit with your preferred editor
-vim release.config.yaml
-nano release.config.yaml
+vim .relicta.yaml
+nano .relicta.yaml
 
 # Validate changes
 relicta config validate
@@ -909,13 +909,13 @@ relicta init --non-interactive --template=go-opensource
 
 Then customize programmatically:
 ```bash
-sed -i 's/enabled: false/enabled: true/' release.config.yaml
+sed -i 's/enabled: false/enabled: true/' .relicta.yaml
 ```
 
 ### How do I add custom plugins?
 
 After wizard completion:
-1. Edit `release.config.yaml`
+1. Edit `.relicta.yaml`
 2. Add plugin to `plugins:` array
 3. Validate with `relicta config validate`
 

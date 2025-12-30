@@ -113,7 +113,7 @@ This command helps you set up plugin configuration by:
 - Prompting for required fields
 - Suggesting defaults for optional fields
 - Validating inputs based on field types
-- Updating release.config.yaml with new settings`,
+- Updating .relicta.yaml with new settings`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPluginConfigure,
 }
@@ -335,7 +335,7 @@ func runPluginInstall(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("To use this plugin:")
 	fmt.Printf("  1. Enable it: relicta plugin enable %s\n", pluginName)
-	fmt.Printf("  2. Configure it in release.config.yaml\n")
+	fmt.Printf("  2. Configure it in .relicta.yaml\n")
 
 	return nil
 }
@@ -376,7 +376,7 @@ func runPluginEnable(cmd *cobra.Command, args []string) error {
 	printSuccess(fmt.Sprintf("Plugin %q enabled", pluginName))
 	fmt.Println()
 	fmt.Println("Next steps:")
-	fmt.Println("  1. Configure the plugin in release.config.yaml")
+	fmt.Println("  1. Configure the plugin in .relicta.yaml")
 	fmt.Println("  2. Run relicta commands to use the plugin")
 
 	return nil
@@ -585,7 +585,7 @@ func runPluginConfigure(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Println("Add the following configuration to your release.config.yaml file:")
+	fmt.Println("Add the following configuration to your .relicta.yaml file:")
 	fmt.Println()
 	fmt.Println("plugins:")
 	fmt.Printf("  %s:\n", pluginName)

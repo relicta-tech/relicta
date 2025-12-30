@@ -64,7 +64,7 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 ### Configuration
 
 ```yaml
-# release.config.yaml - Security recommendations
+# .relicta.yaml - Security recommendations
 ai:
   # Use environment variables for API keys, never hardcode
   provider: openai  # API key via OPENAI_API_KEY env var

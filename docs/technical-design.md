@@ -1058,7 +1058,7 @@ type WorkflowConfig struct {
 ### 8.2 Configuration File Example
 
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 
 versioning:
   strategy: conventional
@@ -1121,7 +1121,7 @@ func Load() (*Config, error) {
     v := viper.New()
 
     // Config file search paths
-    v.SetConfigName("release.config")
+    v.SetConfigName(".relicta")
     v.SetConfigType("yaml")
     v.AddConfigPath(".")
     v.AddConfigPath("$HOME/.config/relicta")

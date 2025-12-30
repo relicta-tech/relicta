@@ -93,7 +93,7 @@ Each command transitions the release to the next state:
 
 ## Configuration
 
-The `relicta init` wizard creates a `relicta.config.yaml`:
+The `relicta init` wizard creates a `.relicta.yaml`:
 
 ```yaml
 # Minimal config - Relicta works with sensible defaults

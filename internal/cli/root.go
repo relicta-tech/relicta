@@ -124,7 +124,7 @@ func init() {
 	})
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default: release.config.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default: .relicta.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "simulate actions without making changes")
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output results as JSON")
@@ -322,7 +322,7 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new relicta configuration",
 	Long: `Initialize a new relicta configuration in the current directory.
 
-This command creates a release.config.yaml file with sensible defaults
+This command creates a .relicta.yaml file with sensible defaults
 and guides you through the initial setup.`,
 	RunE: runInit,
 }

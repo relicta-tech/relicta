@@ -567,7 +567,7 @@ func ValidateConfigAgainstSchema(config map[string]any, schemaJSON string) error
 
 ### 5.2 User Configuration
 
-**Location:** `release.config.yaml`
+**Location:** `.relicta.yaml`
 
 **Current:** ✅ Already well-designed
 

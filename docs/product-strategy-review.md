@@ -90,7 +90,7 @@ Keep agentic positioning in technical docs but separate it from mainstream messa
 **Current Flow:**
 1. Install via Homebrew/binary
 2. Run `relicta init` (interactive wizard)
-3. Manually configure `release.config.yaml`
+3. Manually configure `.relicta.yaml`
 4. Install plugins separately
 5. Set environment variables
 
@@ -141,7 +141,7 @@ Add `relicta doctor` command:
 ```bash
 $ relicta doctor
 
-✓ Configuration file found (release.config.yaml)
+✓ Configuration file found (.relicta.yaml)
 ✓ Git repository initialized
 ✓ Conventional commits detected
 ⚠ GITHUB_TOKEN not set (required for GitHub plugin)

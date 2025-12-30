@@ -51,7 +51,7 @@ func NewWizard(basePath string) (*Wizard, error) {
 	return &Wizard{
 		state:      StateWelcome,
 		basePath:   basePath,
-		configPath: filepath.Join(basePath, "release.config.yaml"),
+		configPath: filepath.Join(basePath, ".relicta.yaml"),
 		registry:   registry,
 		result: WizardResult{
 			State: StateWelcome,

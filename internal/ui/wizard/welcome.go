@@ -100,7 +100,7 @@ func (m WelcomeModel) View() string {
 		"📋 Suggest the best configuration template",
 		"⚙️  Guide you through customization options",
 		"🤖 Set up AI-powered release notes (optional)",
-		"📝 Generate a complete release.config.yaml",
+		"📝 Generate a complete .relicta.yaml",
 	}
 
 	for _, feature := range features {

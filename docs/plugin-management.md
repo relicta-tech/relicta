@@ -14,8 +14,8 @@ Current plugin UX is poor:
 # Current (BAD UX)
 cd plugins/github
 go build -o ~/.relicta/plugins/github .
-# Manually edit release.config.yaml
-vim release.config.yaml
+# Manually edit .relicta.yaml
+vim .relicta.yaml
 ```
 
 ## Solution: Plugin Management CLI
@@ -223,7 +223,7 @@ func (w *ConfigWizard) Run(ctx context.Context) (map[string]any, error) {
 │   ├── homebrew            # Plugin binary
 │   └── manifest.yaml       # Installed plugins metadata
 ├── config/
-│   └── plugins.yaml        # Plugin configurations (alternative to release.config.yaml)
+│   └── plugins.yaml        # Plugin configurations (alternative to .relicta.yaml)
 └── cache/
     └── registry.yaml       # Cached plugin registry
 ```
@@ -318,7 +318,7 @@ Enables a plugin by adding it to the config.
 $ relicta plugin enable github --owner=felixgeelhaar --repo=relicta
 
 Enabling github plugin...
-  ✓ Added to release.config.yaml
+  ✓ Added to .relicta.yaml
 
 Configuration:
   owner: felixgeelhaar
@@ -346,7 +346,7 @@ Configuring GitHub plugin...
 ? Mark releases as prereleases? (y/N) n
 ? Generate release notes from GitHub? (y/N) n
 
-Configuration saved to release.config.yaml
+Configuration saved to .relicta.yaml
 
 Test your configuration:
   relicta plan --dry-run
@@ -437,7 +437,7 @@ Disables plugin (keeps binary, removes from config).
 $ relicta plugin disable github
 
 Disabling github plugin...
-  ✓ Removed from release.config.yaml
+  ✓ Removed from .relicta.yaml
   ℹ Binary kept in ~/.relicta/plugins/github
 
 GitHub plugin disabled.
@@ -458,7 +458,7 @@ Uninstalling github plugin...
 
 ? Are you sure? (y/N) y
 
-  ✓ Removed from release.config.yaml
+  ✓ Removed from .relicta.yaml
   ✓ Removed binary from ~/.relicta/plugins/github
   ✓ Updated manifest
 
@@ -508,7 +508,7 @@ To reinstall: relicta plugin install github
 
 ## Configuration Integration
 
-**Option 1: Extend release.config.yaml**
+**Option 1: Extend .relicta.yaml**
 ```yaml
 plugins:
   - name: github
@@ -534,7 +534,7 @@ slack:
     webhook: ${SLACK_WEBHOOK}
 ```
 
-**Recommendation:** Option 1 (extend release.config.yaml) for consistency.
+**Recommendation:** Option 1 (extend .relicta.yaml) for consistency.
 
 ## Binary Distribution
 

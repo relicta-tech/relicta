@@ -4,7 +4,7 @@
 # Features: Automatic versioning, GitHub releases, Slack + Discord notifications
 #
 # Setup:
-# 1. Copy to release.config.yaml
+# 1. Copy to .relicta.yaml
 # 2. Set environment variables:
 #    - GITHUB_TOKEN
 #    - SLACK_WEBHOOK_URL (from Slack Incoming Webhooks)

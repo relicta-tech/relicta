@@ -1,11 +1,11 @@
 # Relicta Configuration Examples
 
-This directory contains example configurations for common use cases. Each example is a complete `release.config.yaml` file that you can use as a starting point for your project.
+This directory contains example configurations for common use cases. Each example is a complete `.relicta.yaml` file that you can use as a starting point for your project.
 
 ## Quick Start
 
 1. Choose an example that matches your use case
-2. Copy it to your project root as `release.config.yaml`
+2. Copy it to your project root as `.relicta.yaml`
 3. Customize the configuration for your project
 4. Set required environment variables
 5. Run `relicta init` to verify configuration
@@ -189,11 +189,11 @@ docs(PROJ-789): update API documentation
 monorepo/
 ├── packages/
 │   ├── api/
-│   │   ├── release.config.yaml
+│   │   ├── .relicta.yaml
 │   │   ├── package.json
 │   │   └── CHANGELOG.md
 │   └── web/
-│       ├── release.config.yaml
+│       ├── .relicta.yaml
 │       ├── package.json
 │       └── CHANGELOG.md
 └── README.md
@@ -226,7 +226,7 @@ Select the example that best matches your project type and workflow.
 
 ```bash
 # Copy example to your project
-cp examples/github-release.yaml release.config.yaml
+cp examples/github-release.yaml .relicta.yaml
 
 # Or use init command and customize
 relicta init
@@ -234,7 +234,7 @@ relicta init
 
 ### 3. Customize Configuration
 
-Edit `release.config.yaml` and update:
+Edit `.relicta.yaml` and update:
 - `repository_url` - Your GitHub repository URL
 - `plugins` - Enable/disable plugins based on your needs
 - `workflow.allowed_branches` - Branches allowed for releases
@@ -442,7 +442,7 @@ chmod +x ~/.relicta/plugins/relicta-plugin-github
 relicta validate
 
 # Check YAML syntax
-yamllint release.config.yaml
+yamllint .relicta.yaml
 ```
 
 ---

@@ -16,7 +16,7 @@ func TestLoadAndValidateConfig(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Create a valid config file
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte(`
 versioning:
   strategy: conventional

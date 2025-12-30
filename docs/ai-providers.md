@@ -26,7 +26,7 @@ Choose your provider and follow the setup instructions:
 
 **2. Configure:**
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 ai:
   enabled: true
   provider: openai
@@ -62,7 +62,7 @@ export OPENAI_API_KEY="sk-proj-..."
 
 **3. Configure:**
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 ai:
   enabled: true
   provider: azure-openai
@@ -101,7 +101,7 @@ export AZURE_OPENAI_KEY="abc123..."
 
 **2. Configure:**
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 ai:
   enabled: true
   provider: anthropic
@@ -138,7 +138,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 **2. Configure:**
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 ai:
   enabled: true
   provider: gemini
@@ -190,7 +190,7 @@ ollama serve
 
 **4. Configure:**
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 ai:
   enabled: true
   provider: ollama

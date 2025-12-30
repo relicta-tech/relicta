@@ -52,7 +52,7 @@ chmod +x $(go env GOPATH)/bin/relicta
 
 ### "config file not found"
 
-**Cause**: No `release.config.yaml` in current directory or `~/.config/relicta/`.
+**Cause**: No `.relicta.yaml` in current directory or `~/.config/relicta/`.
 
 **Solution**:
 
@@ -485,7 +485,7 @@ If you found a bug, please report it with:
 
 2. **Configuration** (sanitize secrets):
    ```yaml
-   # Your release.config.yaml
+   # Your .relicta.yaml
    ```
 
 3. **Commands run**:

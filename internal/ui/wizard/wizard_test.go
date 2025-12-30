@@ -62,7 +62,7 @@ func TestNewWizard(t *testing.T) {
 				t.Errorf("basePath = %v, want %v", wizard.basePath, tt.expectedPath)
 			}
 
-			expectedConfigPath := filepath.Join(tt.expectedPath, "release.config.yaml")
+			expectedConfigPath := filepath.Join(tt.expectedPath, ".relicta.yaml")
 			if wizard.configPath != expectedConfigPath {
 				t.Errorf("configPath = %v, want %v", wizard.configPath, expectedConfigPath)
 			}
@@ -494,7 +494,7 @@ func TestReviewModel_ShouldGoBack(t *testing.T) {
 }
 
 func TestNewSuccessModel(t *testing.T) {
-	configPath := "/tmp/test/release.config.yaml"
+	configPath := "/tmp/test/.relicta.yaml"
 	model := NewSuccessModel(configPath)
 
 	if model.configPath != configPath {
@@ -812,7 +812,7 @@ func TestReviewModel_View_NotReady(t *testing.T) {
 }
 
 func TestSuccessModel_View_NotReady(t *testing.T) {
-	model := NewSuccessModel("/tmp/test/release.config.yaml")
+	model := NewSuccessModel("/tmp/test/.relicta.yaml")
 	// Don't set ready flag
 
 	view := model.View()
@@ -822,7 +822,7 @@ func TestSuccessModel_View_NotReady(t *testing.T) {
 }
 
 func TestSuccessModel_View_Ready(t *testing.T) {
-	configPath := "/tmp/test/release.config.yaml"
+	configPath := "/tmp/test/.relicta.yaml"
 	model := NewSuccessModel(configPath)
 	model.ready = true
 	model.width = 80

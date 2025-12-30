@@ -463,7 +463,7 @@ func TestRunInitNonInteractiveCreatesConfig(t *testing.T) {
 		t.Fatalf("runInit error: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(tmpDir, "release.config.yaml")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmpDir, ".relicta.yaml")); err != nil {
 		t.Fatalf("expected config file to be created: %v", err)
 	}
 }
@@ -546,7 +546,7 @@ func TestRunInit_ExistingConfigNoForce(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	// Create an existing config file
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	if err := os.WriteFile(configPath, []byte("version: 1"), 0644); err != nil {
 		t.Fatalf("WriteFile error: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestRunInit_JSONFormat(t *testing.T) {
 		t.Fatalf("runInit error: %v", err)
 	}
 
-	if _, err := os.Stat(filepath.Join(tmpDir, "release.config.json")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmpDir, ".relicta.json")); err != nil {
 		t.Fatalf("expected JSON config file to be created: %v", err)
 	}
 }

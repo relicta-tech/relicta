@@ -4,7 +4,7 @@
 # Features: Automatic versioning, Jira ticket updates, release notes in Jira
 #
 # Setup:
-# 1. Copy to release.config.yaml
+# 1. Copy to .relicta.yaml
 # 2. Set environment variables:
 #    - GITHUB_TOKEN
 #    - JIRA_EMAIL (your Jira account email)

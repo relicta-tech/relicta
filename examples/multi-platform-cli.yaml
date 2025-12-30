@@ -4,7 +4,7 @@
 # Features: Automatic versioning, multi-platform builds, GitHub releases with binaries
 #
 # Setup:
-# 1. Copy to release.config.yaml
+# 1. Copy to .relicta.yaml
 # 2. Set GITHUB_TOKEN environment variable
 # 3. Ensure goreleaser is configured (.goreleaser.yaml)
 # 4. Build binaries: goreleaser build --snapshot

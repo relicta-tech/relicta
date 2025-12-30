@@ -4,7 +4,7 @@
 # Features: Package-scoped versioning, independent changelog per package
 #
 # Setup:
-# 1. Copy to release.config.yaml in each package directory (e.g., packages/api/, packages/web/)
+# 1. Copy to .relicta.yaml in each package directory (e.g., packages/api/, packages/web/)
 # 2. Set GITHUB_TOKEN and NPM_TOKEN environment variables
 # 3. Run from package directory: cd packages/api && relicta plan && relicta publish
 #
@@ -12,11 +12,11 @@
 # monorepo/
 # ├── packages/
 # │   ├── api/
-# │   │   ├── release.config.yaml
+# │   │   ├── .relicta.yaml
 # │   │   ├── package.json
 # │   │   └── CHANGELOG.md
 # │   └── web/
-# │       ├── release.config.yaml
+# │       ├── .relicta.yaml
 # │       ├── package.json
 # │       └── CHANGELOG.md
 # └── README.md

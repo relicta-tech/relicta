@@ -4,7 +4,7 @@
 # Features: Automatic versioning, changelog generation, GitHub release creation
 #
 # Setup:
-# 1. Copy to release.config.yaml
+# 1. Copy to .relicta.yaml
 # 2. Set GITHUB_TOKEN environment variable
 # 3. Run: relicta plan && relicta publish
 

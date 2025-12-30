@@ -346,7 +346,7 @@ relicta plugin enable {{.Name}}
 
 ## Configuration
 
-Add to your ` + "`" + `release.config.yaml` + "`" + `:
+Add to your ` + "`" + `.relicta.yaml` + "`" + `:
 
 ` + "```" + `yaml
 plugins:

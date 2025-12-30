@@ -712,7 +712,7 @@ func (cs *ChangeSet) GroupByType() map[ChangeType][]Commit {
 ## Configuration
 
 ```yaml
-# release.config.yaml
+# .relicta.yaml
 
 analysis:
   # Minimum confidence to accept auto-classification

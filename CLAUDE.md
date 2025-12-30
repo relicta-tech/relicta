@@ -80,7 +80,7 @@ plugins/                    # Official plugins (github, slack, etc.)
 
 ## Configuration
 
-Config file: `release.config.yaml` (also supports JSON, searched in `.` and `~/.config/relicta/`)
+Config file: `.relicta.yaml` (also supports JSON, searched in `.` and `~/.config/relicta/`)
 
 Environment variables override config with `RELICTA_` prefix.
 

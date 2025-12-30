@@ -143,7 +143,7 @@ relicta publish
 
 ## Configuration
 
-Create a `relicta.config.yaml` in your project root:
+Create a `.relicta.yaml` in your project root:
 
 ```yaml
 versioning:
@@ -197,7 +197,7 @@ workflow:
 
 | Flag | Description |
 |------|-------------|
-| `--config` | Path to config file (default: `relicta.config.yaml`) |
+| `--config` | Path to config file (default: `.relicta.yaml`) |
 | `--dry-run` | Preview changes without making modifications |
 | `--verbose` | Enable verbose output |
 | `--json` | Output in JSON format |

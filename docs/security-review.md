@@ -118,7 +118,7 @@ type PluginCapabilities struct {
 }
 
 // Example secure plugin configuration
-// release.config.yaml
+// .relicta.yaml
 plugins:
   - name: github
     capabilities:

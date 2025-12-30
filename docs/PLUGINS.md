@@ -64,7 +64,7 @@ PreInit → PostInit → PrePlan → PostPlan → PreVersion → PostVersion
 
 ## Configuration
 
-Plugins are configured in `release.config.yaml`:
+Plugins are configured in `.relicta.yaml`:
 
 ```yaml
 plugins:

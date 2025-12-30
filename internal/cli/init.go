@@ -67,9 +67,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Determine config file name
-	configFile := "release.config.yaml"
+	configFile := ".relicta.yaml"
 	if initFormat == "json" {
-		configFile = "release.config.json"
+		configFile = ".relicta.json"
 	}
 
 	// Start with defaults
