@@ -1,5 +1,5 @@
 // Package release provides the release governance bounded context.
-// This is the entry point for creating and using the DDD-based release services.
+// This is the entry point for creating and using the domain release services.
 package release
 
 import (

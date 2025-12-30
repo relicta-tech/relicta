@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	runsDir           = ".relicta/runs"
+	runsDir           = ".relicta/releases"
 	latestFile        = "latest"
 	runFileSuffix     = ".json"
 	machineFileSuffix = ".machine.json"

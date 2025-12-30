@@ -1085,35 +1085,35 @@ func TestPathHelpers(t *testing.T) {
 
 	// Test runsPath
 	rp := runsPath(repoRoot)
-	expected := "/tmp/myrepo/.relicta/runs"
+	expected := "/tmp/myrepo/.relicta/releases"
 	if rp != expected {
 		t.Errorf("runsPath mismatch: got %s, want %s", rp, expected)
 	}
 
 	// Test runPath
 	runP := runPath(repoRoot, runID)
-	expected = "/tmp/myrepo/.relicta/runs/test-run-123.json"
+	expected = "/tmp/myrepo/.relicta/releases/test-run-123.json"
 	if runP != expected {
 		t.Errorf("runPath mismatch: got %s, want %s", runP, expected)
 	}
 
 	// Test latestPath
 	lp := latestPath(repoRoot)
-	expected = "/tmp/myrepo/.relicta/runs/latest"
+	expected = "/tmp/myrepo/.relicta/releases/latest"
 	if lp != expected {
 		t.Errorf("latestPath mismatch: got %s, want %s", lp, expected)
 	}
 
 	// Test machinePath
 	mp := machinePath(repoRoot, runID)
-	expected = "/tmp/myrepo/.relicta/runs/test-run-123.machine.json"
+	expected = "/tmp/myrepo/.relicta/releases/test-run-123.machine.json"
 	if mp != expected {
 		t.Errorf("machinePath mismatch: got %s, want %s", mp, expected)
 	}
 
 	// Test statePath
 	sp := statePath(repoRoot, runID)
-	expected = "/tmp/myrepo/.relicta/runs/test-run-123.state.json"
+	expected = "/tmp/myrepo/.relicta/releases/test-run-123.state.json"
 	if sp != expected {
 		t.Errorf("statePath mismatch: got %s, want %s", sp, expected)
 	}

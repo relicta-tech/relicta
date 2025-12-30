@@ -18,7 +18,20 @@ import (
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/ui"
+)
+
+const (
+	// maxNotesPreviewLines is the maximum number of lines to show in release notes preview.
+	maxNotesPreviewLines = 20
+
+	// filePermReadable is file permission for user-readable files.
+	filePermReadable = 0o644
+
+	// filePermPrivate is restrictive file permission (owner read/write only).
+	filePermPrivate = 0o600
 )
 
 var (
@@ -50,7 +63,7 @@ func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, err
 	if err != nil {
 		printError("No release in progress")
 		printInfo("Run 'relicta plan' to start a new release")
-		return nil, fmt.Errorf("no release state found")
+		return nil, fmt.Errorf("no release state found: %w", err)
 	}
 
 	return rel, nil
@@ -150,8 +163,67 @@ func getApproverName() string {
 	return approvedBy
 }
 
-// executeApproval executes the approval use case.
+// executeApproval executes the approval use case using domain services when available.
 func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
+	// Get repository info for domain services
+	gitAdapter := app.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+	}
+
+	// Try domain services first
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+	}
+	if !app.HasReleaseServices() {
+		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+	}
+	services := app.ReleaseServices()
+	if services == nil || services.ApproveRelease == nil {
+		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+	}
+	return executeApprovalWithServices(ctx, app, repoInfo.Path, rel, editedNotes)
+}
+
+// executeApprovalWithServices executes approval using the ApproveReleaseUseCase.
+func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath string, rel *release.ReleaseRun, editedNotes *string) error {
+	services := app.ReleaseServices()
+
+	// Handle edited notes separately - update the release before approval
+	if editedNotes != nil {
+		// Update notes on the release and save
+		releaseRepo := app.ReleaseRepository()
+		if err := rel.UpdateNotesText(*editedNotes); err != nil {
+			// If UpdateNotesText fails (e.g., wrong state), fall back to legacy
+			return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		}
+		if err := releaseRepo.Save(ctx, rel); err != nil {
+			return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		}
+	}
+
+	input := releaseapp.ApproveReleaseInput{
+		RepoRoot: repoPath,
+		RunID:    rel.ID(),
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   getApproverName(),
+		},
+		AutoApprove: approveYes,
+		Force:       true, // Force since we've already validated state
+	}
+
+	_, err := services.ApproveRelease.Execute(ctx, input)
+	if err != nil {
+		// If domain service fails, try legacy
+		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+	}
+	return nil
+}
+
+// executeApprovalLegacy executes approval using the legacy use case.
+func executeApprovalLegacy(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
 	input := apprelease.ApproveReleaseInput{
 		ReleaseID:   rel.ID(),
 		ApprovedBy:  getApproverName(),
@@ -514,17 +586,16 @@ func displayReleaseSummary(rel *release.ReleaseRun) {
 		printTitle("Release Notes Preview")
 		fmt.Println()
 
-		// Show first 20 lines
 		lines := strings.Split(rel.Notes().Text, "\n")
-		maxLines := 20
-		if len(lines) < maxLines {
-			maxLines = len(lines)
+		previewLines := maxNotesPreviewLines
+		if len(lines) < previewLines {
+			previewLines = len(lines)
 		}
-		for i := 0; i < maxLines; i++ {
+		for i := 0; i < previewLines; i++ {
 			fmt.Printf("  %s\n", lines[i])
 		}
-		if len(lines) > maxLines {
-			fmt.Printf("  ... (%d more lines)\n", len(lines)-maxLines)
+		if len(lines) > previewLines {
+			fmt.Printf("  ... (%d more lines)\n", len(lines)-previewLines)
 		}
 	}
 
@@ -570,7 +641,7 @@ func validateEditor(editor string) (string, error) {
 
 	// Check against whitelist
 	if !allowedEditors[baseName] {
-		return "", fmt.Errorf("editor %q is not in the allowed list. Allowed editors: vim, nvim, nano, emacs, vi, code, subl, gedit, kate, micro, helix, pico", baseName)
+		return "", fmt.Errorf("editor %q is not in the allowed list; allowed editors: vim, nvim, nano, emacs, vi, code, subl, gedit, kate, micro, helix, pico", baseName)
 	}
 
 	// Use LookPath to safely resolve the editor binary
@@ -606,7 +677,7 @@ func editReleaseNotes(notes string) (string, error) {
 		return "", fmt.Errorf("invalid editor: %w", err)
 	}
 
-	// Create temp file with restrictive permissions (0600 = owner read/write only)
+	// Create temp file with restrictive permissions
 	tmpfile, err := os.CreateTemp("", "release-notes-*.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
@@ -615,7 +686,7 @@ func editReleaseNotes(notes string) (string, error) {
 	defer os.Remove(tmpPath)
 
 	// Set restrictive permissions explicitly
-	if err := os.Chmod(tmpPath, 0600); err != nil {
+	if err := os.Chmod(tmpPath, filePermPrivate); err != nil {
 		_ = tmpfile.Close()
 		return "", fmt.Errorf("failed to set temp file permissions: %w", err)
 	}

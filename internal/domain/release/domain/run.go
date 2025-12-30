@@ -1,5 +1,5 @@
 // Package domain provides the core domain model for release governance.
-// This is the bounded context for managing release runs with DDD principles.
+// This is the bounded context for managing release runs.
 package domain
 
 import (

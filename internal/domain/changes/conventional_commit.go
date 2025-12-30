@@ -8,7 +8,7 @@ import (
 )
 
 // ConventionalCommit represents a parsed conventional commit.
-// This is an entity in DDD terms - it has identity (hash) and state.
+// It has identity (hash) and state.
 type ConventionalCommit struct {
 	// Identity
 	hash string

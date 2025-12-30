@@ -131,7 +131,7 @@ func (p *Publisher) buildPayload(event release.DomainEvent) *WebhookPayload {
 		Data:      make(map[string]any),
 	}
 
-	// Extract event-specific data using new DDD event types
+	// Extract event-specific data
 	switch e := event.(type) {
 	case *release.RunCreatedEvent:
 		payload.Data["repo_id"] = e.RepoID

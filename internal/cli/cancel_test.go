@@ -10,6 +10,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 func TestCancelCommand_FlagsExist(t *testing.T) {
@@ -220,8 +221,14 @@ func (c cancelTestApp) PublishRelease() publishReleaseUseCase     { return nil }
 func (c cancelTestApp) CalculateVersion() calculateVersionUseCase { return nil }
 func (c cancelTestApp) SetVersion() setVersionUseCase             { return nil }
 func (c cancelTestApp) HasAI() bool                               { return false }
+func (c cancelTestApp) AI() ai.Service                            { return nil }
 func (c cancelTestApp) HasGovernance() bool                       { return false }
 func (c cancelTestApp) GovernanceService() *governance.Service    { return nil }
+func (c cancelTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (c cancelTestApp) ReleaseServices() *release.Services { return nil }
+func (c cancelTestApp) HasReleaseServices() bool           { return false }
 
 // cancelTestGitRepo is a mock git repository for cancel tests.
 type cancelTestGitRepo struct{}

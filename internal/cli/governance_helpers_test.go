@@ -9,6 +9,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 type govTestApp struct {
@@ -28,8 +29,14 @@ func (a govTestApp) PublishRelease() publishReleaseUseCase     { return nil }
 func (a govTestApp) CalculateVersion() calculateVersionUseCase { return nil }
 func (a govTestApp) SetVersion() setVersionUseCase             { return nil }
 func (a govTestApp) HasAI() bool                               { return false }
+func (a govTestApp) AI() ai.Service                            { return nil }
 func (a govTestApp) HasGovernance() bool                       { return a.hasGov }
 func (a govTestApp) GovernanceService() *governance.Service    { return a.govSvc }
+func (a govTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (a govTestApp) ReleaseServices() *release.Services { return nil }
+func (a govTestApp) HasReleaseServices() bool           { return false }
 
 func newGovernanceService(t *testing.T) *governance.Service {
 	t.Helper()

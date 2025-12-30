@@ -101,7 +101,7 @@ type RemoteOperator interface {
 }
 
 // GitRepository defines the full interface for git operations.
-// This is a repository interface in DDD - implemented in infrastructure layer.
+// Implemented in the infrastructure layer.
 // For more focused use cases, consider using the smaller interfaces:
 // - RepositoryInfoReader: for reading repository metadata
 // - CommitReader: for reading commit history

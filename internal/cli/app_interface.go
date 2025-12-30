@@ -12,6 +12,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/container"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 type planReleaseUseCase interface {
@@ -50,8 +51,14 @@ type cliApp interface {
 	CalculateVersion() calculateVersionUseCase
 	SetVersion() setVersionUseCase
 	HasAI() bool
+	AI() ai.Service
 	HasGovernance() bool
 	GovernanceService() *governance.Service
+
+	// Release workflow services
+	InitReleaseServices(ctx context.Context, repoRoot string) error
+	ReleaseServices() *domainrelease.Services
+	HasReleaseServices() bool
 }
 
 var newContainerApp = func(ctx context.Context, cfg *config.Config) (cliApp, error) {
@@ -88,4 +95,20 @@ func (w *containerAppWrapper) CalculateVersion() calculateVersionUseCase {
 
 func (w *containerAppWrapper) SetVersion() setVersionUseCase {
 	return w.App.SetVersion()
+}
+
+func (w *containerAppWrapper) AI() ai.Service {
+	return w.App.AI()
+}
+
+func (w *containerAppWrapper) InitReleaseServices(ctx context.Context, repoRoot string) error {
+	return w.App.InitReleaseServices(ctx, repoRoot)
+}
+
+func (w *containerAppWrapper) ReleaseServices() *domainrelease.Services {
+	return w.App.ReleaseServices()
+}
+
+func (w *containerAppWrapper) HasReleaseServices() bool {
+	return w.App.HasReleaseServices()
 }

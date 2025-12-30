@@ -19,6 +19,7 @@ import (
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	domainversion "github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 func TestBuildPlanAnalysisConfig_Flags(t *testing.T) {
@@ -266,8 +267,14 @@ func (s spyCLIApp) PublishRelease() publishReleaseUseCase       { return nil }
 func (s spyCLIApp) CalculateVersion() calculateVersionUseCase   { return nil }
 func (s spyCLIApp) SetVersion() setVersionUseCase               { return nil }
 func (s spyCLIApp) HasAI() bool                                 { return false }
+func (s spyCLIApp) AI() ai.Service                              { return nil }
 func (s spyCLIApp) HasGovernance() bool                         { return false }
 func (s spyCLIApp) GovernanceService() *governance.Service      { return nil }
+func (s spyCLIApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (s spyCLIApp) ReleaseServices() *domainrelease.Services { return nil }
+func (s spyCLIApp) HasReleaseServices() bool                 { return false }
 
 type testCLIApp struct {
 	plan         planReleaseUseCase
@@ -289,8 +296,14 @@ func (t testCLIApp) PublishRelease() publishReleaseUseCase       { return nil }
 func (t testCLIApp) CalculateVersion() calculateVersionUseCase   { return nil }
 func (t testCLIApp) SetVersion() setVersionUseCase               { return t.setVersionUC }
 func (t testCLIApp) HasAI() bool                                 { return t.hasAI }
+func (t testCLIApp) AI() ai.Service                              { return nil }
 func (t testCLIApp) HasGovernance() bool                         { return t.hasGov }
 func (t testCLIApp) GovernanceService() *governance.Service      { return t.govSvc }
+func (t testCLIApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (t testCLIApp) ReleaseServices() *domainrelease.Services { return nil }
+func (t testCLIApp) HasReleaseServices() bool                 { return false }
 
 type stubGitRepo struct{}
 

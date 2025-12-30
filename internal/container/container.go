@@ -69,6 +69,9 @@ type App struct {
 	// Governance service (CGP)
 	governanceService *governance.Service
 
+	// Release workflow services (domain use cases)
+	releaseServices *domainrelease.Services
+
 	// Cleanup tracking
 	closeables []Closeable
 }
@@ -101,7 +104,7 @@ func (c *App) RegisterCloseable(closeable Closeable) {
 	c.registerCloseable(closeable)
 }
 
-// Initialize initializes all layers of the DDD container.
+// Initialize initializes all layers of the application container.
 func (c *App) Initialize(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -388,6 +391,50 @@ func (c *App) initGovernanceService(ctx context.Context) error {
 	return nil
 }
 
+// initReleaseServices initializes the release workflow services.
+func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
+	// Check for early cancellation
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Create port adapters
+	notesGenerator := NewNotesGeneratorAdapter(c.aiService, c.gitAdapter)
+	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter)
+	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
+
+	// Configure release services
+	cfg := domainrelease.Config{
+		RepoRoot:       repoRoot,
+		GitAdapter:     c.gitAdapter,
+		NotesGenerator: notesGenerator,
+		Publisher:      publisher,
+		VersionWriter:  versionWriter,
+	}
+
+	var err error
+	c.releaseServices, err = domainrelease.NewServices(cfg)
+	if err != nil {
+		return errors.StateWrap(err, "initReleaseServices", "failed to create release services")
+	}
+
+	c.logger.Info("release services initialized", "repo_root", repoRoot)
+	return nil
+}
+
+// InitReleaseServices initializes release workflow services with a specific repository root.
+// This should be called after Initialize() when the repository root is known.
+func (c *App) InitReleaseServices(ctx context.Context, repoRoot string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.closed {
+		return errors.State("InitReleaseServices", "container is closed")
+	}
+
+	return c.initReleaseServices(ctx, repoRoot)
+}
+
 // Application layer accessors
 
 // PlanRelease returns the PlanReleaseUseCase.
@@ -460,6 +507,22 @@ func (c *App) HasMemory() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.memoryStore != nil
+}
+
+// ReleaseServices returns the release workflow services.
+// Returns nil if release services have not been initialized.
+// Call InitReleaseServices() first to initialize these services.
+func (c *App) ReleaseServices() *domainrelease.Services {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.releaseServices
+}
+
+// HasReleaseServices returns true if release services are initialized.
+func (c *App) HasReleaseServices() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.releaseServices != nil
 }
 
 // Infrastructure layer accessors

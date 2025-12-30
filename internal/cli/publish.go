@@ -15,6 +15,9 @@ import (
 	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 )
 
 var (
@@ -118,6 +121,26 @@ func outputPluginResults(results []apprelease.PluginResult) {
 	}
 }
 
+// outputStepResults outputs the results of step executions.
+func outputStepResults(results []releaseapp.StepResult) {
+	if len(results) == 0 {
+		return
+	}
+
+	fmt.Println()
+	printTitle("Step Results")
+	fmt.Println()
+	for _, result := range results {
+		if result.Skipped {
+			printInfo(fmt.Sprintf("  %s: skipped", result.StepName))
+		} else if result.Success {
+			printSuccess(fmt.Sprintf("  %s: %s", result.StepName, result.Output))
+		} else {
+			printError(fmt.Sprintf("  %s: %s", result.StepName, result.Error))
+		}
+	}
+}
+
 // handleChangelogUpdate updates the changelog file if configured.
 func handleChangelogUpdate(rel *release.ReleaseRun) {
 	if cfg.Changelog.File == "" || rel.Notes() == nil || rel.Notes().Text == "" {
@@ -179,6 +202,121 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	}
 	defer closeApp(app)
 
+	// Get repository info for domain services
+	gitAdapter := app.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	// Try domain services first
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err == nil && app.HasReleaseServices() {
+		services := app.ReleaseServices()
+		if services != nil && services.PublishRelease != nil {
+			return runPublishWithServices(ctx, app, repoInfo.Path, repoInfo.RemoteURL)
+		}
+	}
+
+	// Fall back to legacy
+	return runPublishLegacy(ctx, app, repoInfo.RemoteURL)
+}
+
+// runPublishWithServices publishes using the PublishReleaseUseCase.
+func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL string) error {
+	services := app.ReleaseServices()
+
+	// Load release from repository to get version
+	run, err := services.Repository.LoadLatest(ctx, repoPath)
+	if err != nil {
+		// Fall back to legacy if we can't load run
+		return runPublishLegacy(ctx, app, remoteURL)
+	}
+
+	nextVersion := run.VersionNext().String()
+
+	// Output JSON if requested
+	if outputJSON {
+		return outputPublishJSONFromServices(run)
+	}
+
+	// Get governance evaluation for outcome tracking (if enabled)
+	var govResult *governance.EvaluateReleaseOutput
+	if app.HasGovernance() {
+		// Load legacy release for governance (it reads from same path)
+		if rel, err := getLatestRelease(ctx, app); err == nil {
+			govResult, _ = evaluateGovernanceForPublish(ctx, app, rel)
+			if govResult != nil && cfg.Governance.StrictMode && govResult.Decision == cgp.DecisionRejected {
+				printError("Release blocked by governance policy")
+				return fmt.Errorf("release denied by governance")
+			}
+		}
+	}
+
+	// Display planned actions
+	displayPublishActions(nextVersion)
+
+	// Dry run - skip actual changes
+	if dryRun {
+		return nil
+	}
+
+	// Track publish start time for duration recording
+	publishStart := time.Now()
+
+	// Execute publish use case with spinner
+	spinner := NewSpinner("Publishing release...")
+	spinner.Start()
+
+	input := releaseapp.PublishReleaseInput{
+		RepoRoot: repoPath,
+		RunID:    run.ID(),
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   "cli",
+		},
+		Force:  true, // Force since we already validated
+		DryRun: false,
+	}
+
+	output, err := services.PublishRelease.Execute(ctx, input)
+
+	spinner.Stop()
+
+	if err != nil {
+		printError(fmt.Sprintf("Failed to publish release: %v", err))
+		// Record failure outcome to Release Memory
+		if govResult != nil {
+			if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
+				recordPublishOutcome(ctx, app, rel, govResult, false, time.Since(publishStart))
+			}
+		}
+		return fmt.Errorf("failed to publish release: %w", err)
+	}
+
+	// Record success outcome to Release Memory
+	if govResult != nil {
+		if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
+			recordPublishOutcome(ctx, app, rel, govResult, true, time.Since(publishStart))
+		}
+	}
+
+	// Output step results
+	outputStepResults(output.StepResults)
+
+	// Handle changelog update
+	if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
+		handleChangelogUpdate(rel)
+	}
+
+	// Determine tag name from version
+	tagName := cfg.Versioning.TagPrefix + nextVersion
+	printPublishSummary(nextVersion, tagName, remoteURL)
+
+	return nil
+}
+
+// runPublishLegacy publishes using the legacy use case.
+func runPublishLegacy(ctx context.Context, app cliApp, remoteURL string) error {
 	// Get latest release (reuse helper from approve.go)
 	rel, err := getLatestRelease(ctx, app)
 	if err != nil {
@@ -246,11 +384,6 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	outputPluginResults(output.PluginResults)
 	handleChangelogUpdate(rel)
 
-	// Get remote URL for platform-specific hints
-	remoteURL := ""
-	if repoInfo, err := app.GitAdapter().GetInfo(ctx); err == nil {
-		remoteURL = repoInfo.RemoteURL
-	}
 	printPublishSummary(nextVersion.String(), output.TagName, remoteURL)
 
 	return nil
@@ -368,7 +501,7 @@ func updateChangelogFile(filename, newContent string) error {
 		}
 	}
 
-	return os.WriteFile(filename, []byte(finalContent), 0o644) // #nosec G306 -- changelog readable by user
+	return os.WriteFile(filename, []byte(finalContent), filePermReadable)
 }
 
 // stripChangelogHeader removes any "# Changelog" header from the content.
@@ -441,6 +574,44 @@ func outputPublishJSON(rel *release.ReleaseRun) error {
 
 	if rel.Notes() != nil && rel.Notes().Text != "" {
 		output["release_notes"] = rel.Notes().Text
+	}
+
+	if len(cfg.Plugins) > 0 {
+		var plugins []string
+		for _, p := range cfg.Plugins {
+			if p.IsEnabled() {
+				plugins = append(plugins, p.Name)
+			}
+		}
+		output["plugins"] = plugins
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(output)
+}
+
+// outputPublishJSONFromServices outputs publish information as JSON from domain services.
+func outputPublishJSONFromServices(run *releasedomain.ReleaseRun) error {
+	output := map[string]any{
+		"release_id":   string(run.ID()),
+		"version":      run.VersionNext().String(),
+		"tag_name":     cfg.Versioning.TagPrefix + run.VersionNext().String(),
+		"state":        string(run.State()),
+		"dry_run":      dryRun,
+		"ci_mode":      ciMode,
+		"skip_tag":     publishSkipTag,
+		"skip_push":    publishSkipPush,
+		"skip_plugins": publishSkipPlugins,
+		"actions": map[string]bool{
+			"create_tag":  !publishSkipTag && cfg.Versioning.GitTag,
+			"push_tag":    !publishSkipPush && cfg.Versioning.GitPush,
+			"run_plugins": !publishSkipPlugins,
+		},
+	}
+
+	if run.Notes() != nil && run.Notes().Text != "" {
+		output["release_notes"] = run.Notes().Text
 	}
 
 	if len(cfg.Plugins) > 0 {

@@ -5,8 +5,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
 // PlanReleaseInput contains the input for planning a release.
@@ -18,17 +20,27 @@ type PlanReleaseInput struct {
 	PluginPlanHash string // Hash of the plugin configuration
 	Actor          ports.ActorInfo
 	Force          bool // Force planning even if there's an active run
+
+	// Optional pre-computed data from commit analysis
+	// If provided, these bypass the basic commit resolution and enable full release planning
+	ChangeSet      *changes.ChangeSet       // Pre-computed changeset from analysis
+	CurrentVersion *version.SemanticVersion // Current version
+	NextVersion    *version.SemanticVersion // Proposed next version
+	BumpKind       *domain.BumpKind         // Determined bump type (major/minor/patch)
+	Confidence     float64                  // Version calculation confidence (0.0-1.0)
 }
 
 // PlanReleaseOutput contains the output from planning a release.
 type PlanReleaseOutput struct {
-	RunID       domain.RunID
-	HeadSHA     domain.CommitSHA
-	Commits     []domain.CommitSHA
-	PlanHash    string
-	VersionNext string
-	BumpKind    domain.BumpKind
-	RiskScore   float64
+	RunID          domain.RunID
+	HeadSHA        domain.CommitSHA
+	Commits        []domain.CommitSHA
+	PlanHash       string
+	CurrentVersion version.SemanticVersion
+	VersionNext    version.SemanticVersion
+	BumpKind       domain.BumpKind
+	RiskScore      float64
+	ChangeSet      *changes.ChangeSet
 }
 
 // PlanReleaseUseCase handles the plan release use case.
@@ -110,6 +122,18 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	// Set actor
 	run.SetActor(input.Actor.Type, input.Actor.ID)
 
+	// Set pre-computed ChangeSet if provided
+	if input.ChangeSet != nil {
+		run.SetChangeSet(input.ChangeSet)
+	}
+
+	// Set version proposal if provided
+	if input.CurrentVersion != nil && input.NextVersion != nil && input.BumpKind != nil {
+		if err := run.SetVersionProposal(*input.CurrentVersion, *input.NextVersion, *input.BumpKind, input.Confidence); err != nil {
+			return nil, fmt.Errorf("failed to set version proposal: %w", err)
+		}
+	}
+
 	// Transition to Planned state
 	if err := run.Plan(input.Actor.ID); err != nil {
 		return nil, fmt.Errorf("failed to transition to planned state: %w", err)
@@ -138,9 +162,14 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	return &PlanReleaseOutput{
-		RunID:    run.ID(),
-		HeadSHA:  run.HeadSHA(),
-		Commits:  run.Commits(),
-		PlanHash: run.PlanHash(),
+		RunID:          run.ID(),
+		HeadSHA:        run.HeadSHA(),
+		Commits:        run.Commits(),
+		PlanHash:       run.PlanHash(),
+		CurrentVersion: run.VersionCurrent(),
+		VersionNext:    run.VersionNext(),
+		BumpKind:       run.BumpKind(),
+		RiskScore:      run.RiskScore(),
+		ChangeSet:      input.ChangeSet,
 	}, nil
 }

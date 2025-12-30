@@ -17,6 +17,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 func runPlanExecutesPlan(t *testing.T, useAnalyze bool) {
@@ -469,8 +470,14 @@ func (c commandTestApp) PublishRelease() publishReleaseUseCase     { return c.pu
 func (c commandTestApp) CalculateVersion() calculateVersionUseCase { return c.calculate }
 func (c commandTestApp) SetVersion() setVersionUseCase             { return c.setVersion }
 func (c commandTestApp) HasAI() bool                               { return false }
+func (c commandTestApp) AI() ai.Service                            { return nil }
 func (c commandTestApp) HasGovernance() bool                       { return c.hasGov }
 func (c commandTestApp) GovernanceService() *governance.Service    { return c.govSvc }
+func (c commandTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (c commandTestApp) ReleaseServices() *release.Services { return nil }
+func (c commandTestApp) HasReleaseServices() bool           { return false }
 
 func withStubContainerApp(t *testing.T, app cliApp) {
 	t.Helper()

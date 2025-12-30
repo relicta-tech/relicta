@@ -18,6 +18,9 @@ import (
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
@@ -128,6 +131,13 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to plan release: %w", err)
 	}
 
+	// Persist release run for subsequent commands (bump, notes, approve, publish)
+	if !dryRun {
+		if err := persistReleaseRun(ctx, app, output, repoInfo); err != nil {
+			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
+		}
+	}
+
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
 	if app.HasGovernance() {
@@ -221,6 +231,13 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 
 	// Override next version to match existing tag
 	output.NextVersion = ver
+
+	// Persist release run for subsequent commands
+	if !dryRun {
+		if err := persistReleaseRun(ctx, app, output, repoInfo); err != nil {
+			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
+		}
+	}
 
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
@@ -370,6 +387,13 @@ func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanRelease
 
 	if err != nil {
 		return fmt.Errorf("failed to plan release: %w", err)
+	}
+
+	// Persist release run for subsequent commands
+	if !dryRun {
+		if err := persistReleaseRunFromApp(ctx, app, output); err != nil {
+			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
+		}
 	}
 
 	var riskPreview *governanceRiskPreview
@@ -910,4 +934,74 @@ func formatAutoApproveDisplay(canAutoApprove bool) string {
 		return styles.Success.Render("yes")
 	}
 	return styles.Warning.Render("no (manual review required)")
+}
+
+// actorID is the identifier used for CLI-initiated actions.
+const actorID = "cli"
+
+// persistReleaseRunFromApp persists the release run by first obtaining repository info.
+func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput) error {
+	gitAdapter := app.GitAdapter()
+	if gitAdapter == nil {
+		return fmt.Errorf("git adapter not available")
+	}
+
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	return persistReleaseRun(ctx, app, output, repoInfo)
+}
+
+// persistReleaseRun stores the release run with pre-computed analysis data.
+// This enables subsequent commands (bump, notes, approve, publish) to operate on the release.
+func persistReleaseRun(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput, repoInfo *sourcecontrol.RepositoryInfo) error {
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return fmt.Errorf("failed to initialize release services: %w", err)
+	}
+
+	if !app.HasReleaseServices() {
+		return fmt.Errorf("release services not available")
+	}
+
+	services := app.ReleaseServices()
+	if services == nil || services.PlanRelease == nil {
+		return fmt.Errorf("PlanRelease use case not available")
+	}
+
+	bumpKind := convertReleaseTypeToBumpKind(output.ReleaseType)
+
+	input := releaseapp.PlanReleaseInput{
+		RepoRoot: repoInfo.Path,
+		RepoID:   repoInfo.RemoteURL,
+		BaseRef:  "", // Auto-detect from tags
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   actorID,
+		},
+		Force:          true, // Force to replace any existing run from legacy
+		ChangeSet:      output.ChangeSet,
+		CurrentVersion: &output.CurrentVersion,
+		NextVersion:    &output.NextVersion,
+		BumpKind:       &bumpKind,
+		Confidence:     1.0, // Legacy analysis is authoritative
+	}
+
+	_, err := services.PlanRelease.Execute(ctx, input)
+	return err
+}
+
+// convertReleaseTypeToBumpKind converts ReleaseType to the domain BumpKind.
+func convertReleaseTypeToBumpKind(rt changes.ReleaseType) domain.BumpKind {
+	switch rt {
+	case changes.ReleaseTypeMajor:
+		return domain.BumpMajor
+	case changes.ReleaseTypeMinor:
+		return domain.BumpMinor
+	case changes.ReleaseTypePatch:
+		return domain.BumpPatch
+	default:
+		return domain.BumpNone
+	}
 }

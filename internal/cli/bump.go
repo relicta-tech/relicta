@@ -12,6 +12,8 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
 
@@ -361,8 +363,47 @@ func updateReleaseVersion(ctx context.Context, app cliApp, ver version.SemanticV
 		return err
 	}
 
+	// Initialize release services if not already done
+	if !app.HasReleaseServices() {
+		if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+			// Fall back to legacy behavior if init fails
+			return updateReleaseVersionLegacy(ctx, app, repoInfo.Path, ver)
+		}
+	}
+
+	services := app.ReleaseServices()
+	if services == nil || services.BumpVersion == nil {
+		return updateReleaseVersionLegacy(ctx, app, repoInfo.Path, ver)
+	}
+
+	tagName := cfg.Versioning.TagPrefix + ver.String()
+
+	// Use BumpVersionUseCase
+	input := releaseapp.BumpVersionInput{
+		RepoRoot: repoInfo.Path,
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   "cli",
+		},
+		Force:           true, // Force since git operations already happened
+		OverrideVersion: &ver,
+		OverrideTagName: tagName,
+	}
+
+	_, err = services.BumpVersion.Execute(ctx, input)
+	if err != nil {
+		// If the error is because run is not in Planned state, try legacy
+		// This handles the case where bump runs standalone without prior plan
+		return updateReleaseVersionLegacy(ctx, app, repoInfo.Path, ver)
+	}
+
+	return nil
+}
+
+// updateReleaseVersionLegacy is the fallback using direct repository access.
+func updateReleaseVersionLegacy(ctx context.Context, app cliApp, repoPath string, ver version.SemanticVersion) error {
 	releaseRepo := app.ReleaseRepository()
-	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
+	rel, err := releaseRepo.FindLatest(ctx, repoPath)
 	if err != nil {
 		return err
 	}

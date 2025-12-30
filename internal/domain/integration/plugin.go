@@ -90,7 +90,6 @@ type ValidateResponse struct {
 }
 
 // Plugin defines the interface that all plugins must implement.
-// This is a port in hexagonal architecture terms.
 type Plugin interface {
 	// GetInfo returns plugin metadata.
 	GetInfo() PluginInfo

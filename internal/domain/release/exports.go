@@ -190,7 +190,7 @@ type (
 	ApprovalStatus = domain.ApprovalStatus
 )
 
-// Re-export domain events (new DDD names)
+// Re-export domain events
 type (
 	DomainEvent               = domain.DomainEvent
 	RunCreatedEvent           = domain.RunCreatedEvent
@@ -234,7 +234,7 @@ var (
 	ErrDuplicateRun        = domain.ErrDuplicateRun
 )
 
-// State constants (new DDD names)
+// State constants
 const (
 	StateDraft      = domain.StateDraft
 	StatePlanned    = domain.StatePlanned
@@ -331,7 +331,6 @@ var (
 )
 
 // Repository defines the interface for persisting and retrieving releases.
-// This follows the DDD repository pattern.
 type Repository interface {
 	// Save persists a release run.
 	Save(ctx context.Context, run *ReleaseRun) error

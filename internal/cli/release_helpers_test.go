@@ -12,6 +12,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 type fakeGenerateNotesUseCase struct {
@@ -45,8 +46,14 @@ func (r releaseTestApp) PublishRelease() publishReleaseUseCase     { return r.pu
 func (r releaseTestApp) CalculateVersion() calculateVersionUseCase { return nil }
 func (r releaseTestApp) SetVersion() setVersionUseCase             { return r.setVersion }
 func (r releaseTestApp) HasAI() bool                               { return false }
+func (r releaseTestApp) AI() ai.Service                            { return nil }
 func (r releaseTestApp) HasGovernance() bool                       { return false }
 func (r releaseTestApp) GovernanceService() *governance.Service    { return nil }
+func (r releaseTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (r releaseTestApp) ReleaseServices() *release.Services { return nil }
+func (r releaseTestApp) HasReleaseServices() bool           { return false }
 
 func TestRunReleasePlanExecutesUseCase(t *testing.T) {
 	origCfg := cfg

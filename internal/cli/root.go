@@ -265,7 +265,7 @@ func configureLogFile() error {
 	}
 
 	var err error
-	logFile, err = os.OpenFile(cfg.Output.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	logFile, err = os.OpenFile(cfg.Output.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, filePermPrivate)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}

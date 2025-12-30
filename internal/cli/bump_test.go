@@ -16,6 +16,7 @@ import (
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 func TestParseBumpLevel(t *testing.T) {
@@ -429,8 +430,14 @@ func (b bumpTestApp) PublishRelease() publishReleaseUseCase       { return nil }
 func (b bumpTestApp) CalculateVersion() calculateVersionUseCase   { return b.calculate }
 func (b bumpTestApp) SetVersion() setVersionUseCase               { return b.setVersion }
 func (b bumpTestApp) HasAI() bool                                 { return false }
+func (b bumpTestApp) AI() ai.Service                              { return nil }
 func (b bumpTestApp) HasGovernance() bool                         { return false }
 func (b bumpTestApp) GovernanceService() *governance.Service      { return nil }
+func (b bumpTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (b bumpTestApp) ReleaseServices() *domainrelease.Services { return nil }
+func (b bumpTestApp) HasReleaseServices() bool                 { return false }
 
 // bumpGitRepo is a stub git repo for bump tests.
 type bumpGitRepo struct {

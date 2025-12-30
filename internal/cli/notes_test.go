@@ -16,6 +16,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 )
 
 func TestParseNoteTone(t *testing.T) {
@@ -256,8 +257,14 @@ func (n notesTestApp) PublishRelease() publishReleaseUseCase     { return nil }
 func (n notesTestApp) CalculateVersion() calculateVersionUseCase { return nil }
 func (n notesTestApp) SetVersion() setVersionUseCase             { return nil }
 func (n notesTestApp) HasAI() bool                               { return true }
+func (n notesTestApp) AI() ai.Service                            { return nil }
 func (n notesTestApp) HasGovernance() bool                       { return false }
 func (n notesTestApp) GovernanceService() *governance.Service    { return nil }
+func (n notesTestApp) InitReleaseServices(context.Context, string) error {
+	return nil
+}
+func (n notesTestApp) ReleaseServices() *release.Services { return nil }
+func (n notesTestApp) HasReleaseServices() bool           { return false }
 
 func TestRunNotesSuccessToStdout(t *testing.T) {
 	origCfg := cfg

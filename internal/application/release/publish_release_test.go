@@ -701,7 +701,7 @@ func TestPublishReleaseUseCase_ReleaseContextBuilding(t *testing.T) {
 	}
 
 	// Verify repository info
-	// In the new DDD model, RepositoryName comes from the repository path
+	// RepositoryName comes from the repository path
 	if releaseCtx.RepositoryName != "/path/to/repo" {
 		t.Errorf("RepositoryName = %s, want /path/to/repo", releaseCtx.RepositoryName)
 	}
