@@ -64,8 +64,6 @@ release:
   draft: false
   prerelease: auto
   mode: keep-existing
-  extra_files:
-    - glob: ./dist/checksums.txt
 
 # Homebrew formula
 brews:
