@@ -671,3 +671,170 @@ func TestWrapSafe(t *testing.T) {
 		t.Errorf("WrapSafe error should contain [REDACTED]: %v", errStr)
 	}
 }
+
+// TestFormatUserError tests the FormatUserError function.
+func TestFormatUserError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: "",
+		},
+		{
+			name:     "simple error",
+			err:      errors.New("working tree has uncommitted changes"),
+			expected: "working tree has uncommitted changes",
+		},
+		{
+			name:     "single wrap with failed",
+			err:      fmt.Errorf("plan failed: %w", errors.New("working tree has uncommitted changes")),
+			expected: "Plan failed: working tree has uncommitted changes",
+		},
+		{
+			name: "double wrap with redundant failed",
+			err: fmt.Errorf("plan failed: %w",
+				fmt.Errorf("failed to plan release: %w",
+					errors.New("working tree has uncommitted changes"))),
+			expected: "Plan failed: working tree has uncommitted changes",
+		},
+		{
+			name: "triple wrap with multiple failed messages",
+			err: fmt.Errorf("release failed: %w",
+				fmt.Errorf("plan failed: %w",
+					fmt.Errorf("failed to analyze commits: %w",
+						errors.New("repository not found")))),
+			expected: "Release failed: repository not found",
+		},
+		{
+			name:     "structured error with op",
+			err:      Wrap(errors.New("file not found"), KindIO, "read-config", "failed to read config"),
+			expected: "Read-config failed: file not found",
+		},
+		{
+			name: "mixed structured and fmt.Errorf",
+			err: fmt.Errorf("plan failed: %w",
+				Wrap(errors.New("no commits found"), KindGit, "analyze", "failed to analyze")),
+			expected: "Plan failed: no commits found",
+		},
+		{
+			name:     "error message without 'failed' prefix",
+			err:      fmt.Errorf("bump version: %w", errors.New("invalid version format")),
+			expected: "Bump version failed: invalid version format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatUserError(tt.err)
+			if result != tt.expected {
+				t.Errorf("FormatUserError() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestCleanOperation tests the cleanOperation helper function.
+func TestCleanOperation(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"plan", "plan"},
+		{"plan failed", "plan"},
+		{"failed to plan", "plan"},
+		{"failed: plan", "plan"},
+		{"error: plan", "plan"},
+		{"error plan", "plan"},
+		{"  plan  ", "plan"},
+		{"failed to plan release", "plan release"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := cleanOperation(tt.input)
+			if result != tt.expected {
+				t.Errorf("cleanOperation(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestCapitalizeFirst tests the capitalizeFirst helper function.
+func TestCapitalizeFirst(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"plan", "Plan"},
+		{"Plan", "Plan"},
+		{"PLAN", "PLAN"},
+		{"", ""},
+		{"a", "A"},
+		{"already Good", "Already Good"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := capitalizeFirst(tt.input)
+			if result != tt.expected {
+				t.Errorf("capitalizeFirst(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestIsRedundantMessage tests the isRedundantMessage helper function.
+func TestIsRedundantMessage(t *testing.T) {
+	tests := []struct {
+		msg         string
+		existingOps []string
+		expected    bool
+	}{
+		{"plan", []string{}, false},
+		{"plan", []string{"plan"}, true},
+		{"plan failed", []string{"plan"}, true},
+		{"failed to plan", []string{"plan"}, true},
+		{"bump", []string{"plan"}, false},
+		{"", []string{"plan"}, true},
+		{"plan", []string{"bump", "publish"}, false},
+	}
+
+	for _, tt := range tests {
+		name := fmt.Sprintf("%q_in_%v", tt.msg, tt.existingOps)
+		t.Run(name, func(t *testing.T) {
+			result := isRedundantMessage(tt.msg, tt.existingOps)
+			if result != tt.expected {
+				t.Errorf("isRedundantMessage(%q, %v) = %v, want %v", tt.msg, tt.existingOps, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestFindBestOperation tests the findBestOperation helper function.
+func TestFindBestOperation(t *testing.T) {
+	tests := []struct {
+		name     string
+		ops      []string
+		expected string
+	}{
+		{"empty list", []string{}, ""},
+		{"single short op", []string{"plan"}, "plan"},
+		{"single long op", []string{"failed to plan release"}, "plan release"},
+		{"prefer short over long", []string{"failed to plan release", "plan"}, "plan"},
+		{"multiple short ops uses first", []string{"bump", "plan"}, "bump"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := findBestOperation(tt.ops)
+			if result != tt.expected {
+				t.Errorf("findBestOperation(%v) = %q, want %q", tt.ops, result, tt.expected)
+			}
+		})
+	}
+}

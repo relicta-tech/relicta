@@ -555,3 +555,180 @@ func IsSensitive(s string) bool {
 		strings.Contains(s, "password") ||
 		strings.Contains(s, "token")
 }
+
+// FormatUserError formats an error for user display, avoiding redundant
+// "failed" messages that occur from error wrapping at multiple layers.
+// It extracts the meaningful operation and root cause message.
+//
+// Example: "plan failed: failed to plan release: working tree has uncommitted changes"
+// Becomes: "Plan failed: working tree has uncommitted changes"
+func FormatUserError(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	// Extract operation and root cause
+	op, rootCause := extractErrorParts(err)
+
+	// Format the message
+	if op != "" {
+		// Capitalize and clean up the operation
+		cleanedOp := cleanOperation(op)
+		cleanedOp = capitalizeFirst(cleanedOp)
+
+		// Add "failed" suffix if the operation doesn't already describe failure
+		if cleanedOp != "" && !strings.Contains(strings.ToLower(cleanedOp), "fail") {
+			return fmt.Sprintf("%s failed: %s", cleanedOp, rootCause)
+		}
+		return fmt.Sprintf("%s: %s", cleanedOp, rootCause)
+	}
+
+	return rootCause
+}
+
+// extractErrorParts walks the error chain to find the operation context
+// and the root cause message, avoiding redundant "failed" text.
+func extractErrorParts(err error) (operation string, rootCause string) {
+	var (
+		ops        []string
+		current    = err
+		foundError *Error
+	)
+
+	// Walk the error chain
+	for current != nil {
+		// Check if the current error itself is our structured Error type
+		// Using type switch to satisfy errorlint requirements
+		switch e := current.(type) { //nolint:errorlint // intentional type switch for our own Error type
+		case *Error:
+			foundError = e
+			if e.Op != "" {
+				ops = append(ops, e.Op)
+			}
+			current = e.Err
+			continue
+		}
+
+		// Check for wrapped errors (fmt.Errorf with %w)
+		if unwrapper, ok := current.(interface{ Unwrap() error }); ok {
+			// Extract the prefix message from wrapped error
+			msg := current.Error()
+			inner := unwrapper.Unwrap()
+			if inner != nil {
+				innerMsg := inner.Error()
+				// The prefix is the part before the inner error message
+				if idx := strings.Index(msg, innerMsg); idx > 0 {
+					prefix := strings.TrimSuffix(msg[:idx], ": ")
+					prefix = strings.TrimSuffix(prefix, " ")
+					if prefix != "" && !isRedundantMessage(prefix, ops) {
+						ops = append(ops, prefix)
+					}
+				}
+				current = inner
+				continue
+			}
+		}
+
+		// Reached the root cause
+		rootCause = current.Error()
+		break
+	}
+
+	// If we found a structured Error, use its message as context
+	if foundError != nil && foundError.Message != "" && rootCause == "" {
+		rootCause = foundError.Message
+	}
+
+	// Find the most meaningful operation (first non-redundant one)
+	operation = findBestOperation(ops)
+
+	// If no root cause found, use the original error message
+	if rootCause == "" {
+		rootCause = err.Error()
+	}
+
+	return operation, rootCause
+}
+
+// findBestOperation selects the most user-friendly operation from a list,
+// preferring shorter, more descriptive operations.
+func findBestOperation(ops []string) string {
+	if len(ops) == 0 {
+		return ""
+	}
+
+	// Find the first operation that looks like a simple action
+	// (e.g., "plan", "bump", "publish" rather than "failed to plan release")
+	for _, op := range ops {
+		cleaned := cleanOperation(op)
+		// Prefer short, simple operations
+		if len(cleaned) <= 20 && !strings.Contains(cleaned, " ") {
+			return cleaned
+		}
+	}
+
+	// Fall back to the first operation, cleaned up
+	return cleanOperation(ops[0])
+}
+
+// cleanOperation removes redundant "failed" phrases and normalizes the operation.
+func cleanOperation(op string) string {
+	op = strings.TrimSpace(op)
+	if op == "" {
+		return op
+	}
+
+	// Remove prefix patterns
+	prefixPatterns := []string{
+		"failed to ",
+		"failed: ",
+		"error: ",
+		"error ",
+	}
+
+	lower := strings.ToLower(op)
+	for _, pattern := range prefixPatterns {
+		if strings.HasPrefix(lower, pattern) {
+			op = op[len(pattern):]
+			lower = strings.ToLower(op)
+		}
+	}
+
+	// Remove suffix patterns
+	suffixPatterns := []string{
+		" failed",
+	}
+
+	for _, pattern := range suffixPatterns {
+		if strings.HasSuffix(lower, pattern) {
+			op = op[:len(op)-len(pattern)]
+			lower = strings.ToLower(op)
+		}
+	}
+
+	return strings.TrimSpace(op)
+}
+
+// isRedundantMessage checks if a message is redundant given existing operations.
+func isRedundantMessage(msg string, existingOps []string) bool {
+	cleaned := strings.ToLower(cleanOperation(msg))
+	if cleaned == "" {
+		return true
+	}
+
+	for _, op := range existingOps {
+		if strings.ToLower(cleanOperation(op)) == cleaned {
+			return true
+		}
+	}
+
+	return false
+}
+
+// capitalizeFirst capitalizes the first letter of a string.
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}

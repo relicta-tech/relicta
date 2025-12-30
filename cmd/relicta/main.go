@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/cli"
+	"github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/version"
 )
 
@@ -91,7 +92,8 @@ func run(ctx context.Context, sigChan <-chan os.Signal, execute func(context.Con
 				return
 			}
 			// Print the error since SilenceErrors is enabled in cobra
-			fmt.Fprintf(stderr, "Error: %v\n", err)
+			// Use FormatUserError to avoid redundant "failed" messages in error chains
+			fmt.Fprintf(stderr, "Error: %s\n", errors.FormatUserError(err))
 			exitCode = 1
 		}
 	}()
