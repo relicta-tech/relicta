@@ -2,6 +2,8 @@
 
 This guide covers Relicta's Change Governance Protocol — the framework for risk-aware release decisions, approval workflows, and audit trails.
 
+> **Looking for the formal specification?** See the [CGP Specification](cgp-specification.md) for the complete protocol definition.
+
 ## Overview
 
 The Change Governance Protocol (CGP) answers the question: **Should this change ship?**

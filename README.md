@@ -23,7 +23,7 @@ As AI agents and CI systems generate more code, deciding what should ship become
 - **Approval Workflow**: Review and approve releases before publishing with full audit trails
 - **Agent Integration**: MCP server enables AI agents (Claude, GPT) to manage releases with human oversight
 
-See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows.
+See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, or the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition.
 
 ### Release Automation
 - **Automatic Version Calculation**: Semantic version bumps from conventional commits
