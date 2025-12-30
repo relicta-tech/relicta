@@ -10,6 +10,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
 type govTestApp struct {
@@ -19,24 +20,19 @@ type govTestApp struct {
 	hasGov      bool
 }
 
-func (a govTestApp) Close() error                              { return nil }
-func (a govTestApp) GitAdapter() sourcecontrol.GitRepository   { return a.gitRepo }
-func (a govTestApp) ReleaseRepository() release.Repository     { return a.releaseRepo }
-func (a govTestApp) PlanRelease() planReleaseUseCase           { return nil }
-func (a govTestApp) GenerateNotes() generateNotesUseCase       { return nil }
-func (a govTestApp) ApproveRelease() approveReleaseUseCase     { return nil }
-func (a govTestApp) PublishRelease() publishReleaseUseCase     { return nil }
-func (a govTestApp) CalculateVersion() calculateVersionUseCase { return nil }
-func (a govTestApp) SetVersion() setVersionUseCase             { return nil }
-func (a govTestApp) HasAI() bool                               { return false }
-func (a govTestApp) AI() ai.Service                            { return nil }
-func (a govTestApp) HasGovernance() bool                       { return a.hasGov }
-func (a govTestApp) GovernanceService() *governance.Service    { return a.govSvc }
-func (a govTestApp) InitReleaseServices(context.Context, string) error {
-	return nil
-}
-func (a govTestApp) ReleaseServices() *release.Services { return nil }
-func (a govTestApp) HasReleaseServices() bool           { return false }
+func (a govTestApp) Close() error                                      { return nil }
+func (a govTestApp) GitAdapter() sourcecontrol.GitRepository           { return a.gitRepo }
+func (a govTestApp) ReleaseRepository() release.Repository             { return a.releaseRepo }
+func (a govTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
+func (a govTestApp) CalculateVersion() calculateVersionUseCase         { return nil }
+func (a govTestApp) SetVersion() setVersionUseCase                     { return nil }
+func (a govTestApp) HasAI() bool                                       { return false }
+func (a govTestApp) AI() ai.Service                                    { return nil }
+func (a govTestApp) HasGovernance() bool                               { return a.hasGov }
+func (a govTestApp) GovernanceService() *governance.Service            { return a.govSvc }
+func (a govTestApp) InitReleaseServices(context.Context, string) error { return nil }
+func (a govTestApp) ReleaseServices() *release.Services                { return nil }
+func (a govTestApp) HasReleaseServices() bool                          { return false }
 
 func newGovernanceService(t *testing.T) *governance.Service {
 	t.Helper()
@@ -46,7 +42,7 @@ func newGovernanceService(t *testing.T) *governance.Service {
 
 func TestEvaluateGovernanceReturnsResult(t *testing.T) {
 	cfg = config.DefaultConfig()
-	rel := newTestRelease(t, "gov-1")
+	rel := newTestReleaseWithCommits(t, "gov-1")
 	app := govTestApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -74,7 +70,7 @@ func TestEvaluateGovernanceErrorWithoutService(t *testing.T) {
 }
 
 func TestBuildGovernanceSummaryForTUI(t *testing.T) {
-	rel := newTestRelease(t, "gov-3")
+	rel := newTestReleaseWithCommits(t, "gov-3")
 	app := govTestApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -89,7 +85,7 @@ func TestBuildGovernanceSummaryForTUI(t *testing.T) {
 }
 
 func TestEvaluateGovernanceForPublish(t *testing.T) {
-	rel := newTestRelease(t, "gov-4")
+	rel := newTestReleaseWithCommits(t, "gov-4")
 	app := govTestApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -120,7 +116,7 @@ func TestRecordReleaseOutcomeAndPublishOutcome(t *testing.T) {
 	defer func() { cfg = origCfg }()
 	cfg = config.DefaultConfig()
 
-	rel := newTestRelease(t, "gov-6")
+	rel := newTestReleaseWithCommits(t, "gov-6")
 	govSvc := newGovernanceService(t)
 	app := govTestApp{
 		gitRepo:     stubGitRepo{},

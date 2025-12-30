@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
@@ -185,25 +184,25 @@ func getApproverName() string {
 	return approvedBy
 }
 
-// executeApproval executes the approval use case using domain services when available.
+// executeApproval executes the approval use case using domain services.
 func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
 	// Get repository info for domain services
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
-		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		return fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	// Try domain services first
+	// Initialize domain services
 	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
-		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		return fmt.Errorf("failed to initialize release services: %w", err)
 	}
 	if !app.HasReleaseServices() {
-		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		return fmt.Errorf("release services not available")
 	}
 	services := app.ReleaseServices()
 	if services == nil || services.ApproveRelease == nil {
-		return executeApprovalLegacy(ctx, app, rel, editedNotes)
+		return fmt.Errorf("ApproveRelease use case not available")
 	}
 	return executeApprovalWithServices(ctx, app, repoInfo.Path, rel, editedNotes)
 }
@@ -217,11 +216,10 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 		// Update notes on the release and save
 		releaseRepo := app.ReleaseRepository()
 		if err := rel.UpdateNotesText(*editedNotes); err != nil {
-			// If UpdateNotesText fails (e.g., wrong state), fall back to legacy
-			return executeApprovalLegacy(ctx, app, rel, editedNotes)
+			return fmt.Errorf("failed to update notes: %w", err)
 		}
 		if err := releaseRepo.Save(ctx, rel); err != nil {
-			return executeApprovalLegacy(ctx, app, rel, editedNotes)
+			return fmt.Errorf("failed to save release with updated notes: %w", err)
 		}
 	}
 
@@ -237,23 +235,6 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 	}
 
 	_, err := services.ApproveRelease.Execute(ctx, input)
-	if err != nil {
-		// If domain service fails, try legacy
-		return executeApprovalLegacy(ctx, app, rel, editedNotes)
-	}
-	return nil
-}
-
-// executeApprovalLegacy executes approval using the legacy use case.
-func executeApprovalLegacy(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
-	input := apprelease.ApproveReleaseInput{
-		ReleaseID:   rel.ID(),
-		ApprovedBy:  getApproverName(),
-		AutoApprove: approveYes,
-		EditedNotes: editedNotes,
-	}
-
-	_, err := app.ApproveRelease().Execute(ctx, input)
 	if err != nil {
 		return fmt.Errorf("failed to approve release: %w", err)
 	}

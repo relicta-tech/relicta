@@ -14,7 +14,6 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/analysis"
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release"
@@ -23,6 +22,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
 var (
@@ -91,12 +91,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare input
-	input := apprelease.PlanReleaseInput{
+	input := servicerelease.AnalyzeInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        planFromRef,
 		ToRef:          planToRef,
-		DryRun:         dryRun,
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
@@ -121,7 +120,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		spinner.Start()
 	}
 
-	output, err := app.PlanRelease().Execute(ctx, input)
+	output, err := app.ReleaseAnalyzer().Analyze(ctx, input)
 
 	if spinner != nil {
 		spinner.Stop()
@@ -132,8 +131,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Persist release run for subsequent commands (bump, notes, approve, publish)
+	var releaseID string
 	if !dryRun {
-		if err := persistReleaseRun(ctx, app, output, repoInfo); err != nil {
+		releaseID, err = persistReleaseRun(ctx, app, output, repoInfo)
+		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
 	}
@@ -146,10 +147,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	// Output results
 	if outputJSON {
-		return outputPlanJSON(output, riskPreview)
+		return outputPlanJSON(output, releaseID, riskPreview)
 	}
 
-	return outputPlanText(output, planShowAll, planMinimal, riskPreview)
+	return outputPlanText(output, releaseID, planShowAll, planMinimal, riskPreview)
 }
 
 func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bool) {
@@ -202,13 +203,12 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 		}
 	}
 
-	// Execute plan use case to create release state
-	planInput := apprelease.PlanReleaseInput{
+	// Execute analysis to create release state
+	planInput := servicerelease.AnalyzeInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        prevTagName,
 		ToRef:          tagName,
-		DryRun:         dryRun,
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
@@ -219,7 +219,7 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 		spinner.Start()
 	}
 
-	output, err := app.PlanRelease().Execute(ctx, planInput)
+	output, err := app.ReleaseAnalyzer().Analyze(ctx, planInput)
 
 	if spinner != nil {
 		spinner.Stop()
@@ -233,8 +233,10 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	output.NextVersion = ver
 
 	// Persist release run for subsequent commands
+	var releaseID string
 	if !dryRun {
-		if err := persistReleaseRun(ctx, app, output, repoInfo); err != nil {
+		releaseID, err = persistReleaseRun(ctx, app, output, repoInfo)
+		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
 	}
@@ -247,18 +249,18 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 
 	// Output results
 	if outputJSON {
-		return outputPlanTagPushJSON(output, riskPreview)
+		return outputPlanTagPushJSON(output, releaseID, riskPreview)
 	}
 
-	return outputPlanTagPushText(output, riskPreview)
+	return outputPlanTagPushText(output, releaseID, riskPreview)
 }
 
 // outputPlanTagPushJSON outputs the tag-push plan as JSON.
-func outputPlanTagPushJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
 		"mode":            "tag-push",
-		"release_id":      string(output.ReleaseID),
+		"release_id":      releaseID,
 		"current_version": output.CurrentVersion.String(),
 		"next_version":    output.NextVersion.String(),
 		"release_type":    output.ReleaseType.String(),
@@ -288,7 +290,7 @@ func outputPlanTagPushJSON(output *apprelease.PlanReleaseOutput, riskPreview *go
 }
 
 // outputPlanTagPushText outputs the tag-push plan as text.
-func outputPlanTagPushText(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+func outputPlanTagPushText(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
 	// Summary
 	printTitle("Tag-Push Mode Summary")
 	fmt.Println()
@@ -336,15 +338,15 @@ func outputPlanTagPushText(output *apprelease.PlanReleaseOutput, riskPreview *go
 	fmt.Println("  Or use 'relicta release --yes' to run all steps automatically.")
 	fmt.Println()
 
-	if !dryRun {
-		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", output.ReleaseID))
+	if !dryRun && releaseID != "" {
+		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", releaseID))
 	}
 
 	return nil
 }
 
-func runPlanAnalyze(ctx context.Context, app cliApp, input apprelease.PlanReleaseInput) error {
-	result, commitInfos, err := app.PlanRelease().AnalyzeCommits(ctx, input)
+func runPlanAnalyze(ctx context.Context, app cliApp, input servicerelease.AnalyzeInput) error {
+	result, commitInfos, err := app.ReleaseAnalyzer().AnalyzeCommits(ctx, input)
 	if err != nil {
 		return fmt.Errorf("failed to analyze commits: %w", err)
 	}
@@ -356,12 +358,12 @@ func runPlanAnalyze(ctx context.Context, app cliApp, input apprelease.PlanReleas
 	return outputAnalysisText(result, commitInfos)
 }
 
-func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanReleaseInput, repoURL string) error {
+func runPlanReview(ctx context.Context, app cliApp, input servicerelease.AnalyzeInput, repoURL string) error {
 	if ciMode {
 		return fmt.Errorf("--review is not supported in CI mode")
 	}
 
-	result, commitInfos, err := app.PlanRelease().AnalyzeCommits(ctx, input)
+	result, commitInfos, err := app.ReleaseAnalyzer().AnalyzeCommits(ctx, input)
 	if err != nil {
 		return fmt.Errorf("failed to analyze commits: %w", err)
 	}
@@ -379,7 +381,7 @@ func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanRelease
 		spinner.Start()
 	}
 
-	output, err := app.PlanRelease().Execute(ctx, input)
+	output, err := app.ReleaseAnalyzer().Analyze(ctx, input)
 
 	if spinner != nil {
 		spinner.Stop()
@@ -390,8 +392,10 @@ func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanRelease
 	}
 
 	// Persist release run for subsequent commands
+	var releaseID string
 	if !dryRun {
-		if err := persistReleaseRunFromApp(ctx, app, output); err != nil {
+		releaseID, err = persistReleaseRunFromApp(ctx, app, output)
+		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
 	}
@@ -402,10 +406,10 @@ func runPlanReview(ctx context.Context, app cliApp, input apprelease.PlanRelease
 	}
 
 	if outputJSON {
-		return outputPlanJSON(output, riskPreview)
+		return outputPlanJSON(output, releaseID, riskPreview)
 	}
 
-	return outputPlanText(output, planShowAll, planMinimal, riskPreview)
+	return outputPlanText(output, releaseID, planShowAll, planMinimal, riskPreview)
 }
 
 func outputAnalysisJSON(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) error {
@@ -629,10 +633,10 @@ type governanceRiskPreview struct {
 }
 
 // outputPlanJSON outputs the plan as JSON.
-func outputPlanJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanceRiskPreview) error {
+func outputPlanJSON(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
-		"release_id":      string(output.ReleaseID),
+		"release_id":      releaseID,
 		"current_version": output.CurrentVersion.String(),
 		"next_version":    output.NextVersion.String(),
 		"release_type":    output.ReleaseType.String(),
@@ -664,7 +668,7 @@ func outputPlanJSON(output *apprelease.PlanReleaseOutput, riskPreview *governanc
 }
 
 // outputPlanText outputs the plan as text.
-func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
+func outputPlanText(output *servicerelease.AnalyzeOutput, releaseID string, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
 	// Summary
 	printTitle("Summary")
 	fmt.Println()
@@ -769,8 +773,8 @@ func outputPlanText(output *apprelease.PlanReleaseOutput, showAll, minimal bool,
 	fmt.Println("  4. Run 'relicta publish' to execute the release")
 	fmt.Println()
 
-	if !dryRun {
-		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", output.ReleaseID))
+	if !dryRun && releaseID != "" {
+		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", releaseID))
 	}
 
 	return nil
@@ -832,7 +836,7 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput, repoURL string) *governanceRiskPreview {
+func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoURL string) *governanceRiskPreview {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
@@ -940,15 +944,15 @@ func formatAutoApproveDisplay(canAutoApprove bool) string {
 const actorID = "cli"
 
 // persistReleaseRunFromApp persists the release run by first obtaining repository info.
-func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput) error {
+func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput) (string, error) {
 	gitAdapter := app.GitAdapter()
 	if gitAdapter == nil {
-		return fmt.Errorf("git adapter not available")
+		return "", fmt.Errorf("git adapter not available")
 	}
 
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get repository info: %w", err)
+		return "", fmt.Errorf("failed to get repository info: %w", err)
 	}
 
 	return persistReleaseRun(ctx, app, output, repoInfo)
@@ -956,18 +960,18 @@ func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *appreleas
 
 // persistReleaseRun stores the release run with pre-computed analysis data.
 // This enables subsequent commands (bump, notes, approve, publish) to operate on the release.
-func persistReleaseRun(ctx context.Context, app cliApp, output *apprelease.PlanReleaseOutput, repoInfo *sourcecontrol.RepositoryInfo) error {
+func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (string, error) {
 	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
-		return fmt.Errorf("failed to initialize release services: %w", err)
+		return "", fmt.Errorf("failed to initialize release services: %w", err)
 	}
 
 	if !app.HasReleaseServices() {
-		return fmt.Errorf("release services not available")
+		return "", fmt.Errorf("release services not available")
 	}
 
 	services := app.ReleaseServices()
 	if services == nil || services.PlanRelease == nil {
-		return fmt.Errorf("PlanRelease use case not available")
+		return "", fmt.Errorf("PlanRelease use case not available")
 	}
 
 	bumpKind := convertReleaseTypeToBumpKind(output.ReleaseType)
@@ -988,8 +992,11 @@ func persistReleaseRun(ctx context.Context, app cliApp, output *apprelease.PlanR
 		Confidence:     1.0, // Legacy analysis is authoritative
 	}
 
-	_, err := services.PlanRelease.Execute(ctx, input)
-	return err
+	planOutput, err := services.PlanRelease.Execute(ctx, input)
+	if err != nil {
+		return "", err
+	}
+	return string(planOutput.RunID), nil
 }
 
 // convertReleaseTypeToBumpKind converts ReleaseType to the domain BumpKind.

@@ -10,7 +10,6 @@ import (
 
 	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/internal/config"
@@ -24,6 +23,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/infrastructure/persistence"
 	"github.com/relicta-tech/relicta/internal/infrastructure/webhook"
 	"github.com/relicta-tech/relicta/internal/plugin"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
 // defaultShutdownTimeout is the default timeout for graceful shutdown of components.
@@ -59,10 +59,7 @@ type App struct {
 	aiService  ai.Service
 
 	// Application layer use cases
-	planReleaseUC      *release.PlanReleaseUseCase
-	generateNotesUC    *release.GenerateNotesUseCase
-	approveReleaseUC   *release.ApproveReleaseUseCase
-	publishReleaseUC   *release.PublishReleaseUseCase
+	releaseAnalyzer    *servicerelease.Analyzer
 	calculateVersionUC *versioning.CalculateVersionUseCase
 	setVersionUC       *versioning.SetVersionUseCase
 
@@ -304,36 +301,11 @@ func (c *App) initPluginSystem(ctx context.Context) error {
 func (c *App) initApplicationLayer(ctx context.Context) error {
 	analysisFactory := analysisfactory.NewFactory(c.aiService)
 
-	// Initialize PlanReleaseUseCase with UnitOfWork factory
-	// Each command will create its own transaction via the factory
-	c.planReleaseUC = release.NewPlanReleaseUseCaseWithUoW(
-		c.unitOfWorkFactory,
+	// Initialize release analyzer for commit analysis and version calculation
+	c.releaseAnalyzer = servicerelease.NewAnalyzer(
 		c.gitAdapter,
 		c.versionCalc,
-		c.eventPublisher,
 		analysisFactory,
-	)
-
-	// Initialize GenerateNotesUseCase
-	// Note: AINotesGenerator is nil for now, can be set later
-	c.generateNotesUC = release.NewGenerateNotesUseCase(
-		c.releaseRepo,
-		nil, // AINotesGenerator - optional
-		c.eventPublisher,
-	)
-
-	// Initialize ApproveReleaseUseCase
-	c.approveReleaseUC = release.NewApproveReleaseUseCase(
-		c.releaseRepo,
-		c.eventPublisher,
-	)
-
-	// Initialize PublishReleaseUseCase with UnitOfWork factory
-	c.publishReleaseUC = release.NewPublishReleaseUseCaseWithUoW(
-		c.unitOfWorkFactory,
-		c.gitAdapter,
-		c.pluginExecutor,
-		c.eventPublisher,
 	)
 
 	// Initialize CalculateVersionUseCase
@@ -437,32 +409,11 @@ func (c *App) InitReleaseServices(ctx context.Context, repoRoot string) error {
 
 // Application layer accessors
 
-// PlanRelease returns the PlanReleaseUseCase.
-func (c *App) PlanRelease() *release.PlanReleaseUseCase {
+// ReleaseAnalyzer returns the release analyzer for commit analysis and version calculation.
+func (c *App) ReleaseAnalyzer() *servicerelease.Analyzer {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.planReleaseUC
-}
-
-// GenerateNotes returns the GenerateNotesUseCase.
-func (c *App) GenerateNotes() *release.GenerateNotesUseCase {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.generateNotesUC
-}
-
-// ApproveRelease returns the ApproveReleaseUseCase.
-func (c *App) ApproveRelease() *release.ApproveReleaseUseCase {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.approveReleaseUC
-}
-
-// PublishRelease returns the PublishReleaseUseCase.
-func (c *App) PublishRelease() *release.PublishReleaseUseCase {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.publishReleaseUC
+	return c.releaseAnalyzer
 }
 
 // CalculateVersion returns the CalculateVersionUseCase.

@@ -4,33 +4,15 @@ package cli
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/container"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
-
-type planReleaseUseCase interface {
-	Execute(context.Context, apprelease.PlanReleaseInput) (*apprelease.PlanReleaseOutput, error)
-	AnalyzeCommits(context.Context, apprelease.PlanReleaseInput) (*analysis.AnalysisResult, []analysis.CommitInfo, error)
-}
-
-type generateNotesUseCase interface {
-	Execute(context.Context, apprelease.GenerateNotesInput) (*apprelease.GenerateNotesOutput, error)
-}
-
-type approveReleaseUseCase interface {
-	Execute(context.Context, apprelease.ApproveReleaseInput) (*apprelease.ApproveReleaseOutput, error)
-}
-
-type publishReleaseUseCase interface {
-	Execute(context.Context, apprelease.PublishReleaseInput) (*apprelease.PublishReleaseOutput, error)
-}
 
 type calculateVersionUseCase interface {
 	Execute(context.Context, versioning.CalculateVersionInput) (*versioning.CalculateVersionOutput, error)
@@ -44,10 +26,7 @@ type cliApp interface {
 	Close() error
 	GitAdapter() sourcecontrol.GitRepository
 	ReleaseRepository() domainrelease.Repository
-	PlanRelease() planReleaseUseCase
-	GenerateNotes() generateNotesUseCase
-	ApproveRelease() approveReleaseUseCase
-	PublishRelease() publishReleaseUseCase
+	ReleaseAnalyzer() *servicerelease.Analyzer
 	CalculateVersion() calculateVersionUseCase
 	SetVersion() setVersionUseCase
 	HasAI() bool
@@ -55,7 +34,7 @@ type cliApp interface {
 	HasGovernance() bool
 	GovernanceService() *governance.Service
 
-	// Release workflow services
+	// Release workflow services (DDD layer)
 	InitReleaseServices(ctx context.Context, repoRoot string) error
 	ReleaseServices() *domainrelease.Services
 	HasReleaseServices() bool
@@ -73,20 +52,8 @@ type containerAppWrapper struct {
 	*container.App
 }
 
-func (w *containerAppWrapper) PlanRelease() planReleaseUseCase {
-	return w.App.PlanRelease()
-}
-
-func (w *containerAppWrapper) GenerateNotes() generateNotesUseCase {
-	return w.App.GenerateNotes()
-}
-
-func (w *containerAppWrapper) ApproveRelease() approveReleaseUseCase {
-	return w.App.ApproveRelease()
-}
-
-func (w *containerAppWrapper) PublishRelease() publishReleaseUseCase {
-	return w.App.PublishRelease()
+func (w *containerAppWrapper) ReleaseAnalyzer() *servicerelease.Analyzer {
+	return w.App.ReleaseAnalyzer()
 }
 
 func (w *containerAppWrapper) CalculateVersion() calculateVersionUseCase {

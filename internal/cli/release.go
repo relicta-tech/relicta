@@ -8,12 +8,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	apprelease "github.com/relicta-tech/relicta/internal/application/release"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/communication"
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
 var (
@@ -215,7 +217,7 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 
 // runReleasePlan executes the plan step using the shared workflow context.
 // In tag-push mode, it plans for the existing tag instead of HEAD.
-func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext) (*apprelease.PlanReleaseOutput, error) {
+func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext) (*servicerelease.AnalyzeOutput, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -234,18 +236,23 @@ func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 		toRef = "HEAD"
 	}
 
-	input := apprelease.PlanReleaseInput{
+	// Use release analyzer for analysis
+	analyzer := c.ReleaseAnalyzer()
+	if analyzer == nil {
+		return nil, fmt.Errorf("release analyzer not available")
+	}
+
+	input := servicerelease.AnalyzeInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        fromRef,
 		ToRef:          toRef,
-		DryRun:         dryRun,
 		TagPrefix:      cfg.Versioning.TagPrefix,
 	}
 
-	output, err := c.PlanRelease().Execute(ctx, input)
+	output, err := analyzer.Analyze(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute plan: %w", err)
+		return nil, fmt.Errorf("failed to analyze commits: %w", err)
 	}
 
 	// In tag-push mode, ensure next version matches the existing tag
@@ -253,13 +260,68 @@ func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 		output.NextVersion = *wfCtx.existingVersion
 	}
 
+	// Persist the release run using DDD services
+	if !dryRun {
+		if err := persistReleasePlan(ctx, c, output, repoInfo.Path, repoInfo.Name); err != nil {
+			return nil, fmt.Errorf("failed to persist release plan: %w", err)
+		}
+	}
+
 	return output, nil
+}
+
+// persistReleasePlan persists the release plan using DDD services.
+func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.AnalyzeOutput, repoPath, repoID string) error {
+	if err := c.InitReleaseServices(ctx, repoPath); err != nil {
+		return fmt.Errorf("failed to initialize release services: %w", err)
+	}
+	if !c.HasReleaseServices() {
+		return fmt.Errorf("release services not available")
+	}
+	services := c.ReleaseServices()
+	if services == nil || services.PlanRelease == nil {
+		return fmt.Errorf("PlanRelease use case not available")
+	}
+
+	// Convert domain types for DDD input
+	bumpKind := releaseTypeToBumpKind(output.ReleaseType)
+
+	planInput := releaseapp.PlanReleaseInput{
+		RepoRoot:       repoPath,
+		RepoID:         repoID,
+		ChangeSet:      output.ChangeSet,
+		CurrentVersion: &output.CurrentVersion,
+		NextVersion:    &output.NextVersion,
+		BumpKind:       &bumpKind,
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   "cli",
+		},
+		Force: false,
+	}
+
+	_, err := services.PlanRelease.Execute(ctx, planInput)
+	return err
+}
+
+// releaseTypeToBumpKind converts changes.ReleaseType to domain.BumpKind.
+func releaseTypeToBumpKind(rt changes.ReleaseType) releasedomain.BumpKind {
+	switch rt {
+	case changes.ReleaseTypeMajor:
+		return releasedomain.BumpMajor
+	case changes.ReleaseTypeMinor:
+		return releasedomain.BumpMinor
+	case changes.ReleaseTypePatch:
+		return releasedomain.BumpPatch
+	default:
+		return releasedomain.BumpPatch
+	}
 }
 
 // runReleaseBump executes the bump step using the shared workflow context.
 // In tag-push mode, it skips tag creation since the tag already exists.
 // Tag creation is handled here; publish step does not create tags.
-func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext, plan *apprelease.PlanReleaseOutput) (*versioning.SetVersionOutput, error) {
+func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext, plan *servicerelease.AnalyzeOutput) (*versioning.SetVersionOutput, error) {
 	var ver version.SemanticVersion
 	if releaseForce != "" {
 		parsed, err := version.Parse(releaseForce)
@@ -300,32 +362,46 @@ func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 	return output, nil
 }
 
-// runReleaseNotes executes the notes generation step.
-func runReleaseNotes(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
-	// Try domain services first
-	gitAdapter := c.GitAdapter()
-	if gitAdapter != nil {
-		repoInfo, err := gitAdapter.GetInfo(ctx)
-		if err == nil {
-			if err := c.InitReleaseServices(ctx, repoInfo.Path); err == nil && c.HasReleaseServices() {
-				services := c.ReleaseServices()
-				if services != nil && services.GenerateNotes != nil {
-					return runReleaseNotesWithServices(ctx, c, repoInfo.Path, plan)
-				}
-			}
-		}
-	}
-
-	// Fall back to legacy
-	return runReleaseNotesLegacy(ctx, c, plan)
+// releaseNotesResult holds the result of notes generation for the workflow.
+type releaseNotesResult struct {
+	ReleaseNotes *communication.ReleaseNotes
 }
 
-// runReleaseNotesWithServices generates notes using the GenerateNotesUseCase.
-func runReleaseNotesWithServices(ctx context.Context, c cliApp, repoPath string, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
+// releasePublishResult holds the result of publishing for the workflow.
+type releasePublishResult struct {
+	TagName       string
+	ReleaseURL    string
+	PluginResults []releasePluginResult
+}
+
+// releasePluginResult holds the result of a plugin execution.
+type releasePluginResult struct {
+	PluginName string
+	Success    bool
+	Message    string
+}
+
+// runReleaseNotes executes the notes generation step using DDD services.
+func runReleaseNotes(ctx context.Context, c cliApp, plan *servicerelease.AnalyzeOutput) (*releaseNotesResult, error) {
+	gitAdapter := c.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	if err := c.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return nil, fmt.Errorf("failed to initialize release services: %w", err)
+	}
+	if !c.HasReleaseServices() {
+		return nil, fmt.Errorf("release services not available")
+	}
 	services := c.ReleaseServices()
+	if services == nil || services.GenerateNotes == nil {
+		return nil, fmt.Errorf("GenerateNotes use case not available")
+	}
 
 	input := releaseapp.GenerateNotesInput{
-		RepoRoot: repoPath,
+		RepoRoot: repoInfo.Path,
 		Options: ports.NotesOptions{
 			AudiencePreset: cfg.AI.Audience,
 			TonePreset:     cfg.AI.Tone,
@@ -341,46 +417,26 @@ func runReleaseNotesWithServices(ctx context.Context, c cliApp, repoPath string,
 
 	output, err := services.GenerateNotes.Execute(ctx, input)
 	if err != nil {
-		// Fall back to legacy on error
-		return runReleaseNotesLegacy(ctx, c, plan)
+		return nil, fmt.Errorf("failed to generate notes: %w", err)
 	}
 
-	// Convert output to legacy format for workflow compatibility
-	legacyOutput := &apprelease.GenerateNotesOutput{}
+	// Build a ReleaseNotes object from output
+	result := &releaseNotesResult{}
 	if output.Notes != nil {
-		// Build a ReleaseNotes object from output
 		notes := communication.NewReleaseNotesBuilder(plan.NextVersion).
 			WithTitle(fmt.Sprintf("Release %s", plan.NextVersion.String())).
 			WithSummary(output.Notes.Text).
 			Build()
-		legacyOutput.ReleaseNotes = notes
+		result.ReleaseNotes = notes
 	}
-	return legacyOutput, nil
-}
-
-// runReleaseNotesLegacy generates notes using the legacy use case.
-func runReleaseNotesLegacy(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.GenerateNotesOutput, error) {
-	input := apprelease.GenerateNotesInput{
-		ReleaseID:        plan.ReleaseID,
-		UseAI:            cfg.AI.Enabled,
-		Tone:             parseNoteTone(cfg.AI.Tone),
-		Audience:         parseNoteAudience(cfg.AI.Audience),
-		IncludeChangelog: true,
-		RepositoryURL:    cfg.Changelog.RepositoryURL,
-	}
-
-	output, err := c.GenerateNotes().Execute(ctx, input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate notes: %w", err)
-	}
-	return output, nil
+	return result, nil
 }
 
 // runReleaseApprove handles the approval step.
-func runReleaseApprove(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput, notes *apprelease.GenerateNotesOutput, autoApprove bool) (bool, error) {
+func runReleaseApprove(ctx context.Context, c cliApp, plan *servicerelease.AnalyzeOutput, notes *releaseNotesResult, autoApprove bool) (bool, error) {
 	if autoApprove {
 		printInfo("Auto-approving release")
-		return runReleaseApproveExecute(ctx, c, plan, "auto-approve")
+		return runReleaseApproveExecute(ctx, c, "auto-approve")
 	}
 
 	// Interactive approval
@@ -401,7 +457,7 @@ func runReleaseApprove(ctx context.Context, c cliApp, plan *apprelease.PlanRelea
 	}
 	fmt.Println()
 
-	if notes.ReleaseNotes != nil {
+	if notes != nil && notes.ReleaseNotes != nil {
 		fmt.Println("Release Notes Preview:")
 		preview := notes.ReleaseNotes.Render()
 		if len(preview) > 500 {
@@ -421,79 +477,68 @@ func runReleaseApprove(ctx context.Context, c cliApp, plan *apprelease.PlanRelea
 
 	approved := response == "y" || response == "Y" || response == "yes" || response == "Yes"
 	if approved {
-		return runReleaseApproveExecute(ctx, c, plan, "user")
+		return runReleaseApproveExecute(ctx, c, "user")
 	}
 	return approved, nil
 }
 
-// runReleaseApproveExecute executes the approval, trying domain services first.
-func runReleaseApproveExecute(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput, approvedBy string) (bool, error) {
-	// Try domain services first
+// runReleaseApproveExecute executes the approval using DDD services.
+func runReleaseApproveExecute(ctx context.Context, c cliApp, approvedBy string) (bool, error) {
 	gitAdapter := c.GitAdapter()
-	if gitAdapter != nil {
-		repoInfo, err := gitAdapter.GetInfo(ctx)
-		if err == nil {
-			if err := c.InitReleaseServices(ctx, repoInfo.Path); err == nil && c.HasReleaseServices() {
-				services := c.ReleaseServices()
-				if services != nil && services.ApproveRelease != nil {
-					input := releaseapp.ApproveReleaseInput{
-						RepoRoot: repoInfo.Path,
-						Actor: ports.ActorInfo{
-							Type: "user",
-							ID:   approvedBy,
-						},
-						AutoApprove: true,
-						Force:       true,
-					}
-					_, err := services.ApproveRelease.Execute(ctx, input)
-					if err == nil {
-						return true, nil
-					}
-					// Fall through to legacy on error
-				}
-			}
-		}
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	// Fall back to legacy
-	input := apprelease.ApproveReleaseInput{
-		ReleaseID:  plan.ReleaseID,
-		ApprovedBy: approvedBy,
+	if err := c.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return false, fmt.Errorf("failed to initialize release services: %w", err)
 	}
-	_, err := c.ApproveRelease().Execute(ctx, input)
+	if !c.HasReleaseServices() {
+		return false, fmt.Errorf("release services not available")
+	}
+	services := c.ReleaseServices()
+	if services == nil || services.ApproveRelease == nil {
+		return false, fmt.Errorf("ApproveRelease use case not available")
+	}
+
+	input := releaseapp.ApproveReleaseInput{
+		RepoRoot: repoInfo.Path,
+		Actor: ports.ActorInfo{
+			Type: "user",
+			ID:   approvedBy,
+		},
+		AutoApprove: true,
+		Force:       true,
+	}
+	_, err = services.ApproveRelease.Execute(ctx, input)
 	if err != nil {
 		return false, fmt.Errorf("approval failed: %w", err)
 	}
 	return true, nil
 }
 
-// runReleasePublish executes the publish step.
+// runReleasePublish executes the publish step using DDD services.
 // Tag creation is handled by runReleaseBump; this step only publishes.
-func runReleasePublish(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
-	// Try domain services first
+func runReleasePublish(ctx context.Context, c cliApp, plan *servicerelease.AnalyzeOutput) (*releasePublishResult, error) {
 	gitAdapter := c.GitAdapter()
-	if gitAdapter != nil {
-		repoInfo, err := gitAdapter.GetInfo(ctx)
-		if err == nil {
-			if err := c.InitReleaseServices(ctx, repoInfo.Path); err == nil && c.HasReleaseServices() {
-				services := c.ReleaseServices()
-				if services != nil && services.PublishRelease != nil {
-					return runReleasePublishWithServices(ctx, c, repoInfo.Path, plan)
-				}
-			}
-		}
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	// Fall back to legacy
-	return runReleasePublishLegacy(ctx, c, plan)
-}
-
-// runReleasePublishWithServices publishes using the PublishReleaseUseCase.
-func runReleasePublishWithServices(ctx context.Context, c cliApp, repoPath string, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
+	if err := c.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return nil, fmt.Errorf("failed to initialize release services: %w", err)
+	}
+	if !c.HasReleaseServices() {
+		return nil, fmt.Errorf("release services not available")
+	}
 	services := c.ReleaseServices()
+	if services == nil || services.PublishRelease == nil {
+		return nil, fmt.Errorf("PublishRelease use case not available")
+	}
 
 	input := releaseapp.PublishReleaseInput{
-		RepoRoot: repoPath,
+		RepoRoot: repoInfo.Path,
 		Actor: ports.ActorInfo{
 			Type: "user",
 			ID:   "cli",
@@ -504,19 +549,18 @@ func runReleasePublishWithServices(ctx context.Context, c cliApp, repoPath strin
 
 	output, err := services.PublishRelease.Execute(ctx, input)
 	if err != nil {
-		// Fall back to legacy on error
-		return runReleasePublishLegacy(ctx, c, plan)
+		return nil, fmt.Errorf("failed to publish release: %w", err)
 	}
 
-	// Convert output to legacy format for workflow compatibility
-	legacyOutput := &apprelease.PublishReleaseOutput{
+	// Build result
+	result := &releasePublishResult{
 		TagName: cfg.Versioning.TagPrefix + plan.NextVersion.String(),
 	}
 
 	// Convert step results to plugin results format
 	for _, step := range output.StepResults {
 		if step.StepName != "" {
-			legacyOutput.PluginResults = append(legacyOutput.PluginResults, apprelease.PluginResult{
+			result.PluginResults = append(result.PluginResults, releasePluginResult{
 				PluginName: step.StepName,
 				Success:    step.Success,
 				Message:    step.Output,
@@ -524,25 +568,7 @@ func runReleasePublishWithServices(ctx context.Context, c cliApp, repoPath strin
 		}
 	}
 
-	return legacyOutput, nil
-}
-
-// runReleasePublishLegacy publishes using the legacy use case.
-func runReleasePublishLegacy(ctx context.Context, c cliApp, plan *apprelease.PlanReleaseOutput) (*apprelease.PublishReleaseOutput, error) {
-	input := apprelease.PublishReleaseInput{
-		ReleaseID: plan.ReleaseID,
-		DryRun:    dryRun,
-		CreateTag: false, // Tag created by bump step
-		PushTag:   false, // Tag pushed by bump step
-		TagPrefix: cfg.Versioning.TagPrefix,
-		Remote:    "origin",
-	}
-
-	output, err := c.PublishRelease().Execute(ctx, input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to publish release: %w", err)
-	}
-	return output, nil
+	return result, nil
 }
 
 // Helper functions

@@ -11,6 +11,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
 func TestCancelCommand_FlagsExist(t *testing.T) {
@@ -211,24 +212,19 @@ type cancelTestApp struct {
 	releaseRepo release.Repository
 }
 
-func (c cancelTestApp) Close() error                              { return nil }
-func (c cancelTestApp) GitAdapter() sourcecontrol.GitRepository   { return c.gitRepo }
-func (c cancelTestApp) ReleaseRepository() release.Repository     { return c.releaseRepo }
-func (c cancelTestApp) PlanRelease() planReleaseUseCase           { return nil }
-func (c cancelTestApp) GenerateNotes() generateNotesUseCase       { return nil }
-func (c cancelTestApp) ApproveRelease() approveReleaseUseCase     { return nil }
-func (c cancelTestApp) PublishRelease() publishReleaseUseCase     { return nil }
-func (c cancelTestApp) CalculateVersion() calculateVersionUseCase { return nil }
-func (c cancelTestApp) SetVersion() setVersionUseCase             { return nil }
-func (c cancelTestApp) HasAI() bool                               { return false }
-func (c cancelTestApp) AI() ai.Service                            { return nil }
-func (c cancelTestApp) HasGovernance() bool                       { return false }
-func (c cancelTestApp) GovernanceService() *governance.Service    { return nil }
-func (c cancelTestApp) InitReleaseServices(context.Context, string) error {
-	return nil
-}
-func (c cancelTestApp) ReleaseServices() *release.Services { return nil }
-func (c cancelTestApp) HasReleaseServices() bool           { return false }
+func (c cancelTestApp) Close() error                                      { return nil }
+func (c cancelTestApp) GitAdapter() sourcecontrol.GitRepository           { return c.gitRepo }
+func (c cancelTestApp) ReleaseRepository() release.Repository             { return c.releaseRepo }
+func (c cancelTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
+func (c cancelTestApp) CalculateVersion() calculateVersionUseCase         { return nil }
+func (c cancelTestApp) SetVersion() setVersionUseCase                     { return nil }
+func (c cancelTestApp) HasAI() bool                                       { return false }
+func (c cancelTestApp) AI() ai.Service                                    { return nil }
+func (c cancelTestApp) HasGovernance() bool                               { return false }
+func (c cancelTestApp) GovernanceService() *governance.Service            { return nil }
+func (c cancelTestApp) InitReleaseServices(context.Context, string) error { return nil }
+func (c cancelTestApp) ReleaseServices() *release.Services                { return nil }
+func (c cancelTestApp) HasReleaseServices() bool                          { return false }
 
 // cancelTestGitRepo is a mock git repository for cancel tests.
 type cancelTestGitRepo struct{}

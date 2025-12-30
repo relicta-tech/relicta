@@ -295,23 +295,20 @@ func TestApp_Accessors_BeforeInitialize(t *testing.T) {
 	}
 
 	// Use cases should return nil before initialization
-	if c.PlanRelease() != nil {
-		t.Error("PlanRelease should return nil before Initialize")
-	}
-	if c.GenerateNotes() != nil {
-		t.Error("GenerateNotes should return nil before Initialize")
-	}
-	if c.ApproveRelease() != nil {
-		t.Error("ApproveRelease should return nil before Initialize")
-	}
-	if c.PublishRelease() != nil {
-		t.Error("PublishRelease should return nil before Initialize")
+	if c.ReleaseAnalyzer() != nil {
+		t.Error("ReleaseAnalyzer should return nil before Initialize")
 	}
 	if c.CalculateVersion() != nil {
 		t.Error("CalculateVersion should return nil before Initialize")
 	}
 	if c.SetVersion() != nil {
 		t.Error("SetVersion should return nil before Initialize")
+	}
+	if c.ReleaseServices() != nil {
+		t.Error("ReleaseServices should return nil before Initialize")
+	}
+	if c.HasReleaseServices() {
+		t.Error("HasReleaseServices should return false before Initialize")
 	}
 	// Note: Some infrastructure accessors may return nil interfaces with non-nil underlying types
 	// GitAdapter, ReleaseRepository, EventPublisher are initialized in infrastructure init
@@ -359,12 +356,11 @@ func TestApp_Accessors_ConcurrentRead(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = c.PlanRelease()
-			_ = c.GenerateNotes()
-			_ = c.ApproveRelease()
-			_ = c.PublishRelease()
+			_ = c.ReleaseAnalyzer()
 			_ = c.CalculateVersion()
 			_ = c.SetVersion()
+			_ = c.ReleaseServices()
+			_ = c.HasReleaseServices()
 			_ = c.GitAdapter()
 			_ = c.ReleaseRepository()
 			_ = c.EventPublisher()
@@ -433,17 +429,8 @@ func TestApp_Initialize_Success(t *testing.T) {
 	}
 
 	// Verify application layer components are initialized
-	if c.PlanRelease() == nil {
-		t.Error("PlanRelease should be initialized")
-	}
-	if c.GenerateNotes() == nil {
-		t.Error("GenerateNotes should be initialized")
-	}
-	if c.ApproveRelease() == nil {
-		t.Error("ApproveRelease should be initialized")
-	}
-	if c.PublishRelease() == nil {
-		t.Error("PublishRelease should be initialized")
+	if c.ReleaseAnalyzer() == nil {
+		t.Error("ReleaseAnalyzer should be initialized")
 	}
 	if c.CalculateVersion() == nil {
 		t.Error("CalculateVersion should be initialized")
@@ -451,6 +438,7 @@ func TestApp_Initialize_Success(t *testing.T) {
 	if c.SetVersion() == nil {
 		t.Error("SetVersion should be initialized")
 	}
+	// Note: ReleaseServices requires InitReleaseServices() to be called with a repo path
 
 	// Verify service layer
 	if c.Git() == nil {
@@ -768,8 +756,8 @@ func TestNewInitialized_Success(t *testing.T) {
 	}
 
 	// Verify container is initialized
-	if c.PlanRelease() == nil {
-		t.Error("PlanRelease should be initialized")
+	if c.ReleaseAnalyzer() == nil {
+		t.Error("ReleaseAnalyzer should be initialized")
 	}
 
 	if err := c.Close(); err != nil {

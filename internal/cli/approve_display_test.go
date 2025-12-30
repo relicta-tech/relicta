@@ -39,7 +39,7 @@ func TestDisplayReleaseSummaryEmitsSections(t *testing.T) {
 		{Name: "github", Enabled: boolPtrForDisplay(true)},
 	}
 
-	rel := newTestRelease(t, "display-summary")
+	rel := newNotesReadyRelease(t, "display-summary")
 	out := captureOutputForApproveDisplay(t, func() {
 		displayReleaseSummary(rel)
 	})

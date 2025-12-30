@@ -57,7 +57,7 @@ func TestHandleChangelogUpdateWritesNotes(t *testing.T) {
 	dir := t.TempDir()
 	cfg.Changelog.File = filepath.Join(dir, "CHANGELOG.md")
 
-	rel := newTestRelease(t, "changelog-updates")
+	rel := newNotesReadyRelease(t, "changelog-updates")
 	handleChangelogUpdate(rel)
 
 	data, err := os.ReadFile(cfg.Changelog.File)

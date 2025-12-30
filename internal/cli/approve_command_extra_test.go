@@ -70,7 +70,7 @@ func TestRunApproveOutputsJSONWithStub(t *testing.T) {
 	cfg = config.DefaultConfig()
 	outputJSON = true
 
-	rel := newTestRelease(t, "approve-json")
+	rel := newNotesReadyRelease(t, "approve-json")
 	app := testCLIApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -120,7 +120,7 @@ func TestRunApproveDryRunAutoApprove(t *testing.T) {
 	dryRun = true
 	ciMode = false
 
-	rel := newTestRelease(t, "approve-dry")
+	rel := newNotesReadyRelease(t, "approve-dry")
 	app := testCLIApp{
 		gitRepo:     stubGitRepo{},
 		releaseRepo: testReleaseRepo{latest: rel},
@@ -146,43 +146,6 @@ func TestHandleEditApprovalResultNoNotes(t *testing.T) {
 	}
 }
 
-func TestRunApproveExecutesApprovalViaCommand(t *testing.T) {
-	origCfg := cfg
-	origOutput := outputJSON
-	origApproveYes := approveYes
-	origDryRun := dryRun
-	defer func() {
-		cfg = origCfg
-		outputJSON = origOutput
-		approveYes = origApproveYes
-		dryRun = origDryRun
-	}()
-
-	cfg = config.DefaultConfig()
-	outputJSON = false
-	approveYes = true
-	dryRun = false
-
-	rel := newTestRelease(t, "approve-exec")
-	fakeApprove := &fakeApproveReleaseUseCase{}
-	app := commandTestApp{
-		gitRepo:     stubGitRepo{},
-		releaseRepo: testReleaseRepo{latest: rel},
-		approve:     fakeApprove,
-	}
-	withStubContainerApp(t, app)
-
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-
-	if err := runApprove(cmd, nil); err != nil {
-		t.Fatalf("runApprove error: %v", err)
-	}
-	if !fakeApprove.executeCalled {
-		t.Fatal("expected approval use case to execute")
-	}
-}
-
 func TestHandleEditApprovalResultInvalidEditor(t *testing.T) {
 	origEditor := approveEditor
 	origCfg := cfg
@@ -193,48 +156,9 @@ func TestHandleEditApprovalResultInvalidEditor(t *testing.T) {
 
 	approveEditor = "not-allowed"
 	cfg = config.DefaultConfig()
-	rel := newTestRelease(t, "edit-notes")
+	rel := newNotesReadyRelease(t, "edit-notes")
 
 	if _, _, err := handleEditApprovalResult(rel); err == nil {
 		t.Fatal("expected error from invalid editor")
-	}
-}
-
-func TestRunApproveWithGovernanceAutoApprove(t *testing.T) {
-	origCfg := cfg
-	origOutput := outputJSON
-	origApproveYes := approveYes
-	origDryRun := dryRun
-	defer func() {
-		cfg = origCfg
-		outputJSON = origOutput
-		approveYes = origApproveYes
-		dryRun = origDryRun
-	}()
-
-	cfg = config.DefaultConfig()
-	outputJSON = false
-	approveYes = true
-	dryRun = false
-
-	rel := newTestRelease(t, "approve-gov")
-	fakeApprove := &fakeApproveReleaseUseCase{}
-	app := commandTestApp{
-		gitRepo:     stubGitRepo{},
-		releaseRepo: testReleaseRepo{latest: rel},
-		approve:     fakeApprove,
-		hasGov:      true,
-		govSvc:      newGovernanceService(t),
-	}
-	withStubContainerApp(t, app)
-
-	cmd := &cobra.Command{}
-	cmd.SetContext(context.Background())
-
-	if err := runApprove(cmd, nil); err != nil {
-		t.Fatalf("runApprove error: %v", err)
-	}
-	if !fakeApprove.executeCalled {
-		t.Fatal("expected approval use case to execute")
 	}
 }

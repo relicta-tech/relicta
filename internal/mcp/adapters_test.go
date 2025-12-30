@@ -29,11 +29,11 @@ func TestNewAdapter(t *testing.T) {
 }
 
 func TestAdapterOptions(t *testing.T) {
-	t.Run("WithPlanUseCase sets plan use case", func(t *testing.T) {
-		// We can't easily create a real PlanReleaseUseCase without dependencies,
-		// but we can test that nil is handled gracefully
-		adapter := NewAdapter(WithPlanUseCase(nil))
-		assert.False(t, adapter.HasPlanUseCase())
+	t.Run("WithReleaseAnalyzer sets release analyzer", func(t *testing.T) {
+		// Test that nil is handled gracefully
+		adapter := NewAdapter(WithReleaseAnalyzer(nil))
+		assert.False(t, adapter.HasReleaseAnalyzer())
+		assert.False(t, adapter.HasPlanUseCase()) // deprecated compatibility
 	})
 
 	t.Run("WithCalculateVersionUseCase sets calculate version use case", func(t *testing.T) {
@@ -47,19 +47,10 @@ func TestAdapterOptions(t *testing.T) {
 		assert.NotNil(t, adapter)
 	})
 
-	t.Run("WithGenerateNotesUseCase sets generate notes use case", func(t *testing.T) {
-		adapter := NewAdapter(WithGenerateNotesUseCase(nil))
-		assert.False(t, adapter.HasGenerateNotesUseCase())
-	})
-
-	t.Run("WithApproveUseCase sets approve use case", func(t *testing.T) {
-		adapter := NewAdapter(WithApproveUseCase(nil))
-		assert.False(t, adapter.HasApproveUseCase())
-	})
-
-	t.Run("WithPublishUseCase sets publish use case", func(t *testing.T) {
-		adapter := NewAdapter(WithPublishUseCase(nil))
-		assert.False(t, adapter.HasPublishUseCase())
+	t.Run("WithReleaseServices sets release services", func(t *testing.T) {
+		adapter := NewAdapter(WithReleaseServices(nil))
+		assert.False(t, adapter.HasReleaseServices())
+		assert.False(t, adapter.HasGenerateNotesUseCase()) // deprecated compatibility
 	})
 
 	t.Run("WithGovernanceService sets governance service", func(t *testing.T) {
@@ -70,6 +61,8 @@ func TestAdapterOptions(t *testing.T) {
 	t.Run("WithAdapterReleaseRepository sets release repository", func(t *testing.T) {
 		adapter := NewAdapter(WithAdapterReleaseRepository(nil))
 		assert.False(t, adapter.HasReleaseRepository())
+		assert.False(t, adapter.HasApproveUseCase()) // deprecated compatibility
+		assert.False(t, adapter.HasPublishUseCase()) // deprecated compatibility
 	})
 }
 
@@ -84,7 +77,7 @@ func TestAdapterPlanWithoutUseCase(t *testing.T) {
 	output, err := adapter.Plan(ctx, input)
 	require.Error(t, err)
 	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "plan use case not configured")
+	assert.Contains(t, err.Error(), "release analyzer not configured")
 }
 
 func TestAdapterBumpWithoutUseCase(t *testing.T) {
@@ -129,7 +122,7 @@ func TestAdapterNotesWithoutUseCase(t *testing.T) {
 	output, err := adapter.Notes(ctx, input)
 	require.Error(t, err)
 	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "generate notes use case not configured")
+	assert.Contains(t, err.Error(), "release services not configured")
 }
 
 func TestAdapterEvaluateWithoutGovernance(t *testing.T) {
@@ -175,7 +168,7 @@ func TestAdapterApproveWithoutUseCase(t *testing.T) {
 	output, err := adapter.Approve(ctx, input)
 	require.Error(t, err)
 	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "approve use case not configured")
+	assert.Contains(t, err.Error(), "release repository not configured")
 }
 
 func TestAdapterPublishWithoutUseCase(t *testing.T) {
@@ -189,7 +182,7 @@ func TestAdapterPublishWithoutUseCase(t *testing.T) {
 	output, err := adapter.Publish(ctx, input)
 	require.Error(t, err)
 	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "publish use case not configured")
+	assert.Contains(t, err.Error(), "release repository not configured")
 }
 
 func TestAdapterGetStatusWithoutRepo(t *testing.T) {
@@ -529,23 +522,18 @@ func TestAdapterGetStatusWithActiveRelease(t *testing.T) {
 func TestAdapterWithNilUseCases(t *testing.T) {
 	// Explicitly pass nil values - should be handled gracefully
 	adapter := NewAdapter(
-		WithPlanUseCase(nil),
+		WithReleaseAnalyzer(nil),
 		WithCalculateVersionUseCase(nil),
 		WithSetVersionUseCase(nil),
-		WithGenerateNotesUseCase(nil),
-		WithApproveUseCase(nil),
-		WithGetForApprovalUseCase(nil),
-		WithPublishUseCase(nil),
+		WithReleaseServices(nil),
 		WithGovernanceService(nil),
 		WithAdapterReleaseRepository(nil),
 	)
 
 	assert.NotNil(t, adapter)
-	assert.False(t, adapter.HasPlanUseCase())
+	assert.False(t, adapter.HasReleaseAnalyzer())
 	assert.False(t, adapter.HasCalculateVersionUseCase())
-	assert.False(t, adapter.HasGenerateNotesUseCase())
-	assert.False(t, adapter.HasApproveUseCase())
-	assert.False(t, adapter.HasPublishUseCase())
+	assert.False(t, adapter.HasReleaseServices())
 	assert.False(t, adapter.HasGovernanceService())
 	assert.False(t, adapter.HasReleaseRepository())
 }
@@ -766,11 +754,12 @@ func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
 	assert.NotNil(t, output.ApprovalMsg)
 }
 
-// Test GetForApprovalUseCase option
-func TestAdapterWithGetForApprovalUseCase(t *testing.T) {
+// Test ReleaseRepository option
+func TestAdapterWithReleaseRepository(t *testing.T) {
 	// Test that the option works even with nil
-	adapter := NewAdapter(WithGetForApprovalUseCase(nil))
+	adapter := NewAdapter(WithAdapterReleaseRepository(nil))
 	assert.NotNil(t, adapter)
+	assert.False(t, adapter.HasReleaseRepository())
 }
 
 // Test Evaluate with governance service but no release repository

@@ -114,13 +114,13 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 	return server.ServeStdio()
 }
 
-// createMCPAdapter creates an MCP adapter wired to the container's use cases.
+// createMCPAdapter creates an MCP adapter wired to the container's services.
 func createMCPAdapter(app *container.App) *mcp.Adapter {
 	opts := []mcp.AdapterOption{}
 
-	// Wire plan use case
-	if uc := app.PlanRelease(); uc != nil {
-		opts = append(opts, mcp.WithPlanUseCase(uc))
+	// Wire release analyzer for planning
+	if analyzer := app.ReleaseAnalyzer(); analyzer != nil {
+		opts = append(opts, mcp.WithReleaseAnalyzer(analyzer))
 	}
 
 	// Wire calculate version use case
@@ -133,19 +133,9 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 		opts = append(opts, mcp.WithSetVersionUseCase(uc))
 	}
 
-	// Wire generate notes use case
-	if uc := app.GenerateNotes(); uc != nil {
-		opts = append(opts, mcp.WithGenerateNotesUseCase(uc))
-	}
-
-	// Wire approve use case
-	if uc := app.ApproveRelease(); uc != nil {
-		opts = append(opts, mcp.WithApproveUseCase(uc))
-	}
-
-	// Wire publish use case
-	if uc := app.PublishRelease(); uc != nil {
-		opts = append(opts, mcp.WithPublishUseCase(uc))
+	// Wire DDD release services for notes/approve/publish
+	if app.HasReleaseServices() {
+		opts = append(opts, mcp.WithReleaseServices(app.ReleaseServices()))
 	}
 
 	// Wire governance service
