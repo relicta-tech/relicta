@@ -52,6 +52,13 @@ AGENTS.md
 # Build output
 dist/
 
+# Embedded frontend (copied during build)
+cmd/relicta/frontend/
+
+# Frontend build output
+web/dist/
+web/node_modules/
+
 # Debug files
 debug
 *.log

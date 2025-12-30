@@ -29,6 +29,8 @@ type Config struct {
 	Webhooks []WebhookConfig `mapstructure:"webhooks" json:"webhooks,omitempty"`
 	// Monorepo configures multi-package/monorepo versioning support.
 	Monorepo MonorepoConfig `mapstructure:"monorepo" json:"monorepo,omitempty"`
+	// Dashboard configures the self-hosted web dashboard.
+	Dashboard DashboardConfig `mapstructure:"dashboard" json:"dashboard,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -494,6 +496,19 @@ func DefaultConfig() *Config {
 				IncludePackageLinks: true,
 			},
 		},
+		Dashboard: DashboardConfig{
+			Enabled:      false, // Disabled by default, opt-in for dashboard
+			Address:      ":8080",
+			CORSOrigins:  []string{}, // Same-origin only by default
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+			IdleTimeout:  60 * time.Second,
+			Auth: DashboardAuthConfig{
+				Mode:          DashboardAuthAPIKey, // Require API key by default for security
+				APIKeys:       []DashboardAPIKeyConfig{},
+				SessionMaxAge: 24 * time.Hour,
+			},
+		},
 	}
 }
 
@@ -876,6 +891,78 @@ func (w *WebhookConfig) IsWebhookEnabled() bool {
 	}
 	return *w.Enabled
 }
+
+// DashboardConfig configures the self-hosted web dashboard.
+// The dashboard provides a web UI for release governance visibility,
+// embedded in the relicta binary via go:embed for single-binary distribution.
+type DashboardConfig struct {
+	// Enabled indicates whether the dashboard server is enabled.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// Address is the HTTP server address (default: ":8080").
+	// Format: "host:port" or ":port" for all interfaces.
+	Address string `mapstructure:"address" json:"address"`
+	// Auth configures authentication for the dashboard.
+	Auth DashboardAuthConfig `mapstructure:"auth" json:"auth"`
+	// CORSOrigins is a list of allowed CORS origins (default: same-origin only).
+	// Use "*" for development to allow all origins.
+	CORSOrigins []string `mapstructure:"cors_origins" json:"cors_origins,omitempty"`
+	// ReadTimeout is the HTTP read timeout (default: 15s).
+	ReadTimeout time.Duration `mapstructure:"read_timeout" json:"read_timeout,omitempty"`
+	// WriteTimeout is the HTTP write timeout (default: 15s).
+	WriteTimeout time.Duration `mapstructure:"write_timeout" json:"write_timeout,omitempty"`
+	// IdleTimeout is the HTTP idle timeout (default: 60s).
+	IdleTimeout time.Duration `mapstructure:"idle_timeout" json:"idle_timeout,omitempty"`
+}
+
+// DashboardAuthMode defines the authentication mode for the dashboard.
+type DashboardAuthMode string
+
+const (
+	// DashboardAuthNone disables authentication (not recommended for production).
+	DashboardAuthNone DashboardAuthMode = "none"
+	// DashboardAuthAPIKey requires API key authentication via header or query param.
+	DashboardAuthAPIKey DashboardAuthMode = "api_key"
+	// DashboardAuthSession enables session-based authentication with login.
+	DashboardAuthSession DashboardAuthMode = "session"
+)
+
+// DashboardAuthConfig configures authentication for the dashboard.
+type DashboardAuthConfig struct {
+	// Mode is the authentication mode (none, api_key, session).
+	// Default: "api_key" for security.
+	Mode DashboardAuthMode `mapstructure:"mode" json:"mode"`
+	// APIKeys is a list of API keys for api_key mode.
+	APIKeys []DashboardAPIKeyConfig `mapstructure:"api_keys" json:"api_keys,omitempty"`
+	// SessionSecret is the secret for signing session tokens (required for session mode).
+	// Should be a random 32+ character string, can use environment variable expansion.
+	SessionSecret string `mapstructure:"session_secret" json:"session_secret,omitempty"`
+	// SessionMaxAge is the maximum session age (default: 24h).
+	SessionMaxAge time.Duration `mapstructure:"session_max_age" json:"session_max_age,omitempty"`
+}
+
+// DashboardAPIKeyConfig configures a single API key for dashboard access.
+type DashboardAPIKeyConfig struct {
+	// Key is the API key value (can use environment variable expansion).
+	// Should be a secure random string (32+ characters recommended).
+	Key string `mapstructure:"key" json:"key"`
+	// Name is a friendly name for this key (for audit logging).
+	Name string `mapstructure:"name" json:"name"`
+	// Roles is a list of roles this key grants (admin, viewer).
+	// Default: ["viewer"] if empty.
+	Roles []string `mapstructure:"roles" json:"roles,omitempty"`
+}
+
+// DashboardRole defines the role for dashboard access.
+type DashboardRole string
+
+const (
+	// DashboardRoleAdmin has full access to all dashboard features.
+	DashboardRoleAdmin DashboardRole = "admin"
+	// DashboardRoleViewer has read-only access to dashboard data.
+	DashboardRoleViewer DashboardRole = "viewer"
+	// DashboardRoleApprover can approve/reject releases in addition to viewer access.
+	DashboardRoleApprover DashboardRole = "approver"
+)
 
 // ConfigFileNames to search for.
 // Only .relicta.{yaml,yml,json,toml} is supported for consistency

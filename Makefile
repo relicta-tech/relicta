@@ -39,7 +39,8 @@ endef
 .PHONY: all build install clean clean-dist test test-race test-coverage coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick help release-build release-binaries release-plugins \
-        release-archives release-checksums release-snapshot check install-hooks
+        release-archives release-checksums release-snapshot check install-hooks \
+        frontend frontend-deps build-with-frontend clean-frontend
 
 # Default target
 all: lint test build
@@ -76,6 +77,39 @@ build-windows:
 install:
 	@echo "Installing $(BINARY_NAME)..."
 	$(GOBUILD) $(LDFLAGS) -o $(GOPATH)/bin/$(BINARY_NAME) ./$(CMD_DIR)
+
+## Frontend targets
+
+# Frontend directories
+WEB_DIR := web
+FRONTEND_DEST := $(CMD_DIR)/frontend
+
+# Install frontend dependencies
+frontend-deps:
+	@echo "Installing frontend dependencies..."
+	cd $(WEB_DIR) && npm ci
+
+# Build frontend
+frontend: frontend-deps
+	@echo "Building frontend..."
+	cd $(WEB_DIR) && npm run build
+	@echo "Copying frontend to $(FRONTEND_DEST)..."
+	rm -rf $(FRONTEND_DEST)
+	mkdir -p $(FRONTEND_DEST)
+	cp -r $(WEB_DIR)/dist/* $(FRONTEND_DEST)/
+	@echo "✓ Frontend built and copied to $(FRONTEND_DEST)"
+
+# Build binary with embedded frontend
+build-with-frontend: frontend
+	@echo "Building $(BINARY_NAME) with embedded frontend..."
+	@mkdir -p $(BIN_DIR)
+	$(GOBUILD) $(LDFLAGS) -tags embed_frontend -o $(BIN_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
+	@echo "✓ Built $(BIN_DIR)/$(BINARY_NAME) with embedded frontend"
+
+# Clean frontend artifacts
+clean-frontend:
+	@echo "Cleaning frontend artifacts..."
+	rm -rf $(WEB_DIR)/dist $(WEB_DIR)/node_modules $(FRONTEND_DEST)
 
 ## Test targets
 
@@ -287,10 +321,16 @@ help:
 	@echo "Relicta Build Commands"
 	@echo ""
 	@echo "Build:"
-	@echo "  make build          Build the binary"
-	@echo "  make build-all      Build for all platforms"
-	@echo "  make install        Install to GOPATH/bin"
-	@echo "  make plugins        Build all plugins"
+	@echo "  make build               Build the binary (API-only)"
+	@echo "  make build-with-frontend Build with embedded Vue frontend"
+	@echo "  make build-all           Build for all platforms"
+	@echo "  make install             Install to GOPATH/bin"
+	@echo "  make plugins             Build all plugins"
+	@echo ""
+	@echo "Frontend:"
+	@echo "  make frontend            Build the Vue frontend"
+	@echo "  make frontend-deps       Install frontend dependencies"
+	@echo "  make clean-frontend      Clean frontend artifacts"
 	@echo ""
 	@echo "Release Build (replaces GoReleaser):"
 	@echo "  make release-build     Full release build (binaries + plugins + archives + checksums)"

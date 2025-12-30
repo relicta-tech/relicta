@@ -507,6 +507,16 @@ func (c *App) EventPublisher() domainrelease.EventPublisher {
 	return c.eventPublisher
 }
 
+// SubscribeToEvents subscribes a handler function to receive domain events.
+// The handler will be called for each event published through the base event publisher.
+func (c *App) SubscribeToEvents(handler func(domainrelease.DomainEvent)) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.baseEventPublisher != nil {
+		c.baseEventPublisher.Subscribe(handler)
+	}
+}
+
 // UnitOfWork returns a new UnitOfWork for transactional operations.
 // It returns an error if the UnitOfWork could not be initialized.
 func (c *App) UnitOfWork() (domainrelease.UnitOfWork, error) {
