@@ -111,3 +111,15 @@ plugins:
       create_release: true
       update_issues: true
   {{- end }}
+
+# Change Governance Protocol (CGP)
+# Recommended for production API services
+governance:
+  enabled: true
+  strict_mode: false          # Start in advisory mode
+  auto_approve_threshold: 0.2 # Auto-approve only very low risk changes
+  max_auto_approve_risk: 0.4  # Require review for moderate risk
+  require_human_for_breaking: true  # API breaking changes need review
+  require_human_for_security: true  # Security changes always need review
+  policy_dir: ".relicta/policies"
+  # Copy starter policy: cp examples/policies/enterprise.policy .relicta/policies/

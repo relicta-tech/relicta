@@ -107,3 +107,14 @@ plugins:
         - "{{ `{{ .Version }}` }}"
         - "{{ `{{ .Major }}.{{ .Minor }}` }}"
   {{- end }}
+
+# Change Governance Protocol (CGP)
+# Uncomment to enable release governance
+# Recommended if using AI coding assistants (Claude, GPT, Copilot)
+# governance:
+#   enabled: true
+#   strict_mode: false
+#   auto_approve_threshold: 0.3
+#   require_human_for_breaking: true
+#   policy_dir: ".relicta/policies"
+#   # For AI-assisted development: cp examples/policies/agent-aware.policy .relicta/policies/

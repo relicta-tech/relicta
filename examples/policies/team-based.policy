@@ -1,0 +1,109 @@
+# Team-Based Policy
+# Governance rules based on team ownership and responsibilities
+# Requires team context support in CGP evaluator
+
+# External contributors need review
+rule "external-contributor" {
+  priority = 90
+  description = "External contributors require maintainer review"
+
+  when {
+    actor.team == "external" OR NOT actor.is_member
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "maintainers")
+    add_rationale(message: "External contribution requires maintainer approval")
+  }
+}
+
+# Junior developers need mentor review
+rule "junior-mentor-review" {
+  priority = 70
+  description = "Junior developers benefit from mentor review"
+
+  when {
+    actor.level == "junior"
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "mentors")
+    add_rationale(message: "Junior developer release - mentor review recommended")
+  }
+}
+
+# Platform team owns infrastructure
+rule "platform-ownership" {
+  priority = 80
+  description = "Infrastructure changes need platform team review"
+
+  when {
+    change.files contains "infrastructure/" OR
+    change.files contains "terraform/" OR
+    change.files contains "kubernetes/"
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "platform")
+    add_rationale(message: "Infrastructure change requires platform team review")
+  }
+}
+
+# Frontend team owns UI components
+rule "frontend-ownership" {
+  priority = 75
+  description = "UI changes should be reviewed by frontend team"
+
+  when {
+    change.files contains "components/" OR
+    change.files contains "ui/" OR
+    change.files contains ".css" OR
+    change.files contains ".tsx"
+  }
+
+  then {
+    add_reviewer(team: "frontend")
+    add_rationale(message: "Frontend changes detected")
+  }
+}
+
+# Backend team owns API and services
+rule "backend-ownership" {
+  priority = 75
+  description = "API changes should be reviewed by backend team"
+
+  when {
+    change.files contains "api/" OR
+    change.files contains "services/" OR
+    change.files contains "handlers/"
+  }
+
+  then {
+    add_reviewer(team: "backend")
+    add_rationale(message: "Backend changes detected")
+  }
+}
+
+# Cross-team changes need coordination
+rule "cross-team-coordination" {
+  priority = 85
+  description = "Changes spanning multiple domains need lead review"
+
+  when {
+    change.scope_count > 2
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "leads")
+    add_rationale(message: "Cross-domain change requires coordination")
+  }
+}
+
+defaults {
+  decision = "approve"
+  required_approvers = 0
+}

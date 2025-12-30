@@ -21,3 +21,13 @@ ai:
   model: "{{ .AIModel }}"
   {{- end }}
 {{- end }}
+
+# Change Governance Protocol (CGP)
+# Uncomment to enable policy-based release governance
+# governance:
+#   enabled: true
+#   strict_mode: false          # Advisory mode (logs warnings but doesn't block)
+#   auto_approve_threshold: 0.3 # Auto-approve risk < 30%
+#   require_human_for_breaking: true
+#   require_human_for_security: true
+#   policy_dir: ".relicta/policies"
