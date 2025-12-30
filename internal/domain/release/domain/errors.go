@@ -61,7 +61,6 @@ var (
 // It includes actionable guidance to help users understand what to do next.
 type StateTransitionError struct {
 	CurrentState RunState
-	TargetState  RunState
 	Action       string
 }
 

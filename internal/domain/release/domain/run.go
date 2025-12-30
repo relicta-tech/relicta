@@ -1492,69 +1492,77 @@ func conditionalMessage(condition bool, msg string) string {
 	return ""
 }
 
+// RunSnapshot contains all the data needed to reconstruct a ReleaseRun from storage.
+// This struct is used by repository implementations to hydrate aggregates.
+type RunSnapshot struct {
+	ID              RunID
+	PlanHash        string
+	RepoID          string
+	RepoRoot        string
+	BaseRef         string
+	HeadSHA         CommitSHA
+	Commits         []CommitSHA
+	ConfigHash      string
+	PluginPlanHash  string
+	VersionCurrent  version.SemanticVersion
+	VersionNext     version.SemanticVersion
+	BumpKind        BumpKind
+	Confidence      float64
+	RiskScore       float64
+	Reasons         []string
+	ActorType       ActorType
+	ActorID         string
+	Thresholds      PolicyThresholds
+	TagName         string
+	Notes           *ReleaseNotes
+	NotesInputsHash string
+	Approval        *Approval
+	Steps           []StepPlan
+	StepStatus      map[string]*StepStatus
+	State           RunState
+	History         []TransitionRecord
+	LastError       string
+	ChangesetID     string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	PublishedAt     *time.Time
+}
+
 // ReconstructState reconstructs the release run state from persisted data without
 // triggering domain events. This is used by repositories when loading aggregates.
 // It should only be called by repository implementations.
-func (r *ReleaseRun) ReconstructState(
-	id RunID,
-	planHash string,
-	repoID, repoRoot string,
-	baseRef string,
-	headSHA CommitSHA,
-	commits []CommitSHA,
-	configHash, pluginPlanHash string,
-	versionCurrent, versionNext version.SemanticVersion,
-	bumpKind BumpKind,
-	confidence float64,
-	riskScore float64,
-	reasons []string,
-	actorType ActorType,
-	actorID string,
-	thresholds PolicyThresholds,
-	tagName string,
-	notes *ReleaseNotes,
-	notesInputsHash string,
-	approval *Approval,
-	steps []StepPlan,
-	stepStatus map[string]*StepStatus,
-	state RunState,
-	history []TransitionRecord,
-	lastError string,
-	changesetID string,
-	createdAt, updatedAt time.Time,
-	publishedAt *time.Time,
-) {
-	r.id = id
-	r.planHash = planHash
-	r.repoID = repoID
-	r.repoRoot = repoRoot
-	r.baseRef = baseRef
-	r.headSHA = headSHA
-	r.commits = commits
-	r.configHash = configHash
-	r.pluginPlanHash = pluginPlanHash
-	r.versionCurrent = versionCurrent
-	r.versionNext = versionNext
-	r.bumpKind = bumpKind
-	r.confidence = confidence
-	r.riskScore = riskScore
-	r.reasons = reasons
-	r.actorType = actorType
-	r.actorID = actorID
-	r.thresholds = thresholds
-	r.tagName = tagName
-	r.notes = notes
-	r.notesInputsHash = notesInputsHash
-	r.approval = approval
-	r.steps = steps
-	r.stepStatus = stepStatus
-	r.state = state
-	r.history = history
-	r.lastError = lastError
-	r.changesetID = changesetID
-	r.createdAt = createdAt
-	r.updatedAt = updatedAt
-	r.publishedAt = publishedAt
+func (r *ReleaseRun) ReconstructState(snapshot RunSnapshot) {
+	r.id = snapshot.ID
+	r.planHash = snapshot.PlanHash
+	r.repoID = snapshot.RepoID
+	r.repoRoot = snapshot.RepoRoot
+	r.baseRef = snapshot.BaseRef
+	r.headSHA = snapshot.HeadSHA
+	r.commits = snapshot.Commits
+	r.configHash = snapshot.ConfigHash
+	r.pluginPlanHash = snapshot.PluginPlanHash
+	r.versionCurrent = snapshot.VersionCurrent
+	r.versionNext = snapshot.VersionNext
+	r.bumpKind = snapshot.BumpKind
+	r.confidence = snapshot.Confidence
+	r.riskScore = snapshot.RiskScore
+	r.reasons = snapshot.Reasons
+	r.actorType = snapshot.ActorType
+	r.actorID = snapshot.ActorID
+	r.thresholds = snapshot.Thresholds
+	r.tagName = snapshot.TagName
+	r.notes = snapshot.Notes
+	r.notesInputsHash = snapshot.NotesInputsHash
+	r.approval = snapshot.Approval
+	r.steps = snapshot.Steps
+	r.stepStatus = snapshot.StepStatus
+	r.state = snapshot.State
+	r.history = snapshot.History
+	r.lastError = snapshot.LastError
+	r.changesetID = snapshot.ChangesetID
+	r.createdAt = snapshot.CreatedAt
+	r.updatedAt = snapshot.UpdatedAt
+	r.publishedAt = snapshot.PublishedAt
 	// Clear domain events - we're reconstructing, not creating
 	r.domainEvents = make([]DomainEvent, 0, 5)
 }

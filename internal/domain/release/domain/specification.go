@@ -157,9 +157,9 @@ func ReadyForPublish() *ReadyForPublishSpecification {
 // IsSatisfiedBy returns true if the run can proceed to publish.
 func (s *ReadyForPublishSpecification) IsSatisfiedBy(r *ReleaseRun) bool {
 	return r.State() == StateApproved &&
-		r.versionNext.String() != "" &&
-		r.versionNext.String() != "0.0.0" &&
-		r.notes != nil
+		r.VersionNext().String() != "" &&
+		r.VersionNext().String() != "0.0.0" &&
+		r.Notes() != nil
 }
 
 // HasNotesSpecification matches runs that have notes generated.
@@ -294,7 +294,7 @@ func HasFailedSteps() *HasFailedStepsSpecification {
 
 // IsSatisfiedBy returns true if the run has any failed steps.
 func (s *HasFailedStepsSpecification) IsSatisfiedBy(r *ReleaseRun) bool {
-	for _, status := range r.stepStatus {
+	for _, status := range r.AllStepStatuses() {
 		if status.State == StepFailed {
 			return true
 		}

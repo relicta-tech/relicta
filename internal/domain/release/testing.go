@@ -22,39 +22,39 @@ func NewReleaseRunForTest(id RunID, branch, repoPath string) *ReleaseRun {
 	)
 
 	// Override the auto-generated ID with the provided ID
-	run.ReconstructState(
-		domain.RunID(id),                    // use provided id
-		"",                                  // planHash
-		repoPath,                            // repoID
-		repoPath,                            // repoRoot
-		branch,                              // baseRef
-		"",                                  // headSHA
-		nil,                                 // commits
-		"",                                  // configHash
-		"",                                  // pluginPlanHash
-		version.SemanticVersion{},           // versionCurrent
-		version.SemanticVersion{},           // versionNext
-		domain.BumpNone,                     // bumpKind
-		0.0,                                 // confidence
-		0.0,                                 // riskScore
-		nil,                                 // reasons
-		domain.ActorHuman,                   // actorType
-		"",                                  // actorID
-		domain.PolicyThresholds{},           // thresholds
-		"",                                  // tagName
-		nil,                                 // notes
-		"",                                  // notesInputsHash
-		nil,                                 // approval
-		nil,                                 // steps
-		make(map[string]*domain.StepStatus), // stepStatus
-		domain.StateDraft,                   // state
-		nil,                                 // history
-		"",                                  // lastError
-		"",                                  // changesetID
-		run.CreatedAt(),                     // createdAt
-		run.UpdatedAt(),                     // updatedAt
-		nil,                                 // publishedAt
-	)
+	run.ReconstructState(domain.RunSnapshot{
+		ID:              domain.RunID(id),
+		PlanHash:        "",
+		RepoID:          repoPath,
+		RepoRoot:        repoPath,
+		BaseRef:         branch,
+		HeadSHA:         "",
+		Commits:         nil,
+		ConfigHash:      "",
+		PluginPlanHash:  "",
+		VersionCurrent:  version.SemanticVersion{},
+		VersionNext:     version.SemanticVersion{},
+		BumpKind:        domain.BumpNone,
+		Confidence:      0.0,
+		RiskScore:       0.0,
+		Reasons:         nil,
+		ActorType:       domain.ActorHuman,
+		ActorID:         "",
+		Thresholds:      domain.PolicyThresholds{},
+		TagName:         "",
+		Notes:           nil,
+		NotesInputsHash: "",
+		Approval:        nil,
+		Steps:           nil,
+		StepStatus:      make(map[string]*domain.StepStatus),
+		State:           domain.StateDraft,
+		History:         nil,
+		LastError:       "",
+		ChangesetID:     "",
+		CreatedAt:       run.CreatedAt(),
+		UpdatedAt:       run.UpdatedAt(),
+		PublishedAt:     nil,
+	})
 
 	// Emit creation event (ReconstructState clears events, so we emit after)
 	run.EmitCreatedEvent()

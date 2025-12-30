@@ -676,39 +676,39 @@ func (r *FileReleaseRepository) fromDTO(dto *releaseDTO) (*release.ReleaseRun, e
 	)
 
 	// Use ReconstructState to restore the aggregate without triggering events
-	rel.ReconstructState(
-		release.RunID(dto.ID),       // id
-		"",                          // planHash
-		dto.RepositoryPath,          // repoID
-		dto.RepositoryPath,          // repoRoot
-		dto.Branch,                  // baseRef
-		"",                          // headSHA
-		nil,                         // commits
-		"",                          // configHash
-		"",                          // pluginPlanHash
-		versionCurrent,              // versionCurrent
-		versionNext,                 // versionNext
-		bumpKind,                    // bumpKind
-		1.0,                         // confidence
-		0.0,                         // riskScore
-		nil,                         // reasons
-		release.ActorHuman,          // actorType
-		"",                          // actorID
-		release.PolicyThresholds{},  // thresholds
-		dto.TagName,                 // tagName
-		notes,                       // notes
-		"",                          // notesInputsHash
-		approval,                    // approval
-		nil,                         // steps
-		nil,                         // stepStatus
-		release.RunState(dto.State), // state
-		nil,                         // history
-		dto.LastError,               // lastError
-		"",                          // changesetID
-		createdAt,                   // createdAt
-		updatedAt,                   // updatedAt
-		publishedAt,                 // publishedAt
-	)
+	rel.ReconstructState(release.RunSnapshot{
+		ID:              release.RunID(dto.ID),
+		PlanHash:        "",
+		RepoID:          dto.RepositoryPath,
+		RepoRoot:        dto.RepositoryPath,
+		BaseRef:         dto.Branch,
+		HeadSHA:         "",
+		Commits:         nil,
+		ConfigHash:      "",
+		PluginPlanHash:  "",
+		VersionCurrent:  versionCurrent,
+		VersionNext:     versionNext,
+		BumpKind:        bumpKind,
+		Confidence:      1.0,
+		RiskScore:       0.0,
+		Reasons:         nil,
+		ActorType:       release.ActorHuman,
+		ActorID:         "",
+		Thresholds:      release.PolicyThresholds{},
+		TagName:         dto.TagName,
+		Notes:           notes,
+		NotesInputsHash: "",
+		Approval:        approval,
+		Steps:           nil,
+		StepStatus:      nil,
+		State:           release.RunState(dto.State),
+		History:         nil,
+		LastError:       dto.LastError,
+		ChangesetID:     "",
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		PublishedAt:     publishedAt,
+	})
 
 	// Store changeset in aggregate if available
 	if changeSet != nil {

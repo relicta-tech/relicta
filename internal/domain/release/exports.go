@@ -129,6 +129,9 @@ type (
 	// RunID uniquely identifies a release run.
 	RunID = domain.RunID
 
+	// RunSnapshot contains all data needed to reconstruct a ReleaseRun.
+	RunSnapshot = domain.RunSnapshot
+
 	// RunState represents the current state of a release run.
 	RunState = domain.RunState
 

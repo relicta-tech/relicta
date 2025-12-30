@@ -933,39 +933,39 @@ func TestReleaseRun_ValidateApprovalPlanHash(t *testing.T) {
 		originalApproval := run.Approval()
 
 		// Manually corrupt the plan hash to simulate tampering
-		run.ReconstructState(
-			run.ID(),
-			"tampered-plan-hash", // Different plan hash than what approval has
-			run.RepoID(),
-			run.RepoRoot(),
-			run.Branch(),
-			run.HeadSHA(),
-			nil,
-			"",
-			"",
-			run.VersionCurrent(),
-			run.VersionNext(),
-			run.BumpKind(),
-			0.95, // confidence
-			run.RiskScore(),
-			nil,
-			run.ActorType(),
-			run.ActorID(),
-			PolicyThresholds{}, // thresholds
-			run.TagName(),
-			run.Notes(),
-			"",
-			originalApproval, // Keep original approval with old plan hash
-			nil,
-			nil,
-			StateApproved,
-			nil,
-			"",
-			"",
-			run.CreatedAt(),
-			run.UpdatedAt(),
-			nil,
-		)
+		run.ReconstructState(RunSnapshot{
+			ID:              run.ID(),
+			PlanHash:        "tampered-plan-hash", // Different plan hash than what approval has
+			RepoID:          run.RepoID(),
+			RepoRoot:        run.RepoRoot(),
+			BaseRef:         run.Branch(),
+			HeadSHA:         run.HeadSHA(),
+			Commits:         nil,
+			ConfigHash:      "",
+			PluginPlanHash:  "",
+			VersionCurrent:  run.VersionCurrent(),
+			VersionNext:     run.VersionNext(),
+			BumpKind:        run.BumpKind(),
+			Confidence:      0.95,
+			RiskScore:       run.RiskScore(),
+			Reasons:         nil,
+			ActorType:       run.ActorType(),
+			ActorID:         run.ActorID(),
+			Thresholds:      PolicyThresholds{},
+			TagName:         run.TagName(),
+			Notes:           run.Notes(),
+			NotesInputsHash: "",
+			Approval:        originalApproval, // Keep original approval with old plan hash
+			Steps:           nil,
+			StepStatus:      nil,
+			State:           StateApproved,
+			History:         nil,
+			LastError:       "",
+			ChangesetID:     "",
+			CreatedAt:       run.CreatedAt(),
+			UpdatedAt:       run.UpdatedAt(),
+			PublishedAt:     nil,
+		})
 
 		err := run.ValidateApprovalPlanHash()
 		if err == nil {

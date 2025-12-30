@@ -178,13 +178,13 @@ func TestFileReleaseRunRepository_Load(t *testing.T) {
 	repo := NewFileReleaseRunRepository()
 	ctx := context.Background()
 
-	// Load without repo context should fail
+	// Load without any known repo roots should return ErrRunNotFound
 	_, err := repo.Load(ctx, "some-id")
 	if err == nil {
-		t.Error("Expected error from Load without repo context")
+		t.Error("Expected error from Load with unknown run ID")
 	}
-	if !strings.Contains(err.Error(), "requires repo root context") {
-		t.Errorf("Expected 'requires repo root context' error, got: %v", err)
+	if err != domain.ErrRunNotFound {
+		t.Errorf("Expected ErrRunNotFound, got: %v", err)
 	}
 }
 

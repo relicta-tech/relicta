@@ -28,12 +28,15 @@ const (
 
 // FileReleaseRunRepository implements ReleaseRunRepository using file-based storage.
 type FileReleaseRunRepository struct {
-	mu sync.RWMutex
+	mu        sync.RWMutex
+	repoRoots map[string]struct{} // Track known repository roots for Load() scanning
 }
 
 // NewFileReleaseRunRepository creates a new file-based repository.
 func NewFileReleaseRunRepository() *FileReleaseRunRepository {
-	return &FileReleaseRunRepository{}
+	return &FileReleaseRunRepository{
+		repoRoots: make(map[string]struct{}),
+	}
 }
 
 // Ensure FileReleaseRunRepository implements the interface.
@@ -165,6 +168,14 @@ type ApprovalDTO struct {
 	Justification string    `json:"justification,omitempty"`
 }
 
+// trackRepoRoot adds a repo root to the known set (must be called with lock held).
+func (r *FileReleaseRunRepository) trackRepoRoot(repoRoot string) {
+	if r.repoRoots == nil {
+		r.repoRoots = make(map[string]struct{})
+	}
+	r.repoRoots[repoRoot] = struct{}{}
+}
+
 // Save persists a release run atomically.
 func (r *FileReleaseRunRepository) Save(ctx context.Context, run *domain.ReleaseRun) error {
 	r.mu.Lock()
@@ -173,6 +184,9 @@ func (r *FileReleaseRunRepository) Save(ctx context.Context, run *domain.Release
 	if err := ensureDir(run.RepoRoot()); err != nil {
 		return fmt.Errorf("failed to create runs directory: %w", err)
 	}
+
+	// Track this repo root for future Load() calls
+	r.trackRepoRoot(run.RepoRoot())
 
 	dto := toDTO(run)
 	data, err := json.MarshalIndent(dto, "", "  ")
@@ -202,15 +216,29 @@ func (r *FileReleaseRunRepository) Save(ctx context.Context, run *domain.Release
 	return nil
 }
 
-// Load retrieves a release run by its ID.
+// Load retrieves a release run by its ID by scanning known repository roots.
+// For better performance when the repo root is known, use LoadFromRepo instead.
 func (r *FileReleaseRunRepository) Load(ctx context.Context, runID domain.RunID) (*domain.ReleaseRun, error) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	knownRoots := make([]string, 0, len(r.repoRoots))
+	for root := range r.repoRoots {
+		knownRoots = append(knownRoots, root)
+	}
+	r.mu.RUnlock()
 
-	// We need to find the repo root from the runs - scan known paths
-	// This is a limitation - we need the repo root to find the file
-	// For now, we'll return an error if called without context
-	return nil, fmt.Errorf("Load requires repo root context; use LoadFromRepo instead")
+	// Scan known repo roots to find the run
+	for _, repoRoot := range knownRoots {
+		run, err := r.loadFromRepoInternal(ctx, repoRoot, runID)
+		if err == nil {
+			return run, nil
+		}
+		// Continue searching if not found in this repo
+		if !errors.Is(err, domain.ErrRunNotFound) {
+			return nil, err
+		}
+	}
+
+	return nil, domain.ErrRunNotFound
 }
 
 // LoadFromRepo retrieves a release run from a specific repository.
@@ -237,6 +265,18 @@ func (r *FileReleaseRunRepository) LoadFromRepo(ctx context.Context, repoRoot st
 
 // LoadLatest retrieves the latest release run for a repository.
 func (r *FileReleaseRunRepository) LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error) {
+	// Get the latest run ID under read lock
+	runID, err := r.getLatestRunID(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load the run (LoadFromRepo handles its own locking)
+	return r.loadFromRepoInternal(ctx, repoRoot, runID)
+}
+
+// getLatestRunID reads the latest pointer file under read lock.
+func (r *FileReleaseRunRepository) getLatestRunID(repoRoot string) (domain.RunID, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -244,15 +284,34 @@ func (r *FileReleaseRunRepository) LoadLatest(ctx context.Context, repoRoot stri
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, domain.ErrRunNotFound
+			return "", domain.ErrRunNotFound
 		}
-		return nil, fmt.Errorf("failed to read latest pointer: %w", err)
+		return "", fmt.Errorf("failed to read latest pointer: %w", err)
 	}
 
-	runID := domain.RunID(strings.TrimSpace(string(data)))
-	r.mu.RUnlock()
-	defer r.mu.RLock() // Swap locks for nested call
-	return r.LoadFromRepo(ctx, repoRoot, runID)
+	return domain.RunID(strings.TrimSpace(string(data))), nil
+}
+
+// loadFromRepoInternal is the internal implementation that handles locking.
+func (r *FileReleaseRunRepository) loadFromRepoInternal(ctx context.Context, repoRoot string, runID domain.RunID) (*domain.ReleaseRun, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	path := runPath(repoRoot, runID)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, domain.ErrRunNotFound
+		}
+		return nil, fmt.Errorf("failed to read run file: %w", err)
+	}
+
+	var dto ReleaseRunDTO
+	if err := json.Unmarshal(data, &dto); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal run: %w", err)
+	}
+
+	return fromDTO(&dto)
 }
 
 // SetLatest sets the latest run ID pointer for a repository.
@@ -263,6 +322,9 @@ func (r *FileReleaseRunRepository) SetLatest(ctx context.Context, repoRoot strin
 	if err := ensureDir(repoRoot); err != nil {
 		return fmt.Errorf("failed to create runs directory: %w", err)
 	}
+
+	// Track this repo root for future Load() calls
+	r.trackRepoRoot(repoRoot)
 
 	path := latestPath(repoRoot)
 	tmpPath := path + ".tmp"
@@ -332,10 +394,25 @@ func (r *FileReleaseRunRepository) List(ctx context.Context, repoRoot string) ([
 	return result, nil
 }
 
-// Delete removes a release run.
+// Delete removes a release run by scanning known repository roots.
+// For better performance when the repo root is known, use DeleteFromRepo instead.
 func (r *FileReleaseRunRepository) Delete(ctx context.Context, runID domain.RunID) error {
-	// We need repo root - this is a limitation
-	return errors.New("Delete requires repo root context; use DeleteFromRepo instead")
+	r.mu.RLock()
+	knownRoots := make([]string, 0, len(r.repoRoots))
+	for root := range r.repoRoots {
+		knownRoots = append(knownRoots, root)
+	}
+	r.mu.RUnlock()
+
+	// Find and delete from the first repo that contains this run
+	for _, repoRoot := range knownRoots {
+		path := runPath(repoRoot, runID)
+		if _, err := os.Stat(path); err == nil {
+			return r.DeleteFromRepo(ctx, repoRoot, runID)
+		}
+	}
+
+	return domain.ErrRunNotFound
 }
 
 // DeleteFromRepo removes a release run from a specific repository.
@@ -620,39 +697,39 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 
 	// Create a new run and use ReconstructState to hydrate it
 	run := &domain.ReleaseRun{}
-	run.ReconstructState(
-		domain.RunID(dto.ID),
-		dto.PlanHash,
-		dto.RepoID,
-		dto.RepoRoot,
-		dto.BaseRef,
-		domain.CommitSHA(dto.HeadSHA),
-		commits,
-		dto.ConfigHash,
-		dto.PluginPlanHash,
-		currentVer,
-		nextVer,
-		bumpKind,
-		dto.Confidence,
-		dto.RiskScore,
-		dto.Reasons,
-		domain.ActorType(dto.ActorType),
-		dto.ActorID,
-		thresholds,
-		dto.TagName,
-		notes,
-		dto.NotesInputHash,
-		approval,
-		steps,
-		stepStatus,
-		domain.RunState(dto.State),
-		history,
-		dto.LastError,
-		dto.ChangesetID,
-		dto.CreatedAt,
-		dto.UpdatedAt,
-		dto.PublishedAt,
-	)
+	run.ReconstructState(domain.RunSnapshot{
+		ID:              domain.RunID(dto.ID),
+		PlanHash:        dto.PlanHash,
+		RepoID:          dto.RepoID,
+		RepoRoot:        dto.RepoRoot,
+		BaseRef:         dto.BaseRef,
+		HeadSHA:         domain.CommitSHA(dto.HeadSHA),
+		Commits:         commits,
+		ConfigHash:      dto.ConfigHash,
+		PluginPlanHash:  dto.PluginPlanHash,
+		VersionCurrent:  currentVer,
+		VersionNext:     nextVer,
+		BumpKind:        bumpKind,
+		Confidence:      dto.Confidence,
+		RiskScore:       dto.RiskScore,
+		Reasons:         dto.Reasons,
+		ActorType:       domain.ActorType(dto.ActorType),
+		ActorID:         dto.ActorID,
+		Thresholds:      thresholds,
+		TagName:         dto.TagName,
+		Notes:           notes,
+		NotesInputsHash: dto.NotesInputHash,
+		Approval:        approval,
+		Steps:           steps,
+		StepStatus:      stepStatus,
+		State:           domain.RunState(dto.State),
+		History:         history,
+		LastError:       dto.LastError,
+		ChangesetID:     dto.ChangesetID,
+		CreatedAt:       dto.CreatedAt,
+		UpdatedAt:       dto.UpdatedAt,
+		PublishedAt:     dto.PublishedAt,
+	})
 
 	return run, nil
 }

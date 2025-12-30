@@ -16,14 +16,6 @@ type Clock interface {
 	Now() time.Time
 }
 
-// RealClock implements Clock using the system time.
-type RealClock struct{}
-
-// Now returns the current system time.
-func (RealClock) Now() time.Time {
-	return time.Now()
-}
-
 // IdentityProvider provides actor identity information.
 type IdentityProvider interface {
 	// CurrentActor returns the current actor's identity.
