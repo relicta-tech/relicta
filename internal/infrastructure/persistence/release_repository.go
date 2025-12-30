@@ -439,6 +439,41 @@ func (r *FileReleaseRepository) Delete(ctx context.Context, id release.RunID) er
 	return nil
 }
 
+// List returns all run IDs for a repository, ordered by creation time (newest first).
+func (r *FileReleaseRepository) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	if err := checkContext(ctx); err != nil {
+		return nil, err
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	// Get all releases for the repository
+	releases, err := r.scanReleases(ctx, func(dto *releaseDTO) bool {
+		return dto.RepositoryPath == repoPath
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort by UpdatedAt (newest first)
+	for i := 0; i < len(releases)-1; i++ {
+		for j := i + 1; j < len(releases); j++ {
+			if releases[j].UpdatedAt().After(releases[i].UpdatedAt()) {
+				releases[i], releases[j] = releases[j], releases[i]
+			}
+		}
+	}
+
+	// Extract IDs
+	ids := make([]release.RunID, len(releases))
+	for i, rel := range releases {
+		ids[i] = rel.ID()
+	}
+
+	return ids, nil
+}
+
 // Helper methods
 
 func (r *FileReleaseRepository) releaseFilePath(id release.RunID) string {

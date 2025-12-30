@@ -487,6 +487,10 @@ func (m *mockReleaseRepository) Delete(ctx context.Context, id domainrelease.Run
 	return domainrelease.ErrRunNotFound
 }
 
+func (m *mockReleaseRepository) List(ctx context.Context, repoPath string) ([]domainrelease.RunID, error) {
+	return nil, nil
+}
+
 func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
 	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -653,6 +657,10 @@ func (m *mockErrorReleaseRepository) FindBySpecification(ctx context.Context, sp
 
 func (m *mockErrorReleaseRepository) Delete(ctx context.Context, id domainrelease.RunID) error {
 	return m.err
+}
+
+func (m *mockErrorReleaseRepository) List(ctx context.Context, repoPath string) ([]domainrelease.RunID, error) {
+	return nil, m.err
 }
 
 // Test Evaluate with release not found

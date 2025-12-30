@@ -317,6 +317,9 @@ func (r cancelTestReleaseRepo) FindBySpecification(ctx context.Context, spec rel
 	return nil, nil
 }
 func (r cancelTestReleaseRepo) Delete(ctx context.Context, id release.RunID) error { return nil }
+func (r cancelTestReleaseRepo) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	return nil, nil
+}
 
 func TestRunCancel_NoReleaseFound(t *testing.T) {
 	origCfg := cfg

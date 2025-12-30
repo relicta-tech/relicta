@@ -44,6 +44,10 @@ func (m *mockReleaseRepo) Delete(_ context.Context, _ release.RunID) error {
 	return nil
 }
 
+func (m *mockReleaseRepo) List(_ context.Context, _ string) ([]release.RunID, error) {
+	return nil, nil
+}
+
 func TestGetLatestReleaseInput_Validate(t *testing.T) {
 	tests := []struct {
 		name    string

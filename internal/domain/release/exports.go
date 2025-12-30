@@ -350,6 +350,9 @@ type Repository interface {
 	// FindBySpecification retrieves release runs matching the given specification.
 	FindBySpecification(ctx context.Context, spec Specification) ([]*ReleaseRun, error)
 
+	// List returns all run IDs for a repository, ordered by creation time (newest first).
+	List(ctx context.Context, repoPath string) ([]RunID, error)
+
 	// Delete removes a release run.
 	Delete(ctx context.Context, id RunID) error
 }

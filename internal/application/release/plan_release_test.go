@@ -205,6 +205,10 @@ func (m *mockReleaseRepository) FindBySpecification(ctx context.Context, spec re
 	return result, nil
 }
 
+func (m *mockReleaseRepository) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	return nil, nil
+}
+
 // mockVersionCalculator implements version.VersionCalculator for testing.
 type mockVersionCalculator struct{}
 

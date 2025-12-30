@@ -428,5 +428,18 @@ func (r *unitOfWorkRepository) FindBySpecification(ctx context.Context, spec rel
 	return result, nil
 }
 
+// List returns all run IDs for a repository, ordered by creation time (newest first).
+func (r *unitOfWorkRepository) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	r.uow.mu.Lock()
+	defer r.uow.mu.Unlock()
+
+	if !r.uow.active {
+		return nil, fmt.Errorf("unit of work is not active")
+	}
+
+	// Delegate to base repository - pending changes don't affect listing
+	return r.baseRepo.List(ctx, repoPath)
+}
+
 // Ensure FileUnitOfWork implements the release.UnitOfWork interface.
 var _ release.UnitOfWork = (*FileUnitOfWork)(nil)

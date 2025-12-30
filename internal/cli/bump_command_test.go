@@ -56,6 +56,10 @@ func (s stubReleaseRepo) Delete(ctx context.Context, id release.RunID) error {
 	return nil
 }
 
+func (s stubReleaseRepo) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	return nil, nil
+}
+
 func TestHandleForcedVersion_Succeeds(t *testing.T) {
 	origCfg := cfg
 	defer func() { cfg = origCfg }()

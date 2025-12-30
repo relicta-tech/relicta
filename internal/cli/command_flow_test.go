@@ -514,6 +514,9 @@ func (testReleaseRepo) FindBySpecification(ctx context.Context, spec release.Spe
 	return nil, nil
 }
 func (testReleaseRepo) Delete(ctx context.Context, id release.RunID) error { return nil }
+func (testReleaseRepo) List(ctx context.Context, repoPath string) ([]release.RunID, error) {
+	return nil, nil
+}
 
 // newTestRelease creates a release in StateNotesReady (ready for approval).
 func newTestRelease(t *testing.T, id string) *release.ReleaseRun {

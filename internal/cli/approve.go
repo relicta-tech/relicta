@@ -66,7 +66,29 @@ func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, err
 		return nil, fmt.Errorf("no release state found: %w", err)
 	}
 
+	// Show which release run is being used for transparency
+	displayLoadedRelease(rel)
+
 	return rel, nil
+}
+
+// displayLoadedRelease shows information about the loaded release run.
+// This helps users understand which run is being used, especially when
+// there are multiple runs in the .relicta/releases directory.
+func displayLoadedRelease(rel *release.ReleaseRun) {
+	summary := rel.Summary()
+	version := summary.VersionNext
+	if version == "" {
+		version = "(pending)"
+	}
+
+	// Use short ID for cleaner display
+	id := string(rel.ID())
+	if len(id) > 12 {
+		id = id[:12]
+	}
+
+	printInfo(fmt.Sprintf("Using release %s (v%s, %s)", id, version, summary.State))
 }
 
 // isReleaseAlreadyApproved checks if the release is already approved and prints info.
@@ -331,6 +353,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 				printApproveNextSteps()
 				return nil
 			}
+
+			// Explain why auto-approval isn't available when --yes was passed
+			if approveYes && !govResult.CanAutoApprove {
+				displayAutoApprovalBlocked(govResult)
+			}
 		}
 	}
 
@@ -497,6 +524,58 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 			fmt.Printf("    Rollback Rate:   %.1f%%\n", result.HistoricalContext.RollbackRate*100)
 		}
 	}
+}
+
+// displayAutoApprovalBlocked explains why auto-approval isn't available.
+// This helps users understand what conditions prevent auto-approval.
+func displayAutoApprovalBlocked(result *governance.EvaluateReleaseOutput) {
+	fmt.Println()
+	printInfo("Auto-approval not available:")
+	fmt.Println()
+
+	reasons := []string{}
+
+	// Check risk score against thresholds
+	if result.RiskScore > 0.3 {
+		reasons = append(reasons, fmt.Sprintf("Risk score %.0f%% exceeds auto-approve threshold (30%%)", result.RiskScore*100))
+	}
+
+	// Check decision
+	if result.Decision == cgp.DecisionApprovalRequired {
+		reasons = append(reasons, "Governance requires manual review")
+	}
+
+	// Check for blocking risk factors
+	for _, factor := range result.RiskFactors {
+		if factor.Category == "security" {
+			reasons = append(reasons, "Security-related changes detected")
+			break
+		}
+	}
+	for _, factor := range result.RiskFactors {
+		if factor.Category == "breaking" {
+			reasons = append(reasons, "Breaking changes detected")
+			break
+		}
+	}
+
+	// Check required actions
+	for _, action := range result.RequiredActions {
+		reasons = append(reasons, fmt.Sprintf("Required: %s", action.Description))
+	}
+
+	// If we couldn't determine specific reasons, give a generic message
+	if len(reasons) == 0 {
+		reasons = append(reasons, "Governance policy requires manual approval for this release")
+	}
+
+	// Display the reasons
+	for _, reason := range reasons {
+		fmt.Printf("  • %s\n", reason)
+	}
+
+	fmt.Println()
+	printInfo("Manual approval required. Review the changes above and confirm.")
 }
 
 // recordReleaseOutcome records the release outcome to Release Memory.
