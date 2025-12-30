@@ -142,7 +142,23 @@ func applyVersionTag(ctx context.Context, app cliApp, nextVersion version.Semant
 
 	setInput := buildSetVersionInput(nextVersion, true, bumpPush, false)
 
+	// Show spinner for tag operations (especially if pushing)
+	var spinner *Spinner
+	if !outputJSON {
+		spinnerMsg := "Creating version tag..."
+		if bumpPush {
+			spinnerMsg = "Creating and pushing version tag..."
+		}
+		spinner = NewSpinner(spinnerMsg)
+		spinner.Start()
+	}
+
 	setOutput, err := app.SetVersion().Execute(ctx, setInput)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to set version: %w", err)
 	}
@@ -208,8 +224,19 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	// Calculate version
+	var spinner *Spinner
+	if !outputJSON {
+		spinner = NewSpinner("Calculating version...")
+		spinner.Start()
+	}
+
 	calcInput := buildCalculateVersionInput(bumpType, auto)
 	calcOutput, err := app.CalculateVersion().Execute(ctx, calcInput)
+
+	if spinner != nil {
+		spinner.Stop()
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to calculate version: %w", err)
 	}

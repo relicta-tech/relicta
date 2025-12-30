@@ -317,7 +317,10 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	// CGP Governance evaluation (if enabled)
 	var govResult *governance.EvaluateReleaseOutput
 	if app.HasGovernance() {
+		spinner := NewSpinner("Evaluating governance policies...")
+		spinner.Start()
 		govResult, err = evaluateGovernance(ctx, app, rel)
+		spinner.Stop()
 		if err != nil {
 			// In advisory mode, log warning but continue
 			if !cfg.Governance.StrictMode {
