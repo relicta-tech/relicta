@@ -585,8 +585,8 @@ changelog:
 func TestFindConfigFile_Found(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config file
-	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
+	// Create a config file (.relicta.yaml is the only supported format)
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte("versioning:\n  strategy: conventional"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -618,8 +618,8 @@ func TestConfigExists(t *testing.T) {
 		t.Error("ConfigExists() should return false when no config")
 	}
 
-	// Create a config file
-	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
+	// Create a config file (.relicta.yaml is the only supported format)
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte("versioning:\n  strategy: conventional"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -657,12 +657,12 @@ versioning:
 func TestLoadFromDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a config file
+	// Create a config file (.relicta.yaml is the only supported format)
 	configContent := `
 versioning:
   strategy: manual
 `
-	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
@@ -723,7 +723,8 @@ func TestWriteDefaultConfig(t *testing.T) {
 }
 
 func TestConfigFileNames(t *testing.T) {
-	expectedNames := []string{"relicta.config", ".relicta"}
+	// Only .relicta is supported (Go ecosystem convention)
+	expectedNames := []string{".relicta"}
 
 	if len(ConfigFileNames) != len(expectedNames) {
 		t.Errorf("ConfigFileNames length = %d, want %d", len(ConfigFileNames), len(expectedNames))

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Run in dry-run mode (no tag/release created)'
+        description: 'Run in dry-run mode (no release created)'
         required: false
         type: boolean
         default: false
@@ -26,162 +26,138 @@ permissions:
   contents: read
 
 jobs:
-  # Build and test before release
-  build:
-    name: Build and Test
+  # Governance check with Relicta
+  governance:
+    name: Release Governance
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      approved: ${{ steps.governance.outputs.approved }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Run tests
-        run: go test -v -race ./...
+      - name: Build Relicta
+        run: make build
 
-      - name: Build release artifacts
-        run: make release-build
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v6
-        with:
-          name: release-artifacts
-          path: dist/
-
-  # Release using the built binary
-  release:
-    name: Release with Relicta
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write       # Needed for creating releases
-      id-token: write       # Needed for OIDC token (Sigstore signing)
-      attestations: write   # Needed for artifact attestations
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v7
-        with:
-          name: release-artifacts
-          path: dist/
-
-      - name: Extract and setup relicta binary
+      - name: Get version from tag
+        id: version
         run: |
-          mkdir -p bin
-          tar -xzf dist/relicta_Linux_x86_64.tar.gz -C bin --strip-components=1
-          chmod +x bin/relicta
-          echo "$PWD/bin" >> $GITHUB_PATH
-          bin/relicta version
-
-      - name: Build GitHub plugin
-        run: |
-          tar -xzf dist/github_linux_x86_64.tar.gz -C bin 2>/dev/null || true
-          ls -la bin/
-
-      # Run relicta release workflow
-      # The release command auto-detects if HEAD is tagged (tag-push mode)
-      # and handles both new releases and tag-push scenarios intelligently
-      - name: Run relicta release
-        if: ${{ !inputs.dry-run }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Run release workflow - auto-detects tag-push mode
-          bin/relicta release --yes --skip-push
-
-          # Get the version from the tag
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
           else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Release version: $VERSION"
 
-      - name: Generate checksums
-        if: ${{ !inputs.dry-run }}
-        run: |
-          cd dist
-          sha256sum relicta_*.tar.gz relicta_*.zip > checksums.txt
-          cd ..
-
-      # Generate SLSA provenance attestations for release artifacts
-      - name: Generate attestations for release archives
-        if: ${{ !inputs.dry-run }}
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: |
-            dist/relicta_Darwin_aarch64.tar.gz
-            dist/relicta_Darwin_x86_64.tar.gz
-            dist/relicta_Linux_aarch64.tar.gz
-            dist/relicta_Linux_x86_64.tar.gz
-            dist/relicta_Windows_x86_64.zip
-
-      - name: Check if release exists
-        if: ${{ !inputs.dry-run }}
-        id: check-release
+      - name: Run Relicta governance
+        id: governance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view "$VERSION" &>/dev/null; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          # For tag pushes, run release in tag-push mode (validates governance)
+          if bin/relicta release --yes --dry-run 2>&1; then
+            echo "approved=true" >> $GITHUB_OUTPUT
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "approved=false" >> $GITHUB_OUTPUT
+            echo "::warning::Release governance check failed"
           fi
 
-      - name: Create GitHub Release
-        if: ${{ !inputs.dry-run && steps.check-release.outputs.exists != 'true' }}
+  # Build and release with GoReleaser
+  release:
+    name: Build & Release
+    needs: governance
+    if: ${{ !inputs.dry-run && needs.governance.outputs.approved == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # Create releases and upload assets
+      id-token: write       # OIDC token for Sigstore signing
+      packages: write       # Push container images (if needed)
+      attestations: write   # Artifact attestations
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Generate attestations
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/relicta_*.tar.gz
+            dist/relicta_*.zip
+            dist/checksums.txt
+
+      - name: Build Relicta for post-release
+        run: make build
+
+      - name: Record release outcome
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create $VERSION \
-            --title "Relicta $VERSION" \
-            --generate-notes \
-            dist/relicta_Darwin_aarch64.tar.gz \
-            dist/relicta_Darwin_x86_64.tar.gz \
-            dist/relicta_Linux_aarch64.tar.gz \
-            dist/relicta_Linux_x86_64.tar.gz \
-            dist/relicta_Windows_x86_64.zip \
-            dist/checksums.txt
+          # Record successful release to CGP memory
+          bin/relicta release --yes --skip-push || true
 
-      - name: Upload assets to existing release
-        if: ${{ !inputs.dry-run && steps.check-release.outputs.exists == 'true' }}
+  # Dry run mode
+  dry-run:
+    name: Dry Run
+    if: ${{ inputs.dry-run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build Relicta
+        run: make build
+
+      - name: Relicta dry run
+        run: bin/relicta release --yes --dry-run
+
+      - name: GoReleaser dry run
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --snapshot --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Release $VERSION already exists - uploading/updating assets"
-          for asset in relicta_Darwin_aarch64.tar.gz relicta_Darwin_x86_64.tar.gz relicta_Linux_aarch64.tar.gz relicta_Linux_x86_64.tar.gz relicta_Windows_x86_64.zip checksums.txt; do
-            gh release delete-asset $VERSION $asset --yes 2>/dev/null || true
-          done
-          gh release upload $VERSION \
-            dist/relicta_Darwin_aarch64.tar.gz \
-            dist/relicta_Darwin_x86_64.tar.gz \
-            dist/relicta_Linux_aarch64.tar.gz \
-            dist/relicta_Linux_x86_64.tar.gz \
-            dist/relicta_Windows_x86_64.zip \
-            dist/checksums.txt
 
-      - name: Release summary
-        if: ${{ !inputs.dry-run }}
-        run: |
-          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** $VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release URL:** https://github.com/${{ github.repository }}/releases/tag/$VERSION" >> $GITHUB_STEP_SUMMARY
-
-      - name: Dry run
-        if: ${{ inputs.dry-run }}
-        run: |
-          bin/relicta release --yes --dry-run
-          echo "Dry run complete - no release created"
+      - name: List artifacts
+        run: ls -la dist/

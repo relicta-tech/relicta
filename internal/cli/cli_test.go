@@ -133,8 +133,8 @@ func TestCheckConfig_WithConfigFile(t *testing.T) {
 	origDir, _ := os.Getwd()
 	defer os.Chdir(origDir)
 
-	// Create a config file
-	configPath := filepath.Join(tmpDir, "release.config.yaml")
+	// Create a config file (.relicta.yaml is the only supported format)
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte("versioning:\n  strategy: conventional"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
@@ -152,8 +152,8 @@ func TestCheckConfig_WithConfigFile(t *testing.T) {
 		t.Errorf("Status = %v, want %v", health.Status, HealthStatusHealthy)
 	}
 
-	if health.Details["config_file"] != "release.config.yaml" {
-		t.Errorf("Details[config_file] = %v, want release.config.yaml", health.Details["config_file"])
+	if health.Details["config_file"] != ".relicta.yaml" {
+		t.Errorf("Details[config_file] = %v, want .relicta.yaml", health.Details["config_file"])
 	}
 }
 

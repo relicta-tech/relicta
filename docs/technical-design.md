@@ -108,6 +108,8 @@ Relicta is a CLI tool that automates software release management through AI-powe
 
 ## 4. Project Structure
 
+The codebase follows Domain-Driven Design (DDD) with clear separation between domain, application, and infrastructure layers.
+
 ```
 relicta/
 ├── cmd/
@@ -115,138 +117,209 @@ relicta/
 │       └── main.go                 # Entry point
 │
 ├── internal/
-│   ├── cli/                        # Cobra commands
+│   ├── cli/                        # Cobra commands (interface layer)
 │   │   ├── root.go
-│   │   ├── init.go
 │   │   ├── plan.go
-│   │   ├── version.go
+│   │   ├── bump.go
 │   │   ├── notes.go
 │   │   ├── approve.go
 │   │   ├── publish.go
+│   │   ├── release.go              # Orchestrates full workflow
 │   │   └── plugins.go
 │   │
-│   ├── service/                    # Core business logic
-│   │   ├── git/
-│   │   │   ├── service.go
-│   │   │   ├── commit.go
-│   │   │   ├── tag.go
-│   │   │   └── conventional.go
-│   │   ├── version/
-│   │   │   ├── service.go
-│   │   │   ├── semver.go
-│   │   │   └── changelog.go
-│   │   ├── ai/
-│   │   │   ├── service.go
-│   │   │   ├── provider.go
+│   ├── domain/                     # Domain Layer (DDD)
+│   │   ├── release/                # Release bounded context
+│   │   │   ├── domain/             # Core domain models
+│   │   │   │   ├── release_run.go  # ReleaseRun aggregate root
+│   │   │   │   ├── events.go       # Domain events
+│   │   │   │   ├── states.go       # State machine (Draft→Published)
+│   │   │   │   └── approval.go     # Approval value object
+│   │   │   ├── app/                # Application use cases
+│   │   │   │   ├── plan_release.go
+│   │   │   │   ├── bump_version.go
+│   │   │   │   ├── generate_notes.go
+│   │   │   │   ├── approve_release.go
+│   │   │   │   └── publish_release.go
+│   │   │   ├── ports/              # Port interfaces
+│   │   │   │   └── ports.go        # NotesGenerator, Publisher, etc.
+│   │   │   ├── adapters/           # Infrastructure adapters
+│   │   │   │   └── file_repository.go
+│   │   │   └── factory.go          # Service factory
+│   │   │
+│   │   ├── changes/                # Changes bounded context
+│   │   │   ├── changeset.go        # ChangeSet aggregate
+│   │   │   ├── conventional.go     # Conventional commit parsing
+│   │   │   └── release_type.go     # ReleaseType value object
+│   │   │
+│   │   ├── version/                # Version bounded context
+│   │   │   ├── semver.go           # SemanticVersion value object
+│   │   │   └── bump.go             # BumpType, VersionCalculator
+│   │   │
+│   │   └── sourcecontrol/          # Source control abstraction
+│   │       ├── repository.go       # GitRepository interface
+│   │       ├── commit.go           # Commit entity
+│   │       └── tag.go              # Tag entity
+│   │
+│   ├── service/                    # Service Layer (orchestration)
+│   │   └── release/
+│   │       └── analyzer.go         # Commit analysis orchestration
+│   │
+│   ├── analysis/                   # Commit analysis subsystem
+│   │   ├── analyzer.go             # CommitAnalyzer
+│   │   ├── classification.go       # Classification types
+│   │   ├── heuristics/             # Heuristic classifiers
+│   │   └── factory/                # Analyzer factory
+│   │
+│   ├── cgp/                        # Change Governance Protocol
+│   │   ├── engine.go               # Policy evaluation engine
+│   │   ├── policy/                 # Policy rules
+│   │   └── memory/                 # Release memory (historical patterns)
+│   │
+│   ├── application/                # Application services
+│   │   └── governance/             # Governance application service
+│   │       └── service.go
+│   │
+│   ├── infrastructure/             # Infrastructure adapters
+│   │   ├── git/                    # go-git adapter
+│   │   ├── ai/                     # AI provider implementations
 │   │   │   ├── openai.go
 │   │   │   ├── anthropic.go
-│   │   │   ├── ollama.go
-│   │   │   └── prompts/
-│   │   │       ├── changelog.go
-│   │   │       ├── releasenotes.go
-│   │   │       └── marketing.go
-│   │   └── template/
-│   │       ├── service.go
-│   │       └── funcs.go
+│   │   │   └── ollama.go
+│   │   └── persistence/            # File-based persistence
+│   │
+│   ├── container/                  # Dependency injection
+│   │   └── container.go            # Application container
 │   │
 │   ├── plugin/                     # Plugin system
 │   │   ├── manager.go
-│   │   ├── registry.go
-│   │   ├── loader.go
-│   │   ├── hooks.go
-│   │   └── proto/
-│   │       └── plugin.proto        # gRPC plugin protocol
+│   │   └── executor.go
 │   │
-│   ├── config/                     # Configuration
-│   │   ├── config.go
-│   │   ├── schema.go
-│   │   └── validate.go
-│   │
-│   ├── state/                      # Release state persistence
-│   │   ├── manager.go
-│   │   └── schema.go
-│   │
-│   └── ui/                         # Terminal UI components
-│       ├── prompt.go
-│       ├── spinner.go
-│       ├── table.go
-│       └── diff.go
+│   └── config/                     # Configuration
+│       └── config.go
 │
 ├── pkg/                            # Public API for plugins
 │   └── plugin/
-│       ├── interface.go
-│       ├── context.go
-│       └── hooks.go
+│       └── interface.go
 │
-├── plugins/                        # Official plugins (separate modules)
-│   ├── github/
-│   │   ├── go.mod
-│   │   ├── main.go
-│   │   └── plugin.go
-│   ├── gitlab/
-│   ├── npm/
-│   ├── slack/
-│   └── jira/
-│
-├── templates/                      # Default templates
-│   ├── changelog.tmpl
-│   ├── release-notes.tmpl
-│   └── marketing.tmpl
-│
-├── test/
-│   ├── integration/
-│   ├── e2e/
-│   └── fixtures/
+├── plugins/                        # Official plugins (separate repos)
 │
 ├── docs/
-│   ├── prd.md
-│   └── technical-design.md
+│   ├── technical-design.md
+│   ├── cgp-specification.md        # CGP protocol spec
+│   └── governance.md               # Governance documentation
 │
 ├── go.mod
 ├── go.sum
 ├── Makefile
-├── .goreleaser.yaml
-└── .golangci.yaml
+├── .goreleaser.yaml      # GoReleaser config for cross-platform builds
+└── .relicta.yaml         # Relicta governance config (dog-fooding)
 ```
+
+### 4.1 Layer Responsibilities
+
+| Layer | Purpose | Key Packages |
+|-------|---------|--------------|
+| **CLI** | User interface, command parsing | `internal/cli/` |
+| **Domain** | Core business logic, aggregates, domain events | `internal/domain/` |
+| **Service** | Orchestration, cross-domain coordination | `internal/service/` |
+| **Application** | Use cases, application services | `internal/domain/*/app/` |
+| **Infrastructure** | External integrations, persistence | `internal/infrastructure/` |
+| **Container** | Dependency injection, wiring | `internal/container/` |
 
 ---
 
 ## 5. Core Domain Types
 
-### 5.1 Commit Types
+### 5.1 ReleaseRun Aggregate
+
+The `ReleaseRun` is the central aggregate root in the release bounded context. It enforces state transitions and business rules.
 
 ```go
-// internal/service/git/commit.go
+// internal/domain/release/domain/release_run.go
 
-package git
+package domain
 
-import "time"
+// ReleaseRun is the aggregate root for the release lifecycle.
+// It enforces a state machine with valid transitions:
+// Draft → Planned → Versioned → NotesReady → Approved → Publishing → Published
+type ReleaseRun struct {
+    id             RunID
+    repoRoot       string
+    baseRef        string
+    headSHA        CommitSHA
+    commits        []CommitSHA
 
-// Commit represents a git commit
-type Commit struct {
-    Hash      string
-    ShortHash string
-    Message   string
-    Body      string
-    Author    Author
-    Date      time.Time
-    Files     []string
+    // Version info
+    versionCurrent version.SemanticVersion
+    versionNext    version.SemanticVersion
+    bumpKind       BumpKind
+    tagName        string
+
+    // Release artifacts
+    notes          *ReleaseNotes
+    approval       *Approval
+    steps          []PublishStep
+
+    // Lifecycle
+    state          RunState
+    history        []HistoryEntry
+    createdAt      time.Time
+    updatedAt      time.Time
+    publishedAt    *time.Time
 }
 
-// Author represents commit author information
-type Author struct {
-    Name  string
-    Email string
+// RunState represents the release lifecycle state
+type RunState string
+
+const (
+    StateDraft      RunState = "draft"       // Initial state
+    StatePlanned    RunState = "planned"     // Changes analyzed
+    StateVersioned  RunState = "versioned"   // Version calculated
+    StateNotesReady RunState = "notes_ready" // Notes generated
+    StateApproved   RunState = "approved"    // Approved for release
+    StatePublishing RunState = "publishing"  // In progress
+    StatePublished  RunState = "published"   // Complete
+    StateFailed     RunState = "failed"      // Error state
+    StateCancelled  RunState = "cancelled"   // Cancelled
+)
+
+// State transitions are enforced by the aggregate
+func (r *ReleaseRun) Plan(planHash string) error
+func (r *ReleaseRun) SetVersion(v version.SemanticVersion, tag string) error
+func (r *ReleaseRun) Bump(actor string) error
+func (r *ReleaseRun) GenerateNotes(notes *ReleaseNotes, hash, actor string) error
+func (r *ReleaseRun) Approve(approval *Approval) error
+func (r *ReleaseRun) StartPublish(steps []PublishStep) error
+func (r *ReleaseRun) MarkPublished(tagHash CommitSHA, actor string) error
+```
+
+### 5.2 ChangeSet and ConventionalCommit
+
+```go
+// internal/domain/changes/changeset.go
+
+package changes
+
+// ChangeSet aggregates commits for a release
+type ChangeSet struct {
+    id       ChangeSetID
+    fromRef  string
+    toRef    string
+    commits  []*ConventionalCommit
 }
 
-// ConventionalCommit extends Commit with parsed conventional commit data
+// ConventionalCommit represents a parsed conventional commit
 type ConventionalCommit struct {
-    Commit
-    Type       CommitType
-    Scope      string
-    Subject    string
-    Breaking   bool
-    References []Reference
+    hash       string
+    commitType CommitType
+    scope      string
+    subject    string
+    body       string
+    footer     string
+    breaking   *BreakingChange
+    references []Reference
+    author     Author
+    date       time.Time
 }
 
 // CommitType represents conventional commit types
@@ -265,80 +338,57 @@ const (
     CommitTypeBuild    CommitType = "build"
 )
 
-// Reference represents an issue/PR reference
-type Reference struct {
-    Type   string // "issue", "pr", "closes"
-    Number int
-    URL    string
-}
-
-// ReleaseType represents semantic version bump type
-type ReleaseType string
+// ReleaseType determines the semantic version bump
+type ReleaseType int
 
 const (
-    ReleaseTypeMajor ReleaseType = "major"
-    ReleaseTypeMinor ReleaseType = "minor"
-    ReleaseTypePatch ReleaseType = "patch"
-    ReleaseTypeNone  ReleaseType = "none"
+    ReleaseTypeNone ReleaseType = iota
+    ReleaseTypePatch
+    ReleaseTypeMinor
+    ReleaseTypeMajor
 )
+
+// Categories groups commits by change type
+type Categories struct {
+    Breaking    []*ConventionalCommit
+    Features    []*ConventionalCommit
+    Fixes       []*ConventionalCommit
+    Performance []*ConventionalCommit
+    Docs        []*ConventionalCommit
+    Other       []*ConventionalCommit
+}
 ```
 
-### 5.2 Release Types
+### 5.3 SemanticVersion Value Object
 
 ```go
-// internal/state/schema.go
+// internal/domain/version/semver.go
 
-package state
+package version
 
-import "time"
-
-// ReleaseState represents the current state of an in-progress release
-type ReleaseState struct {
-    ID              string                 `json:"id"`
-    StartedAt       time.Time              `json:"started_at"`
-    CurrentStage    Stage                  `json:"current_stage"`
-    PreviousVersion string                 `json:"previous_version"`
-    NextVersion     string                 `json:"next_version"`
-    ReleaseType     git.ReleaseType        `json:"release_type"`
-    Commits         []git.Commit           `json:"commits"`
-    Changes         CategorizedChanges     `json:"changes"`
-    Changelog       string                 `json:"changelog,omitempty"`
-    ReleaseNotes    string                 `json:"release_notes,omitempty"`
-    Approved        bool                   `json:"approved"`
-    ApprovedAt      *time.Time             `json:"approved_at,omitempty"`
-    PluginStates    map[string]interface{} `json:"plugin_states,omitempty"`
-    Artifacts       []Artifact             `json:"artifacts,omitempty"`
+// SemanticVersion is an immutable value object for semantic versions
+type SemanticVersion struct {
+    major      uint64
+    minor      uint64
+    patch      uint64
+    prerelease string
+    metadata   string
 }
 
-// Stage represents release lifecycle stages
-type Stage string
+// BumpType represents the type of version increment
+type BumpType int
 
 const (
-    StageInit     Stage = "init"
-    StagePlan     Stage = "plan"
-    StageVersion  Stage = "version"
-    StageNotes    Stage = "notes"
-    StageApprove  Stage = "approve"
-    StagePublish  Stage = "publish"
-    StageComplete Stage = "complete"
-    StageFailed   Stage = "failed"
+    BumpNone BumpType = iota
+    BumpPatch
+    BumpMinor
+    BumpMajor
 )
 
-// CategorizedChanges groups commits by type
-type CategorizedChanges struct {
-    Breaking     []git.ConventionalCommit `json:"breaking,omitempty"`
-    Features     []git.ConventionalCommit `json:"features,omitempty"`
-    Fixes        []git.ConventionalCommit `json:"fixes,omitempty"`
-    Performance  []git.ConventionalCommit `json:"performance,omitempty"`
-    Other        []git.ConventionalCommit `json:"other,omitempty"`
-}
-
-// Artifact represents a release artifact
-type Artifact struct {
-    Name     string `json:"name"`
-    Path     string `json:"path"`
-    URL      string `json:"url,omitempty"`
-    Checksum string `json:"checksum,omitempty"`
+// VersionCalculator calculates version bumps
+type VersionCalculator interface {
+    CalculateNextVersion(current SemanticVersion, bump BumpType) SemanticVersion
+    DetermineRequiredBump(hasBreaking, hasFeature, hasFix bool) BumpType
 }
 ```
 
@@ -520,9 +570,113 @@ type CommitSummary struct {
 
 ---
 
-## 7. Plugin Architecture
+## 7. Change Governance Protocol (CGP)
 
-### 7.1 Plugin Interface
+The Change Governance Protocol provides risk assessment and policy enforcement for releases.
+
+### 7.1 CGP Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Governance Service                        │
+├──────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │ CGP Engine   │  │ Policy Rules │  │ Release Memory   │   │
+│  └──────┬───────┘  └──────┬───────┘  └────────┬─────────┘   │
+│         │                 │                    │             │
+│         └─────────────────┼────────────────────┘             │
+│                           │                                  │
+│                    ┌──────▼──────┐                          │
+│                    │ Risk Score  │                          │
+│                    │  Decision   │                          │
+│                    └─────────────┘                          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Policy Engine
+
+```go
+// internal/cgp/engine.go
+
+package cgp
+
+// Engine evaluates policies against release data
+type Engine struct {
+    policyRules []PolicyRule
+    memory      *memory.Store
+    logger      *slog.Logger
+}
+
+// Decision represents the policy evaluation outcome
+type DecisionType string
+
+const (
+    DecisionApproved DecisionType = "approved"
+    DecisionWarning  DecisionType = "warning"
+    DecisionRejected DecisionType = "rejected"
+)
+
+// EvaluationResult contains the policy evaluation outcome
+type EvaluationResult struct {
+    Decision    DecisionType
+    RiskScore   float64
+    Reasons     []string
+    Suggestions []string
+}
+
+// PolicyRule defines a policy check
+type PolicyRule interface {
+    Name() string
+    Category() string
+    Evaluate(ctx *EvaluationContext) (*RuleResult, error)
+}
+```
+
+### 7.3 Policy Rules
+
+Built-in policy rules include:
+
+| Rule | Category | Description |
+|------|----------|-------------|
+| **ScopeRule** | scope | Validates release scope (breaking changes, file count) |
+| **VelocityRule** | velocity | Detects release frequency anomalies |
+| **TimeWindowRule** | time | Enforces release time windows |
+| **ApprovalRule** | approval | Requires proper approval for high-risk changes |
+| **BreakingChangeRule** | scope | Special handling for breaking changes |
+
+### 7.4 Release Memory
+
+```go
+// internal/cgp/memory/store.go
+
+package memory
+
+// Store provides historical release data for policy evaluation
+type Store struct {
+    basePath string
+    releases []ReleaseRecord
+}
+
+// ReleaseRecord stores outcome data for a release
+type ReleaseRecord struct {
+    ID              string
+    Version         string
+    Repository      string
+    RiskScore       float64
+    Decision        cgp.DecisionType
+    BreakingChanges int
+    FilesChanged    int
+    Outcome         Outcome  // success, failure, rollback
+    Duration        time.Duration
+    Timestamp       time.Time
+}
+```
+
+---
+
+## 8. Plugin Architecture
+
+### 8.1 Plugin Interface
 
 ```go
 // pkg/plugin/interface.go
@@ -1476,87 +1630,103 @@ release-snapshot:
 	goreleaser release --snapshot --clean
 ```
 
-### 12.2 GoReleaser Configuration
+### 12.2 Hybrid Release Strategy
+
+Relicta uses a hybrid approach: **Relicta for governance**, **GoReleaser for builds**.
+
+| Tool | Responsibility |
+|------|----------------|
+| **Relicta** | Versioning, release notes, governance, approvals |
+| **GoReleaser** | Cross-platform builds, archives, Homebrew, signing |
+
+#### Relicta Configuration
 
 ```yaml
-# .goreleaser.yaml
+# .relicta.yaml - Governance configuration
+
+versioning:
+  strategy: conventional
+  tag_prefix: v
+
+governance:
+  enabled: true
+  strict_mode: false
+  auto_approve_threshold: 0.3
+  require_human_for_breaking: true
+  require_human_for_security: true
+  memory_enabled: true
+
+plugins:
+  - name: github
+    enabled: true
+```
+
+#### GoReleaser Configuration
+
+```yaml
+# .goreleaser.yaml - Build configuration
 
 version: 2
-
 project_name: relicta
-
-before:
-  hooks:
-    - go mod tidy
-    - go generate ./...
 
 builds:
   - id: relicta
     main: ./cmd/relicta
     binary: relicta
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
 
 archives:
-  - id: default
-    formats:
-      - tar.gz
-      - zip
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-
-checksum:
-  name_template: "checksums.txt"
-
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
 
 brews:
-  - name: relicta
-    repository:
-      owner: releasepilot
+  - repository:
+      owner: relicta-tech
       name: homebrew-tap
-    homepage: "https://github.com/releasepilot/relicta"
-    description: "AI-powered release management CLI"
-    install: |
-      bin.install "relicta"
-
-nfpms:
-  - id: packages
-    package_name: relicta
-    vendor: Relicta
-    homepage: "https://github.com/releasepilot/relicta"
-    maintainer: "Relicta Team"
-    description: "AI-powered release management CLI"
-    formats:
-      - deb
-      - rpm
 
 sboms:
   - artifacts: archive
-
-signs:
-  - artifacts: checksum
 ```
+
+### 12.3 Release Workflow
+
+```yaml
+# .github/workflows/release.yaml
+
+jobs:
+  governance:
+    # Relicta validates the release against governance policies
+    steps:
+      - run: make build
+      - run: bin/relicta release --yes --dry-run
+    outputs:
+      approved: ${{ steps.governance.outputs.approved }}
+
+  release:
+    needs: governance
+    if: needs.governance.outputs.approved == 'true'
+    steps:
+      # GoReleaser builds and publishes artifacts
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+
+      # Record outcome to CGP memory
+      - run: bin/relicta release --yes --skip-push
+```
+
+This approach:
+1. **Best of both worlds**: Relicta governance + GoReleaser builds
+2. **Production-grade artifacts**: Cross-platform binaries, Homebrew, SBOMs, signing
+3. **Governance gate**: Release only proceeds if policies pass
+4. **Audit trail**: CGP memory records release outcomes
 
 ---
 

@@ -84,7 +84,8 @@ func TestLoadAndValidateConfig_InvalidConfig(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Create an invalid config file (missing required fields)
-	configPath := filepath.Join(tmpDir, "relicta.config.yaml")
+	// Using .relicta.yaml (Go ecosystem convention)
+	configPath := filepath.Join(tmpDir, ".relicta.yaml")
 	err := os.WriteFile(configPath, []byte(`
 invalid: yaml: structure
 versioning:

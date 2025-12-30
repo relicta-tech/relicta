@@ -683,9 +683,10 @@ func (w *WebhookConfig) IsWebhookEnabled() bool {
 	return *w.Enabled
 }
 
-// ConfigFile names to search for.
+// ConfigFileNames to search for.
+// Only .relicta.{yaml,yml,json,toml} is supported for consistency
+// with Go ecosystem conventions (.goreleaser.yaml, .golangci.yml, etc.).
 var ConfigFileNames = []string{
-	"relicta.config",
 	".relicta",
 }
 

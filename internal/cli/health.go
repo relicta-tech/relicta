@@ -199,12 +199,12 @@ func checkConfig(ctx context.Context) ComponentHealth {
 	}
 
 	// Check if config file exists
+	// Only .relicta.{yaml,yml,json,toml} is supported (Go ecosystem convention)
 	configFiles := []string{
-		"release.config.yaml",
-		"release.config.yml",
-		".release.yaml",
-		".release.yml",
-		"relicta.config.yaml",
+		".relicta.yaml",
+		".relicta.yml",
+		".relicta.json",
+		".relicta.toml",
 	}
 
 	found := false
