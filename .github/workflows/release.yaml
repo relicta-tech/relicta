@@ -64,8 +64,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # For tag pushes, run release in tag-push mode (validates governance)
-          if bin/relicta release --yes --dry-run 2>&1; then
+          # Validate the release plan (governance check)
+          if bin/relicta plan --dry-run 2>&1; then
             echo "approved=true" >> $GITHUB_OUTPUT
           else
             echo "approved=false" >> $GITHUB_OUTPUT
@@ -148,7 +148,7 @@ jobs:
         run: make build
 
       - name: Relicta dry run
-        run: bin/relicta release --yes --dry-run
+        run: bin/relicta plan --dry-run
 
       - name: GoReleaser dry run
         uses: goreleaser/goreleaser-action@v6
