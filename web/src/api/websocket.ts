@@ -10,6 +10,8 @@ export interface UseWebSocketOptions {
 
 export interface UseWebSocketReturn {
   status: Ref<'connecting' | 'connected' | 'disconnected' | 'error'>
+  reconnectCount: Ref<number>
+  maxReconnects: number
   lastMessage: Ref<WebSocketMessage | null>
   connect: () => void
   disconnect: () => void
@@ -29,9 +31,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   const status = ref<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected')
   const lastMessage = ref<WebSocketMessage | null>(null)
+  const reconnectCount = ref(0)
 
   let ws: WebSocket | null = null
-  let reconnectAttempts = 0
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   const handlers = new Map<string, Set<(message: WebSocketMessage) => void>>()
 
@@ -58,15 +60,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
       ws.onopen = () => {
         status.value = 'connected'
-        reconnectAttempts = 0
+        reconnectCount.value = 0
       }
 
       ws.onclose = () => {
         status.value = 'disconnected'
         ws = null
 
-        if (reconnect && reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++
+        if (reconnect && reconnectCount.value < maxReconnectAttempts) {
+          reconnectCount.value++
           reconnectTimeout = setTimeout(connect, reconnectInterval)
         }
       }
@@ -106,7 +108,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       clearTimeout(reconnectTimeout)
       reconnectTimeout = null
     }
-    reconnectAttempts = maxReconnectAttempts // Prevent auto-reconnect
+    reconnectCount.value = maxReconnectAttempts // Prevent auto-reconnect
 
     if (ws) {
       ws.close()
@@ -148,6 +150,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   return {
     status,
+    reconnectCount,
+    maxReconnects: maxReconnectAttempts,
     lastMessage,
     connect,
     disconnect,

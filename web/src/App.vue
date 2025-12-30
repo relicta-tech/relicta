@@ -17,7 +17,7 @@ const mobileMenuOpen = ref(false)
 const healthStatus = ref<'healthy' | 'degraded' | 'unhealthy' | 'unknown'>('unknown')
 
 // WebSocket connection
-const { status: wsStatus, subscribe } = useWebSocket()
+const { status: wsStatus, reconnectCount, maxReconnects, subscribe, connect: wsConnect } = useWebSocket()
 
 // Subscribe to all events and delegate to stores
 const unsubscribe = subscribe('*' as any, (message) => {
@@ -67,12 +67,27 @@ function getWsStatusColor(): string {
     case 'connected':
       return 'bg-green-500'
     case 'connecting':
-      return 'bg-yellow-500'
+      return 'bg-yellow-500 animate-pulse'
     case 'error':
       return 'bg-red-500'
     default:
       return 'bg-gray-500'
   }
+}
+
+function getWsStatusText(): string {
+  if (wsStatus.value === 'connecting' && reconnectCount.value > 0) {
+    return `reconnecting (${reconnectCount.value}/${maxReconnects})`
+  }
+  if (wsStatus.value === 'disconnected' && reconnectCount.value >= maxReconnects) {
+    return 'disconnected (retry failed)'
+  }
+  return wsStatus.value
+}
+
+function handleReconnect(): void {
+  reconnectCount.value = 0
+  wsConnect()
 }
 
 function getHealthStatusColor(): string {
@@ -213,15 +228,33 @@ function getHealthStatusColor(): string {
         <!-- Status indicators -->
         <div
           v-if="sidebarOpen"
-          class="mt-2 flex items-center justify-between px-3 py-2 text-xs text-muted-foreground"
+          class="mt-2 space-y-2 px-3 py-2 text-xs text-muted-foreground"
         >
-          <div class="flex items-center gap-2">
-            <span :class="['h-2 w-2 rounded-full', getWsStatusColor()]"></span>
-            <span>{{ wsStatus }}</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span :class="['h-2 w-2 rounded-full', getWsStatusColor()]"></span>
+              <span>{{ getWsStatusText() }}</span>
+            </div>
+            <button
+              v-if="wsStatus === 'disconnected' && reconnectCount >= maxReconnects"
+              @click="handleReconnect"
+              class="text-primary hover:underline"
+            >
+              retry
+            </button>
           </div>
-          <div :class="getHealthStatusColor()">
-            {{ healthStatus }}
+          <div class="flex items-center justify-between">
+            <span>API</span>
+            <span :class="getHealthStatusColor()">{{ healthStatus }}</span>
           </div>
+        </div>
+        <!-- Compact status when collapsed -->
+        <div
+          v-else
+          class="mt-2 flex justify-center py-2"
+          :title="`WS: ${getWsStatusText()}, API: ${healthStatus}`"
+        >
+          <span :class="['h-2 w-2 rounded-full', getWsStatusColor()]"></span>
         </div>
       </div>
     </aside>

@@ -85,6 +85,57 @@ function getRiskTrendPath(): string {
 
   return `M ${points.join(' L ')}`
 }
+
+// Get trend data points for dots
+function getRiskTrendPoints(): { x: number; y: number; score: number; date: string }[] {
+  if (riskTrends.value.length < 2) return []
+
+  const maxRisk = Math.max(...riskTrends.value.map(t => t.risk_score), 100)
+  const width = 300
+  const height = 60
+  const padding = 4
+
+  return riskTrends.value.map((trend, i) => ({
+    x: padding + (i / (riskTrends.value.length - 1)) * (width - padding * 2),
+    y: height - padding - (trend.risk_score / maxRisk) * (height - padding * 2),
+    score: trend.risk_score,
+    date: trend.date,
+  }))
+}
+
+// Decision distribution for donut chart
+function getDecisionDistribution() {
+  const approved = decisions.value.filter(d => d.decision === 'approve').length
+  const denied = decisions.value.filter(d => d.decision === 'deny').length
+  const review = decisions.value.filter(d => d.decision === 'require_review').length
+  const total = decisions.value.length || 1
+
+  return [
+    { label: 'Approved', count: approved, percentage: (approved / total) * 100, color: '#22c55e' },
+    { label: 'Required Review', count: review, percentage: (review / total) * 100, color: '#eab308' },
+    { label: 'Denied', count: denied, percentage: (denied / total) * 100, color: '#ef4444' },
+  ]
+}
+
+// Calculate donut chart segments
+function getDonutPath(startAngle: number, endAngle: number, radius: number = 40, cx: number = 50, cy: number = 50): string {
+  const innerRadius = radius * 0.6
+  const startRad = (startAngle - 90) * (Math.PI / 180)
+  const endRad = (endAngle - 90) * (Math.PI / 180)
+
+  const x1 = cx + radius * Math.cos(startRad)
+  const y1 = cy + radius * Math.sin(startRad)
+  const x2 = cx + radius * Math.cos(endRad)
+  const y2 = cy + radius * Math.sin(endRad)
+  const x3 = cx + innerRadius * Math.cos(endRad)
+  const y3 = cy + innerRadius * Math.sin(endRad)
+  const x4 = cx + innerRadius * Math.cos(startRad)
+  const y4 = cy + innerRadius * Math.sin(startRad)
+
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${x4} ${y4} Z`
+}
 </script>
 
 <template>
@@ -155,8 +206,21 @@ function getRiskTrendPath(): string {
             No trend data available
           </div>
           <div v-else>
-            <!-- Simple SVG chart -->
+            <!-- Enhanced SVG sparkline with gradient and data points -->
             <svg class="w-full" viewBox="0 0 300 80" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <linearGradient id="riskGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color: var(--color-primary); stop-opacity: 0.3" />
+                  <stop offset="100%" style="stop-color: var(--color-primary); stop-opacity: 0" />
+                </linearGradient>
+              </defs>
+              <!-- Area fill under line -->
+              <path
+                v-if="getRiskTrendPath()"
+                :d="getRiskTrendPath() + ` L ${300 - 4},${80 - 4} L 4,${80 - 4} Z`"
+                fill="url(#riskGradient)"
+              />
+              <!-- Main line -->
               <path
                 :d="getRiskTrendPath()"
                 fill="none"
@@ -164,6 +228,19 @@ function getRiskTrendPath(): string {
                 stroke-width="2"
                 class="text-primary"
               />
+              <!-- Data points -->
+              <g>
+                <circle
+                  v-for="(point, i) in getRiskTrendPoints()"
+                  :key="i"
+                  :cx="point.x"
+                  :cy="point.y"
+                  r="3"
+                  class="fill-primary"
+                >
+                  <title>{{ formatDate(point.date) }}: {{ point.score }}</title>
+                </circle>
+              </g>
             </svg>
             <div class="mt-4 flex justify-between text-xs text-muted-foreground">
               <span>{{ formatDate(riskTrends[0]?.date) }}</span>
@@ -201,6 +278,68 @@ function getRiskTrendPath(): string {
                   class="h-full bg-primary transition-all"
                   :style="{ width: `${factor.percentage}%` }"
                 ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision distribution donut chart -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Decision Distribution</h2>
+        <p class="card-description">Breakdown of governance decisions by outcome</p>
+      </div>
+      <div class="card-content">
+        <div v-if="loading" class="flex items-center justify-center py-8">
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        </div>
+        <div v-else-if="decisions.length === 0" class="py-8 text-center text-muted-foreground">
+          No decision data available
+        </div>
+        <div v-else class="flex flex-col items-center gap-6 md:flex-row md:justify-around">
+          <!-- Donut chart -->
+          <div class="relative">
+            <svg viewBox="0 0 100 100" class="h-40 w-40">
+              <template v-for="(segment, i) in getDecisionDistribution()" :key="segment.label">
+                <path
+                  v-if="segment.percentage > 0"
+                  :d="getDonutPath(
+                    getDecisionDistribution().slice(0, i).reduce((sum, s) => sum + s.percentage * 3.6, 0),
+                    getDecisionDistribution().slice(0, i + 1).reduce((sum, s) => sum + s.percentage * 3.6, 0)
+                  )"
+                  :fill="segment.color"
+                  class="transition-all hover:opacity-80"
+                >
+                  <title>{{ segment.label }}: {{ segment.count }} ({{ segment.percentage.toFixed(1) }}%)</title>
+                </path>
+              </template>
+              <!-- Center text -->
+              <text x="50" y="48" text-anchor="middle" class="fill-foreground text-lg font-bold">
+                {{ decisions.length }}
+              </text>
+              <text x="50" y="58" text-anchor="middle" class="fill-muted-foreground text-[8px]">
+                decisions
+              </text>
+            </svg>
+          </div>
+          <!-- Legend -->
+          <div class="space-y-3">
+            <div
+              v-for="segment in getDecisionDistribution()"
+              :key="segment.label"
+              class="flex items-center gap-3"
+            >
+              <div
+                class="h-3 w-3 rounded-full"
+                :style="{ backgroundColor: segment.color }"
+              ></div>
+              <div class="flex-1">
+                <div class="text-sm font-medium">{{ segment.label }}</div>
+                <div class="text-xs text-muted-foreground">
+                  {{ segment.count }} ({{ segment.percentage.toFixed(1) }}%)
+                </div>
               </div>
             </div>
           </div>
