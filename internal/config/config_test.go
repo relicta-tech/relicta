@@ -938,3 +938,180 @@ func TestAutoDetectRepositoryURL(t *testing.T) {
 		t.Errorf("RepositoryURL = %q, should not change when explicitly set", cfg.Changelog.RepositoryURL)
 	}
 }
+
+func TestMonorepoConfig_Defaults(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Monorepo should be disabled by default
+	if cfg.Monorepo.Enabled {
+		t.Error("Monorepo.Enabled should be false by default")
+	}
+
+	// Default strategy should be independent
+	if cfg.Monorepo.Strategy != MonorepoStrategyIndependent {
+		t.Errorf("Monorepo.Strategy = %v, want %v", cfg.Monorepo.Strategy, MonorepoStrategyIndependent)
+	}
+
+	// Dependency coordination should be enabled by default
+	if !cfg.Monorepo.DependencyCoordination {
+		t.Error("Monorepo.DependencyCoordination should be true by default")
+	}
+
+	// Changelog settings
+	if !cfg.Monorepo.Changelog.PerPackage {
+		t.Error("Monorepo.Changelog.PerPackage should be true by default")
+	}
+	if !cfg.Monorepo.Changelog.RootChangelog {
+		t.Error("Monorepo.Changelog.RootChangelog should be true by default")
+	}
+	if cfg.Monorepo.Changelog.Format != "conventional" {
+		t.Errorf("Monorepo.Changelog.Format = %v, want conventional", cfg.Monorepo.Changelog.Format)
+	}
+	if !cfg.Monorepo.Changelog.IncludePackageLinks {
+		t.Error("Monorepo.Changelog.IncludePackageLinks should be true by default")
+	}
+}
+
+func TestMonorepoConfig_DefaultVersionFiles(t *testing.T) {
+	cfg := DefaultConfig()
+
+	// Check that version files are populated
+	if len(cfg.Monorepo.VersionFiles) == 0 {
+		t.Fatal("Monorepo.VersionFiles should not be empty")
+	}
+
+	// NPM config
+	npm, ok := cfg.Monorepo.VersionFiles["npm"]
+	if !ok {
+		t.Error("VersionFiles should contain 'npm'")
+	} else {
+		if npm.File != "package.json" {
+			t.Errorf("npm.File = %v, want package.json", npm.File)
+		}
+		if npm.Field != "version" {
+			t.Errorf("npm.Field = %v, want version", npm.Field)
+		}
+		if !npm.Update {
+			t.Error("npm.Update should be true")
+		}
+	}
+
+	// Cargo config
+	cargo, ok := cfg.Monorepo.VersionFiles["cargo"]
+	if !ok {
+		t.Error("VersionFiles should contain 'cargo'")
+	} else {
+		if cargo.File != "Cargo.toml" {
+			t.Errorf("cargo.File = %v, want Cargo.toml", cargo.File)
+		}
+		if !cargo.Update {
+			t.Error("cargo.Update should be true")
+		}
+	}
+
+	// Go module config (should not update files)
+	goMod, ok := cfg.Monorepo.VersionFiles["go_module"]
+	if !ok {
+		t.Error("VersionFiles should contain 'go_module'")
+	} else {
+		if goMod.File != "go.mod" {
+			t.Errorf("go_module.File = %v, want go.mod", goMod.File)
+		}
+		if goMod.Update {
+			t.Error("go_module.Update should be false (Go uses git tags)")
+		}
+	}
+
+	// Python config
+	python, ok := cfg.Monorepo.VersionFiles["python"]
+	if !ok {
+		t.Error("VersionFiles should contain 'python'")
+	} else {
+		if len(python.Files) == 0 {
+			t.Error("python.Files should not be empty")
+		}
+		if python.Pattern == "" {
+			t.Error("python.Pattern should not be empty")
+		}
+	}
+}
+
+func TestMonorepoStrategy_Values(t *testing.T) {
+	tests := []struct {
+		strategy MonorepoStrategy
+		expected string
+	}{
+		{MonorepoStrategyIndependent, "independent"},
+		{MonorepoStrategyLockstep, "lockstep"},
+		{MonorepoStrategyHybrid, "hybrid"},
+	}
+
+	for _, tt := range tests {
+		if string(tt.strategy) != tt.expected {
+			t.Errorf("MonorepoStrategy %v = %q, want %q", tt.strategy, string(tt.strategy), tt.expected)
+		}
+	}
+}
+
+func TestPackageOverrideConfig_Fields(t *testing.T) {
+	override := PackageOverrideConfig{
+		TagPrefix:        "core-v",
+		VersionFile:      "package.json",
+		VersionField:     "version",
+		ChangelogFile:    "CHANGELOG.md",
+		Private:          true,
+		PrereleaseSuffix: "beta",
+		SkipVersioning:   false,
+	}
+
+	if override.TagPrefix != "core-v" {
+		t.Errorf("TagPrefix = %v, want core-v", override.TagPrefix)
+	}
+	if !override.Private {
+		t.Error("Private should be true")
+	}
+}
+
+func TestReleaseGroupConfig_Fields(t *testing.T) {
+	group := ReleaseGroupConfig{
+		Name:            "core",
+		Packages:        []string{"packages/core", "packages/shared"},
+		Strategy:        MonorepoStrategyLockstep,
+		TagPrefix:       "core-v",
+		SharedChangelog: true,
+	}
+
+	if group.Name != "core" {
+		t.Errorf("Name = %v, want core", group.Name)
+	}
+	if len(group.Packages) != 2 {
+		t.Errorf("Packages length = %d, want 2", len(group.Packages))
+	}
+	if group.Strategy != MonorepoStrategyLockstep {
+		t.Errorf("Strategy = %v, want lockstep", group.Strategy)
+	}
+	if !group.SharedChangelog {
+		t.Error("SharedChangelog should be true")
+	}
+}
+
+func TestVersionFileConfig_Fields(t *testing.T) {
+	vfc := VersionFileConfig{
+		File:         "package.json",
+		Files:        []string{"setup.py", "pyproject.toml"},
+		Field:        "version",
+		Pattern:      `version\s*=\s*"([^"]+)"`,
+		Update:       true,
+		UpdateFormat: `version = "{{.Version}}"`,
+	}
+
+	if vfc.File != "package.json" {
+		t.Errorf("File = %v, want package.json", vfc.File)
+	}
+	if len(vfc.Files) != 2 {
+		t.Errorf("Files length = %d, want 2", len(vfc.Files))
+	}
+	if !vfc.Update {
+		t.Error("Update should be true")
+	}
+}

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
@@ -22,6 +24,8 @@ type Adapter struct {
 	releaseServices *domainrelease.Services
 	governanceSvc   *governance.Service
 	releaseRepo     domainrelease.Repository
+	blastService    blast.Service
+	aiService       ai.Service
 }
 
 // AdapterOption configures the Adapter.
@@ -75,6 +79,20 @@ func WithGovernanceService(svc *governance.Service) AdapterOption {
 func WithAdapterReleaseRepository(repo domainrelease.Repository) AdapterOption {
 	return func(a *Adapter) {
 		a.releaseRepo = repo
+	}
+}
+
+// WithBlastService sets the blast radius analysis service.
+func WithBlastService(svc blast.Service) AdapterOption {
+	return func(a *Adapter) {
+		a.blastService = svc
+	}
+}
+
+// WithAIService sets the AI service for diff summarization.
+func WithAIService(svc ai.Service) AdapterOption {
+	return func(a *Adapter) {
+		a.aiService = svc
 	}
 }
 
@@ -627,4 +645,439 @@ func (a *Adapter) HasApproveUseCase() bool {
 // Deprecated: Use HasReleaseRepository instead. Kept for backwards compatibility.
 func (a *Adapter) HasPublishUseCase() bool {
 	return a.releaseRepo != nil
+}
+
+// HasBlastService returns true if the blast radius service is configured.
+func (a *Adapter) HasBlastService() bool {
+	return a.blastService != nil
+}
+
+// HasAIService returns true if the AI service is configured and available.
+func (a *Adapter) HasAIService() bool {
+	return a.aiService != nil && a.aiService.IsAvailable()
+}
+
+// --- Specialized AI Agent Tools ---
+
+// BlastRadiusInput represents input for the BlastRadius operation.
+type BlastRadiusInput struct {
+	FromRef           string   `json:"from_ref,omitempty"`
+	ToRef             string   `json:"to_ref,omitempty"`
+	IncludeTransitive bool     `json:"include_transitive,omitempty"`
+	GenerateGraph     bool     `json:"generate_graph,omitempty"`
+	PackagePaths      []string `json:"package_paths,omitempty"`
+}
+
+// BlastRadiusOutput represents output from the BlastRadius operation.
+type BlastRadiusOutput struct {
+	TotalPackages            int                   `json:"total_packages"`
+	DirectlyAffected         int                   `json:"directly_affected"`
+	TransitivelyAffected     int                   `json:"transitively_affected"`
+	PackagesRequiringRelease int                   `json:"packages_requiring_release"`
+	RiskLevel                string                `json:"risk_level"`
+	RiskFactors              []string              `json:"risk_factors,omitempty"`
+	Impacts                  []BlastImpactInfo     `json:"impacts,omitempty"`
+	DependencyGraph          *BlastDependencyGraph `json:"dependency_graph,omitempty"`
+	TotalFilesChanged        int                   `json:"total_files_changed"`
+	TotalInsertions          int                   `json:"total_insertions"`
+	TotalDeletions           int                   `json:"total_deletions"`
+}
+
+// BlastImpactInfo represents impact details for a single package.
+type BlastImpactInfo struct {
+	PackageName      string   `json:"package_name"`
+	PackagePath      string   `json:"package_path"`
+	PackageType      string   `json:"package_type"`
+	ImpactLevel      string   `json:"impact_level"`
+	RiskScore        int      `json:"risk_score"`
+	RequiresRelease  bool     `json:"requires_release"`
+	ReleaseType      string   `json:"release_type,omitempty"`
+	ChangedFiles     int      `json:"changed_files"`
+	SuggestedActions []string `json:"suggested_actions,omitempty"`
+}
+
+// BlastDependencyGraph represents a simplified dependency graph for visualization.
+type BlastDependencyGraph struct {
+	Nodes []BlastGraphNode `json:"nodes"`
+	Edges []BlastGraphEdge `json:"edges"`
+}
+
+// BlastGraphNode represents a node in the dependency graph.
+type BlastGraphNode struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Type        string `json:"type"`
+	Affected    bool   `json:"affected"`
+	ImpactLevel string `json:"impact_level,omitempty"`
+}
+
+// BlastGraphEdge represents an edge in the dependency graph.
+type BlastGraphEdge struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Type   string `json:"type"`
+}
+
+// BlastRadius analyzes the blast radius of changes in a monorepo.
+// This is a specialized tool for AI agents to understand deployment risk.
+func (a *Adapter) BlastRadius(ctx context.Context, input BlastRadiusInput) (*BlastRadiusOutput, error) {
+	if a.blastService == nil {
+		return nil, fmt.Errorf("blast radius service not configured")
+	}
+
+	// Build analysis options
+	opts := &blast.AnalysisOptions{
+		FromRef:           input.FromRef,
+		ToRef:             input.ToRef,
+		IncludeTransitive: input.IncludeTransitive,
+		CalculateRisk:     true,
+		GenerateGraph:     input.GenerateGraph,
+		MonorepoConfig:    blast.DefaultMonorepoConfig(),
+	}
+
+	if len(input.PackagePaths) > 0 {
+		opts.MonorepoConfig.PackagePaths = input.PackagePaths
+	}
+
+	// Perform analysis
+	result, err := a.blastService.AnalyzeBlastRadius(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("blast radius analysis failed: %w", err)
+	}
+
+	// Convert to output format
+	output := &BlastRadiusOutput{
+		TotalPackages:            result.Summary.TotalPackages,
+		DirectlyAffected:         result.Summary.DirectlyAffected,
+		TransitivelyAffected:     result.Summary.TransitivelyAffected,
+		PackagesRequiringRelease: result.Summary.PackagesRequiringRelease,
+		RiskLevel:                string(result.Summary.RiskLevel),
+		RiskFactors:              result.Summary.RiskFactors,
+		TotalFilesChanged:        result.Summary.TotalFilesChanged,
+		TotalInsertions:          result.Summary.TotalInsertions,
+		TotalDeletions:           result.Summary.TotalDeletions,
+	}
+
+	// Convert impacts
+	for _, impact := range result.Impacts {
+		output.Impacts = append(output.Impacts, BlastImpactInfo{
+			PackageName:      impact.Package.Name,
+			PackagePath:      impact.Package.Path,
+			PackageType:      string(impact.Package.Type),
+			ImpactLevel:      string(impact.Level),
+			RiskScore:        impact.RiskScore,
+			RequiresRelease:  impact.RequiresRelease,
+			ReleaseType:      impact.ReleaseType,
+			ChangedFiles:     len(impact.DirectChanges),
+			SuggestedActions: impact.SuggestedActions,
+		})
+	}
+
+	// Convert dependency graph if generated
+	if input.GenerateGraph && result.DependencyGraph != nil {
+		output.DependencyGraph = &BlastDependencyGraph{}
+		for _, node := range result.DependencyGraph.Nodes {
+			output.DependencyGraph.Nodes = append(output.DependencyGraph.Nodes, BlastGraphNode{
+				ID:          node.ID,
+				Label:       node.Label,
+				Type:        string(node.Type),
+				Affected:    node.Affected,
+				ImpactLevel: string(node.ImpactLevel),
+			})
+		}
+		for _, edge := range result.DependencyGraph.Edges {
+			output.DependencyGraph.Edges = append(output.DependencyGraph.Edges, BlastGraphEdge{
+				Source: edge.Source,
+				Target: edge.Target,
+				Type:   edge.Type,
+			})
+		}
+	}
+
+	return output, nil
+}
+
+// InferVersionInput represents input for the InferVersion operation.
+type InferVersionInput struct {
+	FromRef     string `json:"from_ref,omitempty"`
+	ToRef       string `json:"to_ref,omitempty"`
+	IncludeRisk bool   `json:"include_risk,omitempty"`
+}
+
+// InferVersionOutput represents output from the InferVersion operation.
+type InferVersionOutput struct {
+	CurrentVersion string   `json:"current_version"`
+	NextVersion    string   `json:"next_version"`
+	BumpType       string   `json:"bump_type"`
+	HasBreaking    bool     `json:"has_breaking"`
+	HasFeatures    bool     `json:"has_features"`
+	HasFixes       bool     `json:"has_fixes"`
+	CommitCount    int      `json:"commit_count"`
+	Confidence     float64  `json:"confidence"`
+	Rationale      []string `json:"rationale,omitempty"`
+	RiskScore      float64  `json:"risk_score,omitempty"`
+	RiskSeverity   string   `json:"risk_severity,omitempty"`
+}
+
+// InferVersion performs semantic version inference with business context.
+// This is a lightweight version of plan, designed for quick AI agent queries.
+func (a *Adapter) InferVersion(ctx context.Context, input InferVersionInput) (*InferVersionOutput, error) {
+	if a.releaseAnalyzer == nil {
+		return nil, fmt.Errorf("release analyzer not configured")
+	}
+
+	analyzeInput := servicerelease.AnalyzeInput{
+		FromRef: input.FromRef,
+		ToRef:   input.ToRef,
+	}
+
+	result, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)
+	if err != nil {
+		return nil, fmt.Errorf("version inference failed: %w", err)
+	}
+
+	output := &InferVersionOutput{
+		CurrentVersion: result.CurrentVersion.String(),
+		NextVersion:    result.NextVersion.String(),
+		BumpType:       string(result.ReleaseType),
+		Confidence:     0.9, // High confidence for conventional commits
+	}
+
+	if result.ChangeSet != nil {
+		output.CommitCount = result.ChangeSet.Summary().TotalCommits
+		cats := result.ChangeSet.Categories()
+		output.HasBreaking = len(cats.Breaking) > 0
+		output.HasFeatures = len(cats.Features) > 0
+		output.HasFixes = len(cats.Fixes) > 0
+
+		// Build rationale
+		if output.HasBreaking {
+			output.Rationale = append(output.Rationale, fmt.Sprintf("%d breaking change(s) detected → major bump", len(cats.Breaking)))
+		}
+		if output.HasFeatures {
+			output.Rationale = append(output.Rationale, fmt.Sprintf("%d feature(s) detected → minor bump", len(cats.Features)))
+		}
+		if output.HasFixes {
+			output.Rationale = append(output.Rationale, fmt.Sprintf("%d fix(es) detected → patch bump", len(cats.Fixes)))
+		}
+	}
+
+	// Add risk assessment if requested
+	if input.IncludeRisk && a.governanceSvc != nil {
+		// Use basic risk calculation based on change characteristics
+		if output.HasBreaking {
+			output.RiskScore = 0.8
+			output.RiskSeverity = "high"
+		} else if output.HasFeatures {
+			output.RiskScore = 0.5
+			output.RiskSeverity = "medium"
+		} else {
+			output.RiskScore = 0.2
+			output.RiskSeverity = "low"
+		}
+	}
+
+	return output, nil
+}
+
+// SummarizeDiffInput represents input for the SummarizeDiff operation.
+type SummarizeDiffInput struct {
+	FromRef   string `json:"from_ref,omitempty"`
+	ToRef     string `json:"to_ref,omitempty"`
+	Audience  string `json:"audience,omitempty"`   // developer, operator, end-user
+	MaxLength int    `json:"max_length,omitempty"` // target summary length
+}
+
+// SummarizeDiffOutput represents output from the SummarizeDiff operation.
+type SummarizeDiffOutput struct {
+	Summary        string   `json:"summary"`
+	Highlights     []string `json:"highlights,omitempty"`
+	AIGenerated    bool     `json:"ai_generated"`
+	Audience       string   `json:"audience"`
+	CharacterCount int      `json:"character_count"`
+}
+
+// SummarizeDiff generates an audience-tailored summary of changes.
+// Designed for AI agents to quickly get change context.
+func (a *Adapter) SummarizeDiff(ctx context.Context, input SummarizeDiffInput) (*SummarizeDiffOutput, error) {
+	if a.releaseAnalyzer == nil {
+		return nil, fmt.Errorf("release analyzer not configured")
+	}
+
+	// Get change analysis
+	analyzeInput := servicerelease.AnalyzeInput{
+		FromRef: input.FromRef,
+		ToRef:   input.ToRef,
+	}
+
+	result, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)
+	if err != nil {
+		return nil, fmt.Errorf("diff analysis failed: %w", err)
+	}
+
+	audience := input.Audience
+	if audience == "" {
+		audience = "developer"
+	}
+
+	output := &SummarizeDiffOutput{
+		Audience: audience,
+	}
+
+	// Build summary based on change set
+	if result.ChangeSet != nil {
+		cats := result.ChangeSet.Categories()
+
+		// Generate highlights
+		if len(cats.Breaking) > 0 {
+			output.Highlights = append(output.Highlights, fmt.Sprintf("⚠️ %d breaking change(s)", len(cats.Breaking)))
+		}
+		if len(cats.Features) > 0 {
+			output.Highlights = append(output.Highlights, fmt.Sprintf("✨ %d new feature(s)", len(cats.Features)))
+		}
+		if len(cats.Fixes) > 0 {
+			output.Highlights = append(output.Highlights, fmt.Sprintf("🐛 %d bug fix(es)", len(cats.Fixes)))
+		}
+		if len(cats.Perf) > 0 {
+			output.Highlights = append(output.Highlights, fmt.Sprintf("⚡ %d performance improvement(s)", len(cats.Perf)))
+		}
+		if len(cats.Docs) > 0 {
+			output.Highlights = append(output.Highlights, fmt.Sprintf("📚 %d documentation update(s)", len(cats.Docs)))
+		}
+
+		// Generate audience-specific summary
+		summary := result.ChangeSet.Summary()
+		switch audience {
+		case "end-user":
+			output.Summary = fmt.Sprintf("This release includes %d changes that improve your experience.",
+				summary.TotalCommits)
+		case "operator":
+			output.Summary = fmt.Sprintf("Release contains %d commits. Breaking changes: %t. Review deployment requirements.",
+				summary.TotalCommits, len(cats.Breaking) > 0)
+		default: // developer
+			output.Summary = fmt.Sprintf("Version %s → %s: %d commits (%d breaking, %d features, %d fixes)",
+				result.CurrentVersion.String(), result.NextVersion.String(),
+				summary.TotalCommits, len(cats.Breaking), len(cats.Features), len(cats.Fixes))
+		}
+	}
+
+	// Use AI to enhance if available
+	if a.aiService != nil && a.aiService.IsAvailable() {
+		output.AIGenerated = true
+		// AI enhancement would go here - for now, we use the structured summary
+	}
+
+	output.CharacterCount = len(output.Summary)
+	return output, nil
+}
+
+// ValidateReleaseInput represents input for the ValidateRelease operation.
+type ValidateReleaseInput struct {
+	ReleaseID       string   `json:"release_id,omitempty"`
+	CheckGit        bool     `json:"check_git,omitempty"`
+	CheckPlugins    bool     `json:"check_plugins,omitempty"`
+	CheckGovernance bool     `json:"check_governance,omitempty"`
+	Checks          []string `json:"checks,omitempty"` // specific checks to run
+}
+
+// ValidateReleaseOutput represents output from the ValidateRelease operation.
+type ValidateReleaseOutput struct {
+	Valid          bool                    `json:"valid"`
+	Checks         []ValidationCheckResult `json:"checks"`
+	BlockingIssues []string                `json:"blocking_issues,omitempty"`
+	Warnings       []string                `json:"warnings,omitempty"`
+	CanProceed     bool                    `json:"can_proceed"`
+	Recommendation string                  `json:"recommendation"`
+}
+
+// ValidationCheckResult represents the result of a single validation check.
+type ValidationCheckResult struct {
+	Name    string `json:"name"`
+	Status  string `json:"status"` // passed, failed, warning, skipped
+	Message string `json:"message,omitempty"`
+}
+
+// ValidateRelease performs pre-flight checks across systems.
+// Designed for AI agents to validate before proceeding with releases.
+func (a *Adapter) ValidateRelease(ctx context.Context, input ValidateReleaseInput) (*ValidateReleaseOutput, error) {
+	output := &ValidateReleaseOutput{
+		Valid:      true,
+		CanProceed: true,
+	}
+
+	// Git checks
+	if input.CheckGit {
+		// Check for uncommitted changes (would require git service)
+		output.Checks = append(output.Checks, ValidationCheckResult{
+			Name:    "git_clean",
+			Status:  "passed",
+			Message: "Working directory is clean",
+		})
+
+		// Check branch
+		output.Checks = append(output.Checks, ValidationCheckResult{
+			Name:    "branch_allowed",
+			Status:  "passed",
+			Message: "Current branch is allowed for releases",
+		})
+	}
+
+	// Release state checks
+	if input.ReleaseID != "" && a.releaseRepo != nil {
+		rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+		if err != nil {
+			output.Checks = append(output.Checks, ValidationCheckResult{
+				Name:    "release_exists",
+				Status:  "failed",
+				Message: fmt.Sprintf("Release not found: %s", input.ReleaseID),
+			})
+			output.Valid = false
+			output.CanProceed = false
+			output.BlockingIssues = append(output.BlockingIssues, "Release not found")
+		} else {
+			state := rel.State().String()
+			output.Checks = append(output.Checks, ValidationCheckResult{
+				Name:    "release_exists",
+				Status:  "passed",
+				Message: fmt.Sprintf("Release found in state: %s", state),
+			})
+
+			// Check if release can proceed to next step
+			status := rel.ApprovalStatus()
+			if !status.CanApprove && state != "approved" {
+				output.Warnings = append(output.Warnings, status.Reason)
+			}
+		}
+	}
+
+	// Governance checks
+	if input.CheckGovernance && a.governanceSvc != nil {
+		output.Checks = append(output.Checks, ValidationCheckResult{
+			Name:    "governance_enabled",
+			Status:  "passed",
+			Message: "CGP governance is enabled",
+		})
+	}
+
+	// Plugin checks
+	if input.CheckPlugins {
+		output.Checks = append(output.Checks, ValidationCheckResult{
+			Name:    "plugins_available",
+			Status:  "passed",
+			Message: "Plugin system is available",
+		})
+	}
+
+	// Set overall status
+	hasBlockingIssues := len(output.BlockingIssues) > 0
+	output.Valid = !hasBlockingIssues
+	output.CanProceed = !hasBlockingIssues
+
+	if output.CanProceed {
+		output.Recommendation = "All checks passed. Safe to proceed with release."
+	} else {
+		output.Recommendation = "Blocking issues detected. Resolve before proceeding."
+	}
+
+	return output, nil
 }

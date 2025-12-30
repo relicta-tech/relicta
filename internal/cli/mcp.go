@@ -28,7 +28,7 @@ var mcpServeCmd = &cobra.Command{
 The server uses stdio transport by default, allowing integration with
 AI clients that support the Model Context Protocol (MCP).
 
-Tools available via MCP:
+Core Tools:
   - relicta.status:   Get current release state
   - relicta.plan:     Analyze commits and plan release
   - relicta.bump:     Calculate and set version
@@ -36,6 +36,12 @@ Tools available via MCP:
   - relicta.evaluate: CGP risk evaluation
   - relicta.approve:  Approve the release
   - relicta.publish:  Execute the release
+
+AI Agent Tools:
+  - relicta.blast_radius:     Analyze monorepo change impact
+  - relicta.infer_version:    Lightweight version inference
+  - relicta.summarize_diff:   Audience-tailored change summaries
+  - relicta.validate_release: Pre-flight release validation
 
 Resources available:
   - relicta://state:       Current release state
@@ -146,6 +152,16 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 	// Wire release repository
 	if repo := app.ReleaseRepository(); repo != nil {
 		opts = append(opts, mcp.WithAdapterReleaseRepository(repo))
+	}
+
+	// Wire blast radius service for monorepo analysis
+	if app.HasBlastService() {
+		opts = append(opts, mcp.WithBlastService(app.BlastService()))
+	}
+
+	// Wire AI service for diff summarization
+	if app.HasAI() {
+		opts = append(opts, mcp.WithAIService(app.AI()))
 	}
 
 	return mcp.NewAdapter(opts...)

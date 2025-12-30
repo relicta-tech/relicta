@@ -27,6 +27,8 @@ type Config struct {
 	Governance GovernanceConfig `mapstructure:"governance" json:"governance"`
 	// Webhooks configures webhook notifications for release events.
 	Webhooks []WebhookConfig `mapstructure:"webhooks" json:"webhooks,omitempty"`
+	// Monorepo configures multi-package/monorepo versioning support.
+	Monorepo MonorepoConfig `mapstructure:"monorepo" json:"monorepo,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -475,6 +477,78 @@ func DefaultConfig() *Config {
 			MemoryPath:              ".relicta/governance/memory.json", // Default storage path
 			Policies:                []GovernancePolicyConfig{},
 		},
+		Monorepo: MonorepoConfig{
+			Enabled:                false, // Disabled by default, opt-in for monorepo mode
+			Strategy:               MonorepoStrategyIndependent,
+			PackagePaths:           []string{},
+			ExcludePaths:           []string{},
+			PackageOverrides:       map[string]PackageOverrideConfig{},
+			ReleaseGroups:          []ReleaseGroupConfig{},
+			RootPackage:            false,
+			DependencyCoordination: true, // Coordinate internal dependency updates by default
+			VersionFiles:           defaultVersionFiles(),
+			Changelog: MonorepoChangelogConfig{
+				PerPackage:          true, // Generate per-package changelogs
+				RootChangelog:       true, // Also generate root changelog
+				Format:              "conventional",
+				IncludePackageLinks: true,
+			},
+		},
+	}
+}
+
+// defaultVersionFiles returns the default version file configurations
+// for common package types.
+func defaultVersionFiles() map[string]VersionFileConfig {
+	return map[string]VersionFileConfig{
+		"npm": {
+			File:   "package.json",
+			Field:  "version",
+			Update: true,
+		},
+		"cargo": {
+			File:   "Cargo.toml",
+			Field:  "version",
+			Update: true,
+		},
+		"python": {
+			Files:        []string{"pyproject.toml", "setup.py", "__version__.py"},
+			Field:        "version",
+			Pattern:      `__version__\s*=\s*["']([^"']+)["']`,
+			Update:       true,
+			UpdateFormat: `__version__ = "{{.Version}}"`,
+		},
+		"go_module": {
+			File:   "go.mod",
+			Update: false, // Go modules use git tags, not file versions
+		},
+		"maven": {
+			File:   "pom.xml",
+			Field:  "version",
+			Update: true,
+		},
+		"gradle": {
+			Files:        []string{"build.gradle", "build.gradle.kts"},
+			Pattern:      `version\s*=\s*["']([^"']+)["']`,
+			Update:       true,
+			UpdateFormat: `version = "{{.Version}}"`,
+		},
+		"composer": {
+			File:   "composer.json",
+			Field:  "version",
+			Update: true,
+		},
+		"gem": {
+			Files:        []string{"*.gemspec", "lib/*/version.rb"},
+			Pattern:      `VERSION\s*=\s*["']([^"']+)["']`,
+			Update:       true,
+			UpdateFormat: `VERSION = "{{.Version}}"`,
+		},
+		"nuget": {
+			Files:  []string{"*.csproj", "*.fsproj"},
+			Field:  "Version",
+			Update: true,
+		},
 	}
 }
 
@@ -614,6 +688,126 @@ type BlastRadiusConfig struct {
 	MaxTransitiveDepth int `mapstructure:"max_transitive_depth" json:"max_transitive_depth"`
 	// IgnoreDevDependencies excludes dev dependencies from analysis.
 	IgnoreDevDependencies bool `mapstructure:"ignore_dev_dependencies" json:"ignore_dev_dependencies"`
+}
+
+// MonorepoStrategy defines the versioning strategy for monorepos.
+type MonorepoStrategy string
+
+const (
+	// MonorepoStrategyIndependent allows each package to have its own version.
+	MonorepoStrategyIndependent MonorepoStrategy = "independent"
+	// MonorepoStrategyLockstep keeps all packages at the same version.
+	MonorepoStrategyLockstep MonorepoStrategy = "lockstep"
+	// MonorepoStrategyHybrid allows groups of packages with different strategies.
+	MonorepoStrategyHybrid MonorepoStrategy = "hybrid"
+)
+
+// MonorepoConfig configures multi-package/monorepo versioning support.
+// This enables independent versioning for packages within a monorepo,
+// coordinated multi-package releases, and automatic version file updates.
+type MonorepoConfig struct {
+	// Enabled indicates whether monorepo mode is enabled.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// Strategy is the versioning strategy (independent, lockstep, hybrid).
+	// - independent: Each package has its own version.
+	// - lockstep: All packages share the same version.
+	// - hybrid: Groups of packages can have different strategies.
+	Strategy MonorepoStrategy `mapstructure:"strategy" json:"strategy"`
+	// PackagePaths is a list of glob patterns for package locations.
+	// These extend the blast_radius package paths for versioning purposes.
+	// Example: ["packages/*", "plugins/*"]
+	PackagePaths []string `mapstructure:"package_paths" json:"package_paths,omitempty"`
+	// ExcludePaths is a list of paths to exclude from package discovery.
+	// Example: ["packages/internal-*"]
+	ExcludePaths []string `mapstructure:"exclude_paths" json:"exclude_paths,omitempty"`
+	// PackageOverrides provides per-package configuration overrides.
+	// Keys are package paths relative to repository root.
+	PackageOverrides map[string]PackageOverrideConfig `mapstructure:"package_overrides" json:"package_overrides,omitempty"`
+	// VersionFiles configures how to detect and update version files.
+	VersionFiles map[string]VersionFileConfig `mapstructure:"version_files" json:"version_files,omitempty"`
+	// ReleaseGroups configures coordinated release groups.
+	// Packages in the same group can be released together with a shared strategy.
+	ReleaseGroups []ReleaseGroupConfig `mapstructure:"release_groups" json:"release_groups,omitempty"`
+	// Changelog configures per-package and root changelog generation.
+	Changelog MonorepoChangelogConfig `mapstructure:"changelog" json:"changelog,omitempty"`
+	// RootPackage indicates if the root directory is also a package.
+	RootPackage bool `mapstructure:"root_package" json:"root_package"`
+	// DependencyCoordination enables automatic dependency version updates
+	// when releasing packages with internal dependencies.
+	DependencyCoordination bool `mapstructure:"dependency_coordination" json:"dependency_coordination"`
+}
+
+// PackageOverrideConfig provides per-package configuration overrides.
+type PackageOverrideConfig struct {
+	// TagPrefix overrides the tag prefix for this package.
+	// Example: "core-v" produces tags like "core-v1.2.3"
+	TagPrefix string `mapstructure:"tag_prefix" json:"tag_prefix,omitempty"`
+	// VersionFile specifies the version file to update for this package.
+	// Example: "package.json" or "Cargo.toml"
+	VersionFile string `mapstructure:"version_file" json:"version_file,omitempty"`
+	// VersionField specifies the field in the version file to update.
+	// Example: "version" for package.json
+	VersionField string `mapstructure:"version_field" json:"version_field,omitempty"`
+	// ChangelogFile specifies a custom changelog file for this package.
+	// Defaults to "CHANGELOG.md" within the package directory.
+	ChangelogFile string `mapstructure:"changelog_file" json:"changelog_file,omitempty"`
+	// Private indicates this package should not be published.
+	Private bool `mapstructure:"private" json:"private"`
+	// PrereleaseSuffix overrides the prerelease suffix for this package.
+	PrereleaseSuffix string `mapstructure:"prerelease_suffix" json:"prerelease_suffix,omitempty"`
+	// SkipVersioning disables versioning for this package.
+	SkipVersioning bool `mapstructure:"skip_versioning" json:"skip_versioning"`
+}
+
+// VersionFileConfig configures how to detect and update version files.
+type VersionFileConfig struct {
+	// File is the version file name (e.g., "package.json", "Cargo.toml").
+	File string `mapstructure:"file" json:"file"`
+	// Files is a list of version file names to check (for types with multiple options).
+	// Example for Python: ["setup.py", "pyproject.toml", "__version__.py"]
+	Files []string `mapstructure:"files" json:"files,omitempty"`
+	// Field is the field name containing the version (e.g., "version").
+	Field string `mapstructure:"field" json:"field,omitempty"`
+	// Pattern is a regex pattern to match and extract version.
+	// Used for files without structured format (e.g., __version__.py).
+	Pattern string `mapstructure:"pattern" json:"pattern,omitempty"`
+	// Update indicates whether to update the version in this file.
+	// Set to false for formats that use git tags only (like go.mod).
+	Update bool `mapstructure:"update" json:"update"`
+	// UpdateFormat is a template for how to write the version.
+	// Example: "__version__ = '{{.Version}}'"
+	UpdateFormat string `mapstructure:"update_format" json:"update_format,omitempty"`
+}
+
+// ReleaseGroupConfig configures a coordinated release group.
+// Packages in a group can be released together with a shared strategy.
+type ReleaseGroupConfig struct {
+	// Name is the unique name for this release group.
+	Name string `mapstructure:"name" json:"name"`
+	// Packages is a list of package paths or glob patterns in this group.
+	// Example: ["packages/core", "packages/shared"] or ["plugins/*"]
+	Packages []string `mapstructure:"packages" json:"packages"`
+	// Strategy is the versioning strategy for this group.
+	// - lockstep: All packages in group share the same version.
+	// - independent: Packages in group have independent versions.
+	Strategy MonorepoStrategy `mapstructure:"strategy" json:"strategy"`
+	// TagPrefix is the tag prefix for lockstep releases.
+	// Example: "core-v" produces tags like "core-v1.2.3"
+	TagPrefix string `mapstructure:"tag_prefix" json:"tag_prefix,omitempty"`
+	// SharedChangelog indicates whether packages share a single changelog.
+	SharedChangelog bool `mapstructure:"shared_changelog" json:"shared_changelog"`
+}
+
+// MonorepoChangelogConfig configures changelog generation for monorepos.
+type MonorepoChangelogConfig struct {
+	// PerPackage generates individual changelogs for each package.
+	PerPackage bool `mapstructure:"per_package" json:"per_package"`
+	// RootChangelog generates a root-level CHANGELOG.md aggregating all changes.
+	RootChangelog bool `mapstructure:"root_changelog" json:"root_changelog"`
+	// Format is the changelog format (conventional, keep-a-changelog, custom).
+	Format string `mapstructure:"format" json:"format,omitempty"`
+	// IncludePackageLinks includes links between package changelogs.
+	IncludePackageLinks bool `mapstructure:"include_package_links" json:"include_package_links"`
 }
 
 // JiraPluginConfig is the configuration for the Jira plugin.

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
@@ -55,8 +56,9 @@ type App struct {
 	memoryStore        memory.Store
 
 	// Services (existing infrastructure)
-	gitService git.Service
-	aiService  ai.Service
+	gitService   git.Service
+	aiService    ai.Service
+	blastService blast.Service
 
 	// Application layer use cases
 	releaseAnalyzer    *servicerelease.Analyzer
@@ -317,6 +319,12 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	// Initialize SetVersionUseCase
 	c.setVersionUC = versioning.NewSetVersionUseCase(c.gitAdapter)
 
+	// Initialize blast radius service for monorepo analysis
+	c.blastService = blast.NewService(
+		blast.WithRepoPath("."),
+		blast.WithMonorepoConfig(blast.DefaultMonorepoConfig()),
+	)
+
 	// Initialize Governance service (CGP) if enabled
 	if c.config.Governance.Enabled {
 		if err := c.initGovernanceService(ctx); err != nil {
@@ -535,6 +543,20 @@ func (c *App) HasAI() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.aiService != nil && c.aiService.IsAvailable()
+}
+
+// BlastService returns the blast radius analysis service.
+func (c *App) BlastService() blast.Service {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.blastService
+}
+
+// HasBlastService returns true if the blast radius service is available.
+func (c *App) HasBlastService() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.blastService != nil
 }
 
 // Config returns the configuration.
