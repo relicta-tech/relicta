@@ -19,6 +19,8 @@ import (
 var (
 	servePort    string
 	serveAddress string
+	serveAPIKey  string
+	serveNoAuth  bool
 )
 
 var serveCmd = &cobra.Command{
@@ -68,6 +70,8 @@ func init() {
 
 	serveCmd.Flags().StringVar(&servePort, "port", "", "Port to listen on (default: 8080)")
 	serveCmd.Flags().StringVar(&serveAddress, "address", "", "Address to listen on (e.g., localhost:8080)")
+	serveCmd.Flags().StringVar(&serveAPIKey, "api-key", "", "API key for dashboard authentication (enables API key mode)")
+	serveCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "Disable authentication (not recommended for production)")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -97,10 +101,25 @@ func runServe(cmd *cobra.Command, args []string) error {
 	dashboardCfg := cfg.Dashboard
 	dashboardCfg.Address = address
 
-	// Warn if no API keys configured
+	// Handle authentication flags
+	if serveAPIKey != "" {
+		// Enable API key auth with the provided key
+		dashboardCfg.Auth.Mode = config.DashboardAuthAPIKey
+		dashboardCfg.Auth.APIKeys = []config.DashboardAPIKeyConfig{
+			{
+				Key:   serveAPIKey,
+				Name:  "CLI",
+				Roles: []string{string(config.DashboardRoleAdmin)},
+			},
+		}
+	} else if serveNoAuth {
+		dashboardCfg.Auth.Mode = config.DashboardAuthNone
+	}
+
+	// Warn if API key mode with no keys configured
 	if dashboardCfg.Auth.Mode == config.DashboardAuthAPIKey && len(dashboardCfg.Auth.APIKeys) == 0 {
 		slog.Warn("No API keys configured. Dashboard will be inaccessible.",
-			"hint", "Configure api_keys in release.config.yaml or set RELICTA_DASHBOARD_KEY")
+			"hint", "Use --api-key flag or configure api_keys in release.config.yaml")
 	}
 
 	// Initialize application container

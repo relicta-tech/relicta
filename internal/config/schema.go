@@ -504,7 +504,7 @@ func DefaultConfig() *Config {
 			WriteTimeout: 15 * time.Second,
 			IdleTimeout:  60 * time.Second,
 			Auth: DashboardAuthConfig{
-				Mode:          DashboardAuthAPIKey, // Require API key by default for security
+				Mode:          DashboardAuthNone, // No auth by default for easy local development
 				APIKeys:       []DashboardAPIKeyConfig{},
 				SessionMaxAge: 24 * time.Hour,
 			},

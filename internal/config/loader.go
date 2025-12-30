@@ -154,6 +154,15 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("governance.require_human_for_security", defaults.Governance.RequireHumanForSecurity)
 	l.v.SetDefault("governance.memory_enabled", defaults.Governance.MemoryEnabled)
 	l.v.SetDefault("governance.memory_path", defaults.Governance.MemoryPath)
+
+	// Dashboard defaults
+	l.v.SetDefault("dashboard.enabled", defaults.Dashboard.Enabled)
+	l.v.SetDefault("dashboard.address", defaults.Dashboard.Address)
+	l.v.SetDefault("dashboard.auth.mode", string(defaults.Dashboard.Auth.Mode))
+	l.v.SetDefault("dashboard.auth.session_max_age", defaults.Dashboard.Auth.SessionMaxAge)
+	l.v.SetDefault("dashboard.read_timeout", defaults.Dashboard.ReadTimeout)
+	l.v.SetDefault("dashboard.write_timeout", defaults.Dashboard.WriteTimeout)
+	l.v.SetDefault("dashboard.idle_timeout", defaults.Dashboard.IdleTimeout)
 }
 
 // configFileExists checks if a config file exists in search paths.

@@ -50,7 +50,7 @@ func Auth(cfg config.DashboardAuthConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch cfg.Mode {
-			case config.DashboardAuthNone:
+			case config.DashboardAuthNone, "":
 				// No authentication - pass through with anonymous user
 				user := &AuthenticatedUser{
 					Name:  "anonymous",

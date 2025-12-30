@@ -119,7 +119,15 @@ func (s *Server) serveFrontend(r chi.Router) {
 	// Serve root path explicitly
 	r.Get("/", func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(indexHTML)
+		_, _ = w.Write(indexHTML)
+	})
+
+	// Serve favicon
+	r.Get("/favicon.svg", func(w http.ResponseWriter, req *http.Request) {
+		fileServer.ServeHTTP(w, req)
+	})
+	r.Get("/favicon.ico", func(w http.ResponseWriter, req *http.Request) {
+		fileServer.ServeHTTP(w, req)
 	})
 
 	// Serve static assets (js, css, images, etc.)
@@ -135,6 +143,6 @@ func (s *Server) serveFrontend(r chi.Router) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(indexHTML)
+		_, _ = w.Write(indexHTML)
 	})
 }
