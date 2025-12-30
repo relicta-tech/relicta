@@ -90,6 +90,8 @@ The easiest way to use Relicta in your CI/CD pipeline:
 
 ## Quick Start
 
+> **New to Relicta?** See the [Quick Start Guide](docs/quick-start.md) for a comprehensive walkthrough.
+
 ### One-Command Release (Recommended)
 
 Run the complete release workflow in a single command:
