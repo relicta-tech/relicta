@@ -79,7 +79,7 @@ func init() {
 	releaseCmd.Flags().BoolVarP(&releaseAutoApprove, "yes", "y", false, "auto-approve the release without prompting")
 	releaseCmd.Flags().BoolVar(&releaseSkipPush, "skip-push", false, "skip pushing to remote")
 	releaseCmd.Flags().StringVarP(&releaseForce, "force", "f", "", "force a specific version (e.g., v2.0.0)")
-	releaseCmd.Flags().BoolVarP(&releaseClean, "clean", "c", false, "clear any active release state before starting")
+	releaseCmd.Flags().BoolVarP(&releaseClean, "clean", "x", false, "clear any active release state before starting")
 }
 
 // runRelease implements the release command - full workflow in one step.
