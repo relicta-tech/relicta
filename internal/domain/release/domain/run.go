@@ -702,7 +702,7 @@ func (r *ReleaseRun) TransitionTo(to RunState, event, actor, reason string, meta
 // Plan transitions from Draft to Planned state.
 func (r *ReleaseRun) Plan(actor string) error {
 	if r.state != StateDraft {
-		return fmt.Errorf("%w: can only plan from Draft state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "plan")
 	}
 
 	return r.TransitionTo(StatePlanned, "PLAN", actor, "Release planned", nil)
@@ -730,7 +730,7 @@ func (r *ReleaseRun) SetVersion(next version.SemanticVersion, tagName string) er
 // The version should already be set via SetVersion().
 func (r *ReleaseRun) Bump(actor string) error {
 	if r.state != StatePlanned {
-		return fmt.Errorf("%w: can only bump from Planned state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "bump")
 	}
 
 	if r.versionNext.String() == "" || r.versionNext.String() == "0.0.0" {
@@ -755,7 +755,7 @@ func (r *ReleaseRun) Bump(actor string) error {
 // GenerateNotes sets the release notes and transitions to NotesReady.
 func (r *ReleaseRun) GenerateNotes(notes *ReleaseNotes, inputsHash, actor string) error {
 	if r.state != StateVersioned {
-		return fmt.Errorf("%w: can only generate notes from Versioned state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "generate notes")
 	}
 
 	r.notes = notes
@@ -768,7 +768,7 @@ func (r *ReleaseRun) GenerateNotes(notes *ReleaseNotes, inputsHash, actor string
 // The approval is bound to the current plan hash.
 func (r *ReleaseRun) Approve(actor string, autoApproved bool) error {
 	if r.state != StateNotesReady {
-		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "approve")
 	}
 
 	return r.ApproveWithOptions(actor, autoApproved, r.actorType, "")
@@ -777,7 +777,7 @@ func (r *ReleaseRun) Approve(actor string, autoApproved bool) error {
 // ApproveWithOptions approves the release with additional options.
 func (r *ReleaseRun) ApproveWithOptions(actor string, autoApproved bool, approverType ActorType, justification string) error {
 	if r.state != StateNotesReady {
-		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "approve")
 	}
 
 	now := time.Now()
@@ -910,7 +910,7 @@ func (r *ReleaseRun) SetApprovalPolicy(policy ApprovalPolicy) {
 // approvals are granted.
 func (r *ReleaseRun) ApproveAtLevel(level ApprovalLevel, actor string, approverType ActorType, justification string) error {
 	if r.state != StateNotesReady {
-		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "approve")
 	}
 
 	// Initialize multi-level approval if not set
@@ -951,7 +951,7 @@ func (r *ReleaseRun) ApproveAtLevel(level ApprovalLevel, actor string, approverT
 // Returns an error if any required approvals are still pending.
 func (r *ReleaseRun) CompleteMultiLevelApproval(actor string) error {
 	if r.state != StateNotesReady {
-		return fmt.Errorf("%w: can only approve from NotesReady state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "approve")
 	}
 
 	if r.multiLevelApproval == nil {
@@ -1022,7 +1022,7 @@ func (r *ReleaseRun) Branch() string {
 // StartPublishing transitions to Publishing state.
 func (r *ReleaseRun) StartPublishing(actor string) error {
 	if r.state != StateApproved {
-		return fmt.Errorf("%w: can only start publishing from Approved state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "publish")
 	}
 
 	return r.TransitionTo(StatePublishing, "START_PUBLISH", actor, "Publishing started", nil)
@@ -1200,7 +1200,7 @@ func (r *ReleaseRun) Cancel(reason, actor string) error {
 // RetryPublish prepares the run for retry by resetting failed steps.
 func (r *ReleaseRun) RetryPublish(actor string) error {
 	if r.state != StateFailed {
-		return fmt.Errorf("%w: can only retry from Failed state, current: %s", ErrInvalidState, r.state)
+		return NewStateTransitionError(r.state, "retry")
 	}
 
 	// Reset failed steps to pending
