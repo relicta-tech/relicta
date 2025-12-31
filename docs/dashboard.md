@@ -251,3 +251,18 @@ make build-with-frontend
 1. Ensure release services are initialized
 2. Check that you're in a git repository
 3. Verify the release.config.yaml exists
+
+## Future Evolution
+
+The embedded dashboard architecture is intentional for the current phase:
+
+| Use Case | Embedded Works Well |
+|----------|---------------------|
+| Local development | ✓ |
+| Single-user / small team | ✓ |
+| Quick demos | ✓ |
+| Self-hosted single instance | ✓ |
+
+For production enterprise scenarios (multi-user, SSO, horizontal scaling), the architecture will evolve to a standalone service deployment. See `docs/internal/prd.md` §14.1 for the full migration roadmap.
+
+The REST API is designed to remain stable across this evolution.
