@@ -15,6 +15,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	relictaerrors "github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
@@ -110,6 +111,17 @@ func WithCacheDisabled() ServerOption {
 	return func(s *Server) {
 		s.cache = nil
 	}
+}
+
+// userError formats an error for user display using FormatUserError.
+// This avoids redundant "failed" messages in error chains.
+// Example: "notes generation failed: generate notes failed: failed to set release notes: invalid state"
+// Becomes: "Notes generation failed: invalid state transition: cannot set notes in state planned"
+func userError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", relictaerrors.FormatUserError(err))
 }
 
 // Tool input types with JSON Schema generation via struct tags.
@@ -478,7 +490,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 
 		output, err := s.adapter.Plan(ctx, planInput)
 		if err != nil {
-			return nil, fmt.Errorf("plan failed: %w", err)
+			return nil, userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -553,7 +565,7 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 
 		output, err := s.adapter.Bump(ctx, bumpInput)
 		if err != nil {
-			return nil, fmt.Errorf("bump failed: %w", err)
+			return nil, userError(err)
 		}
 
 		result := map[string]any{
@@ -608,7 +620,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 
 		output, err := s.adapter.Notes(ctx, notesInput)
 		if err != nil {
-			return nil, fmt.Errorf("notes generation failed: %w", err)
+			return nil, userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -660,7 +672,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 		output, err := s.adapter.Evaluate(ctx, evalInput)
 		if err != nil {
-			return nil, fmt.Errorf("evaluation failed: %w", err)
+			return nil, userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -702,7 +714,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 	assessment, err := s.riskCalc.Calculate(ctx, proposal, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate risk: %w", err)
+		return nil, userError(err)
 	}
 
 	return map[string]any{
@@ -730,7 +742,7 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 
 		output, err := s.adapter.Approve(ctx, approveInput)
 		if err != nil {
-			return nil, fmt.Errorf("approval failed: %w", err)
+			return nil, userError(err)
 		}
 
 		s.invalidateCache()
@@ -775,7 +787,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 
 		output, err := s.adapter.Publish(ctx, publishInput)
 		if err != nil {
-			return nil, fmt.Errorf("publish failed: %w", err)
+			return nil, userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -842,7 +854,7 @@ func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInp
 
 	output, err := s.adapter.BlastRadius(ctx, blastInput)
 	if err != nil {
-		return nil, fmt.Errorf("blast radius analysis failed: %w", err)
+		return nil, userError(err)
 	}
 
 	if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -916,7 +928,7 @@ func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolI
 
 	output, err := s.adapter.InferVersion(ctx, inferInput)
 	if err != nil {
-		return nil, fmt.Errorf("version inference failed: %w", err)
+		return nil, userError(err)
 	}
 
 	if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -959,7 +971,7 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 
 	output, err := s.adapter.SummarizeDiff(ctx, summarizeInput)
 	if err != nil {
-		return nil, fmt.Errorf("diff summarization failed: %w", err)
+		return nil, userError(err)
 	}
 
 	result := map[string]any{
@@ -998,7 +1010,7 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 	if s.adapter != nil {
 		output, err := s.adapter.ValidateRelease(ctx, validateInput)
 		if err != nil {
-			return nil, fmt.Errorf("validation failed: %w", err)
+			return nil, userError(err)
 		}
 
 		result := map[string]any{
