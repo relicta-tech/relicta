@@ -24,4 +24,15 @@ func TestContainerAppWrapperAccessors(t *testing.T) {
 	if wrapper.HasReleaseServices() {
 		t.Log("HasReleaseServices returned true (expected false for empty container)")
 	}
+	// Test AI accessor - should return nil for empty container
+	if wrapper.AI() != nil {
+		t.Log("AI returned non-nil (expected nil for empty container)")
+	}
+}
+
+// TestContainerAppWrapperImplementsCliApp verifies the wrapper implements the interface
+func TestContainerAppWrapperImplementsCliApp(t *testing.T) {
+	wrapper := &containerAppWrapper{App: &container.App{}}
+	// Verify the wrapper implements cliApp interface
+	var _ cliApp = wrapper
 }

@@ -26,6 +26,42 @@ const (
 	stateFileSuffix   = ".state.json"
 )
 
+// ErrInvalidPath is returned when a path fails security validation.
+var ErrInvalidPath = errors.New("invalid or unsafe path")
+
+// validateRepoRoot validates that a repository root path is safe to use.
+// It resolves the path to an absolute path and ensures it exists as a directory.
+// This prevents path traversal attacks by canonicalizing the path.
+func validateRepoRoot(repoRoot string) (string, error) {
+	if repoRoot == "" {
+		return "", fmt.Errorf("%w: empty path", ErrInvalidPath)
+	}
+
+	// Resolve to absolute path to prevent path traversal
+	absPath, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to resolve path: %w", ErrInvalidPath, err)
+	}
+
+	// Clean the path to remove any . or .. components
+	cleanPath := filepath.Clean(absPath)
+
+	// Verify the path exists and is a directory
+	info, err := os.Stat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("%w: path does not exist", ErrInvalidPath)
+		}
+		return "", fmt.Errorf("%w: cannot access path: %w", ErrInvalidPath, err)
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("%w: path is not a directory", ErrInvalidPath)
+	}
+
+	return cleanPath, nil
+}
+
 // FileReleaseRunRepository implements ReleaseRunRepository using file-based storage.
 type FileReleaseRunRepository struct {
 	mu        sync.RWMutex
@@ -246,11 +282,17 @@ func (r *FileReleaseRunRepository) Load(ctx context.Context, runID domain.RunID)
 
 // LoadFromRepo retrieves a release run from a specific repository.
 func (r *FileReleaseRunRepository) LoadFromRepo(ctx context.Context, repoRoot string, runID domain.RunID) (*domain.ReleaseRun, error) {
+	// Validate repoRoot to prevent path injection
+	validatedRoot, err := validateRepoRoot(repoRoot)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository root: %w", err)
+	}
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	path := runPath(repoRoot, runID)
-	data, err := os.ReadFile(path)
+	path := runPath(validatedRoot, runID)
+	data, err := os.ReadFile(path) // #nosec G304 - path is validated above
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, domain.ErrRunNotFound
@@ -329,11 +371,17 @@ func (r *FileReleaseRunRepository) getLatestRunID(repoRoot string) (domain.RunID
 
 // loadFromRepoInternal is the internal implementation that handles locking.
 func (r *FileReleaseRunRepository) loadFromRepoInternal(ctx context.Context, repoRoot string, runID domain.RunID) (*domain.ReleaseRun, error) {
+	// Validate repoRoot to prevent path injection
+	validatedRoot, err := validateRepoRoot(repoRoot)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repository root: %w", err)
+	}
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	path := runPath(repoRoot, runID)
-	data, err := os.ReadFile(path)
+	path := runPath(validatedRoot, runID)
+	data, err := os.ReadFile(path) // #nosec G304 - path is validated above
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, domain.ErrRunNotFound

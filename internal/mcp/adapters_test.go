@@ -835,6 +835,530 @@ var (
 	_ domainrelease.Repository = (*mockErrorReleaseRepository)(nil)
 )
 
+// Test WithBlastService option
+func TestAdapterWithBlastService(t *testing.T) {
+	t.Run("nil blast service", func(t *testing.T) {
+		adapter := NewAdapter(WithBlastService(nil))
+		assert.NotNil(t, adapter)
+		assert.False(t, adapter.HasBlastService())
+	})
+}
+
+// Test WithAIService option
+func TestAdapterWithAIService(t *testing.T) {
+	t.Run("nil AI service", func(t *testing.T) {
+		adapter := NewAdapter(WithAIService(nil))
+		assert.NotNil(t, adapter)
+		assert.False(t, adapter.HasAIService())
+	})
+}
+
+// Test Cancel operation
+func TestAdapterCancelWithoutRepo(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := CancelInput{
+		ReleaseID: "test-release",
+		Reason:    "testing",
+	}
+
+	output, err := adapter.Cancel(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "release repository not configured")
+}
+
+func TestAdapterCancelReleaseNotFound(t *testing.T) {
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+	input := CancelInput{
+		ReleaseID: "nonexistent-release",
+		Reason:    "testing",
+	}
+
+	output, err := adapter.Cancel(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "failed to find release")
+}
+
+// Test Reset operation
+func TestAdapterResetWithoutRepo(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := ResetInput{
+		ReleaseID: "test-release",
+	}
+
+	output, err := adapter.Reset(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "release repository not configured")
+}
+
+func TestAdapterResetReleaseNotFound(t *testing.T) {
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+	input := ResetInput{
+		ReleaseID: "nonexistent-release",
+	}
+
+	output, err := adapter.Reset(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "failed to find release")
+}
+
+func TestAdapterResetSuccess(t *testing.T) {
+	// Create a release
+	rel := domainrelease.NewReleaseRunForTest("reset-test-123", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+	input := ResetInput{
+		ReleaseID: "reset-test-123",
+	}
+
+	output, err := adapter.Reset(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.Equal(t, "reset-test-123", output.ReleaseID)
+	assert.Equal(t, "planned", output.PreviousState)
+	assert.True(t, output.Deleted)
+}
+
+// Test BlastRadius operation
+func TestAdapterBlastRadiusWithoutService(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := BlastRadiusInput{
+		FromRef: "v1.0.0",
+		ToRef:   "HEAD",
+	}
+
+	output, err := adapter.BlastRadius(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "blast radius service not configured")
+}
+
+// Test InferVersion operation
+func TestAdapterInferVersionWithoutAnalyzer(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := InferVersionInput{
+		FromRef: "v1.0.0",
+		ToRef:   "HEAD",
+	}
+
+	output, err := adapter.InferVersion(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "release analyzer not configured")
+}
+
+// Test SummarizeDiff operation
+func TestAdapterSummarizeDiffWithoutAnalyzer(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := SummarizeDiffInput{
+		FromRef:  "v1.0.0",
+		ToRef:    "HEAD",
+		Audience: "developer",
+	}
+
+	output, err := adapter.SummarizeDiff(ctx, input)
+	require.Error(t, err)
+	assert.Nil(t, output)
+	assert.Contains(t, err.Error(), "release analyzer not configured")
+}
+
+// Test ValidateRelease operation
+func TestAdapterValidateReleaseBasic(t *testing.T) {
+	adapter := NewAdapter()
+
+	ctx := context.Background()
+	input := ValidateReleaseInput{
+		CheckGit:     true,
+		CheckPlugins: true,
+	}
+
+	output, err := adapter.ValidateRelease(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.True(t, output.Valid)
+	assert.True(t, output.CanProceed)
+	assert.Contains(t, output.Recommendation, "All checks passed")
+}
+
+func TestAdapterValidateReleaseWithReleaseID(t *testing.T) {
+	// Create a release
+	rel := domainrelease.NewReleaseRunForTest("validate-test-123", "main", "")
+	v, _ := version.Parse("1.0.0")
+	nextV, _ := version.Parse("1.1.0")
+	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+	_ = domainrelease.SetPlan(rel, plan)
+
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+	input := ValidateReleaseInput{
+		ReleaseID: "validate-test-123",
+	}
+
+	output, err := adapter.ValidateRelease(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.True(t, output.Valid)
+
+	// Check that release_exists check is present
+	var foundCheck bool
+	for _, check := range output.Checks {
+		if check.Name == "release_exists" {
+			foundCheck = true
+			assert.Equal(t, "passed", check.Status)
+		}
+	}
+	assert.True(t, foundCheck, "Expected release_exists check")
+}
+
+func TestAdapterValidateReleaseNotFound(t *testing.T) {
+	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+
+	ctx := context.Background()
+	input := ValidateReleaseInput{
+		ReleaseID: "nonexistent-release",
+	}
+
+	output, err := adapter.ValidateRelease(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+	assert.False(t, output.Valid)
+	assert.False(t, output.CanProceed)
+	assert.Contains(t, output.BlockingIssues, "Release not found")
+}
+
+func TestAdapterValidateReleaseWithGovernance(t *testing.T) {
+	govSvc := &governance.Service{}
+	adapter := NewAdapter(WithGovernanceService(govSvc))
+
+	ctx := context.Background()
+	input := ValidateReleaseInput{
+		CheckGovernance: true,
+	}
+
+	output, err := adapter.ValidateRelease(ctx, input)
+	require.NoError(t, err)
+	require.NotNil(t, output)
+
+	// Check that governance_enabled check is present
+	var foundCheck bool
+	for _, check := range output.Checks {
+		if check.Name == "governance_enabled" {
+			foundCheck = true
+			assert.Equal(t, "passed", check.Status)
+		}
+	}
+	assert.True(t, foundCheck, "Expected governance_enabled check")
+}
+
+// Test CancelInput and CancelOutput fields
+func TestCancelInputFields(t *testing.T) {
+	input := CancelInput{
+		ReleaseID: "cancel-123",
+		Reason:    "canceled by user",
+	}
+
+	assert.Equal(t, "cancel-123", input.ReleaseID)
+	assert.Equal(t, "canceled by user", input.Reason)
+}
+
+func TestCancelOutputFields(t *testing.T) {
+	output := CancelOutput{
+		ReleaseID:     "cancel-123",
+		PreviousState: "planned",
+		NewState:      "canceled",
+	}
+
+	assert.Equal(t, "cancel-123", output.ReleaseID)
+	assert.Equal(t, "planned", output.PreviousState)
+	assert.Equal(t, "canceled", output.NewState)
+}
+
+// Test ResetInput and ResetOutput fields
+func TestResetInputFields(t *testing.T) {
+	input := ResetInput{
+		ReleaseID: "reset-123",
+	}
+
+	assert.Equal(t, "reset-123", input.ReleaseID)
+}
+
+func TestResetOutputFields(t *testing.T) {
+	output := ResetOutput{
+		ReleaseID:     "reset-123",
+		PreviousState: "planned",
+		Deleted:       true,
+	}
+
+	assert.Equal(t, "reset-123", output.ReleaseID)
+	assert.Equal(t, "planned", output.PreviousState)
+	assert.True(t, output.Deleted)
+}
+
+// Test BlastRadiusInput and BlastRadiusOutput fields
+func TestBlastRadiusInputFields(t *testing.T) {
+	input := BlastRadiusInput{
+		FromRef:           "v1.0.0",
+		ToRef:             "HEAD",
+		IncludeTransitive: true,
+		GenerateGraph:     true,
+		PackagePaths:      []string{"pkg/", "internal/"},
+	}
+
+	assert.Equal(t, "v1.0.0", input.FromRef)
+	assert.Equal(t, "HEAD", input.ToRef)
+	assert.True(t, input.IncludeTransitive)
+	assert.True(t, input.GenerateGraph)
+	assert.Len(t, input.PackagePaths, 2)
+}
+
+func TestBlastRadiusOutputFields(t *testing.T) {
+	output := BlastRadiusOutput{
+		TotalPackages:            10,
+		DirectlyAffected:         3,
+		TransitivelyAffected:     5,
+		PackagesRequiringRelease: 2,
+		RiskLevel:                "medium",
+		RiskFactors:              []string{"api change", "database migration"},
+		TotalFilesChanged:        15,
+		TotalInsertions:          100,
+		TotalDeletions:           50,
+	}
+
+	assert.Equal(t, 10, output.TotalPackages)
+	assert.Equal(t, 3, output.DirectlyAffected)
+	assert.Equal(t, 5, output.TransitivelyAffected)
+	assert.Equal(t, 2, output.PackagesRequiringRelease)
+	assert.Equal(t, "medium", output.RiskLevel)
+	assert.Len(t, output.RiskFactors, 2)
+}
+
+// Test InferVersionInput and InferVersionOutput fields
+func TestInferVersionInputFields(t *testing.T) {
+	input := InferVersionInput{
+		FromRef:     "v1.0.0",
+		ToRef:       "HEAD",
+		IncludeRisk: true,
+	}
+
+	assert.Equal(t, "v1.0.0", input.FromRef)
+	assert.Equal(t, "HEAD", input.ToRef)
+	assert.True(t, input.IncludeRisk)
+}
+
+func TestInferVersionOutputFields(t *testing.T) {
+	output := InferVersionOutput{
+		CurrentVersion: "1.0.0",
+		NextVersion:    "1.1.0",
+		BumpType:       "minor",
+		HasBreaking:    false,
+		HasFeatures:    true,
+		HasFixes:       true,
+		CommitCount:    5,
+		Confidence:     0.9,
+		Rationale:      []string{"2 features detected → minor bump"},
+		RiskScore:      0.3,
+		RiskSeverity:   "low",
+	}
+
+	assert.Equal(t, "1.0.0", output.CurrentVersion)
+	assert.Equal(t, "1.1.0", output.NextVersion)
+	assert.Equal(t, "minor", output.BumpType)
+	assert.False(t, output.HasBreaking)
+	assert.True(t, output.HasFeatures)
+	assert.True(t, output.HasFixes)
+	assert.Equal(t, 5, output.CommitCount)
+	assert.Equal(t, 0.9, output.Confidence)
+	assert.Len(t, output.Rationale, 1)
+	assert.Equal(t, 0.3, output.RiskScore)
+	assert.Equal(t, "low", output.RiskSeverity)
+}
+
+// Test SummarizeDiffInput and SummarizeDiffOutput fields
+func TestSummarizeDiffInputFields(t *testing.T) {
+	input := SummarizeDiffInput{
+		FromRef:   "v1.0.0",
+		ToRef:     "HEAD",
+		Audience:  "end-user",
+		MaxLength: 500,
+	}
+
+	assert.Equal(t, "v1.0.0", input.FromRef)
+	assert.Equal(t, "HEAD", input.ToRef)
+	assert.Equal(t, "end-user", input.Audience)
+	assert.Equal(t, 500, input.MaxLength)
+}
+
+func TestSummarizeDiffOutputFields(t *testing.T) {
+	output := SummarizeDiffOutput{
+		Summary:        "This release includes improvements",
+		Highlights:     []string{"✨ 3 new features", "🐛 2 bug fixes"},
+		AIGenerated:    true,
+		Audience:       "developer",
+		CharacterCount: 35,
+	}
+
+	assert.Equal(t, "This release includes improvements", output.Summary)
+	assert.Len(t, output.Highlights, 2)
+	assert.True(t, output.AIGenerated)
+	assert.Equal(t, "developer", output.Audience)
+	assert.Equal(t, 35, output.CharacterCount)
+}
+
+// Test ValidateReleaseInput and ValidateReleaseOutput fields
+func TestValidateReleaseInputFields(t *testing.T) {
+	input := ValidateReleaseInput{
+		ReleaseID:       "validate-123",
+		CheckGit:        true,
+		CheckPlugins:    true,
+		CheckGovernance: true,
+		Checks:          []string{"git_clean", "branch_allowed"},
+	}
+
+	assert.Equal(t, "validate-123", input.ReleaseID)
+	assert.True(t, input.CheckGit)
+	assert.True(t, input.CheckPlugins)
+	assert.True(t, input.CheckGovernance)
+	assert.Len(t, input.Checks, 2)
+}
+
+func TestValidateReleaseOutputFields(t *testing.T) {
+	output := ValidateReleaseOutput{
+		Valid: true,
+		Checks: []ValidationCheckResult{
+			{Name: "git_clean", Status: "passed", Message: "Working directory is clean"},
+		},
+		BlockingIssues: nil,
+		Warnings:       []string{"Release is stale"},
+		CanProceed:     true,
+		Recommendation: "All checks passed",
+	}
+
+	assert.True(t, output.Valid)
+	assert.Len(t, output.Checks, 1)
+	assert.Nil(t, output.BlockingIssues)
+	assert.Len(t, output.Warnings, 1)
+	assert.True(t, output.CanProceed)
+	assert.Equal(t, "All checks passed", output.Recommendation)
+}
+
+// Test ValidationCheckResult fields
+func TestValidationCheckResultFields(t *testing.T) {
+	result := ValidationCheckResult{
+		Name:    "git_clean",
+		Status:  "passed",
+		Message: "Working directory is clean",
+	}
+
+	assert.Equal(t, "git_clean", result.Name)
+	assert.Equal(t, "passed", result.Status)
+	assert.Equal(t, "Working directory is clean", result.Message)
+}
+
+// Test BlastImpactInfo fields
+func TestBlastImpactInfoFields(t *testing.T) {
+	info := BlastImpactInfo{
+		PackageName:      "core",
+		PackagePath:      "pkg/core",
+		PackageType:      "library",
+		ImpactLevel:      "high",
+		RiskScore:        85,
+		RequiresRelease:  true,
+		ReleaseType:      "major",
+		ChangedFiles:     12,
+		SuggestedActions: []string{"review API changes", "update docs"},
+	}
+
+	assert.Equal(t, "core", info.PackageName)
+	assert.Equal(t, "pkg/core", info.PackagePath)
+	assert.Equal(t, "library", info.PackageType)
+	assert.Equal(t, "high", info.ImpactLevel)
+	assert.Equal(t, 85, info.RiskScore)
+	assert.True(t, info.RequiresRelease)
+	assert.Equal(t, "major", info.ReleaseType)
+	assert.Equal(t, 12, info.ChangedFiles)
+	assert.Len(t, info.SuggestedActions, 2)
+}
+
+// Test BlastDependencyGraph fields
+func TestBlastDependencyGraphFields(t *testing.T) {
+	graph := BlastDependencyGraph{
+		Nodes: []BlastGraphNode{
+			{ID: "core", Label: "Core Package", Type: "library", Affected: true, ImpactLevel: "high"},
+		},
+		Edges: []BlastGraphEdge{
+			{Source: "api", Target: "core", Type: "depends_on"},
+		},
+	}
+
+	assert.Len(t, graph.Nodes, 1)
+	assert.Equal(t, "core", graph.Nodes[0].ID)
+	assert.Equal(t, "Core Package", graph.Nodes[0].Label)
+	assert.True(t, graph.Nodes[0].Affected)
+
+	assert.Len(t, graph.Edges, 1)
+	assert.Equal(t, "api", graph.Edges[0].Source)
+	assert.Equal(t, "core", graph.Edges[0].Target)
+}
+
+// Test BlastGraphNode fields
+func TestBlastGraphNodeFields(t *testing.T) {
+	node := BlastGraphNode{
+		ID:          "pkg-1",
+		Label:       "Package 1",
+		Type:        "service",
+		Affected:    true,
+		ImpactLevel: "medium",
+	}
+
+	assert.Equal(t, "pkg-1", node.ID)
+	assert.Equal(t, "Package 1", node.Label)
+	assert.Equal(t, "service", node.Type)
+	assert.True(t, node.Affected)
+	assert.Equal(t, "medium", node.ImpactLevel)
+}
+
+// Test BlastGraphEdge fields
+func TestBlastGraphEdgeFields(t *testing.T) {
+	edge := BlastGraphEdge{
+		Source: "pkg-a",
+		Target: "pkg-b",
+		Type:   "imports",
+	}
+
+	assert.Equal(t, "pkg-a", edge.Source)
+	assert.Equal(t, "pkg-b", edge.Target)
+	assert.Equal(t, "imports", edge.Type)
+}
+
 // Test nextActionForState function for all states
 func TestNextActionForState(t *testing.T) {
 	tests := []struct {

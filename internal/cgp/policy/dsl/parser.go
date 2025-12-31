@@ -110,10 +110,20 @@ func (p *Parser) parseRule() (*RuleNode, error) {
 				}
 				rule.Priority = int(v)
 			} else if v, ok := p.current.Literal.(float64); ok {
+				// Check for fractional part - priority must be a whole number
+				if v != math.Trunc(v) {
+					return nil, p.error("priority value %f must be a whole number", v)
+				}
+				// Use a safe range that float64 can represent precisely
+				// float64 can precisely represent integers up to 2^53
+				const maxSafeInt = 1 << 53
+				if v > maxSafeInt || v < -maxSafeInt {
+					return nil, p.error("priority value %f out of safe integer range", v)
+				}
 				if v > float64(math.MaxInt) || v < float64(math.MinInt) {
 					return nil, p.error("priority value %f out of range", v)
 				}
-				rule.Priority = int(v)
+				rule.Priority = int(v) // #nosec G115 - bounds checked above
 			}
 			p.advance()
 
