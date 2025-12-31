@@ -69,7 +69,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	if !input.Force {
 		activeRuns, err := uc.repo.FindActive(ctx, input.RepoRoot)
 		if err == nil && len(activeRuns) > 0 {
-			return nil, fmt.Errorf("active release run exists: %s (use --force to override)", activeRuns[0].ID())
+			return nil, fmt.Errorf("active release run exists: %s (use --clean to clear, or 'relicta cancel' to abort)", activeRuns[0].ID())
 		}
 	}
 

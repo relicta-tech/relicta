@@ -140,16 +140,22 @@ func TestToolInputTypes(t *testing.T) {
 
 	t.Run("BumpToolInput fields", func(t *testing.T) {
 		input := BumpToolInput{
-			Bump:    "minor",
+			Level:   "minor",
 			Version: "1.2.0",
 		}
-		assert.Equal(t, "minor", input.Bump)
+		assert.Equal(t, "minor", input.Level)
 		assert.Equal(t, "1.2.0", input.Version)
 	})
 
 	t.Run("NotesToolInput fields", func(t *testing.T) {
-		input := NotesToolInput{AI: true}
+		input := NotesToolInput{
+			AI:       true,
+			Audience: "developers",
+			Tone:     "professional",
+		}
 		assert.True(t, input.AI)
+		assert.Equal(t, "developers", input.Audience)
+		assert.Equal(t, "professional", input.Tone)
 	})
 
 	t.Run("EvaluateToolInput", func(t *testing.T) {
@@ -245,7 +251,7 @@ func TestHandleBump(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+		result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 		require.NoError(t, err)
 		assert.Equal(t, "minor", result["bump_type"])
 	})
@@ -617,7 +623,7 @@ func TestHandleBumpWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+		result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 		require.NoError(t, err)
 		assert.Equal(t, "minor", result["bump_type"])
 	})
@@ -1035,7 +1041,7 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Bump: "major"})
+		result, err := server.handleBump(ctx, BumpToolInput{Level: "major"})
 		require.NoError(t, err)
 		assert.Equal(t, "major", result["bump_type"])
 	})
@@ -1044,7 +1050,7 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Bump: "patch"})
+		result, err := server.handleBump(ctx, BumpToolInput{Level: "patch"})
 		require.NoError(t, err)
 		assert.Equal(t, "patch", result["bump_type"])
 	})
@@ -1054,7 +1060,7 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		require.NoError(t, err)
 
 		result, err := server.handleBump(ctx, BumpToolInput{
-			Bump:    "minor",
+			Level:   "minor",
 			Version: "1.2.0-beta.1",
 		})
 		require.NoError(t, err)
@@ -1607,7 +1613,7 @@ func TestHandleBumpWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handleBump(ctx, BumpToolInput{Bump: "minor"})
+	result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 	require.NoError(t, err)
 	// Falls through to stub response
 	assert.Equal(t, "minor", result["bump_type"])

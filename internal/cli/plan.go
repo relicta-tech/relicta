@@ -37,12 +37,12 @@ var (
 )
 
 func init() {
-	planCmd.Flags().StringVar(&planFromRef, "from", "", "starting reference (default: latest tag)")
-	planCmd.Flags().StringVar(&planToRef, "to", "HEAD", "ending reference")
-	planCmd.Flags().BoolVar(&planShowAll, "all", false, "show all commits including non-conventional")
-	planCmd.Flags().BoolVar(&planMinimal, "minimal", false, "show minimal output")
+	planCmd.Flags().StringVarP(&planFromRef, "from", "f", "", "starting reference (default: latest tag)")
+	planCmd.Flags().StringVarP(&planToRef, "to", "t", "HEAD", "ending reference")
+	planCmd.Flags().BoolVarP(&planShowAll, "all", "a", false, "show all commits including non-conventional")
+	planCmd.Flags().BoolVarP(&planMinimal, "minimal", "m", false, "show minimal output")
 	planCmd.Flags().BoolVar(&planAnalyze, "analyze", false, "analyze commit classifications and stop")
-	planCmd.Flags().BoolVar(&planReview, "review", false, "review and adjust commit classifications before planning")
+	planCmd.Flags().BoolVarP(&planReview, "review", "r", false, "review and adjust commit classifications before planning")
 	planCmd.Flags().Float64Var(&planMinConfidence, "min-confidence", 0, "minimum confidence to accept classifications")
 	planCmd.Flags().BoolVar(&planDisableAI, "no-ai", false, "disable AI classification")
 }

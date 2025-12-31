@@ -63,8 +63,8 @@ func init() {
 	policyCmd.AddCommand(policyValidateCmd)
 	policyCmd.AddCommand(policyListCmd)
 
-	policyValidateCmd.Flags().StringVar(&policyValidateDir, "dir", "", "directory containing policy files")
-	policyValidateCmd.Flags().StringVar(&policyValidateFile, "file", "", "specific policy file to validate")
+	policyValidateCmd.Flags().StringVarP(&policyValidateDir, "dir", "d", "", "directory containing policy files")
+	policyValidateCmd.Flags().StringVarP(&policyValidateFile, "file", "f", "", "specific policy file to validate")
 }
 
 func runPolicyValidate(cmd *cobra.Command, args []string) error {

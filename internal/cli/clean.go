@@ -21,9 +21,9 @@ var (
 )
 
 func init() {
-	cleanCmd.Flags().IntVar(&cleanKeepLast, "keep", 10, "keep the last N release runs (default: 10)")
-	cleanCmd.Flags().StringVar(&cleanOlderThan, "older-than", "", "remove runs older than duration (e.g., 7d, 30d)")
-	cleanCmd.Flags().BoolVar(&cleanAll, "all", false, "remove all release runs except the latest")
+	cleanCmd.Flags().IntVarP(&cleanKeepLast, "keep", "k", 10, "keep the last N release runs (default: 10)")
+	cleanCmd.Flags().StringVarP(&cleanOlderThan, "older-than", "o", "", "remove runs older than duration (e.g., 7d, 30d)")
+	cleanCmd.Flags().BoolVarP(&cleanAll, "all", "a", false, "remove all release runs except the latest")
 	cleanCmd.Flags().BoolVar(&cleanDryRunFlag, "dry-run", false, "show what would be deleted without deleting")
 
 	rootCmd.AddCommand(cleanCmd)

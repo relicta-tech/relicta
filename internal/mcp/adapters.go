@@ -513,6 +513,87 @@ func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutp
 	}, nil
 }
 
+// CancelInput represents input for the Cancel operation.
+type CancelInput struct {
+	ReleaseID string
+	Reason    string
+}
+
+// CancelOutput represents output from the Cancel operation.
+type CancelOutput struct {
+	ReleaseID     string
+	PreviousState string
+	NewState      string
+}
+
+// Cancel cancels an in-progress release.
+func (a *Adapter) Cancel(ctx context.Context, input CancelInput) (*CancelOutput, error) {
+	if a.releaseRepo == nil {
+		return nil, fmt.Errorf("release repository not configured")
+	}
+
+	// Find the release
+	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find release: %w", err)
+	}
+
+	previousState := rel.State().String()
+
+	// Cancel the release
+	if err := rel.Cancel(input.Reason, "mcp-agent"); err != nil {
+		return nil, fmt.Errorf("failed to cancel release: %w", err)
+	}
+
+	if err := a.releaseRepo.Save(ctx, rel); err != nil {
+		return nil, fmt.Errorf("failed to save release: %w", err)
+	}
+
+	return &CancelOutput{
+		ReleaseID:     input.ReleaseID,
+		PreviousState: previousState,
+		NewState:      rel.State().String(),
+	}, nil
+}
+
+// ResetInput represents input for the Reset operation.
+type ResetInput struct {
+	ReleaseID string
+}
+
+// ResetOutput represents output from the Reset operation.
+type ResetOutput struct {
+	ReleaseID     string
+	PreviousState string
+	Deleted       bool
+}
+
+// Reset deletes a release to allow starting fresh.
+func (a *Adapter) Reset(ctx context.Context, input ResetInput) (*ResetOutput, error) {
+	if a.releaseRepo == nil {
+		return nil, fmt.Errorf("release repository not configured")
+	}
+
+	// Find the release to get its state before deletion
+	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find release: %w", err)
+	}
+
+	previousState := rel.State().String()
+
+	// Delete the release
+	if err := a.releaseRepo.Delete(ctx, domainrelease.RunID(input.ReleaseID)); err != nil {
+		return nil, fmt.Errorf("failed to delete release: %w", err)
+	}
+
+	return &ResetOutput{
+		ReleaseID:     input.ReleaseID,
+		PreviousState: previousState,
+		Deleted:       true,
+	}, nil
+}
+
 // GetStatusOutput represents output from the GetStatus operation.
 type GetStatusOutput struct {
 	ReleaseID   string

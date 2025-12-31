@@ -45,7 +45,7 @@ var runApprovalTUI = ui.RunApprovalTUI
 func init() {
 	approveCmd.Flags().BoolVarP(&approveYes, "yes", "y", false, "automatically approve without prompting")
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
-	approveCmd.Flags().StringVar(&approveEditor, "editor", "", "editor to use (default: $EDITOR or vim)")
+	approveCmd.Flags().StringVarP(&approveEditor, "editor", "E", "", "editor to use (default: $EDITOR or vim)")
 	approveCmd.Flags().BoolVarP(&approveInteractive, "interactive", "i", false, "use interactive TUI for approval")
 }
 

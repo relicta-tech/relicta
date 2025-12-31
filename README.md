@@ -195,12 +195,42 @@ workflow:
 
 ### Global Flags
 
-| Flag | Description |
-|------|-------------|
-| `--config` | Path to config file (default: `.relicta.yaml`) |
-| `--dry-run` | Preview changes without making modifications |
-| `--verbose` | Enable verbose output |
-| `--json` | Output in JSON format |
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to config file (default: `.relicta.yaml`) |
+| `--dry-run` | | Preview changes without making modifications |
+| `--verbose` | `-v` | Enable verbose output |
+| `--json` | | Output in JSON format |
+| `--ci` | | CI/CD mode: auto-approve, JSON output, non-interactive |
+| `--model` | | AI model to use (format: `provider/model`) |
+| `--redact` | | Redact secrets and API keys from output |
+| `--no-color` | | Disable colored output |
+
+### Command-Specific Flags
+
+Most commands support short flags for convenience. Here are the commonly used ones:
+
+| Command | Flag | Short | Description |
+|---------|------|-------|-------------|
+| `plan` | `--analyze` | `-a` | Include detailed commit analysis |
+| `plan` | `--from` | `-f` | Starting point for analysis |
+| `bump` | `--level` | `-l` | Override bump type (major/minor/patch) |
+| `notes` | `--ai` | `-a` | Enable AI-powered notes generation |
+| `notes` | `--save` | `-s` | Save notes to changelog file |
+| `approve` | `--yes` | `-y` | Auto-approve without prompting |
+| `approve` | `--edit` | `-e` | Edit release notes before approving |
+| `publish` | `--skip-push` | `-P` | Skip pushing to remote |
+| `publish` | `--skip-tag` | `-T` | Skip git tag creation |
+| `release` | `--yes` | `-y` | Auto-approve releases |
+| `cancel` | `--force` | `-f` | Force cancel without confirmation |
+| `clean` | `--keep` | `-k` | Keep the last N release runs |
+| `clean` | `--older-than` | `-o` | Remove runs older than duration |
+| `blast` | `--from` | `-f` | Starting git reference |
+| `blast` | `--to` | `-t` | Ending git reference |
+| `serve` | `--port` | `-p` | Port to listen on |
+| `serve` | `--address` | `-a` | Address to listen on |
+
+Run `relicta <command> --help` for the complete list of flags for any command.
 
 ## Environment Variables
 

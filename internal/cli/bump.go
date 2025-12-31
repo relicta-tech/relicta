@@ -27,9 +27,9 @@ var (
 )
 
 func init() {
-	bumpCmd.Flags().StringVar(&bumpLevel, "level", "", "bump level (major, minor, patch) - overrides auto-detection")
-	bumpCmd.Flags().StringVar(&bumpPrerelease, "prerelease", "", "prerelease identifier (e.g., alpha, beta, rc.1)")
-	bumpCmd.Flags().StringVar(&bumpBuild, "build", "", "build metadata")
+	bumpCmd.Flags().StringVarP(&bumpLevel, "level", "l", "", "bump level (major, minor, patch) - overrides auto-detection")
+	bumpCmd.Flags().StringVarP(&bumpPrerelease, "prerelease", "p", "", "prerelease identifier (e.g., alpha, beta, rc.1)")
+	bumpCmd.Flags().StringVarP(&bumpBuild, "build", "b", "", "build metadata")
 	bumpCmd.Flags().StringVar(&bumpForce, "force", "", "set a specific version (e.g., 2.0.0), bypasses commit analysis")
 	bumpCmd.Flags().StringVar(&bumpForce, "version", "", "alias for --force: set a specific version")
 	bumpCmd.Flags().BoolVar(&bumpCreateTag, "tag", true, "create git tag")

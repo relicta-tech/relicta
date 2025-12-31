@@ -22,6 +22,7 @@ var (
 	releaseAutoApprove bool
 	releaseSkipPush    bool
 	releaseForce       string
+	releaseClean       bool
 )
 
 // releaseMode represents the detected release mode.
@@ -67,14 +68,18 @@ Examples:
   relicta release --dry-run
 
   # Force a specific version
-  relicta release --force v2.0.0`,
+  relicta release --force v2.0.0
+
+  # Clear any stale release state before starting
+  relicta release --clean`,
 	RunE: runRelease,
 }
 
 func init() {
 	releaseCmd.Flags().BoolVarP(&releaseAutoApprove, "yes", "y", false, "auto-approve the release without prompting")
 	releaseCmd.Flags().BoolVar(&releaseSkipPush, "skip-push", false, "skip pushing to remote")
-	releaseCmd.Flags().StringVar(&releaseForce, "force", "", "force a specific version (e.g., v2.0.0)")
+	releaseCmd.Flags().StringVarP(&releaseForce, "force", "f", "", "force a specific version (e.g., v2.0.0)")
+	releaseCmd.Flags().BoolVarP(&releaseClean, "clean", "c", false, "clear any active release state before starting")
 }
 
 // runRelease implements the release command - full workflow in one step.
@@ -97,8 +102,58 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	}
 	defer closeApp(app)
 
+	// Clean active releases if requested
+	if releaseClean {
+		if err := cleanActiveReleases(ctx, app); err != nil {
+			printWarning(fmt.Sprintf("Failed to clean active releases: %v", err))
+		}
+	}
+
 	// Run the release workflow - helpers detect tag-push mode internally
 	return runReleaseWorkflow(ctx, app)
+}
+
+// cleanActiveReleases removes any active (non-terminal) release runs.
+func cleanActiveReleases(ctx context.Context, app cliApp) error {
+	gitAdapter := app.GitAdapter()
+	repoInfo, err := gitAdapter.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return fmt.Errorf("failed to initialize release services: %w", err)
+	}
+
+	if !app.HasReleaseServices() {
+		return nil
+	}
+
+	services := app.ReleaseServices()
+	if services == nil || services.Repository == nil {
+		return nil
+	}
+
+	// Find and delete active runs
+	activeRuns, err := services.Repository.FindActive(ctx, repoInfo.Path)
+	if err != nil {
+		return nil // No active runs
+	}
+
+	for _, run := range activeRuns {
+		runID := run.ID()
+		shortID := string(runID)
+		if len(shortID) > 12 {
+			shortID = shortID[:12]
+		}
+		if err := services.Repository.Delete(ctx, runID); err != nil {
+			printWarning(fmt.Sprintf("Failed to delete %s: %v", shortID, err))
+		} else {
+			printInfo(fmt.Sprintf("Cleared stale release: %s", shortID))
+		}
+	}
+
+	return nil
 }
 
 // runReleaseWorkflow executes the 5-step release workflow using helper functions.

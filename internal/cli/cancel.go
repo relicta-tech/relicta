@@ -19,10 +19,10 @@ var (
 )
 
 func init() {
-	cancelCmd.Flags().StringVar(&cancelReason, "reason", "", "reason for canceling the release")
-	cancelCmd.Flags().BoolVar(&cancelForce, "force", false, "force cancel even if in publishing state (not recommended)")
+	cancelCmd.Flags().StringVarP(&cancelReason, "reason", "r", "", "reason for canceling the release")
+	cancelCmd.Flags().BoolVarP(&cancelForce, "force", "f", false, "force cancel even if in publishing state (not recommended)")
 
-	resetCmd.Flags().BoolVar(&cancelForce, "force", false, "force reset even if release is in progress")
+	resetCmd.Flags().BoolVarP(&cancelForce, "force", "f", false, "force reset even if release is in progress")
 }
 
 var cancelCmd = &cobra.Command{

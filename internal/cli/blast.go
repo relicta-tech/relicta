@@ -34,15 +34,15 @@ var (
 )
 
 func init() {
-	blastCmd.Flags().StringVar(&blastFromRef, "from", "", "starting reference (default: latest tag)")
-	blastCmd.Flags().StringVar(&blastToRef, "to", "HEAD", "ending reference")
+	blastCmd.Flags().StringVarP(&blastFromRef, "from", "f", "", "starting reference (default: latest tag)")
+	blastCmd.Flags().StringVarP(&blastToRef, "to", "t", "HEAD", "ending reference")
 	blastCmd.Flags().BoolVarP(&blastVerbose, "verbose", "V", false, "show verbose output with file details")
-	blastCmd.Flags().BoolVar(&blastIncludeTests, "include-tests", false, "include test files in analysis")
-	blastCmd.Flags().BoolVar(&blastIncludeDocs, "include-docs", false, "include documentation files in analysis")
+	blastCmd.Flags().BoolVarP(&blastIncludeTests, "include-tests", "T", false, "include test files in analysis")
+	blastCmd.Flags().BoolVarP(&blastIncludeDocs, "include-docs", "D", false, "include documentation files in analysis")
 	blastCmd.Flags().BoolVar(&blastIncludeTransitive, "transitive", true, "include transitive dependency impacts")
-	blastCmd.Flags().BoolVar(&blastGenerateGraph, "graph", false, "generate dependency graph")
-	blastCmd.Flags().StringSliceVar(&blastPackagePaths, "package-paths", nil, "custom package paths (glob patterns)")
-	blastCmd.Flags().StringSliceVar(&blastExcludePaths, "exclude", nil, "paths to exclude from analysis")
+	blastCmd.Flags().BoolVarP(&blastGenerateGraph, "graph", "g", false, "generate dependency graph")
+	blastCmd.Flags().StringSliceVarP(&blastPackagePaths, "package-paths", "p", nil, "custom package paths (glob patterns)")
+	blastCmd.Flags().StringSliceVarP(&blastExcludePaths, "exclude", "e", nil, "paths to exclude from analysis")
 
 	// Add to root command
 	rootCmd.AddCommand(blastCmd)

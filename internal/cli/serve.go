@@ -68,10 +68,10 @@ Authentication:
 func init() {
 	rootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().StringVar(&servePort, "port", "", "Port to listen on (default: 8080)")
-	serveCmd.Flags().StringVar(&serveAddress, "address", "", "Address to listen on (e.g., localhost:8080)")
-	serveCmd.Flags().StringVar(&serveAPIKey, "api-key", "", "API key for dashboard authentication (enables API key mode)")
-	serveCmd.Flags().BoolVar(&serveNoAuth, "no-auth", false, "Disable authentication (not recommended for production)")
+	serveCmd.Flags().StringVarP(&servePort, "port", "p", "", "Port to listen on (default: 8080)")
+	serveCmd.Flags().StringVarP(&serveAddress, "address", "a", "", "Address to listen on (e.g., localhost:8080)")
+	serveCmd.Flags().StringVarP(&serveAPIKey, "api-key", "k", "", "API key for dashboard authentication (enables API key mode)")
+	serveCmd.Flags().BoolVarP(&serveNoAuth, "no-auth", "n", false, "Disable authentication (not recommended for production)")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {

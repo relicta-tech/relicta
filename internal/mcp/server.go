@@ -132,18 +132,21 @@ type StatusInput struct{}
 // PlanToolInput represents input for the plan tool.
 type PlanToolInput struct {
 	From    string `json:"from,omitempty" jsonschema:"description=Starting point for commit analysis (tag or commit SHA). Use 'auto' or leave empty for automatic detection."`
+	To      string `json:"to,omitempty" jsonschema:"description=Ending reference for commit analysis. Defaults to HEAD."`
 	Analyze bool   `json:"analyze,omitempty" jsonschema:"description=Include detailed commit analysis in output"`
 }
 
 // BumpToolInput represents input for the bump tool.
 type BumpToolInput struct {
-	Bump    string `json:"bump,omitempty" jsonschema:"description=Version bump type: major, minor, patch, or auto,enum=major|minor|patch|auto,default=auto"`
-	Version string `json:"version,omitempty" jsonschema:"description=Explicit version to set (overrides bump type)"`
+	Level   string `json:"level,omitempty" jsonschema:"description=Version bump level: major, minor, patch, or auto,enum=major|minor|patch|auto,default=auto"`
+	Version string `json:"version,omitempty" jsonschema:"description=Explicit version to set (overrides level)"`
 }
 
 // NotesToolInput represents input for the notes tool.
 type NotesToolInput struct {
-	AI bool `json:"ai,omitempty" jsonschema:"description=Use AI to enhance release notes"`
+	AI       bool   `json:"ai,omitempty" jsonschema:"description=Use AI to enhance release notes"`
+	Audience string `json:"audience,omitempty" jsonschema:"description=Target audience for notes,enum=developers|users|public|stakeholders,default=developers"`
+	Tone     string `json:"tone,omitempty" jsonschema:"description=Tone for AI-generated notes,enum=technical|friendly|professional|marketing,default=professional"`
 }
 
 // EvaluateToolInput represents input for the evaluate tool.
@@ -156,31 +159,45 @@ type ApproveToolInput struct {
 
 // PublishToolInput represents input for the publish tool.
 type PublishToolInput struct {
-	DryRun bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making changes"`
+	DryRun      bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making changes"`
+	SkipPush    bool `json:"skip_push,omitempty" jsonschema:"description=Skip pushing tags to remote"`
+	SkipTag     bool `json:"skip_tag,omitempty" jsonschema:"description=Skip creating git tag"`
+	SkipPlugins bool `json:"skip_plugins,omitempty" jsonschema:"description=Skip running plugins"`
+}
+
+// CancelToolInput represents input for the cancel tool.
+type CancelToolInput struct {
+	Reason string `json:"reason,omitempty" jsonschema:"description=Reason for canceling the release"`
+	Force  bool   `json:"force,omitempty" jsonschema:"description=Force cancel even if in publishing state (not recommended)"`
+}
+
+// ResetToolInput represents input for the reset tool.
+type ResetToolInput struct {
+	Force bool `json:"force,omitempty" jsonschema:"description=Force reset even if release is in progress"`
 }
 
 // --- Specialized AI Agent Tool Inputs ---
 
 // BlastRadiusToolInput represents input for the blast_radius tool.
 type BlastRadiusToolInput struct {
-	FromRef           string   `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
-	ToRef             string   `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
-	IncludeTransitive bool     `json:"include_transitive,omitempty" jsonschema:"description=Include transitively affected packages in analysis"`
-	GenerateGraph     bool     `json:"generate_graph,omitempty" jsonschema:"description=Generate dependency graph for visualization"`
-	PackagePaths      []string `json:"package_paths,omitempty" jsonschema:"description=Specific package paths to analyze. Analyzes all if empty."`
+	From         string   `json:"from,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	To           string   `json:"to,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	Transitive   bool     `json:"transitive,omitempty" jsonschema:"description=Include transitively affected packages in analysis"`
+	Graph        bool     `json:"graph,omitempty" jsonschema:"description=Generate dependency graph for visualization"`
+	PackagePaths []string `json:"package_paths,omitempty" jsonschema:"description=Specific package paths to analyze. Analyzes all if empty."`
 }
 
 // InferVersionToolInput represents input for the infer_version tool.
 type InferVersionToolInput struct {
-	FromRef     string `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
-	ToRef       string `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	From        string `json:"from,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	To          string `json:"to,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
 	IncludeRisk bool   `json:"include_risk,omitempty" jsonschema:"description=Include risk assessment with version inference"`
 }
 
 // SummarizeDiffToolInput represents input for the summarize_diff tool.
 type SummarizeDiffToolInput struct {
-	FromRef   string `json:"from_ref,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
-	ToRef     string `json:"to_ref,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
+	From      string `json:"from,omitempty" jsonschema:"description=Starting reference (tag or commit SHA). Uses last tag if empty."`
+	To        string `json:"to,omitempty" jsonschema:"description=Ending reference. Defaults to HEAD."`
 	Audience  string `json:"audience,omitempty" jsonschema:"description=Target audience for summary,enum=developer|operator|end-user,default=developer"`
 	MaxLength int    `json:"max_length,omitempty" jsonschema:"description=Target summary length in characters"`
 }
@@ -295,6 +312,16 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta.publish").
 		Description("Execute the release by creating tags and running plugins").
 		Handler(s.handlePublish)
+
+	// Cancel tool
+	s.server.Tool("relicta.cancel").
+		Description("Cancel the current in-progress release").
+		Handler(s.handleCancel)
+
+	// Reset tool
+	s.server.Tool("relicta.reset").
+		Description("Reset a failed or canceled release to allow starting fresh").
+		Handler(s.handleReset)
 
 	// --- Specialized AI Agent Tools ---
 
@@ -543,7 +570,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 }
 
 func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[string]any, error) {
-	bumpType := input.Bump
+	bumpType := input.Level
 	if bumpType == "" {
 		bumpType = "auto"
 	}
@@ -829,6 +856,111 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 	}, nil
 }
 
+func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[string]any, error) {
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("no active release to cancel: %w", err)
+		}
+
+		// Check if release can be canceled
+		if status.State == "published" {
+			return nil, fmt.Errorf("cannot cancel a published release")
+		}
+		if status.State == "publishing" && !input.Force {
+			return nil, fmt.Errorf("cannot cancel during publishing - wait for completion or use force=true")
+		}
+		if status.State == "failed" || status.State == "canceled" {
+			return map[string]any{
+				"release_id": status.ReleaseID,
+				"state":      status.State,
+				"message":    "release is already in terminal state - use reset to start fresh",
+			}, nil
+		}
+
+		reason := input.Reason
+		if reason == "" {
+			reason = "canceled via MCP"
+		}
+
+		// Cancel the release
+		cancelInput := CancelInput{
+			ReleaseID: status.ReleaseID,
+			Reason:    reason,
+		}
+
+		output, err := s.adapter.Cancel(ctx, cancelInput)
+		if err != nil {
+			return nil, userError(err)
+		}
+
+		s.invalidateCache()
+		return map[string]any{
+			"release_id":     output.ReleaseID,
+			"previous_state": output.PreviousState,
+			"new_state":      output.NewState,
+			"reason":         reason,
+			"message":        "release canceled successfully",
+		}, nil
+	}
+
+	return map[string]any{
+		"status": "run 'relicta mcp serve' with configured dependencies",
+	}, nil
+}
+
+func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[string]any, error) {
+	// Use adapter if available
+	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+		status, err := s.adapter.GetStatus(ctx)
+		if err != nil {
+			return map[string]any{
+				"message": "no active release found - nothing to reset",
+			}, nil
+		}
+
+		// Check if release can be reset
+		if status.State == "published" {
+			return nil, fmt.Errorf("published releases cannot be reset - run 'relicta plan' to start a new release")
+		}
+		if status.State == "publishing" && !input.Force {
+			return nil, fmt.Errorf("cannot reset during publishing - wait for completion or use force=true")
+		}
+
+		// For in-progress releases that aren't failed/canceled, suggest cancel first
+		if status.State != "failed" && status.State != "canceled" && !input.Force {
+			return map[string]any{
+				"release_id": status.ReleaseID,
+				"state":      status.State,
+				"message":    "release is in progress - use cancel first, or force=true to delete",
+			}, nil
+		}
+
+		// Reset (delete) the release
+		resetInput := ResetInput{
+			ReleaseID: status.ReleaseID,
+		}
+
+		output, err := s.adapter.Reset(ctx, resetInput)
+		if err != nil {
+			return nil, userError(err)
+		}
+
+		s.invalidateCache()
+		return map[string]any{
+			"release_id":     output.ReleaseID,
+			"previous_state": output.PreviousState,
+			"deleted":        output.Deleted,
+			"message":        "release reset successfully - run 'relicta plan' to start fresh",
+		}, nil
+	}
+
+	return map[string]any{
+		"status": "run 'relicta mcp serve' with configured dependencies",
+	}, nil
+}
+
 // --- Specialized AI Agent Tool Handlers ---
 
 func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (map[string]any, error) {
@@ -845,7 +977,13 @@ func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInp
 		_ = progress.Report(1, &total)
 	}
 
-	blastInput := BlastRadiusInput(input)
+	blastInput := BlastRadiusInput{
+		FromRef:           input.From,
+		ToRef:             input.To,
+		IncludeTransitive: input.Transitive,
+		GenerateGraph:     input.Graph,
+		PackagePaths:      input.PackagePaths,
+	}
 
 	if progress := mcp.ProgressFromContext(ctx); progress != nil {
 		total := 4.0
@@ -924,7 +1062,11 @@ func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolI
 		_ = progress.Report(1, &total)
 	}
 
-	inferInput := InferVersionInput(input)
+	inferInput := InferVersionInput{
+		FromRef:     input.From,
+		ToRef:       input.To,
+		IncludeRisk: input.IncludeRisk,
+	}
 
 	output, err := s.adapter.InferVersion(ctx, inferInput)
 	if err != nil {
@@ -967,7 +1109,12 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 		}, nil
 	}
 
-	summarizeInput := SummarizeDiffInput(input)
+	summarizeInput := SummarizeDiffInput{
+		FromRef:   input.From,
+		ToRef:     input.To,
+		Audience:  input.Audience,
+		MaxLength: input.MaxLength,
+	}
 
 	output, err := s.adapter.SummarizeDiff(ctx, summarizeInput)
 	if err != nil {

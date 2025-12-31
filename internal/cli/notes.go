@@ -24,10 +24,10 @@ var (
 
 func init() {
 	notesCmd.Flags().StringVarP(&notesOutput, "output", "o", "", "output file (default: stdout)")
-	notesCmd.Flags().StringVar(&notesTone, "tone", "", "AI tone (technical, friendly, professional, marketing)")
-	notesCmd.Flags().StringVar(&notesAudience, "audience", "", "target audience (developers, users, public, stakeholders)")
+	notesCmd.Flags().StringVarP(&notesTone, "tone", "t", "", "AI tone (technical, friendly, professional, marketing)")
+	notesCmd.Flags().StringVarP(&notesAudience, "audience", "a", "", "target audience (developers, users, public, stakeholders)")
 	notesCmd.Flags().BoolVar(&notesIncludeEmoji, "emoji", false, "include emojis in output")
-	notesCmd.Flags().StringVar(&notesLanguage, "language", "English", "output language")
+	notesCmd.Flags().StringVarP(&notesLanguage, "language", "l", "English", "output language")
 	notesCmd.Flags().BoolVar(&notesUseAI, "ai", false, "use AI to generate notes (requires OPENAI_API_KEY)")
 }
 

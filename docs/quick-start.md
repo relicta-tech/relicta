@@ -128,7 +128,8 @@ export OPENAI_API_KEY="your-key"
 Then generate notes:
 
 ```bash
-relicta notes --ai
+relicta notes -a     # Short form
+relicta notes --ai   # Long form
 ```
 
 ### Enable the GitHub Plugin
@@ -196,7 +197,8 @@ rule "auto-approve-patches" {
 ### View Risk Assessment
 
 ```bash
-relicta plan --analyze
+relicta plan -a         # Short form
+relicta plan --analyze  # Long form
 ```
 
 Output shows:
@@ -213,10 +215,11 @@ See the [CGP Guide](governance.md) for full policy DSL documentation.
 For automated releases in CI:
 
 ```bash
-relicta release --yes
+relicta release -y    # Short form
+relicta release --yes # Long form
 ```
 
-The `--yes` flag auto-approves releases (subject to governance policies).
+The `-y` / `--yes` flag auto-approves releases (subject to governance policies).
 
 ### Tag-Triggered Releases
 
@@ -245,7 +248,8 @@ relicta notes --dry-run
 For local testing or when CI handles pushes:
 
 ```bash
-relicta publish --skip-push
+relicta publish -P           # Short form
+relicta publish --skip-push  # Long form
 ```
 
 ### Clean Up Stale Releases
@@ -257,10 +261,12 @@ If you have old release runs that weren't completed:
 relicta clean --dry-run
 
 # Keep last 5 releases, delete older
-relicta clean --keep 5
+relicta clean -k 5        # Short form
+relicta clean --keep 5    # Long form
 
 # Delete releases older than 30 days
-relicta clean --older-than 30d
+relicta clean -o 30d             # Short form
+relicta clean --older-than 30d   # Long form
 ```
 
 ## GitHub Actions
@@ -391,3 +397,17 @@ Shows:
 | `relicta cancel` | Cancel active release |
 | `relicta clean` | Remove stale releases |
 | `relicta mcp serve` | Start MCP server |
+
+### Common Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to config file |
+| `--verbose` | `-v` | Enable verbose output |
+| `--dry-run` | | Preview without changes |
+| `--yes` | `-y` | Auto-approve (approve, release) |
+| `--ai` | `-a` | Use AI for notes generation |
+| `--analyze` | `-a` | Include detailed analysis (plan) |
+| `--keep` | `-k` | Keep last N runs (clean) |
+
+Run `relicta <command> --help` for all available flags.

@@ -23,23 +23,9 @@ BIN_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd/relicta
 
-# Release platforms (os/arch pairs)
-RELEASE_PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64
-
-# Arch mapping for binary naming (amd64 -> x86_64, arm64 -> aarch64)
-define get_arch_name
-$(if $(filter amd64,$(1)),x86_64,$(if $(filter arm64,$(1)),aarch64,$(1)))
-endef
-
-# OS name capitalization for archives (match GoReleaser: Linux, Darwin, Windows)
-define get_os_name
-$(if $(filter linux,$(1)),Linux,$(if $(filter darwin,$(1)),Darwin,$(if $(filter windows,$(1)),Windows,$(1))))
-endef
-
 .PHONY: all build install clean clean-dist test test-race test-coverage coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
-        test-integration test-e2e bench bench-save bench-quick help release-build release-binaries release-plugins \
-        release-archives release-checksums release-snapshot check install-hooks \
+        test-integration test-e2e bench bench-save bench-quick help release-local release-snapshot check install-hooks \
         frontend frontend-deps build-with-frontend clean-frontend
 
 # Default target
@@ -228,69 +214,20 @@ proto:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		internal/plugin/proto/*.proto
 
-## Release build targets (replacement for GoReleaser)
+## Release targets (using GoReleaser)
+# Relicta governs releases - GoReleaser handles the actual builds
 
-# Full release build - creates everything GoReleaser would create
-# NOTE: Plugins are now built separately in their own repositories (relicta-tech/plugin-*)
-release-build: clean-dist release-binaries release-archives release-checksums
-	@echo "✓ Release build complete!"
+# Local snapshot build for testing (no signing, no publish)
+release-local:
+	@echo "Building local snapshot with GoReleaser..."
+	goreleaser release --snapshot --clean --skip=sign,publish
 	@echo ""
-	@echo "Artifacts in $(DIST_DIR):"
-	@ls -lh $(DIST_DIR)/*.tar.gz $(DIST_DIR)/*.zip 2>/dev/null || true
+	@echo "✓ Local build complete! Artifacts in $(DIST_DIR)/"
 
-# Build main binary for all release platforms
-release-binaries:
-	@echo "Building release binaries for all platforms..."
-	@mkdir -p $(DIST_DIR)
-	@$(foreach platform,$(RELEASE_PLATFORMS), \
-		$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
-		$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
-		$(eval OS_CAP := $(call get_os_name,$(OS))) \
-		$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
-		$(eval ARCHIVE_NAME := $(BINARY_NAME)_$(OS_CAP)_$(ARCH_NAME)) \
-		$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
-		echo "  Building $(OS)/$(ARCH)..." && \
-		mkdir -p $(DIST_DIR)/$(ARCHIVE_NAME) && \
-		GOOS=$(OS) GOARCH=$(ARCH) CGO_ENABLED=0 \
-			$(GOBUILD) $(LDFLAGS) \
-			-o $(DIST_DIR)/$(ARCHIVE_NAME)/$(BINARY_NAME)$(EXT) \
-			./$(CMD_DIR) || exit 1; \
-	)
-
-# Create archives (tar.gz for linux/darwin, zip for windows)
-release-archives:
-	@echo "Creating release archives..."
-	@$(foreach platform,$(RELEASE_PLATFORMS), \
-		$(eval OS := $(word 1,$(subst /, ,$(platform)))) \
-		$(eval ARCH := $(word 2,$(subst /, ,$(platform)))) \
-		$(eval OS_CAP := $(call get_os_name,$(OS))) \
-		$(eval ARCH_NAME := $(call get_arch_name,$(ARCH))) \
-		$(eval ARCHIVE_NAME := $(BINARY_NAME)_$(OS_CAP)_$(ARCH_NAME)) \
-		$(eval EXT := $(if $(filter windows,$(OS)),.exe,)) \
-		echo "  Creating archive for $(OS)/$(ARCH)..." && \
-		cp README.md LICENSE CHANGELOG.md $(DIST_DIR)/$(ARCHIVE_NAME)/ 2>/dev/null || true && \
-		(cd $(DIST_DIR) && \
-			if [ "$(OS)" = "windows" ]; then \
-				zip -q -r $(ARCHIVE_NAME).zip $(ARCHIVE_NAME); \
-			else \
-				tar czf $(ARCHIVE_NAME).tar.gz $(ARCHIVE_NAME); \
-			fi \
-		) && \
-		rm -rf $(DIST_DIR)/$(ARCHIVE_NAME) || exit 1; \
-	)
-
-# Generate checksums file
-release-checksums:
-	@echo "Generating checksums..."
-	@cd $(DIST_DIR) && \
-		sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || \
-		shasum -a 256 *.tar.gz *.zip 2>/dev/null > checksums.txt
-	@echo "✓ Checksums generated: $(DIST_DIR)/checksums.txt"
-
-# Build snapshot release (without version tag)
-release-snapshot: clean-dist
+# Full snapshot build (includes signing if cosign is available)
+release-snapshot:
 	@echo "Building snapshot release..."
-	@$(MAKE) VERSION="$(VERSION)-snapshot" release-build
+	goreleaser release --snapshot --clean --skip=publish
 
 ## Utility targets
 
@@ -332,13 +269,9 @@ help:
 	@echo "  make frontend-deps       Install frontend dependencies"
 	@echo "  make clean-frontend      Clean frontend artifacts"
 	@echo ""
-	@echo "Release Build (replaces GoReleaser):"
-	@echo "  make release-build     Full release build (binaries + plugins + archives + checksums)"
-	@echo "  make release-snapshot  Build snapshot release"
-	@echo "  make release-binaries  Build main binary for all platforms"
-	@echo "  make release-plugins   Build all plugins for all platforms"
-	@echo "  make release-archives  Create release archives"
-	@echo "  make release-checksums Generate checksums"
+	@echo "Release (via GoReleaser):"
+	@echo "  make release-local     Local snapshot build (no signing, no publish)"
+	@echo "  make release-snapshot  Full snapshot build (includes signing)"
 	@echo ""
 	@echo "Test:"
 	@echo "  make test              Run unit tests"

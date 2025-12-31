@@ -27,10 +27,10 @@ var (
 )
 
 func init() {
-	publishCmd.Flags().BoolVar(&publishSkipApproval, "skip-approval", false, "skip approval check")
-	publishCmd.Flags().BoolVar(&publishSkipTag, "skip-tag", false, "skip git tag creation")
-	publishCmd.Flags().BoolVar(&publishSkipPush, "skip-push", false, "skip pushing to remote")
-	publishCmd.Flags().BoolVar(&publishSkipPlugins, "skip-plugins", false, "skip running plugins")
+	publishCmd.Flags().BoolVarP(&publishSkipApproval, "skip-approval", "A", false, "skip approval check")
+	publishCmd.Flags().BoolVarP(&publishSkipTag, "skip-tag", "T", false, "skip git tag creation")
+	publishCmd.Flags().BoolVarP(&publishSkipPush, "skip-push", "P", false, "skip pushing to remote")
+	publishCmd.Flags().BoolVarP(&publishSkipPlugins, "skip-plugins", "G", false, "skip running plugins")
 }
 
 // shouldCreateTag returns whether a tag should be created.
