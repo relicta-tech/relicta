@@ -47,6 +47,16 @@ func (m *mockRepository) Load(_ context.Context, runID domain.RunID) (*domain.Re
 	return run, nil
 }
 
+func (m *mockRepository) LoadBatch(_ context.Context, _ string, runIDs []domain.RunID) (map[domain.RunID]*domain.ReleaseRun, error) {
+	result := make(map[domain.RunID]*domain.ReleaseRun)
+	for _, runID := range runIDs {
+		if run, ok := m.runs[runID]; ok {
+			result[runID] = run
+		}
+	}
+	return result, nil
+}
+
 func (m *mockRepository) LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error) {
 	if m.loadErr != nil {
 		return nil, m.loadErr

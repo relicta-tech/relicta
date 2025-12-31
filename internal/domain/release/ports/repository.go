@@ -14,6 +14,10 @@ type RunReader interface {
 	// Load retrieves a release run by its ID.
 	Load(ctx context.Context, runID domain.RunID) (*domain.ReleaseRun, error)
 
+	// LoadBatch retrieves multiple release runs by their IDs.
+	// Returns a map of runID to run, skipping any runs that could not be loaded.
+	LoadBatch(ctx context.Context, repoRoot string, runIDs []domain.RunID) (map[domain.RunID]*domain.ReleaseRun, error)
+
 	// LoadLatest retrieves the latest release run for a repository.
 	LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error)
 

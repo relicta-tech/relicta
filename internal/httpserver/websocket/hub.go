@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,15 +25,6 @@ const (
 	maxMessageSize = 512 * 1024 // 512KB
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Origin checking is handled by CORS middleware
-		return true
-	},
-}
-
 // Message represents a WebSocket message.
 type Message struct {
 	Type    string `json:"type"`
@@ -47,22 +40,82 @@ type Client struct {
 
 // Hub maintains the set of active clients and broadcasts messages.
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	mu         sync.RWMutex
-	closed     bool
+	clients        map[*Client]bool
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	mu             sync.RWMutex
+	closed         bool
+	allowedOrigins []string
+	upgrader       websocket.Upgrader
 }
 
-// NewHub creates a new WebSocket hub.
-func NewHub() *Hub {
-	return &Hub{
-		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+// NewHub creates a new WebSocket hub with optional allowed origins for CSWSH protection.
+// If allowedOrigins is empty, only same-origin connections are allowed.
+func NewHub(allowedOrigins []string) *Hub {
+	h := &Hub{
+		clients:        make(map[*Client]bool),
+		broadcast:      make(chan []byte, 256),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		allowedOrigins: allowedOrigins,
 	}
+
+	// Configure upgrader with origin validation
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     h.checkOrigin,
+	}
+
+	return h
+}
+
+// checkOrigin validates the Origin header against allowed origins.
+// This prevents Cross-Site WebSocket Hijacking (CSWSH) attacks.
+func (h *Hub) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+
+	// No origin header means same-origin request (e.g., from same host)
+	if origin == "" {
+		return true
+	}
+
+	// If no origins are configured, reject all cross-origin requests
+	if len(h.allowedOrigins) == 0 {
+		slog.Debug("websocket origin rejected: no allowed origins configured", "origin", origin)
+		return false
+	}
+
+	// Parse the origin
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		slog.Debug("websocket origin rejected: invalid origin URL", "origin", origin, "error", err)
+		return false
+	}
+
+	// Check against allowed origins
+	for _, allowed := range h.allowedOrigins {
+		// Handle wildcard
+		if allowed == "*" {
+			return true
+		}
+
+		// Parse allowed origin for comparison
+		allowedURL, err := url.Parse(allowed)
+		if err != nil {
+			continue
+		}
+
+		// Compare scheme and host (host includes port)
+		if strings.EqualFold(originURL.Scheme, allowedURL.Scheme) &&
+			strings.EqualFold(originURL.Host, allowedURL.Host) {
+			return true
+		}
+	}
+
+	slog.Debug("websocket origin rejected: not in allowed list", "origin", origin, "allowed", h.allowedOrigins)
+	return false
 }
 
 // Run starts the hub event loop.
@@ -86,21 +139,32 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Unlock()
 			slog.Debug("websocket client disconnected", "clients", len(h.clients))
 		case message := <-h.broadcast:
+			// Collect clients with full buffers to remove after iteration
+			// This avoids lock thrashing (RLock → Lock → RLock pattern)
+			var toRemove []*Client
+
 			h.mu.RLock()
 			for client := range h.clients {
 				select {
 				case client.send <- message:
 				default:
-					// Client buffer full, drop message
-					h.mu.RUnlock()
-					h.mu.Lock()
-					delete(h.clients, client)
-					close(client.send)
-					h.mu.Unlock()
-					h.mu.RLock()
+					// Client buffer full, mark for removal
+					toRemove = append(toRemove, client)
 				}
 			}
 			h.mu.RUnlock()
+
+			// Remove slow clients in a separate phase with write lock
+			if len(toRemove) > 0 {
+				h.mu.Lock()
+				for _, client := range toRemove {
+					if _, ok := h.clients[client]; ok {
+						delete(h.clients, client)
+						close(client.send)
+					}
+				}
+				h.mu.Unlock()
+			}
 		}
 	}
 }
@@ -156,7 +220,7 @@ func (h *Hub) ClientCount() int {
 
 // HandleConnection handles a WebSocket upgrade request.
 func (h *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("websocket upgrade failed", "error", err)
 		return

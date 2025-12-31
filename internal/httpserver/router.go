@@ -23,6 +23,9 @@ func (s *Server) setupRouter() chi.Router {
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 
+	// Security headers
+	r.Use(middleware.SecurityHeaders())
+
 	// CORS configuration
 	r.Use(s.corsMiddleware())
 

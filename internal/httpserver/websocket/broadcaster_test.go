@@ -9,8 +9,8 @@ import (
 )
 
 func TestEventBroadcaster_Publish(t *testing.T) {
-	// Create hub and broadcaster
-	hub := NewHub()
+	// Create hub and broadcaster (nil origins for test)
+	hub := NewHub(nil)
 	broadcaster := NewEventBroadcaster(hub)
 
 	// Test that Publish doesn't panic with no clients
@@ -27,8 +27,8 @@ func TestEventBroadcaster_Publish(t *testing.T) {
 }
 
 func TestEventBroadcaster_PublishAsync(t *testing.T) {
-	// Create hub and broadcaster
-	hub := NewHub()
+	// Create hub and broadcaster (nil origins for test)
+	hub := NewHub(nil)
 	broadcaster := NewEventBroadcaster(hub)
 
 	// Test that PublishAsync doesn't panic
@@ -46,7 +46,7 @@ func TestEventBroadcaster_PublishAsync(t *testing.T) {
 }
 
 func TestEventBroadcaster_EventToMessage(t *testing.T) {
-	hub := NewHub()
+	hub := NewHub(nil)
 	broadcaster := NewEventBroadcaster(hub)
 
 	tests := []struct {

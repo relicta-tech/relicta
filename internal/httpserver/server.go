@@ -38,7 +38,7 @@ type ServerDeps struct {
 func NewServer(deps ServerDeps) *Server {
 	s := &Server{
 		config:   deps.Config,
-		wsHub:    httpws.NewHub(),
+		wsHub:    httpws.NewHub(deps.Config.CORSOrigins),
 		frontend: deps.Frontend,
 	}
 

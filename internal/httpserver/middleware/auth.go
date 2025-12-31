@@ -3,6 +3,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -102,9 +103,9 @@ func validateAPIKey(r *http.Request, keys []config.DashboardAPIKeyConfig) *Authe
 		return nil
 	}
 
-	// Find matching API key
+	// Find matching API key using constant-time comparison to prevent timing attacks
 	for _, key := range keys {
-		if key.Key == apiKey {
+		if subtle.ConstantTimeCompare([]byte(key.Key), []byte(apiKey)) == 1 {
 			roles := key.Roles
 			if len(roles) == 0 {
 				roles = []string{string(config.DashboardRoleViewer)}

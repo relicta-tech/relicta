@@ -57,6 +57,11 @@ func (r *EventPublishingRepository) Load(ctx context.Context, runID domain.RunID
 	return r.repo.Load(ctx, runID)
 }
 
+// LoadBatch retrieves multiple release runs by their IDs.
+func (r *EventPublishingRepository) LoadBatch(ctx context.Context, repoRoot string, runIDs []domain.RunID) (map[domain.RunID]*domain.ReleaseRun, error) {
+	return r.repo.LoadBatch(ctx, repoRoot, runIDs)
+}
+
 // LoadLatest retrieves the latest release run for a repository.
 func (r *EventPublishingRepository) LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error) {
 	return r.repo.LoadLatest(ctx, repoRoot)

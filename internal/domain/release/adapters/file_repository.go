@@ -59,13 +59,15 @@ func latestPath(repoRoot string) string {
 }
 
 // machinePath returns the path to the state machine JSON export.
+// It validates that the runID doesn't contain path traversal characters.
 func machinePath(repoRoot string, runID domain.RunID) string {
-	return filepath.Join(runsPath(repoRoot), string(runID)+machineFileSuffix)
+	return filepath.Join(runsPath(repoRoot), filepath.Base(string(runID))+machineFileSuffix)
 }
 
 // statePath returns the path to the state snapshot JSON.
+// It validates that the runID doesn't contain path traversal characters.
 func statePath(repoRoot string, runID domain.RunID) string {
-	return filepath.Join(runsPath(repoRoot), string(runID)+stateFileSuffix)
+	return filepath.Join(runsPath(repoRoot), filepath.Base(string(runID))+stateFileSuffix)
 }
 
 // ensureDir creates the runs directory if it doesn't exist.
@@ -262,6 +264,38 @@ func (r *FileReleaseRunRepository) LoadFromRepo(ctx context.Context, repoRoot st
 	}
 
 	return fromDTO(&dto)
+}
+
+// LoadBatch retrieves multiple release runs by their IDs efficiently.
+// Returns a map of runID to run, skipping any runs that could not be loaded.
+func (r *FileReleaseRunRepository) LoadBatch(ctx context.Context, repoRoot string, runIDs []domain.RunID) (map[domain.RunID]*domain.ReleaseRun, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make(map[domain.RunID]*domain.ReleaseRun, len(runIDs))
+
+	for _, runID := range runIDs {
+		path := runPath(repoRoot, runID)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			// Skip runs that can't be loaded
+			continue
+		}
+
+		var dto ReleaseRunDTO
+		if err := json.Unmarshal(data, &dto); err != nil {
+			continue
+		}
+
+		run, err := fromDTO(&dto)
+		if err != nil {
+			continue
+		}
+
+		result[runID] = run
+	}
+
+	return result, nil
 }
 
 // LoadLatest retrieves the latest release run for a repository.
