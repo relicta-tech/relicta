@@ -20,13 +20,11 @@ func NewGitRepoInspector(git sourcecontrol.GitRepository) *GitRepoInspector {
 }
 
 // HeadSHA returns the current HEAD commit SHA.
+// This works in both normal and detached HEAD states (e.g., CI tag checkouts).
 func (g *GitRepoInspector) HeadSHA(ctx context.Context) (domain.CommitSHA, error) {
-	branch, err := g.git.GetCurrentBranch(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	commit, err := g.git.GetLatestCommit(ctx, branch)
+	// Use "HEAD" directly - GetLatestCommit handles this for both
+	// branch and detached HEAD states
+	commit, err := g.git.GetLatestCommit(ctx, "HEAD")
 	if err != nil {
 		return "", err
 	}

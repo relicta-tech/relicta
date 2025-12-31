@@ -787,7 +787,7 @@ func TestGitRepoInspector_HeadSHA(t *testing.T) {
 
 func TestGitRepoInspector_HeadSHAError(t *testing.T) {
 	mock := &mockGitRepository{
-		branchErr: os.ErrNotExist,
+		latestErr: os.ErrNotExist, // GetLatestCommit("HEAD") fails
 	}
 
 	inspector := NewGitRepoInspector(mock)
