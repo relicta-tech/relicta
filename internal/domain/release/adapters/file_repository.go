@@ -292,7 +292,7 @@ func (r *FileReleaseRunRepository) LoadFromRepo(ctx context.Context, repoRoot st
 	defer r.mu.RUnlock()
 
 	path := runPath(validatedRoot, runID)
-	data, err := os.ReadFile(path) // #nosec G304 - path is validated above
+	data, err := os.ReadFile(path) // lgtm[go/path-injection] #nosec G304 - repoRoot validated by validateRepoRoot, runID sanitized by filepath.Base in runPath
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, domain.ErrRunNotFound
@@ -381,7 +381,7 @@ func (r *FileReleaseRunRepository) loadFromRepoInternal(ctx context.Context, rep
 	defer r.mu.RUnlock()
 
 	path := runPath(validatedRoot, runID)
-	data, err := os.ReadFile(path) // #nosec G304 - path is validated above
+	data, err := os.ReadFile(path) // lgtm[go/path-injection] #nosec G304 - repoRoot validated by validateRepoRoot, runID sanitized by filepath.Base in runPath
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, domain.ErrRunNotFound

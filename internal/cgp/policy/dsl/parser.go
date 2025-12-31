@@ -123,7 +123,7 @@ func (p *Parser) parseRule() (*RuleNode, error) {
 				if v > float64(math.MaxInt) || v < float64(math.MinInt) {
 					return nil, p.error("priority value %f out of range", v)
 				}
-				rule.Priority = int(v) // #nosec G115 - bounds checked above
+				rule.Priority = int(v) // lgtm[go/incorrect-integer-conversion] #nosec G115 - bounds checked above: v is verified to be a whole number within safe integer range and Go int bounds
 			}
 			p.advance()
 
