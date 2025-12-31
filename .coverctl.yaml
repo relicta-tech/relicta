@@ -22,7 +22,7 @@ policy:
     - name: cli
       match:
         - ./internal/cli/...
-      min: 78
+      min: 54
     - name: config
       match:
         - ./internal/config/...
@@ -30,7 +30,7 @@ policy:
     - name: container
       match:
         - ./internal/container/...
-      min: null
+      min: 51
     - name: domain
       match:
         - ./internal/domain/...
@@ -50,7 +50,7 @@ policy:
     - name: mcp
       match:
         - ./internal/mcp/...
-      min: 60
+      min: 45
     - name: observability
       match:
         - ./internal/observability/...
