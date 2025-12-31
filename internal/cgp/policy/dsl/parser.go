@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -104,8 +105,14 @@ func (p *Parser) parseRule() (*RuleNode, error) {
 				return nil, p.error("expected number for priority, got %s", p.current.Type)
 			}
 			if v, ok := p.current.Literal.(int64); ok {
+				if v > math.MaxInt || v < math.MinInt {
+					return nil, p.error("priority value %d out of range", v)
+				}
 				rule.Priority = int(v)
 			} else if v, ok := p.current.Literal.(float64); ok {
+				if v > float64(math.MaxInt) || v < float64(math.MinInt) {
+					return nil, p.error("priority value %f out of range", v)
+				}
 				rule.Priority = int(v)
 			}
 			p.advance()

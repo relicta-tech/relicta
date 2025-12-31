@@ -48,8 +48,9 @@ func runsPath(repoRoot string) string {
 }
 
 // runPath returns the path to a specific run file.
+// It validates that the runID doesn't contain path traversal characters.
 func runPath(repoRoot string, runID domain.RunID) string {
-	return filepath.Join(runsPath(repoRoot), string(runID)+runFileSuffix)
+	return filepath.Join(runsPath(repoRoot), filepath.Base(string(runID))+runFileSuffix)
 }
 
 // latestPath returns the path to the latest pointer file.
