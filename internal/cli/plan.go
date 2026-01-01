@@ -233,9 +233,13 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	output.NextVersion = ver
 
 	// Persist release run for subsequent commands
+	// Use tag-push mode to transition directly to versioned state
 	var releaseID string
 	if !dryRun {
-		releaseID, err = persistReleaseRun(ctx, app, output, repoInfo)
+		releaseID, err = persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{
+			TagPushMode: true,
+			TagName:     tagName,
+		})
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
@@ -958,9 +962,20 @@ func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *servicere
 	return persistReleaseRun(ctx, app, output, repoInfo)
 }
 
+// persistReleaseRunOptions contains optional parameters for persistReleaseRun.
+type persistReleaseRunOptions struct {
+	TagPushMode bool   // If true, transition directly to versioned state
+	TagName     string // The existing tag name (required if TagPushMode is true)
+}
+
 // persistReleaseRun stores the release run with pre-computed analysis data.
 // This enables subsequent commands (bump, notes, approve, publish) to operate on the release.
 func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (string, error) {
+	return persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{})
+}
+
+// persistReleaseRunWithOptions stores the release run with optional tag-push mode support.
+func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo, opts persistReleaseRunOptions) (string, error) {
 	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
 		return "", fmt.Errorf("failed to initialize release services: %w", err)
 	}
@@ -990,6 +1005,8 @@ func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.A
 		NextVersion:    &output.NextVersion,
 		BumpKind:       &bumpKind,
 		Confidence:     1.0, // Legacy analysis is authoritative
+		TagPushMode:    opts.TagPushMode,
+		TagName:        opts.TagName,
 	}
 
 	planOutput, err := services.PlanRelease.Execute(ctx, input)

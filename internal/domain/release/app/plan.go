@@ -28,6 +28,11 @@ type PlanReleaseInput struct {
 	NextVersion    *version.SemanticVersion // Proposed next version
 	BumpKind       *domain.BumpKind         // Determined bump type (major/minor/patch)
 	Confidence     float64                  // Version calculation confidence (0.0-1.0)
+
+	// Tag-push mode: when HEAD is already tagged, skip directly to versioned state
+	// This enables notes/approve/publish without running bump
+	TagPushMode bool   // If true, transition directly to versioned state
+	TagName     string // The existing tag name (required if TagPushMode is true)
 }
 
 // PlanReleaseOutput contains the output from planning a release.
@@ -137,6 +142,25 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	// Transition to Planned state
 	if err := run.Plan(input.Actor.ID); err != nil {
 		return nil, fmt.Errorf("failed to transition to planned state: %w", err)
+	}
+
+	// Handle tag-push mode: transition directly to versioned state
+	// This enables notes/approve/publish workflow without running bump
+	if input.TagPushMode && input.NextVersion != nil {
+		tagName := input.TagName
+		if tagName == "" {
+			tagName = "v" + input.NextVersion.String()
+		}
+
+		// Set the version on the run
+		if err := run.SetVersion(*input.NextVersion, tagName); err != nil {
+			return nil, fmt.Errorf("tag-push mode: failed to set version: %w", err)
+		}
+
+		// Transition to versioned state (skipping the need for bump command)
+		if err := run.Bump(input.Actor.ID); err != nil {
+			return nil, fmt.Errorf("tag-push mode: failed to transition to versioned state: %w", err)
+		}
 	}
 
 	// Save the run

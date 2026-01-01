@@ -419,6 +419,203 @@ func TestPlanReleaseUseCase_Execute_CommitsError(t *testing.T) {
 	}
 }
 
+func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewPlanReleaseUseCase(repo, inspector, nil)
+
+	nextVersion := version.MustParse("2.0.0")
+	bumpKind := domain.BumpMajor
+
+	input := PlanReleaseInput{
+		RepoRoot:       "/path/to/repo",
+		ConfigHash:     "config-hash",
+		PluginPlanHash: "plugin-hash",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "user@example.com",
+		},
+		// Tag-push mode: HEAD is already tagged
+		TagPushMode:    true,
+		TagName:        "v2.0.0",
+		CurrentVersion: ptr(version.MustParse("1.0.0")),
+		NextVersion:    &nextVersion,
+		BumpKind:       &bumpKind,
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() with TagPushMode error = %v", err)
+	}
+
+	if output.RunID == "" {
+		t.Error("Execute() returned empty RunID")
+	}
+
+	// Verify run was saved
+	if len(repo.runs) != 1 {
+		t.Errorf("Expected 1 run saved, got %d", len(repo.runs))
+	}
+
+	// Verify run state is versioned (not planned!) - this is the key assertion
+	savedRun := repo.runs[output.RunID]
+	if savedRun.State() != domain.StateVersioned {
+		t.Errorf("TagPushMode run state = %v, want %v", savedRun.State(), domain.StateVersioned)
+	}
+
+	// Verify version was set correctly
+	if savedRun.VersionNext().String() != "2.0.0" {
+		t.Errorf("TagPushMode run version = %v, want 2.0.0", savedRun.VersionNext())
+	}
+
+	// Verify tag name was set
+	if savedRun.TagName() != "v2.0.0" {
+		t.Errorf("TagPushMode run tagName = %v, want v2.0.0", savedRun.TagName())
+	}
+}
+
+func TestPlanReleaseUseCase_Execute_TagPushMode_DefaultTagName(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewPlanReleaseUseCase(repo, inspector, nil)
+
+	nextVersion := version.MustParse("1.5.0")
+	bumpKind := domain.BumpMinor
+
+	input := PlanReleaseInput{
+		RepoRoot:       "/path/to/repo",
+		ConfigHash:     "config-hash",
+		PluginPlanHash: "plugin-hash",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "user@example.com",
+		},
+		// Tag-push mode without explicit tag name - should default to "v" + version
+		TagPushMode:    true,
+		TagName:        "", // Empty - should default
+		CurrentVersion: ptr(version.MustParse("1.4.0")),
+		NextVersion:    &nextVersion,
+		BumpKind:       &bumpKind,
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() with TagPushMode error = %v", err)
+	}
+
+	savedRun := repo.runs[output.RunID]
+
+	// Verify state is versioned
+	if savedRun.State() != domain.StateVersioned {
+		t.Errorf("TagPushMode run state = %v, want %v", savedRun.State(), domain.StateVersioned)
+	}
+
+	// Verify tag name defaulted to "v" + version
+	if savedRun.TagName() != "v1.5.0" {
+		t.Errorf("TagPushMode default tagName = %v, want v1.5.0", savedRun.TagName())
+	}
+}
+
+// TestTagPushModeWorkflow tests the complete tag-push workflow:
+// plan (tag-push mode) → notes → approve → publish
+// This verifies that notes can be generated without running bump.
+func TestTagPushModeWorkflow(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Step 1: Plan with tag-push mode
+	planUC := NewPlanReleaseUseCase(repo, inspector, nil)
+
+	nextVersion := version.MustParse("3.0.0")
+	bumpKind := domain.BumpMajor
+
+	planInput := PlanReleaseInput{
+		RepoRoot:       "/path/to/repo",
+		ConfigHash:     "config-hash",
+		PluginPlanHash: "plugin-hash",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "user@example.com",
+		},
+		TagPushMode:    true,
+		TagName:        "v3.0.0",
+		CurrentVersion: ptr(version.MustParse("2.0.0")),
+		NextVersion:    &nextVersion,
+		BumpKind:       &bumpKind,
+	}
+
+	planOutput, err := planUC.Execute(ctx, planInput)
+	if err != nil {
+		t.Fatalf("Plan Execute() error = %v", err)
+	}
+
+	// Verify run is in versioned state (ready for notes)
+	run := repo.runs[planOutput.RunID]
+	if run.State() != domain.StateVersioned {
+		t.Fatalf("After plan, state = %v, want %v", run.State(), domain.StateVersioned)
+	}
+
+	// Step 2: Generate notes (should work without bump!)
+	mockNotesGen := &mockNotesGenerator{
+		notes:    "## Release Notes\n\nMajor version bump with breaking changes.",
+		provider: "mock",
+		model:    "test",
+	}
+	notesUC := NewGenerateNotesUseCase(repo, inspector, mockNotesGen, nil)
+
+	notesInput := GenerateNotesInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "user@example.com",
+		},
+	}
+
+	_, err = notesUC.Execute(ctx, notesInput)
+	if err != nil {
+		t.Fatalf("Notes Execute() error = %v (this was the bug - notes failed in tag-push mode)", err)
+	}
+
+	// Verify state advanced to notes_ready
+	run = repo.runs[planOutput.RunID]
+	if run.State() != domain.StateNotesReady {
+		t.Errorf("After notes, state = %v, want %v", run.State(), domain.StateNotesReady)
+	}
+
+	// Step 3: Approve
+	lockMgr := &mockLockManager{}
+	approveUC := NewApproveReleaseUseCase(repo, inspector, lockMgr, nil)
+
+	approveInput := ApproveReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "approver@example.com",
+		},
+	}
+
+	_, err = approveUC.Execute(ctx, approveInput)
+	if err != nil {
+		t.Fatalf("Approve Execute() error = %v", err)
+	}
+
+	// Verify state advanced to approved
+	run = repo.runs[planOutput.RunID]
+	if run.State() != domain.StateApproved {
+		t.Errorf("After approve, state = %v, want %v", run.State(), domain.StateApproved)
+	}
+}
+
+// ptr is a helper to create a pointer to a value.
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func TestBumpVersionUseCase_Execute(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockRepository()
