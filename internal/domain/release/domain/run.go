@@ -752,6 +752,20 @@ func (r *ReleaseRun) Bump(actor string) error {
 	})
 }
 
+// RecordTagPushMode records that the run was created in tag-push mode.
+// Tag-push mode occurs when HEAD is already tagged, allowing the workflow
+// to skip directly to versioned state without running the bump command.
+// This event is recorded for audit trail purposes.
+func (r *ReleaseRun) RecordTagPushMode(tagName string, actor string) {
+	r.addEvent(&TagPushModeDetectedEvent{
+		RunID:       r.id,
+		TagName:     tagName,
+		VersionNext: r.versionNext,
+		Actor:       actor,
+		At:          time.Now(),
+	})
+}
+
 // GenerateNotes sets the release notes and transitions to NotesReady.
 func (r *ReleaseRun) GenerateNotes(notes *ReleaseNotes, inputsHash, actor string) error {
 	if r.state != StateVersioned {

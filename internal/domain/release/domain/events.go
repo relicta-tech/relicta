@@ -181,6 +181,20 @@ type PluginExecutedEvent struct {
 func (e *PluginExecutedEvent) EventName() string     { return "run.plugin_executed" }
 func (e *PluginExecutedEvent) OccurredAt() time.Time { return e.At }
 
+// TagPushModeDetectedEvent is emitted when a run is created in tag-push mode.
+// Tag-push mode occurs when HEAD is already tagged, allowing the workflow
+// to skip directly to versioned state without running the bump command.
+type TagPushModeDetectedEvent struct {
+	RunID       RunID
+	TagName     string
+	VersionNext version.SemanticVersion
+	Actor       string
+	At          time.Time
+}
+
+func (e *TagPushModeDetectedEvent) EventName() string     { return "run.tag_push_mode_detected" }
+func (e *TagPushModeDetectedEvent) OccurredAt() time.Time { return e.At }
+
 // AggregateID returns the aggregate ID for events that need it.
 func (e *RunCreatedEvent) AggregateID() RunID           { return e.RunID }
 func (e *StateTransitionedEvent) AggregateID() RunID    { return e.RunID }
@@ -196,3 +210,4 @@ func (e *RunNotesGeneratedEvent) AggregateID() RunID    { return e.RunID }
 func (e *RunNotesUpdatedEvent) AggregateID() RunID      { return e.RunID }
 func (e *RunPublishingStartedEvent) AggregateID() RunID { return e.RunID }
 func (e *PluginExecutedEvent) AggregateID() RunID       { return e.RunID }
+func (e *TagPushModeDetectedEvent) AggregateID() RunID  { return e.RunID }

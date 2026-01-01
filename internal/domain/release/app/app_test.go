@@ -420,8 +420,43 @@ func TestPlanReleaseUseCase_Execute_CommitsError(t *testing.T) {
 	}
 }
 
+func TestPlanReleaseUseCase_Execute_EmptyActorID(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewPlanReleaseUseCase(repo, inspector, nil)
+
+	input := PlanReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "", // Empty Actor ID - should fail validation
+		},
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Fatal("Execute() expected error for empty Actor.ID")
+	}
+
+	// Verify it's a ValidationError
+	if !IsValidationError(err) {
+		t.Errorf("Execute() error should be ValidationError, got %T", err)
+	}
+
+	// Verify error message contains field name
+	if !contains(err.Error(), "Actor.ID") {
+		t.Errorf("Execute() error should mention Actor.ID, got %q", err.Error())
+	}
+}
+
 // TestPlanReleaseUseCase_Execute_TagPushMode tests tag-push mode scenarios using table-driven tests.
 func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		tagPushMode    bool
@@ -431,6 +466,8 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 		bumpKind       *domain.BumpKind
 		wantState      domain.RunState
 		wantTagName    string
+		wantVersion    string
+		wantBumpKind   domain.BumpKind
 		wantErr        bool
 		errContains    string
 	}{
@@ -443,6 +480,8 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 			bumpKind:       ptr(domain.BumpMajor),
 			wantState:      domain.StateVersioned,
 			wantTagName:    "v2.0.0",
+			wantVersion:    "2.0.0",
+			wantBumpKind:   domain.BumpMajor,
 			wantErr:        false,
 		},
 		{
@@ -454,6 +493,8 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 			bumpKind:       ptr(domain.BumpMinor),
 			wantState:      domain.StateVersioned,
 			wantTagName:    "v1.5.0",
+			wantVersion:    "1.5.0",
+			wantBumpKind:   domain.BumpMinor,
 			wantErr:        false,
 		},
 		{
@@ -474,6 +515,8 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 			currentVersion: ptr(version.MustParse("1.0.0")),
 			bumpKind:       ptr(domain.BumpMinor),
 			wantState:      domain.StatePlanned,
+			wantVersion:    "1.1.0",
+			wantBumpKind:   domain.BumpMinor,
 			wantErr:        false,
 		},
 		{
@@ -485,12 +528,67 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 			bumpKind:       ptr(domain.BumpPatch),
 			wantState:      domain.StateVersioned,
 			wantTagName:    "v1.0.1",
+			wantVersion:    "1.0.1",
+			wantBumpKind:   domain.BumpPatch,
+			wantErr:        false,
+		},
+		// Edge cases from specialist reviews
+		{
+			name:           "tag-push mode with nil BumpKind succeeds",
+			tagPushMode:    true,
+			tagName:        "v1.2.0",
+			nextVersion:    ptr(version.MustParse("1.2.0")),
+			currentVersion: ptr(version.MustParse("1.1.0")),
+			bumpKind:       nil, // BumpKind is optional - version proposal won't be set
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v1.2.0",
+			wantVersion:    "1.2.0",
+			wantErr:        false,
+		},
+		{
+			name:           "tag-push mode with nil CurrentVersion (initial release)",
+			tagPushMode:    true,
+			tagName:        "v1.0.0",
+			nextVersion:    ptr(version.MustParse("1.0.0")),
+			currentVersion: nil, // Initial release - no previous version
+			bumpKind:       ptr(domain.BumpMajor),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v1.0.0",
+			wantVersion:    "1.0.0",
+			wantErr:        false,
+		},
+		{
+			name:           "tag-push mode with prerelease version",
+			tagPushMode:    true,
+			tagName:        "v2.0.0-beta.1",
+			nextVersion:    ptr(version.MustParse("2.0.0-beta.1")),
+			currentVersion: ptr(version.MustParse("1.0.0")),
+			bumpKind:       ptr(domain.BumpPrerelease),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v2.0.0-beta.1",
+			wantVersion:    "2.0.0-beta.1",
+			wantBumpKind:   domain.BumpPrerelease,
+			wantErr:        false,
+		},
+		{
+			name:           "tag-push mode with build metadata",
+			tagPushMode:    true,
+			tagName:        "v1.0.0+build.123",
+			nextVersion:    ptr(version.MustParse("1.0.0+build.123")),
+			currentVersion: ptr(version.MustParse("0.9.0")),
+			bumpKind:       ptr(domain.BumpMinor),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v1.0.0+build.123",
+			wantVersion:    "1.0.0+build.123",
+			wantBumpKind:   domain.BumpMinor,
 			wantErr:        false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			repo := newMockRepository()
 			inspector := newMockRepoInspector()
@@ -533,12 +631,40 @@ func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
 			}
 
 			savedRun := repo.runs[output.RunID]
+
+			// State assertion
 			if savedRun.State() != tt.wantState {
 				t.Errorf("Run state = %v, want %v", savedRun.State(), tt.wantState)
 			}
 
+			// Tag name assertion
 			if tt.wantTagName != "" && savedRun.TagName() != tt.wantTagName {
-				t.Errorf("Run tagName = %v, want %v", savedRun.TagName(), tt.wantTagName)
+				t.Errorf("Run tagName = %q, want %q", savedRun.TagName(), tt.wantTagName)
+			}
+
+			// Deeper assertions: VersionNext
+			if tt.wantVersion != "" && savedRun.VersionNext().String() != tt.wantVersion {
+				t.Errorf("Run VersionNext = %v, want %v", savedRun.VersionNext(), tt.wantVersion)
+			}
+
+			// Deeper assertions: BumpKind (only check if expected and set)
+			if tt.wantBumpKind != "" && savedRun.BumpKind() != tt.wantBumpKind {
+				t.Errorf("Run BumpKind = %v, want %v", savedRun.BumpKind(), tt.wantBumpKind)
+			}
+
+			// Deeper assertions: PlanHash should not be empty
+			if savedRun.PlanHash() == "" {
+				t.Error("Run PlanHash should not be empty")
+			}
+
+			// Deeper assertions: UpdatedAt should be set
+			if savedRun.UpdatedAt().IsZero() {
+				t.Error("Run UpdatedAt should be set")
+			}
+
+			// Deeper assertions: HeadSHA should match mock
+			if savedRun.HeadSHA() == "" {
+				t.Error("Run HeadSHA should not be empty")
 			}
 		})
 	}
@@ -643,6 +769,71 @@ func TestTagPushModeWorkflow(t *testing.T) {
 // ptr is a helper to create a pointer to a value.
 func ptr[T any](v T) *T {
 	return &v
+}
+
+// TestTagPushModeRecordsEvent verifies that TagPushModeDetectedEvent is recorded
+// when tag-push mode is used. This event is essential for audit trails.
+func TestTagPushModeRecordsEvent(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	uc := NewPlanReleaseUseCase(repo, inspector, nil)
+
+	nextVersion := version.MustParse("2.0.0")
+	bumpKind := domain.BumpMajor
+
+	input := PlanReleaseInput{
+		RepoRoot:       "/path/to/repo",
+		ConfigHash:     "config-hash",
+		PluginPlanHash: "plugin-hash",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "user@example.com",
+		},
+		TagPushMode:    true,
+		TagName:        "v2.0.0",
+		CurrentVersion: ptr(version.MustParse("1.0.0")),
+		NextVersion:    &nextVersion,
+		BumpKind:       &bumpKind,
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	savedRun := repo.runs[output.RunID]
+
+	// Verify TagPushModeDetectedEvent is among the domain events
+	events := savedRun.DomainEvents()
+	var foundEvent *domain.TagPushModeDetectedEvent
+	for _, evt := range events {
+		if tpe, ok := evt.(*domain.TagPushModeDetectedEvent); ok {
+			foundEvent = tpe
+			break
+		}
+	}
+
+	if foundEvent == nil {
+		t.Fatal("TagPushModeDetectedEvent not found in domain events")
+	}
+
+	// Verify event fields
+	if foundEvent.TagName != "v2.0.0" {
+		t.Errorf("TagPushModeDetectedEvent.TagName = %q, want %q", foundEvent.TagName, "v2.0.0")
+	}
+	if foundEvent.Actor != "user@example.com" {
+		t.Errorf("TagPushModeDetectedEvent.Actor = %q, want %q", foundEvent.Actor, "user@example.com")
+	}
+	if foundEvent.VersionNext.String() != "2.0.0" {
+		t.Errorf("TagPushModeDetectedEvent.VersionNext = %v, want 2.0.0", foundEvent.VersionNext)
+	}
+	if foundEvent.EventName() != "run.tag_push_mode_detected" {
+		t.Errorf("TagPushModeDetectedEvent.EventName() = %q, want %q", foundEvent.EventName(), "run.tag_push_mode_detected")
+	}
 }
 
 func TestBumpVersionUseCase_Execute(t *testing.T) {

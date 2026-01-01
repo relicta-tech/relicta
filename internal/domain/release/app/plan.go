@@ -70,9 +70,14 @@ func NewPlanReleaseUseCase(
 
 // Execute plans a new release.
 func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInput) (*PlanReleaseOutput, error) {
+	// Validate Actor ID for audit trail
+	if input.Actor.ID == "" {
+		return nil, ErrActorIDRequired
+	}
+
 	// Validate tag-push mode requirements
 	if input.TagPushMode && input.NextVersion == nil {
-		return nil, fmt.Errorf("tag-push mode requires NextVersion to be set")
+		return nil, ErrTagPushMissingVersion
 	}
 
 	// Check for existing active run
@@ -166,6 +171,9 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		if err := run.Bump(input.Actor.ID); err != nil {
 			return nil, fmt.Errorf("tag-push mode: failed to transition to versioned state: %w", err)
 		}
+
+		// Record tag-push mode for audit trail
+		run.RecordTagPushMode(tagName, input.Actor.ID)
 	}
 
 	// Save the run
