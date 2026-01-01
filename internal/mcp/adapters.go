@@ -38,6 +38,17 @@ type Adapter struct {
 type AdapterOption func(*Adapter)
 
 // NewAdapter creates a new MCP adapter.
+//
+// For ADR-007 compliance, all MCP operations should use the application services layer.
+// The recommended configuration is:
+//
+//	adapter := mcp.NewAdapter(
+//	    mcp.WithReleaseServices(services),  // Required for state management
+//	    mcp.WithRepoRoot(repoDir),          // Required for repository path
+//	)
+//
+// The legacy options (WithCalculateVersionUseCase, WithSetVersionUseCase,
+// WithAdapterReleaseRepository) are deprecated and will be removed in a future version.
 func NewAdapter(opts ...AdapterOption) *Adapter {
 	a := &Adapter{}
 	for _, opt := range opts {
@@ -54,6 +65,10 @@ func WithReleaseAnalyzer(analyzer *servicerelease.Analyzer) AdapterOption {
 }
 
 // WithCalculateVersionUseCase sets the calculate version use case.
+//
+// Deprecated: Use WithReleaseServices instead. The version is calculated during Plan
+// and stored in the release run. This option is only used by the legacy bumpViaLegacy
+// code path and will be removed when that code path is removed.
 func WithCalculateVersionUseCase(uc *versioning.CalculateVersionUseCase) AdapterOption {
 	return func(a *Adapter) {
 		a.calculateUC = uc
@@ -61,6 +76,10 @@ func WithCalculateVersionUseCase(uc *versioning.CalculateVersionUseCase) Adapter
 }
 
 // WithSetVersionUseCase sets the set version use case.
+//
+// Deprecated: Use WithReleaseServices instead. Version tagging should be done
+// during Publish via the application services layer. This option is only used by
+// the legacy bumpViaLegacy code path and will be removed when that code path is removed.
 func WithSetVersionUseCase(uc *versioning.SetVersionUseCase) AdapterOption {
 	return func(a *Adapter) {
 		a.setVersionUC = uc
@@ -82,6 +101,11 @@ func WithGovernanceService(svc *governance.Service) AdapterOption {
 }
 
 // WithAdapterReleaseRepository sets the release repository.
+//
+// Deprecated: Direct repository access violates ADR-007. Use WithReleaseServices instead.
+// The application services layer handles repository access internally with proper
+// state machine transitions and audit logging. This option is only used by legacy
+// code paths and will be removed in a future version.
 func WithAdapterReleaseRepository(repo domainrelease.Repository) AdapterOption {
 	return func(a *Adapter) {
 		a.releaseRepo = repo
@@ -268,11 +292,56 @@ type BumpOutput struct {
 }
 
 // Bump executes the bump version use case via MCP.
-// This mirrors the CLI's runReleaseBump pattern exactly:
-// 1. Calculate version using CalculateVersionUseCase
-// 2. Set version using SetVersionUseCase (handles git tag)
-// 3. Update release aggregate state using updateReleaseVersion
+// This properly uses the DDD BumpVersionUseCase to transition state and persist version.
+// Fixes ADR-007 compliance: all interfaces must use the application services layer.
 func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error) {
+	// ADR-007: Use release services layer for state management
+	if a.releaseServices != nil && a.releaseServices.BumpVersion != nil {
+		return a.bumpViaDDD(ctx, input)
+	}
+
+	// Legacy fallback: use separate use cases (deprecated, for backward compatibility)
+	return a.bumpViaLegacy(ctx, input)
+}
+
+// bumpViaDDD executes bump using the DDD BumpVersionUseCase (ADR-007 compliant).
+func (a *Adapter) bumpViaDDD(ctx context.Context, input BumpInput) (*BumpOutput, error) {
+	// Determine repository path
+	repoPath := input.RepositoryPath
+	if repoPath == "" {
+		repoPath = a.repoRoot
+	}
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	// Build the use case input
+	bumpInput := releaseapp.BumpVersionInput{
+		RepoRoot: repoPath,
+		Actor: ports.ActorInfo{
+			Type: "agent",
+			ID:   "mcp-agent",
+		},
+		Force: true, // MCP operations are already validated upstream
+	}
+
+	// Execute the use case
+	output, err := a.releaseServices.BumpVersion.Execute(ctx, bumpInput)
+	if err != nil {
+		return nil, fmt.Errorf("bump version failed: %w", err)
+	}
+
+	return &BumpOutput{
+		NextVersion:  output.VersionNext,
+		TagName:      output.TagName,
+		BumpType:     string(output.BumpKind),
+		AutoDetected: true, // DDD uses Plan's auto-detected bump
+	}, nil
+}
+
+// bumpViaLegacy executes bump using separate use cases (deprecated).
+// This is kept for backward compatibility when releaseServices is not configured.
+func (a *Adapter) bumpViaLegacy(ctx context.Context, input BumpInput) (*BumpOutput, error) {
 	// Parse and validate bump type first (fail-fast on invalid input)
 	var bumpType version.BumpType
 	auto := false

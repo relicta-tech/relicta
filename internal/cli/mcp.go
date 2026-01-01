@@ -121,6 +121,7 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 }
 
 // createMCPAdapter creates an MCP adapter wired to the container's services.
+// ADR-007: All interfaces must use application services layer.
 func createMCPAdapter(app *container.App) *mcp.Adapter {
 	opts := []mcp.AdapterOption{}
 
@@ -129,29 +130,15 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 		opts = append(opts, mcp.WithReleaseAnalyzer(analyzer))
 	}
 
-	// Wire calculate version use case
-	if uc := app.CalculateVersion(); uc != nil {
-		opts = append(opts, mcp.WithCalculateVersionUseCase(uc))
-	}
-
-	// Wire set version use case
-	if uc := app.SetVersion(); uc != nil {
-		opts = append(opts, mcp.WithSetVersionUseCase(uc))
-	}
-
-	// Wire DDD release services for notes/approve/publish
+	// Wire DDD release services (ADR-007 compliant)
+	// This provides plan, bump, notes, approve, publish functionality
 	if app.HasReleaseServices() {
 		opts = append(opts, mcp.WithReleaseServices(app.ReleaseServices()))
 	}
 
-	// Wire governance service
+	// Wire governance service for CGP evaluation
 	if svc := app.GovernanceService(); svc != nil {
 		opts = append(opts, mcp.WithGovernanceService(svc))
-	}
-
-	// Wire release repository
-	if repo := app.ReleaseRepository(); repo != nil {
-		opts = append(opts, mcp.WithAdapterReleaseRepository(repo))
 	}
 
 	// Wire blast radius service for monorepo analysis
