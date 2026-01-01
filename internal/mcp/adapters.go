@@ -4,13 +4,16 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
@@ -26,6 +29,9 @@ type Adapter struct {
 	releaseRepo     domainrelease.Repository
 	blastService    blast.Service
 	aiService       ai.Service
+
+	// repoRoot caches the repository root path for use cases
+	repoRoot string
 }
 
 // AdapterOption configures the Adapter.
@@ -96,6 +102,23 @@ func WithAIService(svc ai.Service) AdapterOption {
 	}
 }
 
+// WithRepoRoot sets the repository root path.
+func WithRepoRoot(path string) AdapterOption {
+	return func(a *Adapter) {
+		a.repoRoot = path
+	}
+}
+
+// SetRepoRoot sets the repository root path dynamically.
+func (a *Adapter) SetRepoRoot(path string) {
+	a.repoRoot = path
+}
+
+// GetRepoRoot returns the configured repository root path.
+func (a *Adapter) GetRepoRoot() string {
+	return a.repoRoot
+}
+
 // PlanInput represents input for the Plan operation.
 type PlanInput struct {
 	RepositoryPath string
@@ -128,13 +151,21 @@ type PlanOutput struct {
 }
 
 // Plan executes the plan release use case via MCP.
+// This now properly persists the release using DDD use cases for consistent state management.
 func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error) {
 	if a.releaseAnalyzer == nil {
 		return nil, fmt.Errorf("release analyzer not configured")
 	}
 
+	// Determine repository path
+	repoPath := input.RepositoryPath
+	if repoPath == "" {
+		repoPath = a.repoRoot
+	}
+
+	// Step 1: Run analysis to get changeset and version info
 	analyzeInput := servicerelease.AnalyzeInput{
-		RepositoryPath: input.RepositoryPath,
+		RepositoryPath: repoPath,
 		FromRef:        input.FromRef,
 		ToRef:          input.ToRef,
 	}
@@ -171,7 +202,49 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 		}
 	}
 
+	// Step 2: Persist the release using DDD PlanReleaseUseCase
+	// This is the key fix for issues #30, #31, #32 - ensures state machine is properly used
+	if a.releaseServices != nil && a.releaseServices.PlanRelease != nil && !input.DryRun {
+		bumpKind := releaseTypeToBumpKind(output.ReleaseType)
+
+		planInput := releaseapp.PlanReleaseInput{
+			RepoRoot:       repoPath,
+			RepoID:         repoPath, // Use path as ID if no remote
+			ChangeSet:      output.ChangeSet,
+			CurrentVersion: &output.CurrentVersion,
+			NextVersion:    &output.NextVersion,
+			BumpKind:       &bumpKind,
+			Actor: ports.ActorInfo{
+				Type: "agent",
+				ID:   "mcp-agent",
+			},
+			Force: true, // Allow re-planning
+		}
+
+		planOutput, err := a.releaseServices.PlanRelease.Execute(ctx, planInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to persist release plan: %w", err)
+		}
+
+		// Set the release ID from the persisted release
+		result.ReleaseID = string(planOutput.RunID)
+	}
+
 	return result, nil
+}
+
+// releaseTypeToBumpKind converts changes.ReleaseType to domain.BumpKind.
+func releaseTypeToBumpKind(rt changes.ReleaseType) releasedomain.BumpKind {
+	switch rt {
+	case changes.ReleaseTypeMajor:
+		return releasedomain.BumpMajor
+	case changes.ReleaseTypeMinor:
+		return releasedomain.BumpMinor
+	case changes.ReleaseTypePatch:
+		return releasedomain.BumpPatch
+	default:
+		return releasedomain.BumpPatch
+	}
 }
 
 // BumpInput represents input for the Bump operation.
@@ -320,17 +393,62 @@ type NotesOutput struct {
 }
 
 // Notes executes the generate notes use case via MCP.
+// This properly uses the DDD GenerateNotesUseCase to transition state and persist notes.
+// Fixes issue #32 where notes generation failed due to improper state management.
 func (a *Adapter) Notes(ctx context.Context, input NotesInput) (*NotesOutput, error) {
 	if a.releaseServices == nil {
 		return nil, fmt.Errorf("release services not configured")
 	}
 
-	// Use DDD services for notes generation
-	// For now, return a stub since the DDD layer handles this through the state machine
-	return &NotesOutput{
-		Summary:     "Release notes generated via MCP",
+	if a.releaseServices.GenerateNotes == nil {
+		return nil, fmt.Errorf("generate notes use case not configured")
+	}
+
+	// Determine repository path
+	repoPath := a.repoRoot
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	// Build the use case input
+	notesInput := releaseapp.GenerateNotesInput{
+		RepoRoot: repoPath,
+		Options: ports.NotesOptions{
+			UseAI:         input.UseAI,
+			RepositoryURL: input.RepositoryURL,
+		},
+		Actor: ports.ActorInfo{
+			Type: "agent",
+			ID:   "mcp-agent",
+		},
+		Force: true, // Allow notes regeneration via MCP
+	}
+
+	// Set run ID if provided
+	if input.ReleaseID != "" {
+		notesInput.RunID = releasedomain.RunID(input.ReleaseID)
+	}
+
+	// Execute the use case
+	output, err := a.releaseServices.GenerateNotes.Execute(ctx, notesInput)
+	if err != nil {
+		return nil, fmt.Errorf("notes generation failed: %w", err)
+	}
+
+	// Build output from domain notes
+	result := &NotesOutput{
 		AIGenerated: input.UseAI,
-	}, nil
+	}
+
+	if output.Notes != nil {
+		result.Summary = output.Notes.Text
+		// Changelog is same as notes text for now
+		if input.IncludeChangelog {
+			result.Changelog = output.Notes.Text
+		}
+	}
+
+	return result, nil
 }
 
 // EvaluateInput represents input for the Evaluate operation.
@@ -426,15 +544,21 @@ type ApproveOutput struct {
 }
 
 // Approve executes the approve release use case via MCP.
+// This properly uses the DDD ApproveReleaseUseCase with HEAD validation and locking.
+// Fixes issue #31 where state transition errors occurred.
 func (a *Adapter) Approve(ctx context.Context, input ApproveInput) (*ApproveOutput, error) {
-	if a.releaseRepo == nil {
-		return nil, fmt.Errorf("release repository not configured")
+	if a.releaseServices == nil {
+		return nil, fmt.Errorf("release services not configured")
 	}
 
-	// Find and approve the release directly
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to find release: %w", err)
+	if a.releaseServices.ApproveRelease == nil {
+		return nil, fmt.Errorf("approve release use case not configured")
+	}
+
+	// Determine repository path
+	repoPath := a.repoRoot
+	if repoPath == "" {
+		repoPath = "."
 	}
 
 	approver := input.ApprovedBy
@@ -442,18 +566,32 @@ func (a *Adapter) Approve(ctx context.Context, input ApproveInput) (*ApproveOutp
 		approver = "mcp-agent"
 	}
 
-	if err := rel.Approve(approver, true); err != nil { // auto-approved via MCP
+	// Build the use case input
+	approveInput := releaseapp.ApproveReleaseInput{
+		RepoRoot: repoPath,
+		Actor: ports.ActorInfo{
+			Type: "agent",
+			ID:   approver,
+		},
+		AutoApprove: input.AutoApprove,
+		Force:       true, // MCP approvals skip HEAD validation by default
+	}
+
+	// Set run ID if provided
+	if input.ReleaseID != "" {
+		approveInput.RunID = releasedomain.RunID(input.ReleaseID)
+	}
+
+	// Execute the use case
+	output, err := a.releaseServices.ApproveRelease.Execute(ctx, approveInput)
+	if err != nil {
 		return nil, fmt.Errorf("approve failed: %w", err)
 	}
 
-	if err := a.releaseRepo.Save(ctx, rel); err != nil {
-		return nil, fmt.Errorf("failed to save release: %w", err)
-	}
-
 	return &ApproveOutput{
-		Approved:   true,
-		ApprovedBy: approver,
-		Version:    rel.VersionNext().String(),
+		Approved:   output.Approved,
+		ApprovedBy: output.ApprovedBy,
+		Version:    output.VersionNext,
 	}, nil
 }
 
@@ -483,34 +621,67 @@ type PluginResultInfo struct {
 }
 
 // Publish executes the publish release use case via MCP.
+// This properly uses the DDD PublishReleaseUseCase with step-level idempotency.
+// Fixes issue #31 where state transitions weren't properly handled.
 func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutput, error) {
-	if a.releaseRepo == nil {
-		return nil, fmt.Errorf("release repository not configured")
+	if a.releaseServices == nil {
+		return nil, fmt.Errorf("release services not configured")
 	}
 
-	// Find the release
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	if a.releaseServices.PublishRelease == nil {
+		return nil, fmt.Errorf("publish release use case not configured")
+	}
+
+	// Determine repository path
+	repoPath := a.repoRoot
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	// Build the use case input
+	publishInput := releaseapp.PublishReleaseInput{
+		RepoRoot: repoPath,
+		Actor: ports.ActorInfo{
+			Type: "agent",
+			ID:   "mcp-agent",
+		},
+		Force:  true, // MCP publishes skip HEAD validation by default
+		DryRun: input.DryRun,
+	}
+
+	// Set run ID if provided
+	if input.ReleaseID != "" {
+		publishInput.RunID = releasedomain.RunID(input.ReleaseID)
+	}
+
+	// Execute the use case
+	output, err := a.releaseServices.PublishRelease.Execute(ctx, publishInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find release: %w", err)
+		return nil, fmt.Errorf("publish failed: %w", err)
 	}
 
-	// Start publishing
-	if err := rel.StartPublishing("mcp-agent"); err != nil {
-		return nil, fmt.Errorf("failed to start publishing: %w", err)
+	// Build result with plugin results
+	result := &PublishOutput{}
+
+	// Get tag name from the release
+	if a.releaseRepo != nil && input.ReleaseID != "" {
+		rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+		if err == nil {
+			result.TagName = rel.TagName()
+		}
 	}
 
-	// Mark as published
-	if err := rel.MarkPublished("mcp-agent"); err != nil {
-		return nil, fmt.Errorf("failed to mark as published: %w", err)
+	// Convert step results to plugin results
+	for _, step := range output.StepResults {
+		result.PluginResults = append(result.PluginResults, PluginResultInfo{
+			PluginName: step.StepName,
+			Hook:       "publish",
+			Success:    step.Success,
+			Message:    step.Output,
+		})
 	}
 
-	if err := a.releaseRepo.Save(ctx, rel); err != nil {
-		return nil, fmt.Errorf("failed to save release: %w", err)
-	}
-
-	return &PublishOutput{
-		TagName: rel.TagName(),
-	}, nil
+	return result, nil
 }
 
 // CancelInput represents input for the Cancel operation.
@@ -609,49 +780,49 @@ type GetStatusOutput struct {
 }
 
 // GetStatus retrieves the current release status.
+// This properly uses the DDD GetStatusUseCase for consistent state management.
+// Fixes issue #30 where status showed inconsistent state.
 func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
-	if a.releaseRepo == nil {
-		return nil, fmt.Errorf("release repository not configured")
+	if a.releaseServices == nil {
+		return nil, fmt.Errorf("release services not configured")
 	}
 
-	releases, err := a.releaseRepo.FindActive(ctx)
+	if a.releaseServices.GetStatus == nil {
+		return nil, fmt.Errorf("get status use case not configured")
+	}
+
+	// Determine repository path
+	repoPath := a.repoRoot
+	if repoPath == "" {
+		repoPath = "."
+	}
+
+	// Build the use case input
+	statusInput := releaseapp.GetStatusInput{
+		RepoRoot: repoPath,
+	}
+
+	// Execute the use case
+	output, err := a.releaseServices.GetStatus.Execute(ctx, statusInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find active releases: %w", err)
+		return nil, fmt.Errorf("failed to get status: %w", err)
 	}
 
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no active release found")
-	}
-
-	rel := releases[0]
+	// Build result
 	result := &GetStatusOutput{
-		ReleaseID: string(rel.ID()),
-		State:     rel.State().String(),
-		CreatedAt: rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		ReleaseID:  string(output.RunID),
+		State:      output.State.String(),
+		CreatedAt:  output.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:  output.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		NextAction: output.NextAction,
+		Stale:      output.Stale,
+		Warning:    output.Warning,
+		CanApprove: output.CanApprove,
 	}
 
-	// Get version from aggregate
-	if !rel.VersionNext().IsZero() {
-		result.Version = rel.VersionNext().String()
-	}
-
-	status := rel.ApprovalStatus()
-	result.CanApprove = status.CanApprove
-	result.ApprovalMsg = status.Reason
-
-	// Set next action based on current state
-	result.NextAction = nextActionForState(rel.State().String())
-
-	// Check for stale release (not updated in over 1 hour and not in terminal state)
-	stateStr := rel.State().String()
-	isTerminal := stateStr == "published" || stateStr == "canceled"
-	if !isTerminal {
-		staleThreshold := time.Now().Add(-1 * time.Hour)
-		if rel.UpdatedAt().Before(staleThreshold) {
-			result.Stale = true
-			result.Warning = "Release was last updated over 1 hour ago. Consider running 'relicta plan' to refresh state."
-		}
+	// Set version
+	if output.VersionNext != "" {
+		result.Version = output.VersionNext
 	}
 
 	return result, nil

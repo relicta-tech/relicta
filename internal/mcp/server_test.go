@@ -1365,7 +1365,11 @@ func TestHandlePlanWithAdapter(t *testing.T) {
 func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("uses adapter when it has release repository", func(t *testing.T) {
+	// NOTE: GetStatus now requires release services with a GetStatusUseCase.
+	// When only a repository is configured (no release services), the adapter
+	// returns an error, which handleStatus translates to "no_active_release".
+
+	t.Run("returns no_active_release when adapter has only repository (no release services)", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
@@ -1374,9 +1378,8 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 
 		result, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
-		// Should return release info from adapter
-		assert.Contains(t, result, "release_id")
-		assert.Contains(t, result, "state")
+		// GetStatus requires release services, so this returns no_active_release
+		assert.Equal(t, "no_active_release", result["status"])
 	})
 
 	t.Run("returns no_active_release when adapter repo is empty", func(t *testing.T) {
@@ -1394,16 +1397,19 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 func TestAdapterGetStatusWithData(t *testing.T) {
 	ctx := context.Background()
 
+	// NOTE: GetStatus now requires release services with a GetStatusUseCase.
+	// These tests verify the behavior when only a repository is provided.
+
 	t.Run("returns full status with versioned release", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
+		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)
-		require.NoError(t, err)
-		assert.NotNil(t, status)
-		assert.NotEmpty(t, status.ReleaseID)
-		assert.Equal(t, "1.2.3", status.Version)
+		require.Error(t, err)
+		assert.Nil(t, status)
+		assert.Contains(t, err.Error(), "release services not configured")
 	})
 
 	t.Run("returns status with approval info", func(t *testing.T) {
@@ -1411,11 +1417,11 @@ func TestAdapterGetStatusWithData(t *testing.T) {
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
+		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)
-		require.NoError(t, err)
-		assert.NotNil(t, status)
-		// Check approval-related fields
-		assert.Contains(t, status.NextAction, "")
+		require.Error(t, err)
+		assert.Nil(t, status)
+		assert.Contains(t, err.Error(), "release services not configured")
 	})
 
 	t.Run("returns stale status for empty version", func(t *testing.T) {
@@ -1424,10 +1430,11 @@ func TestAdapterGetStatusWithData(t *testing.T) {
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
 
+		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)
-		require.NoError(t, err)
-		assert.NotNil(t, status)
-		assert.NotEmpty(t, status.ReleaseID)
+		require.Error(t, err)
+		assert.Nil(t, status)
+		assert.Contains(t, err.Error(), "release services not configured")
 	})
 }
 

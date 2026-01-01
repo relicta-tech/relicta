@@ -127,53 +127,70 @@ func userError(err error) error {
 // Tool input types with JSON Schema generation via struct tags.
 
 // StatusInput represents input for the status tool.
+// Maps to CLI: relicta status (no additional flags)
+// Returns current release state, version, and next recommended action.
 type StatusInput struct{}
 
 // PlanToolInput represents input for the plan tool.
+// Maps to CLI: relicta plan [--from REF] [--to REF] [--analyze] [--no-ai] [--minimal]
 type PlanToolInput struct {
-	From    string `json:"from,omitempty" jsonschema:"description=Starting point for commit analysis (tag or commit SHA). Use 'auto' or leave empty for automatic detection."`
-	To      string `json:"to,omitempty" jsonschema:"description=Ending reference for commit analysis. Defaults to HEAD."`
-	Analyze bool   `json:"analyze,omitempty" jsonschema:"description=Include detailed commit analysis in output"`
+	From          string  `json:"from,omitempty" jsonschema:"description=Starting reference for commit analysis (tag like 'v1.0.0' or commit SHA). Leave empty for automatic detection from latest version tag."`
+	To            string  `json:"to,omitempty" jsonschema:"description=Ending reference for commit analysis (tag or commit SHA). Defaults to HEAD."`
+	Analyze       bool    `json:"analyze,omitempty" jsonschema:"description=Include detailed commit classification analysis in the output. Shows how each commit was categorized."`
+	NoAI          bool    `json:"no_ai,omitempty" jsonschema:"description=Disable AI-powered commit classification. Uses only conventional commit parsing."`
+	MinConfidence float64 `json:"min_confidence,omitempty" jsonschema:"description=Minimum confidence threshold (0.0-1.0) to accept AI commit classifications. Default is 0.7."`
 }
 
 // BumpToolInput represents input for the bump tool.
+// Maps to CLI: relicta bump [--level LEVEL] [--version VERSION] [--prerelease ID] [--build META]
 type BumpToolInput struct {
-	Level   string `json:"level,omitempty" jsonschema:"description=Version bump level: major, minor, patch, or auto,enum=major|minor|patch|auto,default=auto"`
-	Version string `json:"version,omitempty" jsonschema:"description=Explicit version to set (overrides level)"`
+	Level      string `json:"level,omitempty" jsonschema:"description=Version bump level. Use 'auto' to determine from commits or specify 'major'/'minor'/'patch' explicitly.,enum=major|minor|patch|auto,default=auto"`
+	Version    string `json:"version,omitempty" jsonschema:"description=Set an explicit version (e.g. '2.0.0'). Overrides level and bypasses commit analysis."`
+	Prerelease string `json:"prerelease,omitempty" jsonschema:"description=Prerelease identifier to append (e.g. 'alpha', 'beta', 'rc.1'). Creates versions like '1.2.0-beta'."`
+	Build      string `json:"build,omitempty" jsonschema:"description=Build metadata to append (e.g. 'build.123'). Creates versions like '1.2.0+build.123'."`
 }
 
 // NotesToolInput represents input for the notes tool.
+// Maps to CLI: relicta notes [--ai] [--audience TYPE] [--tone STYLE] [--language LANG] [--emoji]
 type NotesToolInput struct {
-	AI       bool   `json:"ai,omitempty" jsonschema:"description=Use AI to enhance release notes"`
-	Audience string `json:"audience,omitempty" jsonschema:"description=Target audience for notes,enum=developers|users|public|stakeholders,default=developers"`
-	Tone     string `json:"tone,omitempty" jsonschema:"description=Tone for AI-generated notes,enum=technical|friendly|professional|marketing,default=professional"`
+	AI       bool   `json:"ai,omitempty" jsonschema:"description=Use AI to generate enhanced release notes. Requires OPENAI_API_KEY or configured AI provider."`
+	Audience string `json:"audience,omitempty" jsonschema:"description=Target audience affects terminology and detail level.,enum=developers|users|public|stakeholders,default=developers"`
+	Tone     string `json:"tone,omitempty" jsonschema:"description=Writing style for AI-generated notes.,enum=technical|friendly|professional|marketing,default=professional"`
+	Language string `json:"language,omitempty" jsonschema:"description=Output language for release notes (e.g. 'English', 'Spanish', 'Japanese'). Default is English."`
+	Emoji    bool   `json:"emoji,omitempty" jsonschema:"description=Include emojis in release notes output for visual categorization."`
 }
 
 // EvaluateToolInput represents input for the evaluate tool.
+// Maps to CLI: relicta evaluate (no additional flags)
 type EvaluateToolInput struct{}
 
 // ApproveToolInput represents input for the approve tool.
+// Maps to CLI: relicta approve [--yes] [--edit]
 type ApproveToolInput struct {
-	Notes string `json:"notes,omitempty" jsonschema:"description=Updated release notes (optional)"`
+	Notes   string `json:"notes,omitempty" jsonschema:"description=Updated release notes content. If provided, replaces the generated notes before approval."`
+	Message string `json:"message,omitempty" jsonschema:"description=Approval message or reason for the release. Recorded in the audit trail."`
 }
 
 // PublishToolInput represents input for the publish tool.
+// Maps to CLI: relicta publish [--dry-run] [--skip-push] [--skip-tag] [--skip-plugins]
 type PublishToolInput struct {
-	DryRun      bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making changes"`
-	SkipPush    bool `json:"skip_push,omitempty" jsonschema:"description=Skip pushing tags to remote"`
-	SkipTag     bool `json:"skip_tag,omitempty" jsonschema:"description=Skip creating git tag"`
-	SkipPlugins bool `json:"skip_plugins,omitempty" jsonschema:"description=Skip running plugins"`
+	DryRun      bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making actual changes. Shows what would happen."`
+	SkipPush    bool `json:"skip_push,omitempty" jsonschema:"description=Skip pushing git tags to the remote repository."`
+	SkipTag     bool `json:"skip_tag,omitempty" jsonschema:"description=Skip creating the git tag. Useful when tag already exists."`
+	SkipPlugins bool `json:"skip_plugins,omitempty" jsonschema:"description=Skip running configured plugins (GitHub release, Slack notification, etc.)."`
 }
 
 // CancelToolInput represents input for the cancel tool.
+// Maps to CLI: relicta cancel [--reason TEXT] [--force]
 type CancelToolInput struct {
-	Reason string `json:"reason,omitempty" jsonschema:"description=Reason for canceling the release"`
-	Force  bool   `json:"force,omitempty" jsonschema:"description=Force cancel even if in publishing state (not recommended)"`
+	Reason string `json:"reason,omitempty" jsonschema:"description=Reason for canceling the release. Recorded in the audit trail for traceability."`
+	Force  bool   `json:"force,omitempty" jsonschema:"description=Force cancel even if release is in publishing state. Use with caution - may leave artifacts in inconsistent state."`
 }
 
 // ResetToolInput represents input for the reset tool.
+// Maps to CLI: relicta reset [--force]
 type ResetToolInput struct {
-	Force bool `json:"force,omitempty" jsonschema:"description=Force reset even if release is in progress"`
+	Force bool `json:"force,omitempty" jsonschema:"description=Force reset even if a release is in progress. Clears all release state and starts fresh."`
 }
 
 // --- Specialized AI Agent Tool Inputs ---
