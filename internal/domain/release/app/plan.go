@@ -70,6 +70,11 @@ func NewPlanReleaseUseCase(
 
 // Execute plans a new release.
 func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInput) (*PlanReleaseOutput, error) {
+	// Validate tag-push mode requirements
+	if input.TagPushMode && input.NextVersion == nil {
+		return nil, fmt.Errorf("tag-push mode requires NextVersion to be set")
+	}
+
 	// Check for existing active run
 	if !input.Force {
 		activeRuns, err := uc.repo.FindActive(ctx, input.RepoRoot)

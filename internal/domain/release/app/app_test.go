@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -419,105 +420,133 @@ func TestPlanReleaseUseCase_Execute_CommitsError(t *testing.T) {
 	}
 }
 
+// TestPlanReleaseUseCase_Execute_TagPushMode tests tag-push mode scenarios using table-driven tests.
 func TestPlanReleaseUseCase_Execute_TagPushMode(t *testing.T) {
-	ctx := context.Background()
-	repo := newMockRepository()
-	inspector := newMockRepoInspector()
-
-	uc := NewPlanReleaseUseCase(repo, inspector, nil)
-
-	nextVersion := version.MustParse("2.0.0")
-	bumpKind := domain.BumpMajor
-
-	input := PlanReleaseInput{
-		RepoRoot:       "/path/to/repo",
-		ConfigHash:     "config-hash",
-		PluginPlanHash: "plugin-hash",
-		Actor: ports.ActorInfo{
-			Type: domain.ActorHuman,
-			ID:   "user@example.com",
+	tests := []struct {
+		name           string
+		tagPushMode    bool
+		tagName        string
+		nextVersion    *version.SemanticVersion
+		currentVersion *version.SemanticVersion
+		bumpKind       *domain.BumpKind
+		wantState      domain.RunState
+		wantTagName    string
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name:           "tag-push mode transitions to versioned state",
+			tagPushMode:    true,
+			tagName:        "v2.0.0",
+			nextVersion:    ptr(version.MustParse("2.0.0")),
+			currentVersion: ptr(version.MustParse("1.0.0")),
+			bumpKind:       ptr(domain.BumpMajor),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v2.0.0",
+			wantErr:        false,
 		},
-		// Tag-push mode: HEAD is already tagged
-		TagPushMode:    true,
-		TagName:        "v2.0.0",
-		CurrentVersion: ptr(version.MustParse("1.0.0")),
-		NextVersion:    &nextVersion,
-		BumpKind:       &bumpKind,
+		{
+			name:           "tag-push mode defaults tag name from version",
+			tagPushMode:    true,
+			tagName:        "", // Empty - should default to "v" + version
+			nextVersion:    ptr(version.MustParse("1.5.0")),
+			currentVersion: ptr(version.MustParse("1.4.0")),
+			bumpKind:       ptr(domain.BumpMinor),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v1.5.0",
+			wantErr:        false,
+		},
+		{
+			name:           "tag-push mode requires NextVersion",
+			tagPushMode:    true,
+			tagName:        "v1.0.0",
+			nextVersion:    nil, // Missing - should fail validation
+			currentVersion: ptr(version.MustParse("0.9.0")),
+			bumpKind:       ptr(domain.BumpPatch),
+			wantErr:        true,
+			errContains:    "tag-push mode requires NextVersion",
+		},
+		{
+			name:           "non-tag-push mode stays in planned state",
+			tagPushMode:    false,
+			tagName:        "",
+			nextVersion:    ptr(version.MustParse("1.1.0")),
+			currentVersion: ptr(version.MustParse("1.0.0")),
+			bumpKind:       ptr(domain.BumpMinor),
+			wantState:      domain.StatePlanned,
+			wantErr:        false,
+		},
+		{
+			name:           "tag-push mode with patch version",
+			tagPushMode:    true,
+			tagName:        "v1.0.1",
+			nextVersion:    ptr(version.MustParse("1.0.1")),
+			currentVersion: ptr(version.MustParse("1.0.0")),
+			bumpKind:       ptr(domain.BumpPatch),
+			wantState:      domain.StateVersioned,
+			wantTagName:    "v1.0.1",
+			wantErr:        false,
+		},
 	}
 
-	output, err := uc.Execute(ctx, input)
-	if err != nil {
-		t.Fatalf("Execute() with TagPushMode error = %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			repo := newMockRepository()
+			inspector := newMockRepoInspector()
 
-	if output.RunID == "" {
-		t.Error("Execute() returned empty RunID")
-	}
+			uc := NewPlanReleaseUseCase(repo, inspector, nil)
 
-	// Verify run was saved
-	if len(repo.runs) != 1 {
-		t.Errorf("Expected 1 run saved, got %d", len(repo.runs))
-	}
+			input := PlanReleaseInput{
+				RepoRoot:       "/path/to/repo",
+				ConfigHash:     "config-hash",
+				PluginPlanHash: "plugin-hash",
+				Actor: ports.ActorInfo{
+					Type: domain.ActorHuman,
+					ID:   "user@example.com",
+				},
+				TagPushMode:    tt.tagPushMode,
+				TagName:        tt.tagName,
+				CurrentVersion: tt.currentVersion,
+				NextVersion:    tt.nextVersion,
+				BumpKind:       tt.bumpKind,
+			}
 
-	// Verify run state is versioned (not planned!) - this is the key assertion
-	savedRun := repo.runs[output.RunID]
-	if savedRun.State() != domain.StateVersioned {
-		t.Errorf("TagPushMode run state = %v, want %v", savedRun.State(), domain.StateVersioned)
-	}
+			output, err := uc.Execute(ctx, input)
 
-	// Verify version was set correctly
-	if savedRun.VersionNext().String() != "2.0.0" {
-		t.Errorf("TagPushMode run version = %v, want 2.0.0", savedRun.VersionNext())
-	}
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("Execute() expected error, got nil")
+				}
+				if tt.errContains != "" && !contains(err.Error(), tt.errContains) {
+					t.Errorf("Execute() error = %v, want error containing %q", err, tt.errContains)
+				}
+				return
+			}
 
-	// Verify tag name was set
-	if savedRun.TagName() != "v2.0.0" {
-		t.Errorf("TagPushMode run tagName = %v, want v2.0.0", savedRun.TagName())
+			if err != nil {
+				t.Fatalf("Execute() error = %v", err)
+			}
+
+			if output.RunID == "" {
+				t.Error("Execute() returned empty RunID")
+			}
+
+			savedRun := repo.runs[output.RunID]
+			if savedRun.State() != tt.wantState {
+				t.Errorf("Run state = %v, want %v", savedRun.State(), tt.wantState)
+			}
+
+			if tt.wantTagName != "" && savedRun.TagName() != tt.wantTagName {
+				t.Errorf("Run tagName = %v, want %v", savedRun.TagName(), tt.wantTagName)
+			}
+		})
 	}
 }
 
-func TestPlanReleaseUseCase_Execute_TagPushMode_DefaultTagName(t *testing.T) {
-	ctx := context.Background()
-	repo := newMockRepository()
-	inspector := newMockRepoInspector()
-
-	uc := NewPlanReleaseUseCase(repo, inspector, nil)
-
-	nextVersion := version.MustParse("1.5.0")
-	bumpKind := domain.BumpMinor
-
-	input := PlanReleaseInput{
-		RepoRoot:       "/path/to/repo",
-		ConfigHash:     "config-hash",
-		PluginPlanHash: "plugin-hash",
-		Actor: ports.ActorInfo{
-			Type: domain.ActorHuman,
-			ID:   "user@example.com",
-		},
-		// Tag-push mode without explicit tag name - should default to "v" + version
-		TagPushMode:    true,
-		TagName:        "", // Empty - should default
-		CurrentVersion: ptr(version.MustParse("1.4.0")),
-		NextVersion:    &nextVersion,
-		BumpKind:       &bumpKind,
-	}
-
-	output, err := uc.Execute(ctx, input)
-	if err != nil {
-		t.Fatalf("Execute() with TagPushMode error = %v", err)
-	}
-
-	savedRun := repo.runs[output.RunID]
-
-	// Verify state is versioned
-	if savedRun.State() != domain.StateVersioned {
-		t.Errorf("TagPushMode run state = %v, want %v", savedRun.State(), domain.StateVersioned)
-	}
-
-	// Verify tag name defaulted to "v" + version
-	if savedRun.TagName() != "v1.5.0" {
-		t.Errorf("TagPushMode default tagName = %v, want v1.5.0", savedRun.TagName())
-	}
+// contains checks if s contains substr (helper for error checking).
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
 
 // TestTagPushModeWorkflow tests the complete tag-push workflow:

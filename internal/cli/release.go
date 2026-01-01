@@ -317,7 +317,7 @@ func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 
 	// Persist the release run using DDD services
 	if !dryRun {
-		if err := persistReleasePlan(ctx, c, output, repoInfo.Path, repoInfo.Name); err != nil {
+		if err := persistReleasePlan(ctx, c, output, repoInfo.Path, repoInfo.Name, wfCtx); err != nil {
 			return nil, fmt.Errorf("failed to persist release plan: %w", err)
 		}
 	}
@@ -326,7 +326,8 @@ func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 }
 
 // persistReleasePlan persists the release plan using DDD services.
-func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.AnalyzeOutput, repoPath, repoID string) error {
+// In tag-push mode, it sets TagPushMode=true so the run transitions directly to versioned state.
+func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.AnalyzeOutput, repoPath, repoID string, wfCtx *releaseWorkflowContext) error {
 	if err := c.InitReleaseServices(ctx, repoPath); err != nil {
 		return fmt.Errorf("failed to initialize release services: %w", err)
 	}
@@ -353,6 +354,13 @@ func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.An
 			ID:   "cli",
 		},
 		Force: false,
+	}
+
+	// Pass tag-push mode from workflow context to use case
+	// This ensures the run transitions directly to versioned state
+	if wfCtx != nil && wfCtx.mode == releaseModeTagPush && wfCtx.existingVersion != nil {
+		planInput.TagPushMode = true
+		planInput.TagName = cfg.Versioning.TagPrefix + wfCtx.existingVersion.String()
 	}
 
 	_, err := services.PlanRelease.Execute(ctx, planInput)
