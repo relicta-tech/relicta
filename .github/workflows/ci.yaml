@@ -165,10 +165,18 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install Gosec
-        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+      - name: Install security tools
+        run: |
+          go install github.com/felixgeelhaar/verdictsec/cmd/verdict@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/gitleaks/gitleaks/v8@latest
 
-      - name: Run Gosec Security Scanner
+      - name: Run VerdictSec Security Scan
+        run: |
+          verdict scan --json -o verdict-results.json || true
+
+      - name: Run Gosec for SARIF output
         run: |
           # Exclude false positive rules for CLI tools:
           # G103 - unsafe calls in generated protobuf (Google pattern)
@@ -193,6 +201,13 @@ jobs:
           sarif_file: results.sarif
         if: always() && hashFiles('results.sarif') != ''
         continue-on-error: true
+
+      - name: Upload VerdictSec results
+        uses: actions/upload-artifact@v6
+        with:
+          name: security-scan-results
+          path: verdict-results.json
+        if: always()
 
   dependency-review:
     name: Dependency Review
