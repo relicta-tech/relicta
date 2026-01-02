@@ -1,7 +1,7 @@
 {
   "version": "1",
-  "created_at": "2026-01-01T14:11:44.506402Z",
-  "updated_at": "2026-01-01T14:11:44.506402Z",
+  "created_at": "2026-01-02T13:30:48.03989Z",
+  "updated_at": "2026-01-02T13:30:48.03989Z",
   "scope": {},
   "fingerprints": [
     {
@@ -9,640 +9,640 @@
       "rule_id": "G115",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506363Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039845Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "6c006b1f639be64a531225f21e4a0a21",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506364Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039847Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b5c02556e6e9f61901098eb44420261e",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506364Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039847Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "3298684463548e78e634d1993c3a6732",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506364Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.03985Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "41688044d0302f818c242ab46a55ccec",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506365Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.03985Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b2050e68f542ae72a558797c28b7e99f",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506365Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039851Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ae1e373ae3e85797bc056f7facb17849",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506365Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039851Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b850defd443b4fb78d138c5bd56098fa",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506365Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039851Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "11909187ad168d203f2487318dffaddb",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506366Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039852Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "2dd8ff6738a3ed0dd7ddc9e89e957c13",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506367Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039861Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "892fccdf1500a039fdac9ba3963ddda9",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506367Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039861Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "9394944b42eb2282ac36000eb118a50d",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506367Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039862Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "67b48a4b03001d47adf00b4e41f6d8dc",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506368Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039862Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ab6a21b59e34c96c39ca41b96c540d04",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506368Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039862Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "f4a8740cbbfcbb1bca0ee8baf8cab800",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506368Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039862Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "6a4708420492b56695439762c3964024",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506369Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039864Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "e25a53bcbbe6c6a57192482b7eda104d",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.50637Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039864Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "6f13cd6f699e144327e56a1903791e0a",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.50637Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039864Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ca9de71281dea8c179cab0a79eea4fe0",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.50637Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039864Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b6f69cc017a7650a77a03f89855123df",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506374Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039866Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "aedb75c7aac779c53cae97d6c4b89bdf",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506374Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039868Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ac30c6c73e87c4503a984a53999be779",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506375Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039868Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "9c5c87320d6f781100dbb1c986c49c9d",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506375Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039868Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "6233b0848ffd8a8abee74d5e5d7677e3",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506375Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039868Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "a80a77f43ccdb69498d8e4e4a1e98592",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506375Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039869Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "5dde06c7e0037cc2e189ece8551462a2",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506376Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039869Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "3f05f30ae1b7ee9b8025598f585e0a24",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506376Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039869Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "8b7e7e7c68a01117aca7a8df2543e176",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506376Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039869Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "e052232a90016a3361fcaf13a952fe93",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506377Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.03987Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "eb4798ea06377a1c3053373467536c6b",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506381Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039871Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b47cc3d2db73d4e964514d1408cf4b49",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506382Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039871Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "18779a038c4746814aa139025fc17315",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506382Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "41a7b80c9c383eace1606c13dc9f5d82",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506382Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "608aa6b205f88b323b42f41844c3693c",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506382Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "48359643e6683f3d4c1ae9e70b75c175",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506383Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "69311c64179e1c0f87e1d83a29c57d99",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506383Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "639c13df7cb281b1dba401ee183dc8ee",
       "rule_id": "G304",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506383Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039872Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "b4f2c00c04393918df2f340a534214b7",
       "rule_id": "G302",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506383Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039873Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "9a965dc38df5bf6e3186998d4e967ba1",
       "rule_id": "G302",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506385Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039876Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "a7727ff2fe637c8990acf2b53cdbd0a7",
       "rule_id": "G302",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506385Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039876Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "18bb76698b08b44fa9e2e72341a70dea",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506385Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039876Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "70e2291a53e832668ba484c27ffdf239",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506386Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039876Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "d9cb8dcc5b118e8797b5601be19f37d1",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506386Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039876Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "304270bde99b3d8e8bddb74d4520754b",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506386Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "31db1cba14fb689f2ae772729b452dba",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506386Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "4ca8282c708e478325ffd83514c70253",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506386Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "5a866daac47e652433011394a2163470",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506387Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "f4b3e27dbd7ce7c35c9935a741269454",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506387Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "4e6a99716ee8652959f0952fd53679c9",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506387Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039877Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "cafd3153c7f84833fb1f9f0daad312c8",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506387Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039878Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "e9510dcbb1c3e0fcc50e8ae7b59ea42b",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506388Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039878Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ce7f795ff3de86c1e53086b9f2ca8c4f",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506388Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039878Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ce987ff12bbb068ec3bb54d43757b3cc",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506388Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039878Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "f573b16d6fe6c0a41b33a90da969da2a",
       "rule_id": "G301",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506388Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039878Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "441ec2fc23e0b36e2c2db6f85394e59d",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506388Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039879Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "f3913cb1cbae160aadfbd94852453858",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506389Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039879Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "bce934f433dd26e6539ac12f49be2727",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506389Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039879Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "9d81ccafc947fae046a87f9f647bd580",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506394Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039883Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "96377e338de6ac58162801dc00927ff1",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506394Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039883Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "32b2d73d3fe637bbb8d8c746c3841c63",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506395Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039883Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "34b25f9265e3cb8a3afbe1e2a3e17997",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506395Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039883Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "a6cbdb99b1bc1b29849f3ec017914049",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506395Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039884Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "2060e8ccd9acac7ad004a7515e707250",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506395Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039884Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "84655c56572b11ef68b898c92a472e43",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506395Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039884Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "931108f9a96bcc88db16aef9f93d8ec8",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506396Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039884Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "ce844aad6cc0ef940cc2255d5220eb81",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506396Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039884Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "c8899a076d334a8c76333afea4413a61",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506396Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039885Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "918b03bde8a98960ddcf60cd698cc394",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506396Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039885Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "da8cd9dbf0bba1acb463a9f083101f93",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506396Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039885Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "7fd8e95c145d7ab75db274f787b3f395",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039885Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "d045551f302d398559162938d854ff33",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039885Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "188780706e7d0fc3304a5afc1e636225",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039886Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "5983a435e89ca0a4d322b782d2888a72",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039886Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "07395ab3dce27ebb16d161536023748d",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039886Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "bd35013fad83c5ee990698d08b411f85",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506397Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039886Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "2d9c5e25a7f0a0481529ae7a7f2ca891",
       "rule_id": "G306",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506398Z",
-      "reason": "Added via MCP"
-    },
-    {
-      "fingerprint": "01ab5ac5ab71847cb3f067ba08ba2cab",
-      "rule_id": "G103",
-      "engine_id": "gosec",
-      "file": "",
-      "added_at": "2026-01-01T14:11:44.506401Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039886Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "0f895bd5f6080dff0bf4f6dc2d64d434",
       "rule_id": "G103",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506401Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039889Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
-      "fingerprint": "4d94289aa007ceb9b42280bc2fd5030f",
+      "fingerprint": "01ab5ac5ab71847cb3f067ba08ba2cab",
       "rule_id": "G103",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506401Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039889Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     },
     {
       "fingerprint": "939360071406c0f75f08c3a79624891c",
       "rule_id": "G103",
       "engine_id": "gosec",
       "file": "",
-      "added_at": "2026-01-01T14:11:44.506401Z",
-      "reason": "Added via MCP"
+      "added_at": "2026-01-02T13:30:48.039889Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
+    },
+    {
+      "fingerprint": "4d94289aa007ceb9b42280bc2fd5030f",
+      "rule_id": "G103",
+      "engine_id": "gosec",
+      "file": "",
+      "added_at": "2026-01-02T13:30:48.03989Z",
+      "reason": "CLI tool false positives: G304 file inclusion with validated paths, G103 in generated protobuf, G115 context-safe conversions, G301/G302/G306 intentional permissions for plugins and configs"
     }
   ]
 }
