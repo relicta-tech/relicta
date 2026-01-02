@@ -464,8 +464,8 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[strin
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus uses releaseServices, not releaseRepo)
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return map[string]any{
@@ -653,8 +653,8 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus and Notes both use releaseServices)
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -711,8 +711,8 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter for full governance evaluation if available
-	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseRepository() {
+	// Use adapter for full governance evaluation if available (GetStatus uses releaseServices)
+	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -793,8 +793,8 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus and Approve both use releaseServices)
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -830,8 +830,8 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus and Publish both use releaseServices)
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -903,8 +903,8 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[s
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus uses releaseServices, Cancel uses releaseRepo)
+	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release to cancel: %w", err)
@@ -960,8 +960,8 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[str
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasReleaseRepository() {
+	// Use adapter if available (GetStatus uses releaseServices, Reset uses releaseRepo)
+	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return map[string]any{

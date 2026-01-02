@@ -1365,27 +1365,43 @@ func TestHandlePlanWithAdapter(t *testing.T) {
 func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 	ctx := context.Background()
 
-	// NOTE: GetStatus now requires release services with a GetStatusUseCase.
-	// When only a repository is configured (no release services), the adapter
-	// returns an error, which handleStatus translates to "no_active_release".
+	// NOTE: GetStatus uses releaseServices, not releaseRepo.
+	// handleStatus now correctly checks HasReleaseServices().
+	// When no releaseServices are configured, it falls back to server's releaseRepo.
 
-	t.Run("returns no_active_release when adapter has only repository (no release services)", func(t *testing.T) {
+	t.Run("returns not_configured when adapter has only repository (no release services or server repo)", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterRepo(repo))
+		// Only adapter has repo, but no releaseServices - server's releaseRepo is nil
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
 		result, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
-		// GetStatus requires release services, so this returns no_active_release
-		assert.Equal(t, "no_active_release", result["status"])
+		// GetStatus requires releaseServices; without them and no server releaseRepo, returns not_configured
+		assert.Equal(t, "not_configured", result["status"])
 	})
 
-	t.Run("returns no_active_release when adapter repo is empty", func(t *testing.T) {
-		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+	t.Run("falls back to server releaseRepo when adapter has no release services", func(t *testing.T) {
+		run := createTestReleaseRunWithVersion()
+		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
 		adapter := NewAdapter(WithAdapterRepo(repo))
-		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		// Set server's releaseRepo as fallback
+		server, err := NewServer("1.0.0", WithAdapter(adapter), WithReleaseRepository(repo))
+		require.NoError(t, err)
+
+		result, err := server.handleStatus(ctx, StatusInput{})
+		require.NoError(t, err)
+		// Falls back to server's releaseRepo which has active release
+		assert.Equal(t, "planned", result["state"])
+	})
+
+	t.Run("returns no_active_release when server repo is empty", func(t *testing.T) {
+		emptyRepo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
+		adapter := NewAdapter()
+		// Server's releaseRepo exists but is empty
+		server, err := NewServer("1.0.0", WithAdapter(adapter), WithReleaseRepository(emptyRepo))
 		require.NoError(t, err)
 
 		result, err := server.handleStatus(ctx, StatusInput{})
