@@ -18,11 +18,8 @@ func TestNewAdapter(t *testing.T) {
 	t.Run("creates empty adapter", func(t *testing.T) {
 		adapter := NewAdapter()
 		assert.NotNil(t, adapter)
-		assert.False(t, adapter.HasPlanUseCase())
-		assert.False(t, adapter.HasCalculateVersionUseCase())
-		assert.False(t, adapter.HasGenerateNotesUseCase())
-		assert.False(t, adapter.HasApproveUseCase())
-		assert.False(t, adapter.HasPublishUseCase())
+		assert.False(t, adapter.HasReleaseAnalyzer())
+		assert.False(t, adapter.HasReleaseServices())
 		assert.False(t, adapter.HasGovernanceService())
 		assert.False(t, adapter.HasReleaseRepository())
 	})
@@ -30,27 +27,13 @@ func TestNewAdapter(t *testing.T) {
 
 func TestAdapterOptions(t *testing.T) {
 	t.Run("WithReleaseAnalyzer sets release analyzer", func(t *testing.T) {
-		// Test that nil is handled gracefully
 		adapter := NewAdapter(WithReleaseAnalyzer(nil))
 		assert.False(t, adapter.HasReleaseAnalyzer())
-		assert.False(t, adapter.HasPlanUseCase()) // deprecated compatibility
-	})
-
-	t.Run("WithCalculateVersionUseCase sets calculate version use case", func(t *testing.T) {
-		adapter := NewAdapter(WithCalculateVersionUseCase(nil))
-		assert.False(t, adapter.HasCalculateVersionUseCase())
-	})
-
-	t.Run("WithSetVersionUseCase sets set version use case", func(t *testing.T) {
-		adapter := NewAdapter(WithSetVersionUseCase(nil))
-		// setVersionUC doesn't have a HasSetVersionUseCase method exposed
-		assert.NotNil(t, adapter)
 	})
 
 	t.Run("WithReleaseServices sets release services", func(t *testing.T) {
 		adapter := NewAdapter(WithReleaseServices(nil))
 		assert.False(t, adapter.HasReleaseServices())
-		assert.False(t, adapter.HasGenerateNotesUseCase()) // deprecated compatibility
 	})
 
 	t.Run("WithGovernanceService sets governance service", func(t *testing.T) {
@@ -58,11 +41,9 @@ func TestAdapterOptions(t *testing.T) {
 		assert.False(t, adapter.HasGovernanceService())
 	})
 
-	t.Run("WithAdapterReleaseRepository sets release repository", func(t *testing.T) {
-		adapter := NewAdapter(WithAdapterReleaseRepository(nil))
+	t.Run("WithAdapterRepo sets release repository", func(t *testing.T) {
+		adapter := NewAdapter(WithAdapterRepo(nil))
 		assert.False(t, adapter.HasReleaseRepository())
-		assert.False(t, adapter.HasApproveUseCase()) // deprecated compatibility
-		assert.False(t, adapter.HasPublishUseCase()) // deprecated compatibility
 	})
 }
 
@@ -80,36 +61,9 @@ func TestAdapterPlanWithoutUseCase(t *testing.T) {
 	assert.Contains(t, err.Error(), "release analyzer not configured")
 }
 
-func TestAdapterBumpWithoutUseCase(t *testing.T) {
-	adapter := NewAdapter()
-
-	ctx := context.Background()
-	input := BumpInput{
-		RepositoryPath: "/test/repo",
-		BumpType:       "minor",
-	}
-
-	output, err := adapter.Bump(ctx, input)
-	require.Error(t, err)
-	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "calculate version use case not configured")
-}
-
-func TestAdapterBumpInvalidType(t *testing.T) {
-	// Create a mock use case
-	adapter := NewAdapter()
-
-	ctx := context.Background()
-	input := BumpInput{
-		RepositoryPath: "/test/repo",
-		BumpType:       "invalid",
-	}
-
-	output, err := adapter.Bump(ctx, input)
-	require.Error(t, err)
-	assert.Nil(t, output)
-	assert.Contains(t, err.Error(), "invalid bump type")
-}
+// NOTE: TestAdapterBumpWithoutUseCase and TestAdapterBumpInvalidType were removed
+// because the legacy bump path was removed (ADR-007 compliance).
+// The DDD path requires release services, tested in TestAdapterBumpRequiresReleaseServices.
 
 func TestAdapterNotesWithoutUseCase(t *testing.T) {
 	adapter := NewAdapter()
@@ -488,7 +442,7 @@ func TestAdapterGetStatusWithEmptyRepo(t *testing.T) {
 	// GetStatus now requires release services, not just a repository
 	// This test verifies the error when only a repository is provided
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -509,7 +463,7 @@ func TestAdapterGetStatusWithActiveRelease(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -526,59 +480,32 @@ func TestAdapterWithNilUseCases(t *testing.T) {
 	// Explicitly pass nil values - should be handled gracefully
 	adapter := NewAdapter(
 		WithReleaseAnalyzer(nil),
-		WithCalculateVersionUseCase(nil),
-		WithSetVersionUseCase(nil),
 		WithReleaseServices(nil),
 		WithGovernanceService(nil),
-		WithAdapterReleaseRepository(nil),
+		WithAdapterRepo(nil),
 	)
 
 	assert.NotNil(t, adapter)
 	assert.False(t, adapter.HasReleaseAnalyzer())
-	assert.False(t, adapter.HasCalculateVersionUseCase())
 	assert.False(t, adapter.HasReleaseServices())
 	assert.False(t, adapter.HasGovernanceService())
 	assert.False(t, adapter.HasReleaseRepository())
 }
 
-// Test bump type parsing
+// Test bump requires release services
 
-func TestAdapterBumpTypeParsing(t *testing.T) {
-	tests := []struct {
-		name     string
-		bumpType string
-		wantErr  bool
-	}{
-		{"major", "major", false},
-		{"minor", "minor", false},
-		{"patch", "patch", false},
-		{"auto", "auto", false},
-		{"empty", "", false},
-		{"invalid", "invalid-type", true},
+func TestAdapterBumpRequiresReleaseServices(t *testing.T) {
+	adapter := NewAdapter() // No release services configured
+
+	ctx := context.Background()
+	input := BumpInput{
+		RepositoryPath: "/test/repo",
+		BumpType:       "auto",
 	}
 
-	// Since we can't easily create a real CalculateVersionUseCase,
-	// we test that invalid bump types are rejected before use case execution
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			adapter := NewAdapter() // No use case - will fail anyway
-
-			ctx := context.Background()
-			input := BumpInput{
-				RepositoryPath: "/test/repo",
-				BumpType:       tt.bumpType,
-			}
-
-			_, err := adapter.Bump(ctx, input)
-			require.Error(t, err)
-
-			if tt.wantErr {
-				assert.Contains(t, err.Error(), "invalid bump type")
-			} else {
-				assert.Contains(t, err.Error(), "calculate version use case not configured")
-			}
-		})
-	}
+	_, err := adapter.Bump(ctx, input)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "release services not configured")
 }
 
 // Test GetStatus with release that has version set
@@ -594,7 +521,7 @@ func TestAdapterGetStatusWithVersionSet(t *testing.T) {
 	_ = rel.SetVersion(nextV, "v1.1.0")
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -610,7 +537,7 @@ func TestAdapterGetStatusWithVersionSet(t *testing.T) {
 // The release services check happens before repository access.
 func TestAdapterGetStatusWithRepoError(t *testing.T) {
 	repo := &mockErrorReleaseRepository{err: fmt.Errorf("database connection failed")}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -664,7 +591,7 @@ func TestAdapterEvaluateReleaseNotFound(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
 	adapter := NewAdapter(
 		WithGovernanceService(&governance.Service{}),
-		WithAdapterReleaseRepository(repo),
+		WithAdapterRepo(repo),
 	)
 
 	ctx := context.Background()
@@ -684,7 +611,7 @@ func TestAdapterOptionChaining(t *testing.T) {
 	govSvc := &governance.Service{}
 
 	adapter := NewAdapter(
-		WithAdapterReleaseRepository(repo),
+		WithAdapterRepo(repo),
 		WithGovernanceService(govSvc),
 	)
 
@@ -702,7 +629,7 @@ func TestAdapterGetStatusApprovalStatus(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -727,7 +654,7 @@ func TestAdapterEvaluateWithDefaultActor(t *testing.T) {
 
 	adapter := NewAdapter(
 		WithGovernanceService(govSvc),
-		WithAdapterReleaseRepository(repo),
+		WithAdapterRepo(repo),
 	)
 
 	ctx := context.Background()
@@ -752,7 +679,7 @@ func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -764,9 +691,9 @@ func TestAdapterGetStatusWithApprovalMessage(t *testing.T) {
 }
 
 // Test ReleaseRepository option
-func TestAdapterWithReleaseRepository(t *testing.T) {
+func TestAdapterWithAdapterRepo(t *testing.T) {
 	// Test that the option works even with nil
-	adapter := NewAdapter(WithAdapterReleaseRepository(nil))
+	adapter := NewAdapter(WithAdapterRepo(nil))
 	assert.NotNil(t, adapter)
 	assert.False(t, adapter.HasReleaseRepository())
 }
@@ -795,7 +722,7 @@ func TestAdapterEvaluateReleaseNotFoundByID(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}} // empty
 	adapter := NewAdapter(
 		WithGovernanceService(govSvc),
-		WithAdapterReleaseRepository(repo),
+		WithAdapterRepo(repo),
 	)
 
 	ctx := context.Background()
@@ -822,7 +749,7 @@ func TestAdapterEvaluateWithExplicitActor(t *testing.T) {
 
 	adapter := NewAdapter(
 		WithGovernanceService(govSvc),
-		WithAdapterReleaseRepository(repo),
+		WithAdapterRepo(repo),
 	)
 
 	ctx := context.Background()
@@ -880,7 +807,7 @@ func TestAdapterCancelWithoutRepo(t *testing.T) {
 
 func TestAdapterCancelReleaseNotFound(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 	input := CancelInput{
@@ -911,7 +838,7 @@ func TestAdapterResetWithoutRepo(t *testing.T) {
 
 func TestAdapterResetReleaseNotFound(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 	input := ResetInput{
@@ -933,7 +860,7 @@ func TestAdapterResetSuccess(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 	input := ResetInput{
@@ -1024,7 +951,7 @@ func TestAdapterValidateReleaseWithReleaseID(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 	input := ValidateReleaseInput{
@@ -1049,7 +976,7 @@ func TestAdapterValidateReleaseWithReleaseID(t *testing.T) {
 
 func TestAdapterValidateReleaseNotFound(t *testing.T) {
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 	input := ValidateReleaseInput{
@@ -1406,7 +1333,7 @@ func TestAdapterGetStatusWithStaleRelease(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -1428,7 +1355,7 @@ func TestAdapterGetStatusNextAction(t *testing.T) {
 	_ = domainrelease.SetPlan(rel, plan)
 
 	repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{rel}}
-	adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+	adapter := NewAdapter(WithAdapterRepo(repo))
 
 	ctx := context.Background()
 
@@ -1506,4 +1433,413 @@ func TestPlanOutputWithCommits(t *testing.T) {
 	assert.Len(t, output.Commits, 2)
 	assert.Equal(t, "abc123", output.Commits[0].SHA)
 	assert.Equal(t, "def456", output.Commits[1].SHA)
+}
+
+// =============================================================================
+// State Transition Integration Tests
+// =============================================================================
+// These tests verify the complete state transition flow through the MCP adapter:
+// draft → planned → versioned → notes_ready → approved → publishing → published
+// =============================================================================
+
+// TestStateTransitionsViaAdapter tests that state transitions are properly
+// enforced through the MCP adapter layer, validating ADR-007 compliance.
+func TestStateTransitionsViaAdapter(t *testing.T) {
+	t.Run("state flow: draft → planned (via SetPlan)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-1", "main", "")
+		assert.Equal(t, domainrelease.StateDraft, rel.State())
+
+		// Apply plan to transition to planned state
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		err := domainrelease.SetPlan(rel, plan)
+		require.NoError(t, err)
+
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+	})
+
+	t.Run("state flow: planned → versioned (via SetVersion + Bump)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-2", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+
+		// Set version and then bump to transition to versioned state
+		err := rel.SetVersion(nextV, "v1.1.0")
+		require.NoError(t, err)
+		err = rel.Bump("system")
+		require.NoError(t, err)
+
+		assert.Equal(t, domainrelease.StateVersioned, rel.State())
+	})
+
+	t.Run("state flow: versioned → notes_ready (via GenerateNotes)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-3", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		_ = rel.SetVersion(nextV, "v1.1.0")
+		_ = rel.Bump("system")
+		assert.Equal(t, domainrelease.StateVersioned, rel.State())
+
+		// Generate notes to transition to notes_ready state
+		notes := &domainrelease.ReleaseNotes{
+			Text: "## Changes\n- Feature 1",
+		}
+		err := rel.GenerateNotes(notes, "inputs-hash", "system")
+		require.NoError(t, err)
+
+		assert.Equal(t, domainrelease.StateNotesReady, rel.State())
+	})
+
+	t.Run("state flow: notes_ready → approved (via Approve)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-4", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		_ = rel.SetVersion(nextV, "v1.1.0")
+		_ = rel.Bump("system")
+		notes := &domainrelease.ReleaseNotes{Text: "## Changes"}
+		_ = rel.GenerateNotes(notes, "inputs-hash", "system")
+		assert.Equal(t, domainrelease.StateNotesReady, rel.State())
+
+		// Approve to transition to approved state
+		err := rel.Approve("test-approver", false)
+		require.NoError(t, err)
+
+		assert.Equal(t, domainrelease.StateApproved, rel.State())
+	})
+
+	t.Run("invalid transition: draft → versioned (must go through planned)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-5", "main", "")
+		assert.Equal(t, domainrelease.StateDraft, rel.State())
+
+		// Attempt to set version without planning first
+		nextV, _ := version.Parse("1.1.0")
+		err := rel.SetVersion(nextV, "v1.1.0")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid state")
+
+		// State should remain draft
+		assert.Equal(t, domainrelease.StateDraft, rel.State())
+	})
+
+	t.Run("invalid transition: planned → notes_ready (must go through versioned)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-6", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+
+		// Attempt to generate notes without bumping version first
+		notes := &domainrelease.ReleaseNotes{Text: "## Changes"}
+		err := rel.GenerateNotes(notes, "inputs-hash", "system")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot generate notes")
+
+		// State should remain planned
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+	})
+
+	t.Run("invalid transition: versioned → approved (must go through notes_ready)", func(t *testing.T) {
+		rel := domainrelease.NewReleaseRunForTest("state-test-7", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		_ = rel.SetVersion(nextV, "v1.1.0")
+		_ = rel.Bump("system")
+		assert.Equal(t, domainrelease.StateVersioned, rel.State())
+
+		// Attempt to approve without generating notes first
+		err := rel.Approve("test-approver", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot approve")
+
+		// State should remain versioned
+		assert.Equal(t, domainrelease.StateVersioned, rel.State())
+	})
+
+	t.Run("cancel transition: any state → canceled", func(t *testing.T) {
+		// Test cancel from planned state
+		rel := domainrelease.NewReleaseRunForTest("state-test-8", "main", "")
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		_ = domainrelease.SetPlan(rel, plan)
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+
+		err := rel.Cancel("user requested cancel", "test-user")
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StateCanceled, rel.State())
+	})
+}
+
+// TestStateTransitionTableDriven tests all valid state transitions in a table-driven format
+func TestStateTransitionTableDriven(t *testing.T) {
+	tests := []struct {
+		name          string
+		setup         func() *domainrelease.ReleaseRun
+		action        func(rel *domainrelease.ReleaseRun) error
+		expectedState domainrelease.RunState
+		expectError   bool
+	}{
+		{
+			name: "draft → planned via SetPlan",
+			setup: func() *domainrelease.ReleaseRun {
+				return domainrelease.NewReleaseRunForTest("table-test-1", "main", "")
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				return domainrelease.SetPlan(rel, plan)
+			},
+			expectedState: domainrelease.StatePlanned,
+			expectError:   false,
+		},
+		{
+			name: "planned → versioned via SetVersion + Bump",
+			setup: func() *domainrelease.ReleaseRun {
+				rel := domainrelease.NewReleaseRunForTest("table-test-2", "main", "")
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				_ = domainrelease.SetPlan(rel, plan)
+				_ = rel.SetVersion(nextV, "v1.1.0")
+				return rel
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				return rel.Bump("system")
+			},
+			expectedState: domainrelease.StateVersioned,
+			expectError:   false,
+		},
+		{
+			name: "versioned → notes_ready via GenerateNotes",
+			setup: func() *domainrelease.ReleaseRun {
+				rel := domainrelease.NewReleaseRunForTest("table-test-3", "main", "")
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				_ = domainrelease.SetPlan(rel, plan)
+				_ = rel.SetVersion(nextV, "v1.1.0")
+				_ = rel.Bump("system")
+				return rel
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				notes := &domainrelease.ReleaseNotes{Text: "## Changes"}
+				return rel.GenerateNotes(notes, "inputs-hash", "system")
+			},
+			expectedState: domainrelease.StateNotesReady,
+			expectError:   false,
+		},
+		{
+			name: "notes_ready → approved via Approve",
+			setup: func() *domainrelease.ReleaseRun {
+				rel := domainrelease.NewReleaseRunForTest("table-test-4", "main", "")
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				_ = domainrelease.SetPlan(rel, plan)
+				_ = rel.SetVersion(nextV, "v1.1.0")
+				_ = rel.Bump("system")
+				notes := &domainrelease.ReleaseNotes{Text: "## Changes"}
+				_ = rel.GenerateNotes(notes, "inputs-hash", "system")
+				return rel
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				return rel.Approve("approver", false)
+			},
+			expectedState: domainrelease.StateApproved,
+			expectError:   false,
+		},
+		{
+			name: "draft → versioned (invalid - skip planned)",
+			setup: func() *domainrelease.ReleaseRun {
+				return domainrelease.NewReleaseRunForTest("table-test-5", "main", "")
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				nextV, _ := version.Parse("1.1.0")
+				return rel.SetVersion(nextV, "v1.1.0")
+			},
+			expectedState: domainrelease.StateDraft, // Should remain draft
+			expectError:   true,
+		},
+		{
+			name: "planned → approved (invalid - skip versioned and notes)",
+			setup: func() *domainrelease.ReleaseRun {
+				rel := domainrelease.NewReleaseRunForTest("table-test-6", "main", "")
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				_ = domainrelease.SetPlan(rel, plan)
+				return rel
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				return rel.Approve("approver", false)
+			},
+			expectedState: domainrelease.StatePlanned, // Should remain planned
+			expectError:   true,
+		},
+		{
+			name: "canceled is terminal (cannot transition further)",
+			setup: func() *domainrelease.ReleaseRun {
+				rel := domainrelease.NewReleaseRunForTest("table-test-7", "main", "")
+				v, _ := version.Parse("1.0.0")
+				nextV, _ := version.Parse("1.1.0")
+				plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+				_ = domainrelease.SetPlan(rel, plan)
+				_ = rel.Cancel("user requested", "test-user")
+				return rel
+			},
+			action: func(rel *domainrelease.ReleaseRun) error {
+				nextV, _ := version.Parse("1.1.0")
+				return rel.SetVersion(nextV, "v1.1.0")
+			},
+			expectedState: domainrelease.StateCanceled, // Should remain canceled
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rel := tt.setup()
+			err := tt.action(rel)
+
+			if tt.expectError {
+				require.Error(t, err, "Expected error for invalid transition")
+			} else {
+				require.NoError(t, err, "Expected no error for valid transition")
+			}
+
+			assert.Equal(t, tt.expectedState, rel.State(),
+				"State mismatch: got %s, want %s", rel.State(), tt.expectedState)
+		})
+	}
+}
+
+// TestMCPAdapterStateTransitionErrors verifies the adapter returns proper errors
+// when operations are attempted in invalid states
+func TestMCPAdapterStateTransitionErrors(t *testing.T) {
+	t.Run("Bump requires release services", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		ctx := context.Background()
+		input := BumpInput{
+			RepositoryPath: "/test/repo",
+			BumpType:       "minor",
+		}
+
+		output, err := adapter.Bump(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "release services not configured")
+	})
+
+	t.Run("Notes requires release services", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		ctx := context.Background()
+		input := NotesInput{
+			ReleaseID: "test-release",
+		}
+
+		output, err := adapter.Notes(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "release services not configured")
+	})
+
+	t.Run("Approve requires release services", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		ctx := context.Background()
+		input := ApproveInput{
+			ReleaseID: "test-release",
+		}
+
+		output, err := adapter.Approve(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "release services not configured")
+	})
+
+	t.Run("Publish requires release services", func(t *testing.T) {
+		adapter := NewAdapter()
+
+		ctx := context.Background()
+		input := PublishInput{
+			ReleaseID: "test-release",
+		}
+
+		output, err := adapter.Publish(ctx, input)
+		require.Error(t, err)
+		assert.Nil(t, output)
+		assert.Contains(t, err.Error(), "release services not configured")
+	})
+}
+
+// TestCompleteReleaseWorkflow tests the happy path through all states
+func TestCompleteReleaseWorkflow(t *testing.T) {
+	t.Run("complete workflow: draft → published", func(t *testing.T) {
+		// Create a release run
+		rel := domainrelease.NewReleaseRunForTest("workflow-test", "main", "")
+		assert.Equal(t, domainrelease.StateDraft, rel.State())
+
+		// Step 1: Plan
+		v, _ := version.Parse("1.0.0")
+		nextV, _ := version.Parse("1.1.0")
+		plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
+		err := domainrelease.SetPlan(rel, plan)
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StatePlanned, rel.State())
+
+		// Step 2: Bump (set version and transition)
+		err = rel.SetVersion(nextV, "v1.1.0")
+		require.NoError(t, err)
+		err = rel.Bump("system")
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StateVersioned, rel.State())
+
+		// Step 3: Notes
+		notes := &domainrelease.ReleaseNotes{
+			Text: "## [1.1.0]\n\n### Features\n- New feature\n\n### Bug Fixes\n- Fixed bug",
+		}
+		err = rel.GenerateNotes(notes, "inputs-hash", "system")
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StateNotesReady, rel.State())
+
+		// Step 4: Approve
+		err = rel.Approve("release-manager", false)
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StateApproved, rel.State())
+
+		// Step 5: Start Publishing
+		rel.SetExecutionPlan([]domainrelease.StepPlan{
+			{Name: "tag", Type: domainrelease.StepTypeTag},
+			{Name: "notify", Type: domainrelease.StepTypeNotify},
+		})
+		err = rel.StartPublishing("publisher")
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StatePublishing, rel.State())
+
+		// Step 6: Complete steps and mark published
+		_ = rel.MarkStepDone("tag", "v1.1.0")
+		_ = rel.MarkStepDone("notify", "notified")
+		err = rel.MarkPublished("publisher")
+		require.NoError(t, err)
+		assert.Equal(t, domainrelease.StatePublished, rel.State())
+
+		// Verify final state attributes
+		assert.Equal(t, "v1.1.0", rel.TagName())
+		assert.Equal(t, "1.1.0", rel.VersionNext().String())
+		assert.True(t, rel.IsApproved())
+	})
 }

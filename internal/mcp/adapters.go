@@ -7,14 +7,12 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
 	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
@@ -22,8 +20,6 @@ import (
 // Adapter bridges MCP server to application use cases.
 type Adapter struct {
 	releaseAnalyzer *servicerelease.Analyzer
-	calculateUC     *versioning.CalculateVersionUseCase
-	setVersionUC    *versioning.SetVersionUseCase
 	releaseServices *domainrelease.Services
 	governanceSvc   *governance.Service
 	releaseRepo     domainrelease.Repository
@@ -39,16 +35,13 @@ type AdapterOption func(*Adapter)
 
 // NewAdapter creates a new MCP adapter.
 //
-// For ADR-007 compliance, all MCP operations should use the application services layer.
-// The recommended configuration is:
+// For ADR-007 compliance, all MCP operations use the application services layer.
+// Configuration:
 //
 //	adapter := mcp.NewAdapter(
 //	    mcp.WithReleaseServices(services),  // Required for state management
 //	    mcp.WithRepoRoot(repoDir),          // Required for repository path
 //	)
-//
-// The legacy options (WithCalculateVersionUseCase, WithSetVersionUseCase,
-// WithAdapterReleaseRepository) are deprecated and will be removed in a future version.
 func NewAdapter(opts ...AdapterOption) *Adapter {
 	a := &Adapter{}
 	for _, opt := range opts {
@@ -61,28 +54,6 @@ func NewAdapter(opts ...AdapterOption) *Adapter {
 func WithReleaseAnalyzer(analyzer *servicerelease.Analyzer) AdapterOption {
 	return func(a *Adapter) {
 		a.releaseAnalyzer = analyzer
-	}
-}
-
-// WithCalculateVersionUseCase sets the calculate version use case.
-//
-// Deprecated: Use WithReleaseServices instead. The version is calculated during Plan
-// and stored in the release run. This option is only used by the legacy bumpViaLegacy
-// code path and will be removed when that code path is removed.
-func WithCalculateVersionUseCase(uc *versioning.CalculateVersionUseCase) AdapterOption {
-	return func(a *Adapter) {
-		a.calculateUC = uc
-	}
-}
-
-// WithSetVersionUseCase sets the set version use case.
-//
-// Deprecated: Use WithReleaseServices instead. Version tagging should be done
-// during Publish via the application services layer. This option is only used by
-// the legacy bumpViaLegacy code path and will be removed when that code path is removed.
-func WithSetVersionUseCase(uc *versioning.SetVersionUseCase) AdapterOption {
-	return func(a *Adapter) {
-		a.setVersionUC = uc
 	}
 }
 
@@ -100,13 +71,11 @@ func WithGovernanceService(svc *governance.Service) AdapterOption {
 	}
 }
 
-// WithAdapterReleaseRepository sets the release repository.
-//
-// Deprecated: Direct repository access violates ADR-007. Use WithReleaseServices instead.
-// The application services layer handles repository access internally with proper
-// state machine transitions and audit logging. This option is only used by legacy
-// code paths and will be removed in a future version.
-func WithAdapterReleaseRepository(repo domainrelease.Repository) AdapterOption {
+// WithAdapterRepo sets the release repository for direct access.
+// Used primarily for testing and status queries that don't require state transitions.
+// For state-changing operations, use WithReleaseServices which provides proper
+// state machine transitions via the DDD use cases.
+func WithAdapterRepo(repo domainrelease.Repository) AdapterOption {
 	return func(a *Adapter) {
 		a.releaseRepo = repo
 	}
@@ -292,20 +261,12 @@ type BumpOutput struct {
 }
 
 // Bump executes the bump version use case via MCP.
-// This properly uses the DDD BumpVersionUseCase to transition state and persist version.
-// Fixes ADR-007 compliance: all interfaces must use the application services layer.
+// Uses the DDD BumpVersionUseCase to transition state and persist version (ADR-007 compliant).
 func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error) {
-	// ADR-007: Use release services layer for state management
-	if a.releaseServices != nil && a.releaseServices.BumpVersion != nil {
-		return a.bumpViaDDD(ctx, input)
+	if a.releaseServices == nil || a.releaseServices.BumpVersion == nil {
+		return nil, fmt.Errorf("release services not configured: WithReleaseServices required")
 	}
 
-	// Legacy fallback: use separate use cases (deprecated, for backward compatibility)
-	return a.bumpViaLegacy(ctx, input)
-}
-
-// bumpViaDDD executes bump using the DDD BumpVersionUseCase (ADR-007 compliant).
-func (a *Adapter) bumpViaDDD(ctx context.Context, input BumpInput) (*BumpOutput, error) {
 	// Determine repository path
 	repoPath := input.RepositoryPath
 	if repoPath == "" {
@@ -337,118 +298,6 @@ func (a *Adapter) bumpViaDDD(ctx context.Context, input BumpInput) (*BumpOutput,
 		BumpType:     string(output.BumpKind),
 		AutoDetected: true, // DDD uses Plan's auto-detected bump
 	}, nil
-}
-
-// bumpViaLegacy executes bump using separate use cases (deprecated).
-// This is kept for backward compatibility when releaseServices is not configured.
-func (a *Adapter) bumpViaLegacy(ctx context.Context, input BumpInput) (*BumpOutput, error) {
-	// Parse and validate bump type first (fail-fast on invalid input)
-	var bumpType version.BumpType
-	auto := false
-	switch input.BumpType {
-	case "major":
-		bumpType = version.BumpMajor
-	case "minor":
-		bumpType = version.BumpMinor
-	case "patch":
-		bumpType = version.BumpPatch
-	case "auto", "":
-		auto = true
-	default:
-		return nil, fmt.Errorf("invalid bump type: %s", input.BumpType)
-	}
-
-	if a.calculateUC == nil {
-		return nil, fmt.Errorf("calculate version use case not configured")
-	}
-
-	// Step 1: Calculate version (same as CLI)
-	calcInput := versioning.CalculateVersionInput{
-		RepositoryPath: input.RepositoryPath,
-		BumpType:       bumpType,
-		Prerelease:     version.Prerelease(input.Prerelease),
-		Auto:           auto,
-	}
-
-	calcOutput, err := a.calculateUC.Execute(ctx, calcInput)
-	if err != nil {
-		return nil, fmt.Errorf("calculate version failed: %w", err)
-	}
-
-	result := &BumpOutput{
-		CurrentVersion: calcOutput.CurrentVersion.String(),
-		NextVersion:    calcOutput.NextVersion.String(),
-		BumpType:       string(calcOutput.BumpType),
-		AutoDetected:   calcOutput.AutoDetected,
-	}
-
-	// For dry run, return early without making changes
-	if input.DryRun {
-		result.TagName = "v" + calcOutput.NextVersion.String()
-		return result, nil
-	}
-
-	// Step 2: Set version using SetVersionUseCase (same as CLI's SetVersion().Execute())
-	// This handles git tag creation - mirrors runReleaseBump pattern
-	if a.setVersionUC != nil {
-		setInput := versioning.SetVersionInput{
-			Version:    calcOutput.NextVersion,
-			TagPrefix:  "v",
-			CreateTag:  input.CreateTag,
-			TagMessage: fmt.Sprintf("Release %s", calcOutput.NextVersion.String()),
-			DryRun:     input.DryRun,
-		}
-
-		setOutput, err := a.setVersionUC.Execute(ctx, setInput)
-		if err != nil {
-			return nil, fmt.Errorf("set version failed: %w", err)
-		}
-
-		result.TagName = setOutput.TagName
-		result.TagCreated = setOutput.TagCreated
-	} else {
-		result.TagName = "v" + calcOutput.NextVersion.String()
-	}
-
-	// Step 3: Update release aggregate state (same as CLI's updateReleaseVersion)
-	// This transitions the release from StatePlanned to StateVersioned
-	if a.releaseRepo != nil {
-		if err := a.updateReleaseVersion(ctx, input.RepositoryPath, calcOutput.NextVersion); err != nil {
-			return nil, fmt.Errorf("failed to update release state: %w", err)
-		}
-	}
-
-	return result, nil
-}
-
-// updateReleaseVersion updates the latest release with the bumped version.
-// This is the same logic as CLI's updateReleaseVersion function in bump.go:357-376.
-// It transitions the release aggregate from StatePlanned to StateVersioned.
-func (a *Adapter) updateReleaseVersion(ctx context.Context, repoPath string, ver version.SemanticVersion) error {
-	// Use FindLatest like CLI does, not FindActive
-	rel, err := a.releaseRepo.FindLatest(ctx, repoPath)
-	if err != nil {
-		return fmt.Errorf("failed to find latest release: %w", err)
-	}
-
-	tagName := "v" + ver.String()
-
-	// Same as rel.SetVersion() call in CLI's updateReleaseVersion
-	if err := rel.SetVersion(ver, tagName); err != nil {
-		return fmt.Errorf("failed to set version on release: %w", err)
-	}
-
-	// Transition from Planned to Versioned state (same as CLI's updateReleaseVersionLegacy)
-	if err := rel.Bump("mcp-agent"); err != nil {
-		return fmt.Errorf("failed to transition to versioned state: %w", err)
-	}
-
-	// Same as releaseRepo.Save() call in CLI's updateReleaseVersion
-	if err := a.releaseRepo.Save(ctx, rel); err != nil {
-		return fmt.Errorf("failed to save release: %w", err)
-	}
-
-	return nil
 }
 
 // NotesInput represents input for the Notes operation.
@@ -933,11 +782,6 @@ func (a *Adapter) HasReleaseAnalyzer() bool {
 	return a.releaseAnalyzer != nil
 }
 
-// HasCalculateVersionUseCase returns true if the calculate version use case is configured.
-func (a *Adapter) HasCalculateVersionUseCase() bool {
-	return a.calculateUC != nil
-}
-
 // HasReleaseServices returns true if the release services are configured.
 func (a *Adapter) HasReleaseServices() bool {
 	return a.releaseServices != nil
@@ -950,26 +794,6 @@ func (a *Adapter) HasGovernanceService() bool {
 
 // HasReleaseRepository returns true if the release repository is configured.
 func (a *Adapter) HasReleaseRepository() bool {
-	return a.releaseRepo != nil
-}
-
-// Deprecated: Use HasReleaseAnalyzer instead. Kept for backwards compatibility.
-func (a *Adapter) HasPlanUseCase() bool {
-	return a.releaseAnalyzer != nil
-}
-
-// Deprecated: Use HasReleaseServices instead. Kept for backwards compatibility.
-func (a *Adapter) HasGenerateNotesUseCase() bool {
-	return a.releaseServices != nil
-}
-
-// Deprecated: Use HasReleaseRepository instead. Kept for backwards compatibility.
-func (a *Adapter) HasApproveUseCase() bool {
-	return a.releaseRepo != nil
-}
-
-// Deprecated: Use HasReleaseRepository instead. Kept for backwards compatibility.
-func (a *Adapter) HasPublishUseCase() bool {
 	return a.releaseRepo != nil
 }
 

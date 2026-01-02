@@ -1372,7 +1372,7 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 	t.Run("returns no_active_release when adapter has only repository (no release services)", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
-		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		adapter := NewAdapter(WithAdapterRepo(repo))
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
@@ -1384,7 +1384,7 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 
 	t.Run("returns no_active_release when adapter repo is empty", func(t *testing.T) {
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{}}
-		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		adapter := NewAdapter(WithAdapterRepo(repo))
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
@@ -1403,7 +1403,7 @@ func TestAdapterGetStatusWithData(t *testing.T) {
 	t.Run("returns full status with versioned release", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
-		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		adapter := NewAdapter(WithAdapterRepo(repo))
 
 		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)
@@ -1415,7 +1415,7 @@ func TestAdapterGetStatusWithData(t *testing.T) {
 	t.Run("returns status with approval info", func(t *testing.T) {
 		run := createTestReleaseRunWithVersion()
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
-		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		adapter := NewAdapter(WithAdapterRepo(repo))
 
 		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)
@@ -1428,7 +1428,7 @@ func TestAdapterGetStatusWithData(t *testing.T) {
 		run := createTestReleaseRun()
 		_ = run.Plan("system")
 		repo := &mockReleaseRepository{releases: []*domainrelease.ReleaseRun{run}}
-		adapter := NewAdapter(WithAdapterReleaseRepository(repo))
+		adapter := NewAdapter(WithAdapterRepo(repo))
 
 		// GetStatus now requires release services, so this returns an error
 		status, err := adapter.GetStatus(ctx)

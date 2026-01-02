@@ -532,7 +532,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 	repoPath := s.ensureRepoPath(ctx)
 
 	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasPlanUseCase() {
+	if s.adapter != nil && s.adapter.HasReleaseAnalyzer() {
 		fromRef := ""
 		if input.From != "" && input.From != "auto" {
 			fromRef = input.From
@@ -614,7 +614,7 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 	}
 
 	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasCalculateVersionUseCase() {
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		bumpInput := BumpInput{
 			RepositoryPath: repoPath,
 			BumpType:       bumpType,
@@ -654,7 +654,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 	s.ensureRepoPath(ctx)
 
 	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasGenerateNotesUseCase() && s.adapter.HasReleaseRepository() {
+	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -794,7 +794,7 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 	s.ensureRepoPath(ctx)
 
 	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasApproveUseCase() && s.adapter.HasReleaseRepository() {
+	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
@@ -831,7 +831,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 	s.ensureRepoPath(ctx)
 
 	// Use adapter if available
-	if s.adapter != nil && s.adapter.HasPublishUseCase() && s.adapter.HasReleaseRepository() {
+	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("no active release: %w", err)
