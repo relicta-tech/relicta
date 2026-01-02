@@ -438,6 +438,11 @@ func (a *Adapter) updateReleaseVersion(ctx context.Context, repoPath string, ver
 		return fmt.Errorf("failed to set version on release: %w", err)
 	}
 
+	// Transition from Planned to Versioned state (same as CLI's updateReleaseVersionLegacy)
+	if err := rel.Bump("mcp-agent"); err != nil {
+		return fmt.Errorf("failed to transition to versioned state: %w", err)
+	}
+
 	// Same as releaseRepo.Save() call in CLI's updateReleaseVersion
 	if err := a.releaseRepo.Save(ctx, rel); err != nil {
 		return fmt.Errorf("failed to save release: %w", err)
