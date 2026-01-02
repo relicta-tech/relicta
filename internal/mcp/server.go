@@ -473,18 +473,20 @@ func (s *Server) ensureRepoPath(ctx context.Context) string {
 
 // Tool handlers
 
-func (s *Server) handleInit(ctx context.Context, input InitToolInput) (map[string]any, error) {
+func (s *Server) handleInit(ctx context.Context, input InitToolInput) (string, error) {
 	// Get current working directory for config placement
 	repoPath := s.ensureRepoPath(ctx)
 
 	// Check for existing config
 	existingConfig, _ := config.FindConfigFile(repoPath)
 	if existingConfig != "" && !input.Force {
-		return map[string]any{
+		result := map[string]any{
 			"status":      "exists",
 			"config_file": existingConfig,
 			"message":     "Configuration file already exists. Use force=true to overwrite.",
-		}, nil
+		}
+		jsonBytes, _ := json.Marshal(result)
+		return string(jsonBytes), nil
 	}
 
 	// Determine config file name based on format
@@ -521,7 +523,7 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (map[strin
 
 	// Write config file
 	if err := config.WriteConfig(cfg, configFile); err != nil {
-		return nil, fmt.Errorf("failed to write config file: %w", err)
+		return "", fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	result := map[string]any{
@@ -544,7 +546,8 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (map[strin
 		result["detected_branch"] = cfg.Workflow.AllowedBranches[0]
 	}
 
-	return result, nil
+	jsonBytes, _ := json.Marshal(result)
+	return string(jsonBytes), nil
 }
 
 // parseRemoteURL extracts repository URL from a git remote URL.
