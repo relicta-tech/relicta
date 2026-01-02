@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"testing"
@@ -15,6 +16,15 @@ import (
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+// parseJSONResult parses a JSON string result into a map for test assertions
+func parseJSONResult(t *testing.T, jsonStr string) map[string]any {
+	t.Helper()
+	var result map[string]any
+	err := json.Unmarshal([]byte(jsonStr), &result)
+	require.NoError(t, err, "failed to parse JSON result: %s", jsonStr)
+	return result
+}
 
 // createTestReleaseRun creates a test release run in draft state
 func createTestReleaseRun() *domainrelease.ReleaseRun {
@@ -203,8 +213,9 @@ func TestHandleStatus(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 
@@ -213,8 +224,9 @@ func TestHandleStatus(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		// Without release repository, adapter.HasReleaseRepository() returns false
 		// so it falls through to the direct repo check which also fails
 		assert.Equal(t, "not_configured", result["status"])
@@ -228,8 +240,9 @@ func TestHandlePlan(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePlan(ctx, PlanToolInput{})
+		resultStr, err := server.handlePlan(ctx, PlanToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 
@@ -238,8 +251,9 @@ func TestHandlePlan(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handlePlan(ctx, PlanToolInput{Analyze: true})
+		resultStr, err := server.handlePlan(ctx, PlanToolInput{Analyze: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 }
@@ -251,8 +265,9 @@ func TestHandleBump(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "minor", result["bump_type"])
 	})
 
@@ -260,8 +275,9 @@ func TestHandleBump(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "auto", result["bump_type"])
 	})
 }
@@ -273,8 +289,9 @@ func TestHandleNotes(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, true, result["use_ai"])
 	})
 }
@@ -286,8 +303,9 @@ func TestHandleApprove(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: "test notes"})
+		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: "test notes"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "test notes", result["notes"])
 	})
 }
@@ -299,8 +317,9 @@ func TestHandlePublish(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, true, result["dry_run"])
 	})
 }
@@ -312,8 +331,9 @@ func TestHandleEvaluate(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Contains(t, result, "score")
 		assert.Contains(t, result, "severity")
 	})
@@ -623,8 +643,9 @@ func TestHandleBumpWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "minor", result["bump_type"])
 	})
 
@@ -632,8 +653,9 @@ func TestHandleBumpWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Version: "2.0.0"})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{Version: "2.0.0"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "2.0.0", result["version"])
 	})
 }
@@ -646,8 +668,9 @@ func TestHandleNotesWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: false})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, false, result["use_ai"])
 	})
 }
@@ -660,8 +683,9 @@ func TestHandleApproveWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "", result["notes"])
 	})
 }
@@ -674,8 +698,9 @@ func TestHandlePublishWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, false, result["dry_run"])
 	})
 }
@@ -689,8 +714,9 @@ func TestHandleEvaluateWithAdapter(t *testing.T) {
 		require.NoError(t, err)
 
 		// Should fallback to basic risk calculation
-		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Contains(t, result, "score")
 	})
 }
@@ -746,8 +772,9 @@ func TestHandlePlanWithFromRef(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePlan(ctx, PlanToolInput{From: "auto"})
+		resultStr, err := server.handlePlan(ctx, PlanToolInput{From: "auto"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 
@@ -755,8 +782,9 @@ func TestHandlePlanWithFromRef(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0"})
+		resultStr, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 }
@@ -820,8 +848,9 @@ func TestHandleStatusWithRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "no_active_release", result["status"])
 	})
 
@@ -832,8 +861,9 @@ func TestHandleStatusWithRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "planned", result["state"])
 		assert.Contains(t, result, "created")
 		assert.Contains(t, result, "updated")
@@ -845,8 +875,9 @@ func TestHandleStatusWithRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "1.2.3", result["version"])
 	})
 
@@ -856,8 +887,9 @@ func TestHandleStatusWithRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "draft", result["state"])
 	})
 }
@@ -1023,8 +1055,9 @@ func TestHandleStatusWithRepositoryAndVersion(t *testing.T) {
 		server, err := NewServer("1.0.0", WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 
 		// Verify all expected fields - state is "versioned" in the domain
 		assert.Contains(t, []string{"planned", "versioned"}, result["state"])
@@ -1041,8 +1074,9 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Level: "major"})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "major"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "major", result["bump_type"])
 	})
 
@@ -1050,8 +1084,9 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{Level: "patch"})
+		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "patch"})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "patch", result["bump_type"])
 	})
 
@@ -1059,11 +1094,12 @@ func TestHandleBumpWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleBump(ctx, BumpToolInput{
+		resultStr, err := server.handleBump(ctx, BumpToolInput{
 			Level:   "minor",
 			Version: "1.2.0-beta.1",
 		})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "minor", result["bump_type"])
 		assert.Equal(t, "1.2.0-beta.1", result["version"])
 	})
@@ -1076,8 +1112,9 @@ func TestHandleNotesWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleNotes(ctx, NotesToolInput{AI: false})
+		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: false})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, false, result["use_ai"])
 	})
 
@@ -1085,8 +1122,9 @@ func TestHandleNotesWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, true, result["use_ai"])
 	})
 }
@@ -1098,8 +1136,9 @@ func TestHandlePublishWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, true, result["dry_run"])
 	})
 
@@ -1107,8 +1146,9 @@ func TestHandlePublishWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, false, result["dry_run"])
 	})
 }
@@ -1120,8 +1160,9 @@ func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Contains(t, result, "score")
 		assert.Contains(t, result, "severity")
 		assert.Contains(t, result, "factors")
@@ -1132,8 +1173,9 @@ func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
 		require.NoError(t, err)
 
-		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Contains(t, result, "score")
 		assert.Contains(t, result, "severity")
 	})
@@ -1146,8 +1188,9 @@ func TestHandleApproveWithDifferentInputs(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "", result["notes"])
 	})
 
@@ -1156,8 +1199,9 @@ func TestHandleApproveWithDifferentInputs(t *testing.T) {
 		require.NoError(t, err)
 
 		longNotes := "This is a very long note that contains detailed release information."
-		result, err := server.handleApprove(ctx, ApproveToolInput{Notes: longNotes})
+		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: longNotes})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, longNotes, result["notes"])
 	})
 }
@@ -1356,8 +1400,9 @@ func TestHandlePlanWithAdapter(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0", Analyze: true})
+		resultStr, err := server.handlePlan(ctx, PlanToolInput{From: "v1.0.0", Analyze: true})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "not_configured", result["status"])
 	})
 }
@@ -1377,8 +1422,9 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		// GetStatus requires releaseServices; without them and no server releaseRepo, returns not_configured
 		assert.Equal(t, "not_configured", result["status"])
 	})
@@ -1391,8 +1437,9 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter), WithReleaseRepository(repo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		// Falls back to server's releaseRepo which has active release
 		assert.Equal(t, "planned", result["state"])
 	})
@@ -1404,8 +1451,9 @@ func TestHandleStatusWithAdapterAndRepository(t *testing.T) {
 		server, err := NewServer("1.0.0", WithAdapter(adapter), WithReleaseRepository(emptyRepo))
 		require.NoError(t, err)
 
-		result, err := server.handleStatus(ctx, StatusInput{})
+		resultStr, err := server.handleStatus(ctx, StatusInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 		assert.Equal(t, "no_active_release", result["status"])
 	})
 }
@@ -1575,14 +1623,15 @@ func TestHandleEvaluateWithRiskCalculator(t *testing.T) {
 		server, err := NewServer("1.0.0", WithRiskCalculator(riskCalc))
 		require.NoError(t, err)
 
-		result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+		resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 		require.NoError(t, err)
+		result := parseJSONResult(t, resultStr)
 
 		assert.Contains(t, result, "score")
 		assert.Contains(t, result, "severity")
 		assert.Contains(t, result, "factors")
 
-		factors, ok := result["factors"].([]map[string]any)
+		factors, ok := result["factors"].([]any)
 		if ok {
 			assert.GreaterOrEqual(t, len(factors), 0)
 		}
@@ -1636,8 +1685,9 @@ func TestHandleBumpWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
+	resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
 	require.NoError(t, err)
+	result := parseJSONResult(t, resultStr)
 	// Falls through to stub response
 	assert.Equal(t, "minor", result["bump_type"])
 }
@@ -1648,8 +1698,9 @@ func TestHandleNotesWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handleNotes(ctx, NotesToolInput{AI: true})
+	resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
 	require.NoError(t, err)
+	result := parseJSONResult(t, resultStr)
 	assert.Equal(t, true, result["use_ai"])
 }
 
@@ -1659,8 +1710,9 @@ func TestHandleApproveWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
+	resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
 	require.NoError(t, err)
+	result := parseJSONResult(t, resultStr)
 	assert.Equal(t, "approval notes", result["notes"])
 }
 
@@ -1670,8 +1722,9 @@ func TestHandlePublishWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
+	resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
 	require.NoError(t, err)
+	result := parseJSONResult(t, resultStr)
 	assert.Equal(t, true, result["dry_run"])
 }
 
@@ -1681,8 +1734,9 @@ func TestHandleEvaluateWithAdapterAndGovernance(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	result, err := server.handleEvaluate(ctx, EvaluateToolInput{})
+	resultStr, err := server.handleEvaluate(ctx, EvaluateToolInput{})
 	require.NoError(t, err)
+	result := parseJSONResult(t, resultStr)
 	// Should fallback to basic risk calculation
 	assert.Contains(t, result, "score")
 }

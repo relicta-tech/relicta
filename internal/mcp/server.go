@@ -124,6 +124,13 @@ func userError(err error) error {
 	return fmt.Errorf("%s", relictaerrors.FormatUserError(err))
 }
 
+// toJSONString converts a map to a JSON string for MCP text content.
+// MCP spec requires content[].text to be a string, not a JSON object.
+func toJSONString(m map[string]any) string {
+	b, _ := json.Marshal(m)
+	return string(b)
+}
+
 // Tool input types with JSON Schema generation via struct tags.
 
 // StatusInput represents input for the status tool.
@@ -582,7 +589,7 @@ func parseRemoteURL(remoteURL string) string {
 	return ""
 }
 
-func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[string]any, error) {
+func (s *Server) handleStatus(ctx context.Context, input StatusInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -590,10 +597,10 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[strin
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return map[string]any{
+			return toJSONString(map[string]any{
 				"status":  "no_active_release",
 				"message": "No active release found. Run 'relicta plan' to start a new release.",
-			}, nil
+			}), nil
 		}
 
 		result := map[string]any{
@@ -615,23 +622,23 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[strin
 			result["warning"] = status.Warning
 		}
 
-		return result, nil
+		return toJSONString(result), nil
 	}
 
 	// Fallback to direct repository access
 	if s.releaseRepo == nil {
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"status":  "not_configured",
 			"message": "No release repository configured. Run 'relicta plan' first.",
-		}, nil
+		}), nil
 	}
 
 	releases, err := s.releaseRepo.FindActive(ctx)
 	if err != nil || len(releases) == 0 {
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"status":  "no_active_release",
 			"message": "No active release found. Run 'relicta plan' to start a new release.",
-		}, nil
+		}), nil
 	}
 
 	rel := releases[0]
@@ -646,10 +653,10 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[strin
 		result["version"] = rel.VersionNext().String()
 	}
 
-	return result, nil
+	return toJSONString(result), nil
 }
 
-func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[string]any, error) {
+func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	repoPath := s.ensureRepoPath(ctx)
 
@@ -674,7 +681,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 
 		output, err := s.adapter.Plan(ctx, planInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -717,16 +724,16 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 		}
 
 		s.invalidateCache()
-		return result, nil
+		return toJSONString(result), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"status":  "not_configured",
 		"message": "Run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[string]any, error) {
+func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	repoPath := s.ensureRepoPath(ctx)
 
@@ -745,7 +752,7 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 
 		output, err := s.adapter.Bump(ctx, bumpInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		result := map[string]any{
@@ -761,17 +768,17 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 		}
 
 		s.invalidateCache()
-		return result, nil
+		return toJSONString(result), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"bump_type": bumpType,
 		"version":   input.Version,
 		"status":    "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[string]any, error) {
+func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -779,7 +786,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("no active release: %w", err)
+			return "", fmt.Errorf("no active release: %w", err)
 		}
 
 		// Report progress
@@ -803,7 +810,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 
 		output, err := s.adapter.Notes(ctx, notesInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -820,16 +827,16 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 		}
 
 		s.invalidateCache()
-		return result, nil
+		return toJSONString(result), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"use_ai": input.AI,
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (map[string]any, error) {
+func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -837,7 +844,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("no active release: %w", err)
+			return "", fmt.Errorf("no active release: %w", err)
 		}
 
 		// Report progress
@@ -858,7 +865,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 		output, err := s.adapter.Evaluate(ctx, evalInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -866,7 +873,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 			_ = progress.Report(4, &total)
 		}
 
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"decision":         output.Decision,
 			"risk_score":       output.RiskScore,
 			"severity":         output.Severity,
@@ -874,12 +881,12 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 			"required_actions": output.RequiredActions,
 			"risk_factors":     output.RiskFactors,
 			"rationale":        output.Rationale,
-		}, nil
+		}), nil
 	}
 
 	// Fallback to basic risk calculation
 	if s.riskCalc == nil {
-		return nil, fmt.Errorf("risk calculator not configured")
+		return "", fmt.Errorf("risk calculator not configured")
 	}
 
 	proposal := cgp.NewProposal(
@@ -900,18 +907,18 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 
 	assessment, err := s.riskCalc.Calculate(ctx, proposal, nil)
 	if err != nil {
-		return nil, userError(err)
+		return "", userError(err)
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"score":    assessment.Score,
 		"severity": string(assessment.Severity),
 		"summary":  assessment.Summary,
 		"factors":  assessment.Factors,
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map[string]any, error) {
+func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -919,7 +926,7 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("no active release: %w", err)
+			return "", fmt.Errorf("no active release: %w", err)
 		}
 
 		approveInput := ApproveInput{
@@ -931,24 +938,24 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 
 		output, err := s.adapter.Approve(ctx, approveInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		s.invalidateCache()
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"approved":    output.Approved,
 			"approved_by": output.ApprovedBy,
 			"version":     output.Version,
-		}, nil
+		}), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"notes":  input.Notes,
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map[string]any, error) {
+func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -956,7 +963,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("no active release: %w", err)
+			return "", fmt.Errorf("no active release: %w", err)
 		}
 
 		// Report progress
@@ -979,7 +986,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 
 		output, err := s.adapter.Publish(ctx, publishInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -1012,16 +1019,16 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 		}
 
 		s.invalidateCache()
-		return result, nil
+		return toJSONString(result), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"dry_run": input.DryRun,
 		"status":  "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[string]any, error) {
+func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -1029,22 +1036,22 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[s
 	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("no active release to cancel: %w", err)
+			return "", fmt.Errorf("no active release to cancel: %w", err)
 		}
 
 		// Check if release can be canceled
 		if status.State == "published" {
-			return nil, fmt.Errorf("cannot cancel a published release")
+			return "", fmt.Errorf("cannot cancel a published release")
 		}
 		if status.State == "publishing" && !input.Force {
-			return nil, fmt.Errorf("cannot cancel during publishing - wait for completion or use force=true")
+			return "", fmt.Errorf("cannot cancel during publishing - wait for completion or use force=true")
 		}
 		if status.State == "failed" || status.State == "canceled" {
-			return map[string]any{
+			return toJSONString(map[string]any{
 				"release_id": status.ReleaseID,
 				"state":      status.State,
 				"message":    "release is already in terminal state - use reset to start fresh",
-			}, nil
+			}), nil
 		}
 
 		reason := input.Reason
@@ -1060,25 +1067,25 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[s
 
 		output, err := s.adapter.Cancel(ctx, cancelInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		s.invalidateCache()
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"release_id":     output.ReleaseID,
 			"previous_state": output.PreviousState,
 			"new_state":      output.NewState,
 			"reason":         reason,
 			"message":        "release canceled successfully",
-		}, nil
+		}), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
-func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[string]any, error) {
+func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -1086,26 +1093,26 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[str
 	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return map[string]any{
+			return toJSONString(map[string]any{
 				"message": "no active release found - nothing to reset",
-			}, nil
+			}), nil
 		}
 
 		// Check if release can be reset
 		if status.State == "published" {
-			return nil, fmt.Errorf("published releases cannot be reset - run 'relicta plan' to start a new release")
+			return "", fmt.Errorf("published releases cannot be reset - run 'relicta plan' to start a new release")
 		}
 		if status.State == "publishing" && !input.Force {
-			return nil, fmt.Errorf("cannot reset during publishing - wait for completion or use force=true")
+			return "", fmt.Errorf("cannot reset during publishing - wait for completion or use force=true")
 		}
 
 		// For in-progress releases that aren't failed/canceled, suggest cancel first
 		if status.State != "failed" && status.State != "canceled" && !input.Force {
-			return map[string]any{
+			return toJSONString(map[string]any{
 				"release_id": status.ReleaseID,
 				"state":      status.State,
 				"message":    "release is in progress - use cancel first, or force=true to delete",
-			}, nil
+			}), nil
 		}
 
 		// Reset (delete) the release
@@ -1115,31 +1122,31 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[str
 
 		output, err := s.adapter.Reset(ctx, resetInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		s.invalidateCache()
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"release_id":     output.ReleaseID,
 			"previous_state": output.PreviousState,
 			"deleted":        output.Deleted,
 			"message":        "release reset successfully - run 'relicta plan' to start fresh",
-		}, nil
+		}), nil
 	}
 
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"status": "run 'relicta mcp serve' with configured dependencies",
-	}, nil
+	}), nil
 }
 
 // --- Specialized AI Agent Tool Handlers ---
 
-func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (map[string]any, error) {
+func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (string, error) {
 	if s.adapter == nil || !s.adapter.HasBlastService() {
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"status":  "not_configured",
 			"message": "Blast radius service not configured. This tool requires monorepo analysis to be enabled.",
-		}, nil
+		}), nil
 	}
 
 	// Report progress
@@ -1163,7 +1170,7 @@ func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInp
 
 	output, err := s.adapter.BlastRadius(ctx, blastInput)
 	if err != nil {
-		return nil, userError(err)
+		return "", userError(err)
 	}
 
 	if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -1216,15 +1223,15 @@ func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInp
 		}
 	}
 
-	return result, nil
+	return toJSONString(result), nil
 }
 
-func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolInput) (map[string]any, error) {
+func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolInput) (string, error) {
 	if s.adapter == nil || !s.adapter.HasReleaseAnalyzer() {
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"status":  "not_configured",
 			"message": "Release analyzer not configured. Run 'relicta mcp serve' with configured dependencies.",
-		}, nil
+		}), nil
 	}
 
 	// Report progress
@@ -1241,7 +1248,7 @@ func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolI
 
 	output, err := s.adapter.InferVersion(ctx, inferInput)
 	if err != nil {
-		return nil, userError(err)
+		return "", userError(err)
 	}
 
 	if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -1269,15 +1276,15 @@ func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolI
 		result["risk_severity"] = output.RiskSeverity
 	}
 
-	return result, nil
+	return toJSONString(result), nil
 }
 
-func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToolInput) (map[string]any, error) {
+func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToolInput) (string, error) {
 	if s.adapter == nil || !s.adapter.HasReleaseAnalyzer() {
-		return map[string]any{
+		return toJSONString(map[string]any{
 			"status":  "not_configured",
 			"message": "Release analyzer not configured. Run 'relicta mcp serve' with configured dependencies.",
-		}, nil
+		}), nil
 	}
 
 	summarizeInput := SummarizeDiffInput{
@@ -1289,7 +1296,7 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 
 	output, err := s.adapter.SummarizeDiff(ctx, summarizeInput)
 	if err != nil {
-		return nil, userError(err)
+		return "", userError(err)
 	}
 
 	result := map[string]any{
@@ -1303,10 +1310,10 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 		result["highlights"] = output.Highlights
 	}
 
-	return result, nil
+	return toJSONString(result), nil
 }
 
-func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (map[string]any, error) {
+func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (string, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -1331,7 +1338,7 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 	if s.adapter != nil {
 		output, err := s.adapter.ValidateRelease(ctx, validateInput)
 		if err != nil {
-			return nil, userError(err)
+			return "", userError(err)
 		}
 
 		result := map[string]any{
@@ -1363,18 +1370,18 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 			result["warnings"] = output.Warnings
 		}
 
-		return result, nil
+		return toJSONString(result), nil
 	}
 
 	// Minimal validation without adapter
-	return map[string]any{
+	return toJSONString(map[string]any{
 		"valid":          true,
 		"can_proceed":    true,
 		"recommendation": "Basic validation passed. Full validation requires configured dependencies.",
 		"checks": []map[string]any{
 			{"name": "basic", "status": "passed", "message": "Basic checks passed"},
 		},
-	}, nil
+	}), nil
 }
 
 // Resource handlers
