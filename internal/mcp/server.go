@@ -131,6 +131,14 @@ func userError(err error) error {
 // Returns current release state, version, and next recommended action.
 type StatusInput struct{}
 
+// InitToolInput represents input for the init tool.
+// Maps to CLI: relicta init [--force] [--format FORMAT]
+// Creates a new .relicta.yaml configuration file with sensible defaults.
+type InitToolInput struct {
+	Force  bool   `json:"force,omitempty" jsonschema:"description=Overwrite existing configuration file if one exists."`
+	Format string `json:"format,omitempty" jsonschema:"description=Configuration file format.,enum=yaml|json,default=yaml"`
+}
+
 // PlanToolInput represents input for the plan tool.
 // Maps to CLI: relicta plan [--from REF] [--to REF] [--analyze] [--no-ai] [--minimal]
 type PlanToolInput struct {
@@ -300,6 +308,11 @@ func (s *Server) registerTools() {
 		Description("Get the current release state and pending actions").
 		Handler(s.handleStatus)
 
+	// Init tool
+	s.server.Tool("relicta.init").
+		Description("Initialize a new Relicta configuration file with sensible defaults").
+		Handler(s.handleInit)
+
 	// Plan tool
 	s.server.Tool("relicta.plan").
 		Description("Analyze commits since the last release and suggest a version bump").
@@ -459,6 +472,112 @@ func (s *Server) ensureRepoPath(ctx context.Context) string {
 }
 
 // Tool handlers
+
+func (s *Server) handleInit(ctx context.Context, input InitToolInput) (map[string]any, error) {
+	// Get current working directory for config placement
+	repoPath := s.ensureRepoPath(ctx)
+
+	// Check for existing config
+	existingConfig, _ := config.FindConfigFile(repoPath)
+	if existingConfig != "" && !input.Force {
+		return map[string]any{
+			"status":      "exists",
+			"config_file": existingConfig,
+			"message":     "Configuration file already exists. Use force=true to overwrite.",
+		}, nil
+	}
+
+	// Determine config file name based on format
+	configFile := ".relicta.yaml"
+	format := input.Format
+	if format == "" {
+		format = "yaml"
+	}
+	if format == "json" {
+		configFile = ".relicta.json"
+	}
+
+	// Start with default configuration
+	cfg := config.DefaultConfig()
+
+	// Try to detect repository settings from git
+	if s.gitService != nil {
+		// Get repository info
+		info, err := s.gitService.GetRepositoryInfo(ctx)
+		if err == nil && info.DefaultBranch != "" {
+			cfg.Workflow.AllowedBranches = []string{info.DefaultBranch}
+		}
+
+		// Try to detect remote URL and extract owner/repo
+		remoteURL, err := s.gitService.GetRemoteURL(ctx, "origin")
+		if err == nil && remoteURL != "" {
+			// Parse GitHub/GitLab URL
+			repoURL := parseRemoteURL(remoteURL)
+			if repoURL != "" {
+				cfg.Changelog.RepositoryURL = repoURL
+			}
+		}
+	}
+
+	// Write config file
+	if err := config.WriteConfig(cfg, configFile); err != nil {
+		return nil, fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	result := map[string]any{
+		"status":      "created",
+		"config_file": configFile,
+		"format":      format,
+		"message":     fmt.Sprintf("Created %s with default configuration", configFile),
+		"next_steps": []string{
+			"Review and customize your config file",
+			"Set up required environment variables (OPENAI_API_KEY, GITHUB_TOKEN)",
+			"Run 'relicta plan' to analyze your commits",
+		},
+	}
+
+	// Add detected settings info
+	if cfg.Changelog.RepositoryURL != "" {
+		result["detected_repository"] = cfg.Changelog.RepositoryURL
+	}
+	if len(cfg.Workflow.AllowedBranches) > 0 {
+		result["detected_branch"] = cfg.Workflow.AllowedBranches[0]
+	}
+
+	return result, nil
+}
+
+// parseRemoteURL extracts repository URL from a git remote URL.
+func parseRemoteURL(remoteURL string) string {
+	// Handle SSH format: git@github.com:owner/repo.git
+	if len(remoteURL) > 15 && remoteURL[:15] == "git@github.com:" {
+		path := remoteURL[15:]
+		if len(path) > 4 && path[len(path)-4:] == ".git" {
+			path = path[:len(path)-4]
+		}
+		return "https://github.com/" + path
+	}
+
+	// Handle SSH format: git@gitlab.com:owner/repo.git
+	if len(remoteURL) > 15 && remoteURL[:15] == "git@gitlab.com:" {
+		path := remoteURL[15:]
+		if len(path) > 4 && path[len(path)-4:] == ".git" {
+			path = path[:len(path)-4]
+		}
+		return "https://gitlab.com/" + path
+	}
+
+	// Handle HTTPS format
+	if len(remoteURL) > 8 && (remoteURL[:8] == "https://" || remoteURL[:7] == "http://") {
+		url := remoteURL
+		if len(url) > 4 && url[len(url)-4:] == ".git" {
+			url = url[:len(url)-4]
+		}
+		return url
+	}
+
+	return ""
+}
 
 func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[string]any, error) {
 	// Ensure consistent repository path (fixes issue #35)

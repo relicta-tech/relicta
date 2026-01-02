@@ -30,6 +30,7 @@ AI clients that support the Model Context Protocol (MCP).
 
 Core Tools:
   - relicta.status:   Get current release state
+  - relicta.init:     Initialize configuration file
   - relicta.plan:     Analyze commits and plan release
   - relicta.bump:     Calculate and set version
   - relicta.notes:    Generate release notes
@@ -95,6 +96,17 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 					mcpLogger.Warn("failed to close container", "error", closeErr)
 				}
 			}()
+
+			// Initialize release services with current working directory
+			// This enables the DDD release workflow (plan, bump, notes, approve, publish)
+			repoRoot, err := os.Getwd()
+			if err != nil {
+				mcpLogger.Warn("failed to get working directory for release services", "error", err)
+			} else {
+				if err := app.InitReleaseServices(ctx, repoRoot); err != nil {
+					mcpLogger.Warn("failed to initialize release services", "error", err)
+				}
+			}
 
 			// Create adapter with use cases from container
 			adapter := createMCPAdapter(app)
