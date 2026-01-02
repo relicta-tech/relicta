@@ -52,7 +52,7 @@ type releaseDTO struct {
 	ID             string       `json:"id"`
 	State          string       `json:"state"`
 	Branch         string       `json:"branch"`
-	RepositoryPath string       `json:"repository_path"`
+	RepositoryPath string       `json:"repo_root"`
 	RepositoryName string       `json:"repository_name"`
 	TagName        string       `json:"tag_name"`
 	Plan           *planDTO     `json:"plan,omitempty"`
