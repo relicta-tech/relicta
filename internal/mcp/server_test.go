@@ -1671,5 +1671,115 @@ func TestHandleEvaluateWithAdapterAndGovernance(t *testing.T) {
 	assert.Contains(t, result, "score")
 }
 
+// Test for issue #35: MCP server release state not persisted between tool calls
+// The fix ensures consistent repository path handling across all MCP tool calls.
+
+func TestEnsureRepoPath(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("defaults to current dir when git service unavailable", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		repoPath := server.ensureRepoPath(ctx)
+
+		assert.Equal(t, ".", repoPath)
+		assert.Equal(t, ".", adapter.GetRepoRoot())
+	})
+
+	t.Run("handles nil adapter gracefully", func(t *testing.T) {
+		server, err := NewServer("1.0.0")
+		require.NoError(t, err)
+
+		// Should not panic with nil adapter
+		repoPath := server.ensureRepoPath(ctx)
+		assert.Equal(t, ".", repoPath)
+	})
+
+	t.Run("updates adapter repoRoot when called", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		// Initially adapter has empty repoRoot
+		assert.Equal(t, "", adapter.GetRepoRoot())
+
+		// ensureRepoPath should set it
+		_ = server.ensureRepoPath(ctx)
+
+		// Now adapter has repoRoot set
+		assert.NotEqual(t, "", adapter.GetRepoRoot())
+	})
+}
+
+func TestConsistentRepoPathAcrossToolCalls(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("all tool handlers set adapter repoRoot consistently", func(t *testing.T) {
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		// Call various handlers and verify adapter repoRoot is set
+		// Each handler should call ensureRepoPath which sets adapter.repoRoot
+
+		_, _ = server.handleStatus(ctx, StatusInput{})
+		statusPath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", statusPath, "handleStatus should set repoRoot")
+
+		adapter.SetRepoRoot("") // Reset
+		_, _ = server.handlePlan(ctx, PlanToolInput{})
+		planPath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", planPath, "handlePlan should set repoRoot")
+		assert.Equal(t, statusPath, planPath, "paths should be consistent")
+
+		adapter.SetRepoRoot("") // Reset
+		_, _ = server.handleBump(ctx, BumpToolInput{})
+		bumpPath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", bumpPath, "handleBump should set repoRoot")
+		assert.Equal(t, statusPath, bumpPath, "paths should be consistent")
+
+		adapter.SetRepoRoot("") // Reset
+		_, _ = server.handleNotes(ctx, NotesToolInput{})
+		notesPath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", notesPath, "handleNotes should set repoRoot")
+		assert.Equal(t, statusPath, notesPath, "paths should be consistent")
+
+		adapter.SetRepoRoot("") // Reset
+		_, _ = server.handleApprove(ctx, ApproveToolInput{})
+		approvePath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", approvePath, "handleApprove should set repoRoot")
+		assert.Equal(t, statusPath, approvePath, "paths should be consistent")
+
+		adapter.SetRepoRoot("") // Reset
+		_, _ = server.handlePublish(ctx, PublishToolInput{})
+		publishPath := adapter.GetRepoRoot()
+		assert.NotEqual(t, "", publishPath, "handlePublish should set repoRoot")
+		assert.Equal(t, statusPath, publishPath, "paths should be consistent")
+	})
+
+	t.Run("issue 35: state persists across plan and notes calls", func(t *testing.T) {
+		// This test verifies the fix for issue #35:
+		// When plan is called, it sets repoRoot on the adapter.
+		// When notes is called, it should use the same repoRoot to find the release.
+		adapter := NewAdapter()
+		server, err := NewServer("1.0.0", WithAdapter(adapter))
+		require.NoError(t, err)
+
+		// Simulate the workflow that was failing
+		_, _ = server.handlePlan(ctx, PlanToolInput{})
+		pathAfterPlan := adapter.GetRepoRoot()
+
+		// Notes should use the same path
+		_, _ = server.handleNotes(ctx, NotesToolInput{})
+		pathAfterNotes := adapter.GetRepoRoot()
+
+		// The key fix: paths should be the same
+		assert.Equal(t, pathAfterPlan, pathAfterNotes,
+			"plan and notes should use the same repository path")
+	})
+}
+
 // Suppress unused variable warnings
 var _ = time.Now

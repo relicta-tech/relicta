@@ -438,9 +438,32 @@ func (s *Server) invalidateCache() {
 	}
 }
 
+// ensureRepoPath gets the repository path from git service and updates the adapter.
+// This ensures consistent repository path handling across all MCP tool calls,
+// fixing issue #35 where state wasn't persisted between tool calls due to path mismatch.
+func (s *Server) ensureRepoPath(ctx context.Context) string {
+	repoPath := ""
+	if s.gitService != nil {
+		if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
+			repoPath = path
+		}
+	}
+	if repoPath == "" {
+		repoPath = "."
+	}
+	// Update adapter's repoRoot to ensure consistent path across calls
+	if s.adapter != nil {
+		s.adapter.SetRepoRoot(repoPath)
+	}
+	return repoPath
+}
+
 // Tool handlers
 
 func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -505,19 +528,14 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (map[strin
 }
 
 func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	repoPath := s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasPlanUseCase() {
 		fromRef := ""
 		if input.From != "" && input.From != "auto" {
 			fromRef = input.From
-		}
-
-		// Get repository path from git service
-		repoPath := ""
-		if s.gitService != nil {
-			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
-				repoPath = path
-			}
 		}
 
 		planInput := PlanInput{
@@ -587,6 +605,9 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (map[strin
 }
 
 func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	repoPath := s.ensureRepoPath(ctx)
+
 	bumpType := input.Level
 	if bumpType == "" {
 		bumpType = "auto"
@@ -594,13 +615,6 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasCalculateVersionUseCase() {
-		repoPath := ""
-		if s.gitService != nil {
-			if path, err := s.gitService.GetRepositoryRoot(ctx); err == nil {
-				repoPath = path
-			}
-		}
-
 		bumpInput := BumpInput{
 			RepositoryPath: repoPath,
 			BumpType:       bumpType,
@@ -636,6 +650,9 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (map[strin
 }
 
 func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasGenerateNotesUseCase() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -691,6 +708,9 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (map[str
 }
 
 func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter for full governance evaluation if available
 	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -770,6 +790,9 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (m
 }
 
 func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasApproveUseCase() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -804,6 +827,9 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (map
 }
 
 func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasPublishUseCase() && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -874,6 +900,9 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (map
 }
 
 func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -928,6 +957,9 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (map[s
 }
 
 func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasReleaseRepository() {
 		status, err := s.adapter.GetStatus(ctx)
@@ -1153,6 +1185,9 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 }
 
 func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (map[string]any, error) {
+	// Ensure consistent repository path (fixes issue #35)
+	s.ensureRepoPath(ctx)
+
 	// Get release ID from input or active release
 	releaseID := input.ReleaseID
 	if releaseID == "" && s.adapter != nil && s.adapter.HasReleaseRepository() {
