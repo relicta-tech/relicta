@@ -56,6 +56,25 @@ func (s *Sandbox) PrepareCommand(ctx context.Context, cmd *exec.Cmd) error {
 	return nil
 }
 
+// authEnvVars are authentication tokens that plugins commonly need.
+// These are passed through when AllowEnvRead is true.
+var authEnvVars = []string{
+	// GitHub
+	"GITHUB_TOKEN", "GH_TOKEN", "GITHUB_ENTERPRISE_TOKEN",
+	// GitLab
+	"GITLAB_TOKEN", "GL_TOKEN", "GITLAB_PRIVATE_TOKEN",
+	// Slack
+	"SLACK_TOKEN", "SLACK_WEBHOOK_URL", "SLACK_BOT_TOKEN",
+	// Discord
+	"DISCORD_TOKEN", "DISCORD_WEBHOOK_URL",
+	// Jira
+	"JIRA_TOKEN", "JIRA_API_TOKEN", "JIRA_USER", "JIRA_URL",
+	// Package registries
+	"NPM_TOKEN", "PYPI_TOKEN", "NUGET_API_KEY",
+	// OpenAI (for AI-enhanced plugins)
+	"OPENAI_API_KEY",
+}
+
 // filterEnv filters environment variables based on capabilities.
 func (s *Sandbox) filterEnv(environ []string) []string {
 	if s.capabilities == nil {
@@ -72,7 +91,7 @@ func (s *Sandbox) filterEnv(environ []string) []string {
 		return s.essentialEnvVars(environ)
 	}
 
-	// Filter to only allowed vars plus essential ones
+	// Filter to only allowed vars plus essential ones plus auth vars
 	allowed := make(map[string]bool)
 	for _, v := range s.capabilities.AllowedEnvVars {
 		allowed[v] = true
@@ -80,6 +99,11 @@ func (s *Sandbox) filterEnv(environ []string) []string {
 
 	// Essential vars always allowed
 	for _, v := range []string{"PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TZ", "TMPDIR"} {
+		allowed[v] = true
+	}
+
+	// Auth vars are allowed when env reading is enabled
+	for _, v := range authEnvVars {
 		allowed[v] = true
 	}
 

@@ -18,17 +18,12 @@ type calculateVersionUseCase interface {
 	Execute(context.Context, versioning.CalculateVersionInput) (*versioning.CalculateVersionOutput, error)
 }
 
-type setVersionUseCase interface {
-	Execute(context.Context, versioning.SetVersionInput) (*versioning.SetVersionOutput, error)
-}
-
 type cliApp interface {
 	Close() error
 	GitAdapter() sourcecontrol.GitRepository
 	ReleaseRepository() domainrelease.Repository
 	ReleaseAnalyzer() *servicerelease.Analyzer
 	CalculateVersion() calculateVersionUseCase
-	SetVersion() setVersionUseCase
 	HasAI() bool
 	AI() ai.Service
 	HasGovernance() bool
@@ -58,10 +53,6 @@ func (w *containerAppWrapper) ReleaseAnalyzer() *servicerelease.Analyzer {
 
 func (w *containerAppWrapper) CalculateVersion() calculateVersionUseCase {
 	return w.App.CalculateVersion()
-}
-
-func (w *containerAppWrapper) SetVersion() setVersionUseCase {
-	return w.App.SetVersion()
 }
 
 func (w *containerAppWrapper) AI() ai.Service {

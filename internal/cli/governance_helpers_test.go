@@ -25,7 +25,6 @@ func (a govTestApp) GitAdapter() sourcecontrol.GitRepository           { return 
 func (a govTestApp) ReleaseRepository() release.Repository             { return a.releaseRepo }
 func (a govTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
 func (a govTestApp) CalculateVersion() calculateVersionUseCase         { return nil }
-func (a govTestApp) SetVersion() setVersionUseCase                     { return nil }
 func (a govTestApp) HasAI() bool                                       { return false }
 func (a govTestApp) AI() ai.Service                                    { return nil }
 func (a govTestApp) HasGovernance() bool                               { return a.hasGov }

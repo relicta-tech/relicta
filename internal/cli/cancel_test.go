@@ -217,7 +217,6 @@ func (c cancelTestApp) GitAdapter() sourcecontrol.GitRepository           { retu
 func (c cancelTestApp) ReleaseRepository() release.Repository             { return c.releaseRepo }
 func (c cancelTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
 func (c cancelTestApp) CalculateVersion() calculateVersionUseCase         { return nil }
-func (c cancelTestApp) SetVersion() setVersionUseCase                     { return nil }
 func (c cancelTestApp) HasAI() bool                                       { return false }
 func (c cancelTestApp) AI() ai.Service                                    { return nil }
 func (c cancelTestApp) HasGovernance() bool                               { return false }

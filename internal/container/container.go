@@ -63,7 +63,9 @@ type App struct {
 	// Application layer use cases
 	releaseAnalyzer    *servicerelease.Analyzer
 	calculateVersionUC *versioning.CalculateVersionUseCase
-	setVersionUC       *versioning.SetVersionUseCase
+
+	// TagCreator adapter for tag operations in publish step
+	tagCreator *TagCreatorAdapter
 
 	// Governance service (CGP)
 	governanceService *governance.Service
@@ -316,8 +318,8 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 		c.versionCalc,
 	)
 
-	// Initialize SetVersionUseCase
-	c.setVersionUC = versioning.NewSetVersionUseCase(c.gitAdapter)
+	// Initialize TagCreator adapter for tag operations in publish step
+	c.tagCreator = NewTagCreatorAdapter(c.gitAdapter)
 
 	// Initialize blast radius service for monorepo analysis
 	c.blastService = blast.NewService(
@@ -380,7 +382,7 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 
 	// Create port adapters
 	notesGenerator := NewNotesGeneratorAdapter(c.aiService, c.gitAdapter)
-	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter)
+	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator)
 	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
 
 	// Configure release services
@@ -431,11 +433,11 @@ func (c *App) CalculateVersion() *versioning.CalculateVersionUseCase {
 	return c.calculateVersionUC
 }
 
-// SetVersion returns the SetVersionUseCase.
-func (c *App) SetVersion() *versioning.SetVersionUseCase {
+// TagCreator returns the TagCreatorAdapter for creating git tags.
+func (c *App) TagCreator() *TagCreatorAdapter {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.setVersionUC
+	return c.tagCreator
 }
 
 // GovernanceService returns the CGP governance service.

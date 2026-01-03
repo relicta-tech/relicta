@@ -613,9 +613,10 @@ func TestPlanCommand_Flags(t *testing.T) {
 
 func TestBumpCommand_Flags(t *testing.T) {
 	// Test that bump command has expected flags
+	// Note: --tag and --push flags removed - tag creation moved to publish step
 	flags := bumpCmd.Flags()
 
-	expectedFlags := []string{"level", "prerelease", "build", "force", "tag", "push"}
+	expectedFlags := []string{"level", "prerelease", "build", "force"}
 	for _, name := range expectedFlags {
 		if flags.Lookup(name) == nil {
 			t.Errorf("Missing flag: %s", name)

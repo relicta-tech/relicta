@@ -177,12 +177,14 @@ func TestOutputCalculatedVersionText_AutoDetected(t *testing.T) {
 }
 
 func TestPrintBumpNextStepsOutput(t *testing.T) {
+	nextVer, _ := version.Parse("1.2.0")
+
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	printBumpNextSteps()
+	printBumpNextSteps(nextVer)
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -312,162 +314,5 @@ func TestOutputSetVersionJSON(t *testing.T) {
 
 	if result["tag_pushed"] != false {
 		t.Errorf("outputSetVersionJSON() tag_pushed = %v, want false", result["tag_pushed"])
-	}
-}
-
-func TestOutputSetVersionResult(t *testing.T) {
-	// Setup test config
-	originalCfg := cfg
-	defer func() { cfg = originalCfg }()
-
-	cfg = &config.Config{
-		Versioning: config.VersioningConfig{
-			TagPrefix: "v",
-		},
-	}
-
-	ver, _ := version.Parse("2.0.0")
-	output := &versioning.SetVersionOutput{
-		Version:    ver,
-		TagName:    "v2.0.0",
-		TagCreated: true,
-		TagPushed:  true,
-	}
-
-	// Capture stdout
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	outputSetVersionResult(output)
-
-	w.Close()
-	os.Stdout = oldStdout
-
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	result := buf.String()
-
-	// Verify output
-	expectedStrings := []string{
-		"v2.0.0",
-		"Created tag",
-		"pushed",
-	}
-
-	for _, expected := range expectedStrings {
-		if !bytes.Contains([]byte(result), []byte(expected)) {
-			t.Errorf("outputSetVersionResult() missing expected text: %s", expected)
-		}
-	}
-}
-
-func TestBuildSetVersionInputExtended(t *testing.T) {
-	// Setup test config
-	originalCfg := cfg
-	defer func() { cfg = originalCfg }()
-
-	cfg = &config.Config{
-		Versioning: config.VersioningConfig{
-			TagPrefix: "v",
-			GitTag:    true,
-			GitPush:   true,
-		},
-	}
-
-	ver, _ := version.Parse("1.5.0")
-
-	tests := []struct {
-		name          string
-		createTag     bool
-		pushTag       bool
-		dryRun        bool
-		wantCreateTag bool
-		wantPushTag   bool
-		wantDryRun    bool
-	}{
-		{
-			name:          "create and push tag",
-			createTag:     true,
-			pushTag:       true,
-			dryRun:        false,
-			wantCreateTag: true,
-			wantPushTag:   true,
-			wantDryRun:    false,
-		},
-		{
-			name:          "create only",
-			createTag:     true,
-			pushTag:       false,
-			dryRun:        false,
-			wantCreateTag: true,
-			wantPushTag:   false,
-			wantDryRun:    false,
-		},
-		{
-			name:          "dry run mode",
-			createTag:     true,
-			pushTag:       true,
-			dryRun:        true,
-			wantCreateTag: true,
-			wantPushTag:   true,
-			wantDryRun:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			input := buildSetVersionInput(ver, tt.createTag, tt.pushTag, tt.dryRun)
-
-			if input.Version != ver {
-				t.Errorf("buildSetVersionInput() Version = %v, want %v", input.Version, ver)
-			}
-
-			if input.CreateTag != tt.wantCreateTag {
-				t.Errorf("buildSetVersionInput() CreateTag = %v, want %v", input.CreateTag, tt.wantCreateTag)
-			}
-
-			if input.PushTag != tt.wantPushTag {
-				t.Errorf("buildSetVersionInput() PushTag = %v, want %v", input.PushTag, tt.wantPushTag)
-			}
-
-			if input.DryRun != tt.wantDryRun {
-				t.Errorf("buildSetVersionInput() DryRun = %v, want %v", input.DryRun, tt.wantDryRun)
-			}
-
-			if input.Remote != "origin" {
-				t.Errorf("buildSetVersionInput() Remote = %v, want origin", input.Remote)
-			}
-
-			if input.TagPrefix != "v" {
-				t.Errorf("buildSetVersionInput() TagPrefix = %v, want v", input.TagPrefix)
-			}
-		})
-	}
-}
-
-func TestBuildSetVersionInput_ConfigDisabled(t *testing.T) {
-	// Setup test config with git features disabled
-	originalCfg := cfg
-	defer func() { cfg = originalCfg }()
-
-	cfg = &config.Config{
-		Versioning: config.VersioningConfig{
-			TagPrefix: "release-",
-			GitTag:    false,
-			GitPush:   false,
-		},
-	}
-
-	ver, _ := version.Parse("1.0.0")
-	input := buildSetVersionInput(ver, true, true, false)
-
-	// Even though we request createTag and pushTag, config disables them
-	if input.CreateTag != false {
-		t.Errorf("buildSetVersionInput() CreateTag should be false when GitTag is disabled")
-	}
-
-	if input.PushTag != false {
-		t.Errorf("buildSetVersionInput() PushTag should be false when GitPush is disabled")
 	}
 }

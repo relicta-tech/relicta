@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/application/versioning"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/communication"
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
@@ -200,11 +199,8 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	if err != nil {
 		return fmt.Errorf("bump failed: %w", err)
 	}
-	if bumpOutput.TagCreated {
-		fmt.Printf("  Created tag: %s\n", bumpOutput.TagName)
-	} else {
-		fmt.Printf("  Using tag: %s\n", bumpOutput.TagName)
-	}
+	fmt.Printf("  Version: %s\n", bumpOutput.Version.String())
+	fmt.Printf("  Tag %s will be created during publish\n", bumpOutput.TagName)
 	fmt.Println()
 
 	// Step 3: Generate notes
@@ -381,10 +377,15 @@ func releaseTypeToBumpKind(rt changes.ReleaseType) releasedomain.BumpKind {
 	}
 }
 
+// releaseBumpOutput holds the result of the bump step for the workflow.
+type releaseBumpOutput struct {
+	Version version.SemanticVersion
+	TagName string
+}
+
 // runReleaseBump executes the bump step using the shared workflow context.
-// In tag-push mode, it skips tag creation since the tag already exists.
-// Tag creation is handled here; publish step does not create tags.
-func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext, plan *servicerelease.AnalyzeOutput) (*versioning.SetVersionOutput, error) {
+// Tags are created during the publish step, not here.
+func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext, plan *servicerelease.AnalyzeOutput) (*releaseBumpOutput, error) {
 	var ver version.SemanticVersion
 	if releaseForce != "" {
 		parsed, err := version.Parse(releaseForce)
@@ -396,33 +397,18 @@ func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 		ver = plan.NextVersion
 	}
 
-	// Use pre-detected mode: skip tag creation if tag already exists
-	createTag := cfg.Versioning.GitTag
-	if wfCtx.mode == releaseModeTagPush && wfCtx.existingVersion != nil && wfCtx.existingVersion.Compare(ver) == 0 {
-		createTag = false // Tag already exists
-	}
-
-	input := versioning.SetVersionInput{
-		Version:    ver,
-		TagPrefix:  cfg.Versioning.TagPrefix,
-		CreateTag:  createTag,
-		PushTag:    cfg.Versioning.GitPush && !releaseSkipPush,
-		Remote:     "origin",
-		TagMessage: fmt.Sprintf("Release %s", ver.String()),
-		DryRun:     dryRun,
-	}
-
-	output, err := c.SetVersion().Execute(ctx, input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set version: %w", err)
-	}
+	tagName := cfg.Versioning.TagPrefix + ver.String()
 
 	// Update release state - MUST succeed for workflow to continue
-	if err := updateReleaseVersion(ctx, c, output.Version); err != nil {
+	// Note: Tag creation has been moved to the publish step
+	if err := updateReleaseVersion(ctx, c, ver); err != nil {
 		return nil, fmt.Errorf("failed to update release state: %w", err)
 	}
 
-	return output, nil
+	return &releaseBumpOutput{
+		Version: ver,
+		TagName: tagName,
+	}, nil
 }
 
 // releaseNotesResult holds the result of notes generation for the workflow.
@@ -581,7 +567,7 @@ func runReleaseApproveExecute(ctx context.Context, c cliApp, approvedBy string) 
 }
 
 // runReleasePublish executes the publish step using DDD services.
-// Tag creation is handled by runReleaseBump; this step only publishes.
+// Tag creation is handled as the first step in publish (StepTypeTag).
 func runReleasePublish(ctx context.Context, c cliApp, plan *servicerelease.AnalyzeOutput) (*releasePublishResult, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)

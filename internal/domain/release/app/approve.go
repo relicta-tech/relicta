@@ -85,6 +85,10 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 		}
 	}
 
+	// Ensure the execution plan includes a tag step
+	// The tag step is the first step in publish, creating the version tag
+	uc.ensureTagStep(run)
+
 	// Approve the release
 	if err := run.Approve(input.Actor.ID, input.AutoApprove); err != nil {
 		return nil, fmt.Errorf("failed to approve: %w", err)
@@ -115,4 +119,31 @@ func (uc *ApproveReleaseUseCase) loadRun(ctx context.Context, repoRoot string, r
 		return uc.repo.Load(ctx, runID)
 	}
 	return uc.repo.LoadLatest(ctx, repoRoot)
+}
+
+// ensureTagStep ensures the execution plan includes a tag step.
+// The tag step creates and pushes the git tag during publish.
+// This is called during approve to ensure the plan is complete before publishing.
+func (uc *ApproveReleaseUseCase) ensureTagStep(run *domain.ReleaseRun) {
+	steps := run.Steps()
+
+	// Check if tag step already exists
+	for _, step := range steps {
+		if step.Type == domain.StepTypeTag {
+			return // Already has tag step
+		}
+	}
+
+	// Add tag step as the first step in the execution plan
+	// The tag step should be first because it creates the version marker
+	tagStep := domain.StepPlan{
+		Name: "create-tag",
+		Type: domain.StepTypeTag,
+	}
+
+	newSteps := make([]domain.StepPlan, 0, len(steps)+1)
+	newSteps = append(newSteps, tagStep)
+	newSteps = append(newSteps, steps...)
+
+	run.SetExecutionPlan(newSteps)
 }

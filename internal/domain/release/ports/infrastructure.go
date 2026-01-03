@@ -53,6 +53,19 @@ type VersionWriter interface {
 	WriteChangelog(ctx context.Context, ver version.SemanticVersion, notes string) error
 }
 
+// TagCreator creates and manages git tags.
+// This abstracts git operations for tag creation during the publish step.
+type TagCreator interface {
+	// CreateTag creates an annotated git tag with the given name and message.
+	CreateTag(ctx context.Context, name, message string) error
+
+	// PushTag pushes the specified tag to the remote repository.
+	PushTag(ctx context.Context, name, remote string) error
+
+	// TagExists checks if a tag with the given name already exists.
+	TagExists(ctx context.Context, name string) (bool, error)
+}
+
 // UnitOfWork provides transactional boundaries for domain operations.
 // This enables atomic commits of aggregate changes with their domain events.
 type UnitOfWork interface {

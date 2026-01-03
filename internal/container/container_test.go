@@ -301,8 +301,8 @@ func TestApp_Accessors_BeforeInitialize(t *testing.T) {
 	if c.CalculateVersion() != nil {
 		t.Error("CalculateVersion should return nil before Initialize")
 	}
-	if c.SetVersion() != nil {
-		t.Error("SetVersion should return nil before Initialize")
+	if c.TagCreator() != nil {
+		t.Error("TagCreator should return nil before Initialize")
 	}
 	if c.ReleaseServices() != nil {
 		t.Error("ReleaseServices should return nil before Initialize")
@@ -358,7 +358,7 @@ func TestApp_Accessors_ConcurrentRead(t *testing.T) {
 			defer wg.Done()
 			_ = c.ReleaseAnalyzer()
 			_ = c.CalculateVersion()
-			_ = c.SetVersion()
+			_ = c.TagCreator()
 			_ = c.ReleaseServices()
 			_ = c.HasReleaseServices()
 			_ = c.GitAdapter()
@@ -435,8 +435,8 @@ func TestApp_Initialize_Success(t *testing.T) {
 	if c.CalculateVersion() == nil {
 		t.Error("CalculateVersion should be initialized")
 	}
-	if c.SetVersion() == nil {
-		t.Error("SetVersion should be initialized")
+	if c.TagCreator() == nil {
+		t.Error("TagCreator should be initialized")
 	}
 	// Note: ReleaseServices requires InitReleaseServices() to be called with a repo path
 

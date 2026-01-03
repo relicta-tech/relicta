@@ -22,7 +22,6 @@ type commandTestApp struct {
 	releaseRepo   domainrelease.Repository
 	govSvc        *governance.Service
 	hasGov        bool
-	setVersionUC  setVersionUseCase
 	calcVersionUC calculateVersionUseCase
 }
 
@@ -31,7 +30,6 @@ func (a commandTestApp) GitAdapter() sourcecontrol.GitRepository           { ret
 func (a commandTestApp) ReleaseRepository() domainrelease.Repository       { return a.releaseRepo }
 func (a commandTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
 func (a commandTestApp) CalculateVersion() calculateVersionUseCase         { return a.calcVersionUC }
-func (a commandTestApp) SetVersion() setVersionUseCase                     { return a.setVersionUC }
 func (a commandTestApp) HasAI() bool                                       { return false }
 func (a commandTestApp) AI() ai.Service                                    { return nil }
 func (a commandTestApp) HasGovernance() bool                               { return a.hasGov }

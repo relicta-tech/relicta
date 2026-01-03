@@ -22,8 +22,6 @@ var (
 	bumpPrerelease string
 	bumpBuild      string
 	bumpForce      string
-	bumpCreateTag  bool
-	bumpPush       bool
 )
 
 func init() {
@@ -32,8 +30,7 @@ func init() {
 	bumpCmd.Flags().StringVarP(&bumpBuild, "build", "b", "", "build metadata")
 	bumpCmd.Flags().StringVar(&bumpForce, "force", "", "set a specific version (e.g., 2.0.0), bypasses commit analysis")
 	bumpCmd.Flags().StringVar(&bumpForce, "version", "", "alias for --force: set a specific version")
-	bumpCmd.Flags().BoolVar(&bumpCreateTag, "tag", true, "create git tag")
-	bumpCmd.Flags().BoolVar(&bumpPush, "push", false, "push tag to remote")
+	// Note: --tag and --push flags removed - tags are now created during 'relicta publish'
 }
 
 // parseBumpLevel parses the bump level flag and returns the bump type and whether auto-detection should be used.
@@ -52,45 +49,15 @@ func parseBumpLevel(level string) (version.BumpType, bool, error) {
 	}
 }
 
-// buildSetVersionInput creates the input for the SetVersion use case.
-func buildSetVersionInput(ver version.SemanticVersion, createTag, pushTag, dryRunMode bool) versioning.SetVersionInput {
-	return versioning.SetVersionInput{
-		Version:    ver,
-		TagPrefix:  cfg.Versioning.TagPrefix,
-		CreateTag:  createTag && cfg.Versioning.GitTag,
-		PushTag:    pushTag && cfg.Versioning.GitPush,
-		Remote:     "origin",
-		TagMessage: fmt.Sprintf("Release %s", ver.String()),
-		DryRun:     dryRunMode,
-	}
-}
-
-// outputSetVersionResult outputs the result of a SetVersion operation as text.
-func outputSetVersionResult(output *versioning.SetVersionOutput) {
-	printInfo(fmt.Sprintf("Version set to: %s%s", cfg.Versioning.TagPrefix, output.Version.String()))
-	if output.TagCreated {
-		printSuccess(fmt.Sprintf("Created tag %s", output.TagName))
-	}
-	if output.TagPushed {
-		printSuccess("Tag pushed to remote")
-	}
-}
-
 // handleForcedVersion handles the --force flag to set a specific version.
+// Tags are created during 'relicta publish', not here.
 func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr string) error {
 	forcedVersion, err := version.Parse(forcedVersionStr)
 	if err != nil {
 		return fmt.Errorf("invalid version format: %w", err)
 	}
 
-	setInput := buildSetVersionInput(forcedVersion, bumpCreateTag, bumpPush, dryRun)
-
-	output, err := app.SetVersion().Execute(ctx, setInput)
-	if err != nil {
-		return fmt.Errorf("failed to set version: %w", err)
-	}
-
-	// Update release state if there's an active release (same as normal bump flow)
+	// Update release state if there's an active release
 	// ErrRunNotFound is expected when bump runs standalone without prior plan
 	if !dryRun {
 		if err := updateReleaseVersion(ctx, app, forcedVersion); err != nil {
@@ -100,11 +67,20 @@ func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr strin
 		}
 	}
 
+	tagName := cfg.Versioning.TagPrefix + forcedVersion.String()
+
 	if outputJSON {
-		return outputSetVersionJSON(output)
+		output := map[string]any{
+			"version":  forcedVersion.String(),
+			"tag_name": tagName,
+		}
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(output)
 	}
 
-	outputSetVersionResult(output)
+	printInfo(fmt.Sprintf("Version set to: %s%s", cfg.Versioning.TagPrefix, forcedVersion.String()))
+	printInfo(fmt.Sprintf("Tag %s will be created during 'relicta publish'", tagName))
 	return nil
 }
 
@@ -134,53 +110,17 @@ func outputCalculatedVersionText(calcOutput *versioning.CalculateVersionOutput, 
 	fmt.Println()
 }
 
-// applyVersionTag creates and optionally pushes the version tag.
-func applyVersionTag(ctx context.Context, app cliApp, nextVersion version.SemanticVersion) error {
-	if !bumpCreateTag || !cfg.Versioning.GitTag {
-		return nil
-	}
-
-	setInput := buildSetVersionInput(nextVersion, true, bumpPush, false)
-
-	// Show spinner for tag operations (especially if pushing)
-	var spinner *Spinner
-	if !outputJSON {
-		spinnerMsg := "Creating version tag..."
-		if bumpPush {
-			spinnerMsg = "Creating and pushing version tag..."
-		}
-		spinner = NewSpinner(spinnerMsg)
-		spinner.Start()
-	}
-
-	setOutput, err := app.SetVersion().Execute(ctx, setInput)
-
-	if spinner != nil {
-		spinner.Stop()
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to set version: %w", err)
-	}
-
-	if setOutput.TagCreated {
-		printSuccess(fmt.Sprintf("Created tag %s", setOutput.TagName))
-	}
-	if setOutput.TagPushed {
-		printSuccess("Tag pushed to remote")
-	}
-
-	return nil
-}
-
 // printBumpNextSteps prints the next steps after a version bump.
-func printBumpNextSteps() {
+func printBumpNextSteps(nextVersion version.SemanticVersion) {
+	tagName := cfg.Versioning.TagPrefix + nextVersion.String()
+	fmt.Println()
+	printInfo(fmt.Sprintf("Tag %s will be created during 'relicta publish'", tagName))
 	fmt.Println()
 	printTitle("Next Steps")
 	fmt.Println()
 	fmt.Println("  1. Run 'relicta notes' to generate release notes")
 	fmt.Println("  2. Run 'relicta approve' to review and approve")
-	fmt.Println("  3. Run 'relicta publish' to execute the release")
+	fmt.Println("  3. Run 'relicta publish' to create the tag and publish")
 	fmt.Println()
 }
 
@@ -260,13 +200,9 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Apply version tag
-	if err := applyVersionTag(ctx, app, nextVersion); err != nil {
-		return err
-	}
-
 	// Update release state if there's an active release
 	// ErrRunNotFound is expected when bump runs standalone without prior plan
+	// Note: Tags are created during 'relicta publish', not here
 	if err := updateReleaseVersion(ctx, app, nextVersion); err != nil {
 		if !errors.Is(err, release.ErrRunNotFound) {
 			return fmt.Errorf("failed to update release state: %w", err)
@@ -278,7 +214,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		return outputBumpJSON(calcOutput.CurrentVersion, nextVersion, calcOutput.BumpType, calcOutput.AutoDetected)
 	}
 
-	printBumpNextSteps()
+	printBumpNextSteps(nextVersion)
 	return nil
 }
 
@@ -315,47 +251,26 @@ func runBumpTagPush(ctx context.Context, app cliApp, existingVer version.Semanti
 }
 
 // finishBumpTagPush completes the tag-push bump operation.
-func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer version.SemanticVersion, createNewTag bool) error {
+// Tags are created during 'relicta publish', not here.
+func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer version.SemanticVersion, needsNewTag bool) error {
 	tagName := cfg.Versioning.TagPrefix + targetVer.String()
-	existingTagName := cfg.Versioning.TagPrefix + existingVer.String()
 
-	// Create new tag and delete old one if needed
-	if createNewTag && !dryRun {
-		// Delete the old tag first
-		gitAdapter := app.GitAdapter()
-		if err := gitAdapter.DeleteTag(ctx, existingTagName); err != nil {
-			printWarning(fmt.Sprintf("Could not delete old tag %s: %v", existingTagName, err))
-		} else {
-			printInfo(fmt.Sprintf("Deleted old tag %s", existingTagName))
-		}
-
-		// Create new tag
-		setInput := buildSetVersionInput(targetVer, bumpCreateTag, bumpPush, dryRun)
-		setOutput, err := app.SetVersion().Execute(ctx, setInput)
-		if err != nil {
-			return fmt.Errorf("failed to create version tag: %w", err)
-		}
-		if setOutput.TagCreated {
-			printSuccess(fmt.Sprintf("Created tag %s", setOutput.TagName))
-		}
-		if setOutput.TagPushed {
-			printSuccess("Tag pushed to remote")
-		}
-	}
-
-	// Update release state
+	// Update release state (unless dry run)
 	if !dryRun {
 		if err := updateReleaseVersion(ctx, app, targetVer); err != nil {
 			if errors.Is(err, release.ErrRunNotFound) {
-				printInfo("No active release to update")
+				if !outputJSON {
+					printInfo("No active release to update")
+				}
 			} else {
 				return fmt.Errorf("failed to update release state: %w", err)
 			}
-		} else {
+		} else if !outputJSON {
 			printSuccess(fmt.Sprintf("Release state updated with version %s", targetVer.String()))
 		}
 	}
 
+	// JSON output
 	if outputJSON {
 		output := map[string]any{
 			"mode":            "tag-push",
@@ -363,11 +278,15 @@ func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer v
 			"current_version": existingVer.String(),
 			"next_version":    targetVer.String(),
 			"tag_name":        tagName,
-			"tag_created":     createNewTag,
 		}
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(output)
+	}
+
+	// Text output - Note about tag creation
+	if needsNewTag {
+		printInfo(fmt.Sprintf("Tag %s will be created during 'relicta publish'", tagName))
 	}
 
 	// Show next steps
@@ -376,7 +295,7 @@ func finishBumpTagPush(ctx context.Context, app cliApp, existingVer, targetVer v
 	fmt.Println()
 	fmt.Println("  1. Run 'relicta notes' to generate release notes")
 	fmt.Println("  2. Run 'relicta approve --yes' to approve the release")
-	fmt.Println("  3. Run 'relicta publish --skip-push' to execute the release")
+	fmt.Println("  3. Run 'relicta publish' to create the tag and publish")
 	fmt.Println()
 
 	return nil

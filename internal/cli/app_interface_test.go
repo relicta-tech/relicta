@@ -15,9 +15,6 @@ func TestContainerAppWrapperAccessors(t *testing.T) {
 	if wrapper.CalculateVersion() != nil {
 		t.Log("CalculateVersion returned non-nil (expected nil for empty container)")
 	}
-	if wrapper.SetVersion() != nil {
-		t.Log("SetVersion returned non-nil (expected nil for empty container)")
-	}
 	if wrapper.ReleaseServices() != nil {
 		t.Log("ReleaseServices returned non-nil (expected nil for empty container)")
 	}

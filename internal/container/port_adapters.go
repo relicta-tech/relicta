@@ -228,18 +228,41 @@ func (a *NotesGeneratorAdapter) mapAudience(preset string) ai.Audience {
 type PublisherAdapter struct {
 	executor   integration.PluginExecutor
 	gitAdapter *git.Adapter
+	tagCreator ports.TagCreator
+	skipPush   bool // Skip pushing tags (useful for dry-run or local testing)
+}
+
+// PublisherAdapterOption configures the PublisherAdapter.
+type PublisherAdapterOption func(*PublisherAdapter)
+
+// WithSkipPush configures the PublisherAdapter to skip pushing tags.
+func WithSkipPush(skip bool) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.skipPush = skip
+	}
 }
 
 // NewPublisherAdapter creates a new PublisherAdapter.
-func NewPublisherAdapter(executor integration.PluginExecutor, gitAdapter *git.Adapter) *PublisherAdapter {
-	return &PublisherAdapter{
+func NewPublisherAdapter(executor integration.PluginExecutor, gitAdapter *git.Adapter, tagCreator ports.TagCreator, opts ...PublisherAdapterOption) *PublisherAdapter {
+	a := &PublisherAdapter{
 		executor:   executor,
 		gitAdapter: gitAdapter,
+		tagCreator: tagCreator,
 	}
+	for _, opt := range opts {
+		opt(a)
+	}
+	return a
 }
 
 // ExecuteStep executes a single step in the publishing plan.
 func (a *PublisherAdapter) ExecuteStep(ctx context.Context, run *domain.ReleaseRun, step *domain.StepPlan) (*ports.StepResult, error) {
+	// Handle tag step specially - this is where tags are created during publish
+	if step.Type == domain.StepTypeTag {
+		return a.executeTagStep(ctx, run)
+	}
+
+	// For other steps, use the plugin executor
 	if a.executor == nil {
 		return nil, fmt.Errorf("no plugin executor configured")
 	}
@@ -276,6 +299,66 @@ func (a *PublisherAdapter) ExecuteStep(ctx context.Context, run *domain.ReleaseR
 		if resp.Message != "" {
 			output += resp.Message + "\n"
 		}
+	}
+
+	return &ports.StepResult{
+		Success: true,
+		Output:  output,
+	}, nil
+}
+
+// executeTagStep creates and pushes the git tag for the release.
+func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.ReleaseRun) (*ports.StepResult, error) {
+	if a.tagCreator == nil {
+		return nil, fmt.Errorf("tag creator not configured")
+	}
+
+	tagName := run.TagName()
+	if tagName == "" {
+		tagName = "v" + run.VersionNext().String()
+	}
+
+	// Check if tag already exists (idempotency)
+	exists, err := a.tagCreator.TagExists(ctx, tagName)
+	if err != nil {
+		return &ports.StepResult{
+			Success: false,
+			Error:   fmt.Errorf("failed to check tag existence: %w", err),
+		}, err
+	}
+	if exists {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Tag %s already exists (idempotent)", tagName),
+		}, nil
+	}
+
+	// Create the annotated tag
+	message := fmt.Sprintf("Release %s", run.VersionNext().String())
+	if run.Notes() != nil && run.Notes().Text != "" {
+		// Include a summary in the tag message
+		message = fmt.Sprintf("Release %s\n\n%s", run.VersionNext().String(), run.Notes().Text)
+	}
+
+	if err := a.tagCreator.CreateTag(ctx, tagName, message); err != nil {
+		return &ports.StepResult{
+			Success: false,
+			Error:   err,
+		}, err
+	}
+
+	output := fmt.Sprintf("Created tag %s", tagName)
+
+	// Push the tag unless skipPush is set
+	if !a.skipPush {
+		if err := a.tagCreator.PushTag(ctx, tagName, "origin"); err != nil {
+			return &ports.StepResult{
+				Success: false,
+				Output:  output,
+				Error:   fmt.Errorf("tag created but push failed: %w", err),
+			}, err
+		}
+		output = fmt.Sprintf("Created and pushed tag %s", tagName)
 	}
 
 	return &ports.StepResult{
@@ -389,6 +472,68 @@ func (a *VersionWriterAdapter) WriteChangelog(ctx context.Context, ver version.S
 	// Changelog writing is typically handled during the publish step
 	// This is a placeholder for the port interface
 	return nil
+}
+
+// TagCreatorAdapter adapts git operations to the ports.TagCreator interface.
+// It handles creating and pushing git tags during the publish step.
+type TagCreatorAdapter struct {
+	gitAdapter *git.Adapter
+}
+
+// NewTagCreatorAdapter creates a new TagCreatorAdapter.
+func NewTagCreatorAdapter(gitAdapter *git.Adapter) *TagCreatorAdapter {
+	return &TagCreatorAdapter{
+		gitAdapter: gitAdapter,
+	}
+}
+
+// CreateTag creates an annotated git tag with the given name and message.
+func (a *TagCreatorAdapter) CreateTag(ctx context.Context, name, message string) error {
+	if a.gitAdapter == nil {
+		return fmt.Errorf("git adapter not configured")
+	}
+
+	// Get the HEAD commit to tag
+	headCommit, err := a.gitAdapter.GetLatestCommit(ctx, "HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to get HEAD commit: %w", err)
+	}
+
+	// Create the tag at HEAD
+	_, err = a.gitAdapter.CreateTag(ctx, name, headCommit.Hash(), message)
+	if err != nil {
+		return fmt.Errorf("failed to create tag %s: %w", name, err)
+	}
+
+	return nil
+}
+
+// PushTag pushes the specified tag to the remote repository.
+func (a *TagCreatorAdapter) PushTag(ctx context.Context, name, remote string) error {
+	if a.gitAdapter == nil {
+		return fmt.Errorf("git adapter not configured")
+	}
+
+	if err := a.gitAdapter.PushTag(ctx, name, remote); err != nil {
+		return fmt.Errorf("failed to push tag %s to %s: %w", name, remote, err)
+	}
+
+	return nil
+}
+
+// TagExists checks if a tag with the given name already exists.
+func (a *TagCreatorAdapter) TagExists(ctx context.Context, name string) (bool, error) {
+	if a.gitAdapter == nil {
+		return false, fmt.Errorf("git adapter not configured")
+	}
+
+	tag, err := a.gitAdapter.GetTag(ctx, name)
+	if err != nil {
+		// Tag not found is expected, not an error
+		return false, nil
+	}
+
+	return tag != nil, nil
 }
 
 // Helper function to create a pointer to a value.

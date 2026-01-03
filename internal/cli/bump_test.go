@@ -127,8 +127,6 @@ func TestBumpCommand_FlagsExist(t *testing.T) {
 		{"prerelease flag", "prerelease"},
 		{"build flag", "build"},
 		{"force flag", "force"},
-		{"tag flag", "tag"},
-		{"push flag", "push"},
 	}
 
 	for _, tt := range tests {
@@ -138,28 +136,6 @@ func TestBumpCommand_FlagsExist(t *testing.T) {
 				t.Errorf("bump command missing %s flag", tt.flagName)
 			}
 		})
-	}
-}
-
-func TestBumpCommand_TagFlagDefaultValue(t *testing.T) {
-	flag := bumpCmd.Flags().Lookup("tag")
-	if flag == nil {
-		t.Fatal("tag flag not found")
-	}
-	// Default value should be true
-	if flag.DefValue != "true" {
-		t.Errorf("tag flag default = %v, want true", flag.DefValue)
-	}
-}
-
-func TestBumpCommand_PushFlagDefaultValue(t *testing.T) {
-	flag := bumpCmd.Flags().Lookup("push")
-	if flag == nil {
-		t.Fatal("push flag not found")
-	}
-	// Default value should be false
-	if flag.DefValue != "false" {
-		t.Errorf("push flag default = %v, want false", flag.DefValue)
 	}
 }
 
@@ -187,100 +163,6 @@ func TestBumpCommand_HasAliases(t *testing.T) {
 
 	if !hasVersionBumpAlias {
 		t.Error("bump command should have 'version-bump' alias")
-	}
-}
-
-func TestBuildSetVersionInput(t *testing.T) {
-	// Setup test config
-	originalCfg := cfg
-	defer func() { cfg = originalCfg }()
-
-	cfg = &config.Config{
-		Versioning: config.VersioningConfig{
-			TagPrefix: "v",
-			GitTag:    true,
-			GitPush:   true,
-		},
-	}
-
-	ver, _ := version.Parse("1.2.3")
-
-	tests := []struct {
-		name       string
-		ver        version.SemanticVersion
-		createTag  bool
-		pushTag    bool
-		dryRunMode bool
-		wantTag    bool
-		wantPush   bool
-	}{
-		{
-			name:       "create and push tag",
-			ver:        ver,
-			createTag:  true,
-			pushTag:    true,
-			dryRunMode: false,
-			wantTag:    true,
-			wantPush:   true,
-		},
-		{
-			name:       "create tag only",
-			ver:        ver,
-			createTag:  true,
-			pushTag:    false,
-			dryRunMode: false,
-			wantTag:    true,
-			wantPush:   false,
-		},
-		{
-			name:       "no tag creation",
-			ver:        ver,
-			createTag:  false,
-			pushTag:    false,
-			dryRunMode: false,
-			wantTag:    false,
-			wantPush:   false,
-		},
-		{
-			name:       "dry run mode",
-			ver:        ver,
-			createTag:  true,
-			pushTag:    true,
-			dryRunMode: true,
-			wantTag:    true,
-			wantPush:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			input := buildSetVersionInput(tt.ver, tt.createTag, tt.pushTag, tt.dryRunMode)
-
-			if input.Version.String() != tt.ver.String() {
-				t.Errorf("buildSetVersionInput() version = %v, want %v", input.Version, tt.ver)
-			}
-
-			if input.CreateTag != tt.wantTag {
-				t.Errorf("buildSetVersionInput() CreateTag = %v, want %v", input.CreateTag, tt.wantTag)
-			}
-
-			if input.PushTag != tt.wantPush {
-				t.Errorf("buildSetVersionInput() PushTag = %v, want %v", input.PushTag, tt.wantPush)
-			}
-
-			if input.DryRun != tt.dryRunMode {
-				t.Errorf("buildSetVersionInput() DryRun = %v, want %v", input.DryRun, tt.dryRunMode)
-			}
-
-			if input.TagPrefix != "v" {
-				t.Errorf("buildSetVersionInput() TagPrefix = %v, want v", input.TagPrefix)
-			}
-
-			expectedMessage := "Release 1.2.3"
-			if input.TagMessage != expectedMessage {
-				t.Errorf("buildSetVersionInput() TagMessage = %v, want %v", input.TagMessage, expectedMessage)
-			}
-		})
 	}
 }
 
@@ -416,9 +298,8 @@ func TestOutputBumpJSON(t *testing.T) {
 
 // bumpTestApp is a test cliApp implementation for bump tests.
 type bumpTestApp struct {
-	gitRepo    sourcecontrol.GitRepository
-	calculate  calculateVersionUseCase
-	setVersion setVersionUseCase
+	gitRepo   sourcecontrol.GitRepository
+	calculate calculateVersionUseCase
 }
 
 func (b bumpTestApp) Close() error                                      { return nil }
@@ -426,7 +307,6 @@ func (b bumpTestApp) GitAdapter() sourcecontrol.GitRepository           { return
 func (b bumpTestApp) ReleaseRepository() domainrelease.Repository       { return nil }
 func (b bumpTestApp) ReleaseAnalyzer() *servicerelease.Analyzer         { return nil }
 func (b bumpTestApp) CalculateVersion() calculateVersionUseCase         { return b.calculate }
-func (b bumpTestApp) SetVersion() setVersionUseCase                     { return b.setVersion }
 func (b bumpTestApp) HasAI() bool                                       { return false }
 func (b bumpTestApp) AI() ai.Service                                    { return nil }
 func (b bumpTestApp) HasGovernance() bool                               { return false }
@@ -587,9 +467,10 @@ func TestRunBumpTagPush_VersionsMatch(t *testing.T) {
 	if decoded["mode"] != "tag-push" {
 		t.Fatalf("expected mode=tag-push, got %v", decoded["mode"])
 	}
-	// When versions match, tag should not be created
-	if decoded["tag_created"] != false {
-		t.Fatalf("expected tag_created=false when versions match, got %v", decoded["tag_created"])
+	// When versions match, next_version should equal current
+	// Note: tag_created field removed - tags are now created during publish
+	if decoded["next_version"] != existingVer.String() {
+		t.Fatalf("expected next_version=%s when versions match, got %v", existingVer.String(), decoded["next_version"])
 	}
 }
 
