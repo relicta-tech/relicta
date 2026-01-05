@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/log v0.4.2
 	github.com/felixgeelhaar/fortify v1.1.2
-	github.com/felixgeelhaar/mcp-go v1.3.1
+	github.com/felixgeelhaar/mcp-go v1.4.0
 	github.com/felixgeelhaar/statekit v1.0.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.3
