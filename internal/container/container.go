@@ -267,7 +267,6 @@ func (c *App) initAIService(ctx context.Context) (ai.Service, error) {
 	// No network calls occur during construction; actual API calls happen in Generate()
 	// which accepts context for cancellation. Lazy initialization was considered but
 	// adds complexity; eager init is acceptable since this only runs when AI is enabled.
-	//nolint:contextcheck // Constructor is pure configuration; context used in method calls
 	return ai.NewService(opts...)
 }
 

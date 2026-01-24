@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
@@ -125,8 +127,41 @@ func (a *CommitAnalyzer) Analyze(ctx context.Context, commit CommitInfo) (*Commi
 	}, nil
 }
 
-// AnalyzeAll classifies multiple commits.
+// classificationResult holds the result from a worker.
+type classificationResult struct {
+	commit         CommitInfo
+	classification *CommitClassification
+	err            error
+}
+
+// AnalyzeAll classifies multiple commits using a worker pool for parallelization.
 func (a *CommitAnalyzer) AnalyzeAll(ctx context.Context, commits []CommitInfo) (*AnalysisResult, error) {
+	if len(commits) == 0 {
+		return &AnalysisResult{
+			Classifications: make(map[sourcecontrol.CommitHash]*CommitClassification),
+			Stats:           AnalysisStats{MethodBreakdown: make(map[ClassifyMethod]int)},
+		}, nil
+	}
+
+	// Determine concurrency level
+	workers := a.cfg.Concurrency
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+	}
+	// Don't spawn more workers than commits
+	if workers > len(commits) {
+		workers = len(commits)
+	}
+	// Use sequential processing for single worker or small commit sets
+	if workers <= 1 || len(commits) < 10 {
+		return a.analyzeAllSequential(ctx, commits)
+	}
+
+	return a.analyzeAllParallel(ctx, commits, workers)
+}
+
+// analyzeAllSequential processes commits sequentially (original behavior).
+func (a *CommitAnalyzer) analyzeAllSequential(ctx context.Context, commits []CommitInfo) (*AnalysisResult, error) {
 	result := &AnalysisResult{
 		Classifications: make(map[sourcecontrol.CommitHash]*CommitClassification, len(commits)),
 		Stats: AnalysisStats{
@@ -166,6 +201,111 @@ func (a *CommitAnalyzer) AnalyzeAll(ctx context.Context, commits []CommitInfo) (
 				result.Stats.LowConfidenceCommits = append(result.Stats.LowConfidenceCommits, commit.Hash)
 			}
 		}
+	}
+
+	if result.Stats.TotalCommits > 0 {
+		result.Stats.AverageConfidence = totalConfidence / float64(result.Stats.TotalCommits)
+	}
+
+	return result, nil
+}
+
+// analyzeAllParallel processes commits using a worker pool.
+func (a *CommitAnalyzer) analyzeAllParallel(ctx context.Context, commits []CommitInfo, workers int) (*AnalysisResult, error) {
+	// Create channels for work distribution and result collection
+	commitCh := make(chan CommitInfo, len(commits))
+	resultCh := make(chan classificationResult, len(commits))
+
+	// Create a cancellable context for early termination on error
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Start worker pool
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for commit := range commitCh {
+				// Check for cancellation
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
+				classification, err := a.Analyze(ctx, commit)
+				resultCh <- classificationResult{
+					commit:         commit,
+					classification: classification,
+					err:            err,
+				}
+			}
+		}()
+	}
+
+	// Send commits to workers
+	for _, commit := range commits {
+		commitCh <- commit
+	}
+	close(commitCh)
+
+	// Wait for all workers to complete and close result channel
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	// Collect results
+	result := &AnalysisResult{
+		Classifications: make(map[sourcecontrol.CommitHash]*CommitClassification, len(commits)),
+		Stats: AnalysisStats{
+			MethodBreakdown: make(map[ClassifyMethod]int),
+		},
+	}
+
+	var totalConfidence float64
+	var firstErr error
+
+	for res := range resultCh {
+		if res.err != nil {
+			if firstErr == nil {
+				firstErr = res.err
+				cancel() // Signal workers to stop
+			}
+			continue
+		}
+
+		classification := res.classification
+		result.Classifications[res.commit.Hash] = classification
+		result.Stats.TotalCommits++
+
+		if classification != nil {
+			totalConfidence += classification.Confidence
+			result.Stats.MethodBreakdown[classification.Method]++
+
+			switch classification.Method {
+			case MethodConventional:
+				result.Stats.ConventionalCount++
+			case MethodHeuristic:
+				result.Stats.HeuristicCount++
+			case MethodAST:
+				result.Stats.ASTCount++
+			case MethodAI:
+				result.Stats.AICount++
+			case MethodSkipped:
+				result.Stats.SkippedCount++
+			}
+
+			if classification.Method != MethodSkipped && classification.Confidence < a.cfg.MinConfidence {
+				result.Stats.LowConfidenceCount++
+				result.Stats.LowConfidenceCommits = append(result.Stats.LowConfidenceCommits, res.commit.Hash)
+			}
+		}
+	}
+
+	if firstErr != nil {
+		return nil, firstErr
 	}
 
 	if result.Stats.TotalCommits > 0 {

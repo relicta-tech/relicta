@@ -1,0 +1,437 @@
+name: Benchmark
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/benchmark.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/benchmark.yaml'
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC for trend tracking
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      collect_trends:
+        description: 'Collect trend data'
+        type: boolean
+        default: false
+
+env:
+  GO_VERSION: '1.24'
+  GOTOOLCHAIN: local
+  # Performance targets
+  TARGET_PLAN_MS: 1000        # plan < 1s for 1000 commits
+  TARGET_NOTES_MS: 500        # notes (no AI) < 500ms
+  TARGET_PLUGIN_MS: 200       # plugin loading < 200ms
+  TARGET_BINARY_SIZE: 20971520 # 20MB in bytes
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Download baseline benchmarks
+        uses: actions/cache@v5
+        id: bench-cache
+        with:
+          path: ./bench-baseline.txt
+          key: bench-baseline-${{ runner.os }}-${{ hashFiles('go.mod') }}
+          restore-keys: |
+            bench-baseline-${{ runner.os }}-
+
+      - name: Run benchmarks
+        run: |
+          echo "Running benchmarks with 5 iterations..."
+          go test -bench=. -benchmem -count=5 -run=^$ \
+            ./internal/service/release/... \
+            ./internal/domain/release/app/... \
+            ./internal/benchmark/... \
+            ./internal/plugin/... \
+            ./internal/analysis/... \
+            ./internal/infrastructure/template/... | tee bench-current.txt
+
+      - name: Compare with baseline
+        if: steps.bench-cache.outputs.cache-hit == 'true'
+        id: compare
+        run: |
+          echo "Comparing against baseline..."
+          benchstat bench-baseline.txt bench-current.txt > benchstat-output.txt || true
+          cat benchstat-output.txt
+
+          # Check for significant regressions (> 50%)
+          if grep -E '\+[5-9][0-9]\.[0-9]+%|\+[1-9][0-9][0-9]+\.[0-9]+%' benchstat-output.txt; then
+            echo "WARNING: Significant performance regression detected (>50%)"
+            echo "regression=true" >> $GITHUB_OUTPUT
+          else
+            echo "regression=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Save as baseline (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cp bench-current.txt bench-baseline.txt
+          echo "Baseline updated for main branch"
+
+      - name: Update baseline cache
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/cache/save@v5
+        with:
+          path: ./bench-baseline.txt
+          key: bench-baseline-${{ runner.os }}-${{ hashFiles('go.mod') }}
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-results
+          path: |
+            bench-current.txt
+            benchstat-output.txt
+          retention-days: 30
+
+      - name: Comment on PR with results
+        if: github.event_name == 'pull_request' && steps.bench-cache.outputs.cache-hit == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const benchstat = fs.readFileSync('benchstat-output.txt', 'utf8');
+            const regression = '${{ steps.compare.outputs.regression }}' === 'true';
+
+            const body = `## Benchmark Results
+
+            ${regression ? '⚠️ **Warning: Significant performance regression detected (>50%)**' : '✅ No significant regressions detected'}
+
+            <details>
+            <summary>Benchmark Comparison</summary>
+
+            \`\`\`
+            ${benchstat}
+            \`\`\`
+
+            </details>
+
+            ### Performance Targets
+            - Plan command: < 1s for 1000 commits
+            - Notes generation (no AI): < 500ms
+            - Plugin loading: < 200ms total
+            - Binary size: < 20MB
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  binary-size:
+    name: Check Binary Size
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build binary
+        run: |
+          go build -ldflags="-s -w" -o relicta ./cmd/relicta
+
+      - name: Check binary size
+        id: size-check
+        run: |
+          BINARY_SIZE=$(stat -c%s relicta)
+          BINARY_SIZE_MB=$(echo "scale=2; $BINARY_SIZE / 1048576" | bc)
+          echo "Binary size: ${BINARY_SIZE_MB}MB ($BINARY_SIZE bytes)"
+          echo "size=$BINARY_SIZE" >> $GITHUB_OUTPUT
+          echo "size_mb=$BINARY_SIZE_MB" >> $GITHUB_OUTPUT
+
+          if [ $BINARY_SIZE -gt ${{ env.TARGET_BINARY_SIZE }} ]; then
+            echo "❌ Binary size exceeds 20MB target!"
+            echo "passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ Binary size is within 20MB target"
+            echo "passed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment binary size on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const size = '${{ steps.size-check.outputs.size_mb }}';
+            const passed = '${{ steps.size-check.outputs.passed }}' === 'true';
+            const icon = passed ? '✅' : '❌';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Binary Size Check\n\n${icon} Binary size: **${size}MB** (target: < 20MB)`
+            });
+
+  memory-benchmark:
+    name: Memory Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run memory benchmarks
+        run: |
+          echo "Running memory-focused benchmarks..."
+          go test -bench=BenchmarkMemory -benchmem -run=^$ \
+            ./internal/benchmark/... | tee bench-memory.txt
+
+      - name: Analyze memory usage
+        run: |
+          echo "=== Memory Benchmark Summary ==="
+          echo ""
+          echo "Target: < 50MB typical memory usage"
+          echo ""
+          cat bench-memory.txt
+          echo ""
+          echo "================================"
+
+      - name: Upload memory benchmark results
+        uses: actions/upload-artifact@v6
+        with:
+          name: memory-benchmark-results
+          path: bench-memory.txt
+          retention-days: 30
+
+  trend-tracking:
+    name: Historical Trend Tracking
+    runs-on: ubuntu-latest
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_dispatch' && inputs.collect_trends))
+    needs: [benchmark, memory-benchmark]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download benchmark history
+        uses: actions/cache@v5
+        id: history-cache
+        with:
+          path: ./bench-history.json
+          key: bench-history-v1-${{ runner.os }}
+          restore-keys: |
+            bench-history-v1-
+
+      - name: Initialize history file
+        if: steps.history-cache.outputs.cache-hit != 'true'
+        run: echo '{"entries":[]}' > bench-history.json
+
+      - name: Run key benchmarks for trends
+        run: |
+          echo "Running key benchmarks for trend tracking..."
+          go test -bench='BenchmarkAnalyzer_Analyze|BenchmarkE2E_PlanCommand|BenchmarkService_RenderChangelog' \
+            -benchmem -count=3 -run=^$ \
+            ./internal/service/release/... \
+            ./internal/benchmark/... \
+            ./internal/analysis/... \
+            ./internal/infrastructure/template/... 2>/dev/null | tee bench-trend.txt
+
+      - name: Update trend history
+        run: |
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMIT="${{ github.sha }}"
+
+          # Extract key metrics from benchmark output
+          # Format: BenchmarkName-N    iterations    ns/op    B/op    allocs/op
+
+          # Create temporary file with new entry
+          cat > trend-entry.json << 'EOF'
+          {
+            "date": "$DATE",
+            "commit": "$COMMIT",
+            "benchmarks": {}
+          }
+          EOF
+
+          # Parse benchmark results and create JSON entry
+          python3 << 'PYTHON'
+          import json
+          import re
+          import os
+          from datetime import datetime
+
+          # Read current history
+          try:
+              with open('bench-history.json', 'r') as f:
+                  history = json.load(f)
+          except:
+              history = {"entries": []}
+
+          # Parse benchmark results
+          benchmarks = {}
+          with open('bench-trend.txt', 'r') as f:
+              for line in f:
+                  # Match benchmark output lines
+                  match = re.match(r'^(Benchmark\w+)(?:-\d+)?\s+(\d+)\s+([\d.]+)\s+ns/op\s+([\d.]+)\s+B/op\s+(\d+)\s+allocs/op', line)
+                  if match:
+                      name = match.group(1)
+                      # Only keep the best run for each benchmark
+                      ns_per_op = float(match.group(3))
+                      if name not in benchmarks or ns_per_op < benchmarks[name]['ns_per_op']:
+                          benchmarks[name] = {
+                              'ns_per_op': ns_per_op,
+                              'b_per_op': float(match.group(4)),
+                              'allocs_per_op': int(match.group(5))
+                          }
+
+          # Create new entry
+          entry = {
+              "date": datetime.utcnow().isoformat() + "Z",
+              "commit": os.environ.get('GITHUB_SHA', 'unknown')[:8],
+              "benchmarks": benchmarks
+          }
+
+          # Add to history (keep last 50 entries)
+          history["entries"].append(entry)
+          history["entries"] = history["entries"][-50:]
+
+          # Write updated history
+          with open('bench-history.json', 'w') as f:
+              json.dump(history, f, indent=2)
+
+          # Generate trend report
+          if len(history["entries"]) >= 2:
+              print("\n=== Benchmark Trend Report ===\n")
+
+              latest = history["entries"][-1]
+              previous = history["entries"][-2]
+
+              print(f"Comparing: {previous['commit']} -> {latest['commit']}")
+              print(f"Date: {previous['date'][:10]} -> {latest['date'][:10]}\n")
+
+              for bench_name in latest['benchmarks']:
+                  if bench_name in previous['benchmarks']:
+                      old_ns = previous['benchmarks'][bench_name]['ns_per_op']
+                      new_ns = latest['benchmarks'][bench_name]['ns_per_op']
+                      change = ((new_ns - old_ns) / old_ns) * 100
+
+                      if abs(change) > 5:
+                          symbol = "🔴" if change > 0 else "🟢"
+                          print(f"{symbol} {bench_name}: {change:+.1f}%")
+                      else:
+                          print(f"⚪ {bench_name}: {change:+.1f}%")
+
+              print("\n==============================")
+          PYTHON
+
+      - name: Update history cache
+        uses: actions/cache/save@v5
+        with:
+          path: ./bench-history.json
+          key: bench-history-v1-${{ runner.os }}
+
+      - name: Upload trend data
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-trends
+          path: |
+            bench-history.json
+            bench-trend.txt
+          retention-days: 90
+
+  parallelization-benchmark:
+    name: Parallelization Performance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run parallelization benchmarks
+        run: |
+          echo "=== Parallelization Performance Validation ==="
+          echo ""
+          echo "Testing parallel vs sequential commit analysis..."
+          echo ""
+          go test -bench='BenchmarkAnalyzeAll_ParallelVsSequential|BenchmarkAnalyzeAll_WithSlowWork' \
+            -benchmem -count=3 -run=^$ \
+            ./internal/analysis/... | tee bench-parallel.txt
+          echo ""
+          echo "=== Results ==="
+          cat bench-parallel.txt
+
+      - name: Validate parallelization improvement
+        run: |
+          # Check that parallel is faster than sequential for slow work
+          SEQ_NS=$(grep 'slow.*_seq' bench-parallel.txt | awk '{print $3}' | head -1)
+          PAR_NS=$(grep 'slow.*_parallel' bench-parallel.txt | awk '{print $3}' | head -1)
+
+          if [ -n "$SEQ_NS" ] && [ -n "$PAR_NS" ]; then
+            SEQ_INT=${SEQ_NS%.*}
+            PAR_INT=${PAR_NS%.*}
+
+            if [ "$PAR_INT" -lt "$SEQ_INT" ]; then
+              SPEEDUP=$(echo "scale=2; $SEQ_INT / $PAR_INT" | bc)
+              echo "✅ Parallelization validated: ${SPEEDUP}x speedup"
+            else
+              echo "⚠️ Parallel not faster than sequential (may be expected for fast operations)"
+            fi
+          fi
+
+      - name: Upload parallelization results
+        uses: actions/upload-artifact@v6
+        with:
+          name: parallelization-benchmark-results
+          path: bench-parallel.txt
+          retention-days: 30

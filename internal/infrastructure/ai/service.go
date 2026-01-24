@@ -225,22 +225,28 @@ func WithRateLimit(rpm int) ServiceOption {
 }
 
 // NewService creates a new AI service based on the configuration.
+// Uses the provider registry to allow conditional compilation of AI providers
+// via build tags (e.g., -tags=relicta_openai for OpenAI-only builds).
 func NewService(opts ...ServiceOption) (Service, error) {
 	cfg := DefaultServiceConfig()
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
-	switch cfg.Provider {
-	case "openai", "azure-openai":
-		return NewOpenAIService(cfg)
-	case "ollama":
-		return NewOllamaService(cfg)
-	case "anthropic", "claude":
-		return NewAnthropicService(cfg)
-	case "gemini":
-		return NewGeminiService(cfg)
-	default:
-		return NewOpenAIService(cfg)
+	// Look up provider in registry (populated by init() functions when providers are compiled in)
+	factory := GetProvider(cfg.Provider)
+	if factory != nil {
+		return factory(cfg)
 	}
+
+	// Fallback: try default provider (openai) if the requested one isn't available
+	if cfg.Provider != "openai" {
+		factory = GetProvider("openai")
+		if factory != nil {
+			return factory(cfg)
+		}
+	}
+
+	// No providers available
+	return nil, ProviderNotAvailableError{Provider: cfg.Provider}
 }

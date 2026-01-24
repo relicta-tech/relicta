@@ -94,6 +94,11 @@ type Service interface {
 	// GetCommitDiffStats returns statistics about changes in a single commit.
 	GetCommitDiffStats(ctx context.Context, hash string) (*DiffStats, error)
 
+	// GetBatchCommitDiffStats returns diff statistics for multiple commits at once.
+	// This is more efficient than calling GetCommitDiffStats for each commit individually
+	// as it avoids N+1 query patterns. Commits without stats are omitted from the result.
+	GetBatchCommitDiffStats(ctx context.Context, hashes []string) (map[string]*DiffStats, error)
+
 	// GetCommitPatch returns the unified diff patch for a commit.
 	GetCommitPatch(ctx context.Context, hash string) (string, error)
 

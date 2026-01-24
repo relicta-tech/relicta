@@ -1,3 +1,5 @@
+//go:build relicta_gemini || relicta_all_ai || !relicta_minimal
+
 // Package ai provides AI-powered content generation for Relicta.
 package ai
 
@@ -12,6 +14,11 @@ import (
 	"github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
+
+func init() {
+	// Register Gemini provider
+	RegisterProvider("gemini", NewGeminiService)
+}
 
 // Default Gemini configuration values.
 const (

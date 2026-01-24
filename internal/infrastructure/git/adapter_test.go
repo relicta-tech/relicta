@@ -167,6 +167,14 @@ func (m *mockService) GetCommitDiffStats(ctx context.Context, hash string) (*Dif
 	return m.commitDiffStats, m.commitDiffStatsErr
 }
 
+func (m *mockService) GetBatchCommitDiffStats(ctx context.Context, hashes []string) (map[string]*DiffStats, error) {
+	result := make(map[string]*DiffStats)
+	for _, hash := range hashes {
+		result[hash] = m.commitDiffStats
+	}
+	return result, m.commitDiffStatsErr
+}
+
 func (m *mockService) GetCommitPatch(ctx context.Context, hash string) (string, error) {
 	return m.commitPatch, m.commitPatchErr
 }

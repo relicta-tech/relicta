@@ -258,6 +258,9 @@ func (cancelTestGitRepo) GetLatestCommit(ctx context.Context, branch string) (*s
 func (cancelTestGitRepo) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
 	return nil, nil
 }
+func (cancelTestGitRepo) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	return make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats), nil
+}
 func (cancelTestGitRepo) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
 	return "", nil
 }

@@ -704,6 +704,10 @@ func (m *mockGitRepository) GetCommitDiffStats(ctx context.Context, hash sourcec
 	return nil, nil
 }
 
+func (m *mockGitRepository) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	return make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats), nil
+}
+
 func (m *mockGitRepository) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
 	return "", nil
 }

@@ -25,7 +25,8 @@ CMD_DIR := cmd/relicta
 
 .PHONY: all build install clean clean-dist test test-race test-coverage coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
-        test-integration test-e2e bench bench-save bench-quick help release-local release-snapshot check install-hooks \
+        test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
+        check-binary-size help release-local release-snapshot check install-hooks \
         frontend frontend-deps build-with-frontend clean-frontend
 
 # Default target
@@ -157,6 +158,103 @@ bench-quick:
 		./internal/domain/version/... \
 		./internal/plugin/...
 
+# Run benchmarks with regression comparison (requires benchstat)
+bench-regression:
+	@echo "Running benchmark regression comparison..."
+	@mkdir -p $(BIN_DIR)
+	@if [ ! -f $(BIN_DIR)/bench-baseline.txt ]; then \
+		echo "No baseline found. Run 'make bench-save' first to create a baseline."; \
+		echo "Creating baseline now..."; \
+		$(GOTEST) -bench=. -benchmem -count=5 -run=^$$ ./internal/... ./pkg/... > $(BIN_DIR)/bench-baseline.txt; \
+		echo "Baseline created at $(BIN_DIR)/bench-baseline.txt"; \
+	else \
+		echo "Running comparison against baseline..."; \
+		$(GOTEST) -bench=. -benchmem -count=5 -run=^$$ ./internal/... ./pkg/... > $(BIN_DIR)/bench-current.txt; \
+		benchstat $(BIN_DIR)/bench-baseline.txt $(BIN_DIR)/bench-current.txt; \
+	fi
+
+# Run memory-focused benchmarks
+bench-memory:
+	@echo "Running memory benchmarks..."
+	@mkdir -p $(BIN_DIR)
+	$(GOTEST) -bench=BenchmarkMemory -benchmem -run=^$$ ./internal/benchmark/... | tee $(BIN_DIR)/bench-memory.txt
+	@echo "Memory benchmark results saved to $(BIN_DIR)/bench-memory.txt"
+
+# Generate CPU and memory profiles
+bench-profile:
+	@echo "Running benchmarks with profiling..."
+	@mkdir -p $(BIN_DIR)/profiles
+	@echo "Generating CPU profile for analyzer..."
+	$(GOTEST) -bench=BenchmarkAnalyzer_Analyze -benchtime=3s -cpuprofile=$(BIN_DIR)/profiles/cpu-analyzer.prof -run=^$$ ./internal/service/release/...
+	@echo "Generating memory profile for analyzer..."
+	$(GOTEST) -bench=BenchmarkAnalyzer_Analyze -benchtime=3s -memprofile=$(BIN_DIR)/profiles/mem-analyzer.prof -run=^$$ ./internal/service/release/...
+	@echo "Generating CPU profile for notes..."
+	$(GOTEST) -bench=BenchmarkGenerateNotesUseCase -benchtime=3s -cpuprofile=$(BIN_DIR)/profiles/cpu-notes.prof -run=^$$ ./internal/domain/release/app/...
+	@echo "Generating memory profile for notes..."
+	$(GOTEST) -bench=BenchmarkGenerateNotesUseCase -benchtime=3s -memprofile=$(BIN_DIR)/profiles/mem-notes.prof -run=^$$ ./internal/domain/release/app/...
+	@echo "Generating CPU profile for e2e plan..."
+	$(GOTEST) -bench=BenchmarkE2E_PlanCommand -benchtime=3s -cpuprofile=$(BIN_DIR)/profiles/cpu-e2e.prof -run=^$$ ./internal/benchmark/...
+	@echo "Generating memory profile for e2e plan..."
+	$(GOTEST) -bench=BenchmarkE2E_PlanCommand -benchtime=3s -memprofile=$(BIN_DIR)/profiles/mem-e2e.prof -run=^$$ ./internal/benchmark/...
+	@echo ""
+	@echo "Profiles saved to $(BIN_DIR)/profiles/"
+	@echo "View with: go tool pprof -http=:8080 $(BIN_DIR)/profiles/<profile>.prof"
+
+# Run e2e benchmarks specifically
+bench-e2e:
+	@echo "Running end-to-end benchmarks..."
+	@mkdir -p $(BIN_DIR)
+	$(GOTEST) -bench=BenchmarkE2E -benchmem -run=^$$ ./internal/benchmark/... | tee $(BIN_DIR)/bench-e2e.txt
+	@echo "E2E benchmark results saved to $(BIN_DIR)/bench-e2e.txt"
+
+# Run template benchmarks
+bench-template:
+	@echo "Running template benchmarks..."
+	$(GOTEST) -bench=BenchmarkService -benchmem -run=^$$ ./internal/infrastructure/template/...
+
+# Run analysis benchmarks (parallelization validation)
+bench-analysis:
+	@echo "Running analysis parallelization benchmarks..."
+	@mkdir -p $(BIN_DIR)
+	$(GOTEST) -bench='BenchmarkAnalyzeAll|BenchmarkAnalyze_Single' -benchmem -run=^$$ \
+		./internal/analysis/... | tee $(BIN_DIR)/bench-analysis.txt
+	@echo ""
+	@echo "=== Parallelization Benchmarks ==="
+	@grep -E '(Parallel|Sequential|parallel|seq)' $(BIN_DIR)/bench-analysis.txt || true
+	@echo "==================================="
+
+# CI-specific benchmark run (shorter, with comparison)
+bench-ci:
+	@echo "Running CI benchmarks..."
+	@mkdir -p $(BIN_DIR)
+	$(GOTEST) -bench=. -benchmem -benchtime=100ms -count=3 -run=^$$ \
+		./internal/service/release/... \
+		./internal/domain/release/app/... \
+		./internal/benchmark/... \
+		./internal/plugin/... \
+		./internal/analysis/... \
+		./internal/infrastructure/template/... | tee $(BIN_DIR)/bench-ci.txt
+	@echo ""
+	@echo "=== Performance Targets ==="
+	@echo "Target: plan < 1s for 1000 commits"
+	@echo "Target: notes (no AI) < 500ms"
+	@echo "Target: plugin loading < 200ms"
+	@echo "Target: parallelized analysis faster for I/O-bound work"
+	@echo "==========================="
+
+# Check binary size (target: < 20MB)
+check-binary-size: build
+	@echo "Checking binary size..."
+	@BINARY_SIZE=$$(stat -f%z $(BIN_DIR)/$(BINARY_NAME) 2>/dev/null || stat -c%s $(BIN_DIR)/$(BINARY_NAME) 2>/dev/null); \
+	BINARY_SIZE_MB=$$(echo "scale=2; $$BINARY_SIZE / 1048576" | bc); \
+	echo "Binary size: $${BINARY_SIZE_MB}MB ($$BINARY_SIZE bytes)"; \
+	if [ $$BINARY_SIZE -gt 20971520 ]; then \
+		echo "❌ Binary size exceeds 20MB target!"; \
+		exit 1; \
+	else \
+		echo "✓ Binary size is within 20MB target"; \
+	fi
+
 ## Code quality targets
 
 # Run linter
@@ -284,6 +382,11 @@ help:
 	@echo "  make bench             Run all benchmarks"
 	@echo "  make bench-save        Run benchmarks and save results"
 	@echo "  make bench-quick       Run quick benchmarks (critical paths)"
+	@echo "  make bench-regression  Compare benchmarks against baseline"
+	@echo "  make bench-memory      Run memory-focused benchmarks"
+	@echo "  make bench-profile     Generate CPU/memory profiles"
+	@echo "  make bench-ci          CI-optimized benchmark run"
+	@echo "  make check-binary-size Verify binary < 20MB"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint           Run golangci-lint"

@@ -56,6 +56,10 @@ type CommitReader interface {
 type DiffReader interface {
 	// GetCommitDiffStats returns diff statistics for a specific commit.
 	GetCommitDiffStats(ctx context.Context, hash CommitHash) (*DiffStats, error)
+	// GetBatchCommitDiffStats returns diff statistics for multiple commits at once.
+	// This is more efficient than calling GetCommitDiffStats for each commit individually
+	// as it avoids N+1 query patterns and can leverage caching.
+	GetBatchCommitDiffStats(ctx context.Context, hashes []CommitHash) (map[CommitHash]*DiffStats, error)
 	// GetCommitPatch returns the unified diff patch for a commit.
 	GetCommitPatch(ctx context.Context, hash CommitHash) (string, error)
 	// GetFileAtRef returns file contents at a specific ref (commit, tag, branch).

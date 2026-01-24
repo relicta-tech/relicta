@@ -1012,6 +1012,101 @@ func (s *ServiceImpl) GetCommitDiffStats(ctx context.Context, hash string) (*Dif
 	return stats, nil
 }
 
+// GetBatchCommitDiffStats returns diff statistics for multiple commits at once.
+// This is more efficient than calling GetCommitDiffStats for each commit individually
+// as it avoids N+1 query patterns and can leverage caching of parent commits.
+func (s *ServiceImpl) GetBatchCommitDiffStats(ctx context.Context, hashes []string) (map[string]*DiffStats, error) {
+	result := make(map[string]*DiffStats, len(hashes))
+
+	// Cache for parent commits to avoid redundant lookups
+	parentCache := make(map[plumbing.Hash]*object.Commit)
+
+	for _, hash := range hashes {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		commitHash, err := s.resolveRef(hash)
+		if err != nil {
+			// Skip commits that can't be resolved
+			continue
+		}
+
+		commitObj, err := s.repo.CommitObject(commitHash)
+		if err != nil {
+			continue
+		}
+
+		var parent *object.Commit
+		if commitObj.NumParents() > 0 && len(commitObj.ParentHashes) > 0 {
+			parentHash := commitObj.ParentHashes[0]
+			// Try to get parent from cache first
+			if cached, ok := parentCache[parentHash]; ok {
+				parent = cached
+			} else {
+				var err2 error
+				parent, err2 = s.repo.CommitObject(parentHash)
+				if err2 == nil {
+					parentCache[parentHash] = parent
+				}
+			}
+		}
+
+		patch, err := commitObj.PatchContext(ctx, parent)
+		if err != nil {
+			continue
+		}
+
+		stats := &DiffStats{}
+		fileStatuses := make(map[string]FileStats)
+		for _, fp := range patch.FilePatches() {
+			from, to := fp.Files()
+			switch {
+			case from == nil && to != nil:
+				fileStatuses[to.Path()] = FileStats{
+					Path:   to.Path(),
+					Status: "added",
+				}
+			case from != nil && to == nil:
+				fileStatuses[from.Path()] = FileStats{
+					Path:   from.Path(),
+					Status: "deleted",
+				}
+			case from != nil && to != nil:
+				status := "modified"
+				oldPath := ""
+				if from.Path() != to.Path() {
+					status = "renamed"
+					oldPath = from.Path()
+				}
+				fileStatuses[to.Path()] = FileStats{
+					Path:    to.Path(),
+					Status:  status,
+					OldPath: oldPath,
+				}
+			}
+		}
+
+		patchStats := patch.Stats()
+		stats.FilesChanged = len(patchStats)
+		for _, fileStat := range patchStats {
+			stats.Insertions += fileStat.Addition
+			stats.Deletions += fileStat.Deletion
+			fs := fileStatuses[fileStat.Name]
+			fs.Path = fileStat.Name
+			fs.Insertions = fileStat.Addition
+			fs.Deletions = fileStat.Deletion
+			stats.Files = append(stats.Files, fs)
+		}
+
+		result[hash] = stats
+	}
+
+	return result, nil
+}
+
 // GetCommitPatch returns the unified diff patch for a commit.
 func (s *ServiceImpl) GetCommitPatch(ctx context.Context, hash string) (string, error) {
 	const op = "git.GetCommitPatch"

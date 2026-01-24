@@ -257,6 +257,10 @@ type AnalyzerConfig struct {
 	// EnableAI enables the AI classification layer.
 	EnableAI bool
 
+	// Concurrency sets the number of workers for parallel commit analysis.
+	// Set to 0 or 1 for sequential processing. Default is runtime.NumCPU().
+	Concurrency int
+
 	// Languages lists languages to support in AST analysis.
 	Languages []string
 
@@ -274,6 +278,7 @@ func DefaultConfig() AnalyzerConfig {
 		EnableHeuristics: true,
 		EnableAST:        true,
 		EnableAI:         true,
+		Concurrency:      0, // 0 means use runtime.NumCPU()
 		Languages:        []string{"go", "typescript", "python"},
 		CustomKeywords:   nil,
 		SkipPaths:        []string{"vendor/*", "node_modules/*", "*.generated.go"},

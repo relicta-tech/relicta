@@ -46,6 +46,14 @@ func (m *mockGitRepo) GetCommitDiffStats(ctx context.Context, hash sourcecontrol
 	return &sourcecontrol.DiffStats{}, nil
 }
 
+func (m *mockGitRepo) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	result := make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats)
+	for _, hash := range hashes {
+		result[hash] = &sourcecontrol.DiffStats{}
+	}
+	return result, nil
+}
+
 // Remaining interface methods (not used in tests)
 func (m *mockGitRepo) GetRemotes(ctx context.Context) ([]sourcecontrol.RemoteInfo, error) {
 	return nil, nil

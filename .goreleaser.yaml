@@ -12,6 +12,7 @@ before:
     - go mod verify
 
 builds:
+  # Full build with all AI providers
   - id: relicta
     main: ./cmd/relicta
     binary: relicta
@@ -30,6 +31,28 @@ builds:
     ldflags:
       - -s -w
       - -X main.ver={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+  # Minimal build with OpenAI only (smaller binary)
+  # Use: goreleaser build --id relicta-openai-only
+  - id: relicta-openai-only
+    main: ./cmd/relicta
+    binary: relicta
+    env:
+      - CGO_ENABLED=0
+    tags:
+      - relicta_minimal
+      - relicta_openai
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.ver={{.Version}}-openai
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
 
@@ -85,6 +108,17 @@ brews:
 # SBOM generation
 sboms:
   - artifacts: archive
+
+# UPX compression for binary size optimization
+# Expected savings: 2-3MB (compresses ~27MB binary to ~24MB or less)
+upx:
+  - enabled: true
+    compress: best
+    lzma: true
+    # Exclude Windows binaries as UPX can trigger false positives in AV
+    goos:
+      - linux
+      - darwin
 
 # Sign checksums
 signs:

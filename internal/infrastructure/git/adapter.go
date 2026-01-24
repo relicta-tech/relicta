@@ -179,6 +179,31 @@ func (a *Adapter) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.Com
 	return convertDiffStats(stats), nil
 }
 
+// GetBatchCommitDiffStats retrieves diff stats for multiple commits at once.
+// This is more efficient than calling GetCommitDiffStats for each commit individually.
+func (a *Adapter) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	ctx, cancel := withLocalTimeout(ctx)
+	defer cancel()
+
+	// Convert CommitHash to string
+	hashStrings := make([]string, len(hashes))
+	for i, h := range hashes {
+		hashStrings[i] = string(h)
+	}
+
+	result, err := a.svc.GetBatchCommitDiffStats(ctx, hashStrings)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert back to CommitHash
+	converted := make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, len(result))
+	for hash, stats := range result {
+		converted[sourcecontrol.CommitHash(hash)] = convertDiffStats(stats)
+	}
+	return converted, nil
+}
+
 // GetCommitPatch retrieves the unified diff patch for a commit.
 func (a *Adapter) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
 	ctx, cancel := withLocalTimeout(ctx)

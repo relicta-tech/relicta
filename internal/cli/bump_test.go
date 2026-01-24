@@ -358,6 +358,9 @@ func (bumpStubGitRepo) GetLatestCommit(ctx context.Context, branch string) (*sou
 func (bumpStubGitRepo) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
 	return nil, nil
 }
+func (bumpStubGitRepo) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	return make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats), nil
+}
 func (bumpStubGitRepo) GetCommitPatch(ctx context.Context, hash sourcecontrol.CommitHash) (string, error) {
 	return "", nil
 }
