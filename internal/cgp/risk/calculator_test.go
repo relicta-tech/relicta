@@ -440,3 +440,258 @@ func TestCalculator_LowRiskScenario(t *testing.T) {
 		t.Errorf("Low risk scenario should be low/medium severity, got %v", assessment.Severity)
 	}
 }
+
+func TestCalculator_CodeComplexity(t *testing.T) {
+	calc := NewCalculatorWithDefaults()
+
+	tests := []struct {
+		name             string
+		complexity       *cgp.ComplexityMetrics
+		expectedRange    [2]float64
+		expectedSeverity cgp.Severity
+	}{
+		{
+			name: "simple code",
+			complexity: &cgp.ComplexityMetrics{
+				AverageComplexity:       3.0,
+				MaxComplexity:           5,
+				FunctionsAboveThreshold: 0,
+				Threshold:               10,
+				TotalFunctions:          10,
+			},
+			expectedRange:    [2]float64{0.0, 0.2},
+			expectedSeverity: cgp.SeverityLow,
+		},
+		{
+			name: "moderate complexity",
+			complexity: &cgp.ComplexityMetrics{
+				AverageComplexity:       8.0,
+				MaxComplexity:           12,
+				FunctionsAboveThreshold: 2,
+				Threshold:               10,
+				TotalFunctions:          10,
+			},
+			expectedRange:    [2]float64{0.3, 0.5},
+			expectedSeverity: cgp.SeverityLow, // Score ~0.36 maps to Low
+		},
+		{
+			name: "high complexity",
+			complexity: &cgp.ComplexityMetrics{
+				AverageComplexity:       15.0,
+				MaxComplexity:           25,
+				FunctionsAboveThreshold: 5,
+				Threshold:               10,
+				TotalFunctions:          10,
+			},
+			expectedRange:    [2]float64{0.6, 0.9},
+			expectedSeverity: cgp.SeverityHigh,
+		},
+		{
+			name: "critical complexity",
+			complexity: &cgp.ComplexityMetrics{
+				AverageComplexity:       25.0,
+				MaxComplexity:           40,
+				FunctionsAboveThreshold: 8,
+				Threshold:               10,
+				TotalFunctions:          10,
+				CognitiveComplexity:     20.0,
+			},
+			expectedRange:    [2]float64{0.8, 1.0},
+			expectedSeverity: cgp.SeverityCritical,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analysis := &cgp.ChangeAnalysis{
+				CodeComplexity: tt.complexity,
+			}
+
+			assessment, err := calc.Calculate(context.Background(), nil, analysis)
+			if err != nil {
+				t.Errorf("Calculate() error = %v", err)
+			}
+
+			// Find code complexity factor
+			for _, factor := range assessment.Factors {
+				if factor.Category == "code_complexity" {
+					if factor.Score < tt.expectedRange[0] || factor.Score > tt.expectedRange[1] {
+						t.Errorf("Code complexity score = %v, expected between %v and %v",
+							factor.Score, tt.expectedRange[0], tt.expectedRange[1])
+					}
+					if factor.Severity != tt.expectedSeverity {
+						t.Errorf("Code complexity severity = %v, want %v", factor.Severity, tt.expectedSeverity)
+					}
+					return
+				}
+			}
+			t.Error("Code complexity factor not found")
+		})
+	}
+}
+
+func TestCalculator_TestCoverage(t *testing.T) {
+	calc := NewCalculatorWithDefaults()
+
+	tests := []struct {
+		name             string
+		coverage         *cgp.CoverageMetrics
+		expectedRange    [2]float64
+		expectedSeverity cgp.Severity
+	}{
+		{
+			name: "excellent coverage",
+			coverage: &cgp.CoverageMetrics{
+				CoveragePercent: 95.0,
+				CoveredLines:    950,
+				TotalLines:      1000,
+			},
+			expectedRange:    [2]float64{0.0, 0.1},
+			expectedSeverity: cgp.SeverityLow,
+		},
+		{
+			name: "good coverage",
+			coverage: &cgp.CoverageMetrics{
+				CoveragePercent: 75.0,
+				CoveredLines:    750,
+				TotalLines:      1000,
+			},
+			expectedRange:    [2]float64{0.2, 0.4},
+			expectedSeverity: cgp.SeverityLow,
+		},
+		{
+			name: "moderate coverage",
+			coverage: &cgp.CoverageMetrics{
+				CoveragePercent: 55.0,
+				CoveredLines:    550,
+				TotalLines:      1000,
+			},
+			expectedRange:    [2]float64{0.4, 0.6},
+			expectedSeverity: cgp.SeverityMedium,
+		},
+		{
+			name: "poor coverage with decrease",
+			coverage: &cgp.CoverageMetrics{
+				CoveragePercent: 40.0,
+				CoveredLines:    400,
+				TotalLines:      1000,
+				CoverageDelta:   -10.0,
+			},
+			expectedRange:    [2]float64{0.8, 1.0},
+			expectedSeverity: cgp.SeverityCritical, // Score ~0.95 maps to Critical
+		},
+		{
+			name: "critical coverage",
+			coverage: &cgp.CoverageMetrics{
+				CoveragePercent:        20.0,
+				CoveredLines:           200,
+				TotalLines:             1000,
+				UncoveredCriticalPaths: 3,
+			},
+			expectedRange:    [2]float64{0.8, 1.0},
+			expectedSeverity: cgp.SeverityCritical,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			analysis := &cgp.ChangeAnalysis{
+				TestCoverage: tt.coverage,
+			}
+
+			assessment, err := calc.Calculate(context.Background(), nil, analysis)
+			if err != nil {
+				t.Errorf("Calculate() error = %v", err)
+			}
+
+			// Find test coverage factor
+			for _, factor := range assessment.Factors {
+				if factor.Category == "test_coverage" {
+					if factor.Score < tt.expectedRange[0] || factor.Score > tt.expectedRange[1] {
+						t.Errorf("Test coverage score = %v, expected between %v and %v",
+							factor.Score, tt.expectedRange[0], tt.expectedRange[1])
+					}
+					if factor.Severity != tt.expectedSeverity {
+						t.Errorf("Test coverage severity = %v, want %v", factor.Severity, tt.expectedSeverity)
+					}
+					return
+				}
+			}
+			t.Error("Test coverage factor not found")
+		})
+	}
+}
+
+func TestCalculator_AllEightFactors(t *testing.T) {
+	// Test that all 8 factors can be included in a single assessment
+	calc := NewCalculatorWithDefaults()
+
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("dev@example.com", "Developer"),
+		cgp.ProposalScope{Repository: "owner/repo", CommitRange: "abc..def"},
+		cgp.ProposalIntent{Summary: "Full feature", Confidence: 0.9},
+	)
+
+	analysis := &cgp.ChangeAnalysis{
+		Features: 2,
+		Fixes:    1,
+		Breaking: 1,
+		Security: 1,
+		APIChanges: []cgp.APIChange{
+			{Type: "modified", Symbol: "UpdateFunc", Breaking: true},
+		},
+		DependencyImpact: &cgp.DependencyImpact{
+			DirectDependents:     50,
+			TransitiveDependents: 200,
+		},
+		BlastRadius: &cgp.BlastRadius{
+			FilesChanged: 15,
+			LinesChanged: 300,
+		},
+		CodeComplexity: &cgp.ComplexityMetrics{
+			AverageComplexity:       8.0,
+			MaxComplexity:           15,
+			FunctionsAboveThreshold: 2,
+			Threshold:               10,
+			TotalFunctions:          10,
+		},
+		TestCoverage: &cgp.CoverageMetrics{
+			CoveragePercent: 70.0,
+			CoveredLines:    700,
+			TotalLines:      1000,
+		},
+	}
+
+	assessment, err := calc.Calculate(context.Background(), proposal, analysis)
+	if err != nil {
+		t.Fatalf("Calculate() error = %v", err)
+	}
+
+	// Should have 7 factors (historical risk requires HistoryProvider)
+	expectedFactors := map[string]bool{
+		"api_change":        false,
+		"dependency_impact": false,
+		"blast_radius":      false,
+		"code_complexity":   false,
+		"test_coverage":     false,
+		"actor_trust":       false,
+		"security_impact":   false,
+	}
+
+	for _, factor := range assessment.Factors {
+		if _, exists := expectedFactors[factor.Category]; exists {
+			expectedFactors[factor.Category] = true
+		}
+	}
+
+	for category, found := range expectedFactors {
+		if !found {
+			t.Errorf("Expected factor %s not found in assessment", category)
+		}
+	}
+
+	// Score should be reasonable for mixed scenario
+	if assessment.Score < 0.3 || assessment.Score > 0.8 {
+		t.Errorf("Mixed scenario score = %v, expected between 0.3 and 0.8", assessment.Score)
+	}
+}

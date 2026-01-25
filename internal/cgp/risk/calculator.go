@@ -132,6 +132,20 @@ func (c *Calculator) Calculate(ctx context.Context, proposal *cgp.ChangeProposal
 		totalWeight += c.weights.BlastRadius
 	}
 
+	// Code Complexity
+	if complexityScore, factor := c.assessCodeComplexity(analysis); factor != nil {
+		factors = append(factors, *factor)
+		totalScore += complexityScore * c.weights.CodeComplexity
+		totalWeight += c.weights.CodeComplexity
+	}
+
+	// Test Coverage
+	if coverageScore, factor := c.assessTestCoverage(analysis); factor != nil {
+		factors = append(factors, *factor)
+		totalScore += coverageScore * c.weights.TestCoverage
+		totalWeight += c.weights.TestCoverage
+	}
+
 	// Actor Trust
 	if proposal != nil {
 		if trustScore, factor := c.assessActorTrust(proposal.Actor); factor != nil {
@@ -385,6 +399,146 @@ func (c *Calculator) assessSecurityImpact(analysis *cgp.ChangeAnalysis) (float64
 	return score, &cgp.RiskFactor{
 		Category:    "security_impact",
 		Description: fmt.Sprintf("%d security-related changes", analysis.Security),
+		Score:       score,
+		Severity:    severity,
+	}
+}
+
+// assessCodeComplexity evaluates code complexity of changed functions.
+func (c *Calculator) assessCodeComplexity(analysis *cgp.ChangeAnalysis) (float64, *cgp.RiskFactor) {
+	if analysis == nil || analysis.CodeComplexity == nil {
+		return 0, nil
+	}
+
+	complexity := analysis.CodeComplexity
+
+	// Score based on average complexity
+	// Cyclomatic complexity thresholds:
+	// 1-5: simple, low risk
+	// 6-10: moderate complexity
+	// 11-20: high complexity
+	// 21+: very high complexity
+	var score float64
+	switch {
+	case complexity.AverageComplexity > 20:
+		score = 0.95
+	case complexity.AverageComplexity > 15:
+		score = 0.8
+	case complexity.AverageComplexity > 10:
+		score = 0.6
+	case complexity.AverageComplexity > 5:
+		score = 0.3
+	default:
+		score = 0.1
+	}
+
+	// Increase score if there are functions above threshold
+	if complexity.FunctionsAboveThreshold > 0 {
+		aboveRatio := float64(complexity.FunctionsAboveThreshold) / float64(max(complexity.TotalFunctions, 1))
+		score = clamp(score+aboveRatio*0.3, 0.0, 1.0)
+	}
+
+	// Consider max complexity as a spike indicator
+	if complexity.MaxComplexity > 30 {
+		score = clamp(score+0.2, 0.0, 1.0)
+	}
+
+	// Consider cognitive complexity if available
+	if complexity.CognitiveComplexity > 15 {
+		score = clamp(score+0.1, 0.0, 1.0)
+	}
+
+	var severity cgp.Severity
+	switch {
+	case score >= 0.8:
+		severity = cgp.SeverityCritical
+	case score >= 0.6:
+		severity = cgp.SeverityHigh
+	case score >= 0.4:
+		severity = cgp.SeverityMedium
+	default:
+		severity = cgp.SeverityLow
+	}
+
+	desc := fmt.Sprintf("avg complexity %.1f, %d functions above threshold",
+		complexity.AverageComplexity, complexity.FunctionsAboveThreshold)
+
+	return score, &cgp.RiskFactor{
+		Category:    "code_complexity",
+		Description: desc,
+		Score:       score,
+		Severity:    severity,
+	}
+}
+
+// assessTestCoverage evaluates test coverage of changed code.
+func (c *Calculator) assessTestCoverage(analysis *cgp.ChangeAnalysis) (float64, *cgp.RiskFactor) {
+	if analysis == nil || analysis.TestCoverage == nil {
+		return 0, nil
+	}
+
+	coverage := analysis.TestCoverage
+
+	// Lower coverage = higher risk
+	// Coverage thresholds:
+	// 90%+: excellent, very low risk
+	// 70-90%: good, low risk
+	// 50-70%: moderate, medium risk
+	// 30-50%: poor, high risk
+	// <30%: critical risk
+	var score float64
+	switch {
+	case coverage.CoveragePercent >= 90:
+		score = 0.05
+	case coverage.CoveragePercent >= 80:
+		score = 0.15
+	case coverage.CoveragePercent >= 70:
+		score = 0.3
+	case coverage.CoveragePercent >= 50:
+		score = 0.5
+	case coverage.CoveragePercent >= 30:
+		score = 0.75
+	default:
+		score = 0.9
+	}
+
+	// Increase risk if coverage decreased
+	if coverage.CoverageDelta < -5 {
+		score = clamp(score+0.2, 0.0, 1.0)
+	} else if coverage.CoverageDelta < 0 {
+		score = clamp(score+0.1, 0.0, 1.0)
+	}
+
+	// Uncovered critical paths significantly increase risk
+	if coverage.UncoveredCriticalPaths > 0 {
+		score = clamp(score+float64(coverage.UncoveredCriticalPaths)*0.1, 0.0, 1.0)
+	}
+
+	// New code with low coverage is particularly risky
+	if coverage.NewCodeCoverage > 0 && coverage.NewCodeCoverage < 50 {
+		score = clamp(score+0.15, 0.0, 1.0)
+	}
+
+	var severity cgp.Severity
+	switch {
+	case score >= 0.8:
+		severity = cgp.SeverityCritical
+	case score >= 0.6:
+		severity = cgp.SeverityHigh
+	case score >= 0.4:
+		severity = cgp.SeverityMedium
+	default:
+		severity = cgp.SeverityLow
+	}
+
+	desc := fmt.Sprintf("%.1f%% coverage", coverage.CoveragePercent)
+	if coverage.CoverageDelta != 0 {
+		desc += fmt.Sprintf(" (%.1f%% delta)", coverage.CoverageDelta)
+	}
+
+	return score, &cgp.RiskFactor{
+		Category:    "test_coverage",
+		Description: desc,
 		Score:       score,
 		Severity:    severity,
 	}

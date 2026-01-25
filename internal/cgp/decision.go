@@ -164,6 +164,12 @@ type ChangeAnalysis struct {
 	// BlastRadius quantifies potential impact.
 	BlastRadius *BlastRadius `json:"blastRadius,omitempty"`
 
+	// CodeComplexity contains complexity metrics for changed code.
+	CodeComplexity *ComplexityMetrics `json:"codeComplexity,omitempty"`
+
+	// TestCoverage contains test coverage metrics for changed code.
+	TestCoverage *CoverageMetrics `json:"testCoverage,omitempty"`
+
 	// Commit categorization counts.
 	Features     int `json:"features"`
 	Fixes        int `json:"fixes"`
@@ -219,6 +225,51 @@ type BlastRadius struct {
 
 	// Components lists affected system components.
 	Components []string `json:"components,omitempty"`
+}
+
+// ComplexityMetrics contains code complexity measurements.
+type ComplexityMetrics struct {
+	// AverageComplexity is the average cyclomatic complexity of changed functions.
+	AverageComplexity float64 `json:"averageComplexity"`
+
+	// MaxComplexity is the highest complexity score among changed functions.
+	MaxComplexity int `json:"maxComplexity"`
+
+	// FunctionsAboveThreshold counts functions exceeding the complexity threshold.
+	FunctionsAboveThreshold int `json:"functionsAboveThreshold"`
+
+	// Threshold is the configured complexity threshold (default: 10).
+	Threshold int `json:"threshold"`
+
+	// CognitiveComplexity measures cognitive complexity (understanding difficulty).
+	CognitiveComplexity float64 `json:"cognitiveComplexity,omitempty"`
+
+	// MaxNestingDepth is the deepest nesting level in changed code.
+	MaxNestingDepth int `json:"maxNestingDepth,omitempty"`
+
+	// TotalFunctions is the count of functions analyzed.
+	TotalFunctions int `json:"totalFunctions"`
+}
+
+// CoverageMetrics contains test coverage measurements.
+type CoverageMetrics struct {
+	// CoveragePercent is the test coverage percentage of changed code (0-100).
+	CoveragePercent float64 `json:"coveragePercent"`
+
+	// CoveredLines is the number of changed lines covered by tests.
+	CoveredLines int `json:"coveredLines"`
+
+	// TotalLines is the total number of changed lines.
+	TotalLines int `json:"totalLines"`
+
+	// CoverageDelta is the change in coverage from baseline (negative = decreased).
+	CoverageDelta float64 `json:"coverageDelta,omitempty"`
+
+	// UncoveredCriticalPaths counts critical code paths without test coverage.
+	UncoveredCriticalPaths int `json:"uncoveredCriticalPaths,omitempty"`
+
+	// NewCodeCoverage is the coverage percentage for newly added code only.
+	NewCodeCoverage float64 `json:"newCodeCoverage,omitempty"`
 }
 
 // NewDecision creates a new governance decision.
