@@ -407,17 +407,63 @@ func (s *ServiceImpl) GetLatestTag(ctx context.Context) (*Tag, error) {
 }
 
 // GetLatestVersionTag returns the most recent version tag matching the prefix.
+// This is optimized to avoid sorting all tags - it only tracks the highest version.
 func (s *ServiceImpl) GetLatestVersionTag(ctx context.Context, prefix string) (*Tag, error) {
-	tags, err := s.ListVersionTags(ctx, prefix)
+	const op = "git.GetLatestVersionTag"
+
+	iter, err := s.repo.Tags()
 	if err != nil {
-		return nil, err
+		return nil, rperrors.GitWrap(err, op, "failed to get tags iterator")
+	}
+	defer iter.Close()
+
+	var latestTag *Tag
+	var latestVersion *semver.Version
+
+	err = iter.ForEach(func(ref *plumbing.Reference) error {
+		// Check for context cancellation
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		name := ref.Name().Short()
+
+		// Fast path: skip tags that don't match prefix
+		if prefix != "" && !strings.HasPrefix(name, prefix) {
+			return nil
+		}
+
+		// Try to parse as semver
+		versionStr := strings.TrimPrefix(name, prefix)
+		v, parseErr := semver.NewVersion(versionStr)
+		if parseErr != nil {
+			return nil // Not a valid semver tag, skip
+		}
+
+		// Track the highest version
+		if latestVersion == nil || v.GreaterThan(latestVersion) {
+			tag, convertErr := s.convertTag(ref)
+			if convertErr != nil {
+				return nil // Skip tags we can't convert
+			}
+			latestTag = tag
+			latestVersion = v
+		}
+
+		return nil
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
+		}
+		return nil, rperrors.GitWrap(err, op, "failed to iterate tags")
 	}
 
-	if len(tags) == 0 {
-		return nil, rperrors.NotFound("git.GetLatestVersionTag", "no version tags found")
+	if latestTag == nil {
+		return nil, rperrors.NotFound(op, "no version tags found")
 	}
 
-	return &tags[0], nil
+	return latestTag, nil
 }
 
 // ListTags returns all tags in the repository.
@@ -468,24 +514,53 @@ type versionTagCache struct {
 }
 
 // ListVersionTags returns all version tags matching the prefix.
+// Optimized to filter during iteration instead of fetching all tags first.
 func (s *ServiceImpl) ListVersionTags(ctx context.Context, prefix string) ([]Tag, error) {
-	allTags, err := s.ListTags(ctx)
+	const op = "git.ListVersionTags"
+	const estimatedVersionTags = 20
+
+	iter, err := s.repo.Tags()
 	if err != nil {
-		return nil, err
+		return nil, rperrors.GitWrap(err, op, "failed to get tags iterator")
 	}
+	defer iter.Close()
 
-	// Parse semver once and cache to avoid repeated parsing
-	cache := make([]versionTagCache, 0, len(allTags))
-	for _, tag := range allTags {
-		name := tag.Name
+	// Parse semver during iteration and cache
+	cache := make([]versionTagCache, 0, estimatedVersionTags)
+
+	err = iter.ForEach(func(ref *plumbing.Reference) error {
+		// Check for context cancellation
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+
+		name := ref.Name().Short()
+
+		// Fast path: skip tags that don't match prefix
 		if prefix != "" && !strings.HasPrefix(name, prefix) {
-			continue
+			return nil
 		}
 
+		// Try to parse as semver
 		versionStr := strings.TrimPrefix(name, prefix)
-		if v, err := semver.NewVersion(versionStr); err == nil {
-			cache = append(cache, versionTagCache{tag: tag, version: v})
+		v, parseErr := semver.NewVersion(versionStr)
+		if parseErr != nil {
+			return nil // Not a valid semver tag, skip
 		}
+
+		tag, convertErr := s.convertTag(ref)
+		if convertErr != nil {
+			return nil // Skip tags we can't convert
+		}
+
+		cache = append(cache, versionTagCache{tag: *tag, version: v})
+		return nil
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
+		}
+		return nil, rperrors.GitWrap(err, op, "failed to iterate tags")
 	}
 
 	// Sort by semver using cached versions, newest first
