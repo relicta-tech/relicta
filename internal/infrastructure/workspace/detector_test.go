@@ -1,0 +1,456 @@
+package workspace
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/relicta-tech/relicta/internal/domain/workspace"
+)
+
+func TestFileDetector_Detect_PnpmWorkspace(t *testing.T) {
+	// Create a temporary pnpm workspace
+	tmpDir := t.TempDir()
+
+	// Create pnpm-workspace.yaml
+	workspaceYAML := `packages:
+  - 'packages/*'
+  - 'apps/*'
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte(workspaceYAML), 0644)
+	require.NoError(t, err)
+
+	// Create package.json
+	pkgJSON := `{"name": "monorepo", "private": true}`
+	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+
+	// Create a package directory
+	pkgDir := filepath.Join(tmpDir, "packages", "pkg-a")
+	err = os.MkdirAll(pkgDir, 0755)
+	require.NoError(t, err)
+
+	pkgAJSON := `{"name": "@monorepo/pkg-a", "version": "1.0.0"}`
+	err = os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgAJSON), 0644)
+	require.NoError(t, err)
+
+	// Detect workspace
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypePnpm, ws.Type)
+	assert.Equal(t, workspace.PackageManagerPnpm, ws.PackageManager)
+	assert.True(t, ws.Confidence >= 0.9)
+	assert.Contains(t, ws.Markers, "pnpm-workspace.yaml")
+}
+
+func TestFileDetector_Detect_NpmWorkspaces(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json with workspaces field
+	pkgJSON := `{
+		"name": "npm-monorepo",
+		"private": true,
+		"workspaces": ["packages/*"]
+	}`
+	err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+
+	// Create package-lock.json to indicate npm
+	err = os.WriteFile(filepath.Join(tmpDir, "package-lock.json"), []byte("{}"), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeNpm, ws.Type)
+	assert.Equal(t, workspace.PackageManagerNpm, ws.PackageManager)
+}
+
+func TestFileDetector_Detect_LernaWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create lerna.json
+	lernaJSON := `{
+		"version": "independent",
+		"packages": ["packages/*"]
+	}`
+	err := os.WriteFile(filepath.Join(tmpDir, "lerna.json"), []byte(lernaJSON), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeLerna, ws.Type)
+}
+
+func TestFileDetector_Detect_GoWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create go.work file
+	goWork := `go 1.22
+
+use (
+	./cmd/app
+	./pkg/lib
+)
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "go.work"), []byte(goWork), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeGoModule, ws.Type)
+	assert.Equal(t, workspace.PackageManagerGo, ws.PackageManager)
+}
+
+func TestFileDetector_Detect_CargoWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create Cargo.toml with [workspace]
+	cargoToml := `[workspace]
+members = ["crates/*"]
+
+[package]
+name = "root"
+version = "0.1.0"
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "Cargo.toml"), []byte(cargoToml), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeCargo, ws.Type)
+	assert.Equal(t, workspace.PackageManagerCargo, ws.PackageManager)
+}
+
+func TestFileDetector_Detect_TurborepoWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create turbo.json
+	turboJSON := `{
+		"$schema": "https://turbo.build/schema.json",
+		"pipeline": {
+			"build": {
+				"dependsOn": ["^build"]
+			}
+		}
+	}`
+	err := os.WriteFile(filepath.Join(tmpDir, "turbo.json"), []byte(turboJSON), 0644)
+	require.NoError(t, err)
+
+	// Also need package.json with workspaces for it to be a valid workspace
+	pkgJSON := `{"name": "turbo-monorepo", "private": true, "workspaces": ["packages/*"]}`
+	err = os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	// Turborepo has higher priority than npm workspaces
+	assert.Equal(t, workspace.WorkspaceTypeTurborepo, ws.Type)
+}
+
+func TestFileDetector_Detect_NxWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create nx.json
+	nxJSON := `{
+		"$schema": "./node_modules/nx/schemas/nx-schema.json",
+		"tasksRunnerOptions": {
+			"default": {
+				"runner": "nx/tasks-runners/default"
+			}
+		}
+	}`
+	err := os.WriteFile(filepath.Join(tmpDir, "nx.json"), []byte(nxJSON), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeNx, ws.Type)
+}
+
+func TestFileDetector_Detect_NoWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create just a regular package.json without workspaces
+	pkgJSON := `{"name": "single-package", "version": "1.0.0"}`
+	err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result.Workspace)
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeNone, ws.Type)
+}
+
+func TestFileDetector_Detect_SearchUpward(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create workspace at root
+	workspaceYAML := `packages:
+  - 'packages/*'
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte(workspaceYAML), 0644)
+	require.NoError(t, err)
+
+	// Create nested package directory
+	nestedDir := filepath.Join(tmpDir, "packages", "deeply", "nested")
+	err = os.MkdirAll(nestedDir, 0755)
+	require.NoError(t, err)
+
+	// Detect from nested directory - should find root workspace
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+	opts.MaxDepth = 5 // Need higher depth to search from packages/deeply/nested to root
+
+	result, err := detector.Detect(ctx, nestedDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypePnpm, ws.Type)
+	assert.Equal(t, tmpDir, ws.RootPath)
+}
+
+func TestFileDetector_DiscoverPackages_Node(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create workspace
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte("packages:\n  - 'packages/*'"), 0644)
+	require.NoError(t, err)
+
+	// Create packages
+	for _, name := range []string{"pkg-a", "pkg-b", "pkg-c"} {
+		pkgDir := filepath.Join(tmpDir, "packages", name)
+		err = os.MkdirAll(pkgDir, 0755)
+		require.NoError(t, err)
+
+		pkgJSON := map[string]interface{}{
+			"name":    "@monorepo/" + name,
+			"version": "1.0.0",
+		}
+		if name == "pkg-c" {
+			pkgJSON["private"] = true
+		}
+		content, _ := json.Marshal(pkgJSON)
+		err = os.WriteFile(filepath.Join(pkgDir, "package.json"), content, 0644)
+		require.NoError(t, err)
+	}
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Len(t, ws.Packages, 3)
+
+	// Check package details
+	pkgA := ws.FindPackage("@monorepo/pkg-a")
+	assert.NotNil(t, pkgA)
+	assert.Equal(t, "1.0.0", pkgA.Version)
+	assert.False(t, pkgA.Private)
+
+	pkgC := ws.FindPackage("@monorepo/pkg-c")
+	assert.NotNil(t, pkgC)
+	assert.True(t, pkgC.Private)
+}
+
+func TestFileDetector_DiscoverPackages_Go(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create go.work
+	goWork := `go 1.22
+
+use (
+	./cmd/app
+	./pkg/lib
+)
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "go.work"), []byte(goWork), 0644)
+	require.NoError(t, err)
+
+	// Create modules
+	cmdDir := filepath.Join(tmpDir, "cmd", "app")
+	err = os.MkdirAll(cmdDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(cmdDir, "go.mod"), []byte("module github.com/example/cmd/app\n\ngo 1.22"), 0644)
+	require.NoError(t, err)
+
+	pkgDir := filepath.Join(tmpDir, "pkg", "lib")
+	err = os.MkdirAll(pkgDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(pkgDir, "go.mod"), []byte("module github.com/example/pkg/lib\n\ngo 1.22"), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeGoModule, ws.Type)
+	// Note: Package discovery for Go uses different patterns
+}
+
+func TestFileDetector_DetectType(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create pnpm workspace
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte("packages:\n  - 'packages/*'"), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+
+	wsType, err := detector.DetectType(ctx, tmpDir)
+	require.NoError(t, err)
+	assert.Equal(t, workspace.WorkspaceTypePnpm, wsType)
+}
+
+func TestFileDetector_ValidateWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+
+	// Valid workspace
+	ws := &workspace.Workspace{
+		RootPath: tmpDir,
+		Type:     workspace.WorkspaceTypePnpm,
+	}
+	err := detector.ValidateWorkspace(ctx, ws)
+	assert.NoError(t, err)
+
+	// Nil workspace
+	err = detector.ValidateWorkspace(ctx, nil)
+	assert.ErrorIs(t, err, ErrInvalidWorkspace)
+
+	// Empty root path
+	ws = &workspace.Workspace{
+		RootPath: "",
+		Type:     workspace.WorkspaceTypePnpm,
+	}
+	err = detector.ValidateWorkspace(ctx, ws)
+	assert.ErrorIs(t, err, ErrInvalidWorkspace)
+
+	// Non-existent path
+	ws = &workspace.Workspace{
+		RootPath: "/nonexistent/path",
+		Type:     workspace.WorkspaceTypePnpm,
+	}
+	err = detector.ValidateWorkspace(ctx, ws)
+	assert.ErrorIs(t, err, ErrInvalidWorkspace)
+}
+
+func TestFileDetector_PreferredTypes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create both pnpm-workspace.yaml and turbo.json
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte("packages:\n  - 'packages/*'"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "turbo.json"), []byte("{}"), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+
+	// With preferred types, should only detect pnpm
+	opts := workspace.DetectionOptions{
+		MaxDepth:        3,
+		IncludePackages: false,
+		PreferredTypes:  []workspace.WorkspaceType{workspace.WorkspaceTypePnpm},
+	}
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+	assert.Equal(t, workspace.WorkspaceTypePnpm, result.Workspace.Type)
+}
+
+func TestFileDetector_ContextCancellation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a deep directory structure
+	deepDir := filepath.Join(tmpDir, "a", "b", "c", "d", "e", "f")
+	err := os.MkdirAll(deepDir, 0755)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+
+	// Create a canceled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	opts := workspace.DetectionOptions{MaxDepth: 10}
+	result, err := detector.Detect(ctx, deepDir, opts)
+
+	// Should handle cancellation gracefully
+	assert.NoError(t, err)
+	assert.Error(t, result.Error)
+}
