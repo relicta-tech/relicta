@@ -2,8 +2,10 @@
 package security
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/relicta-tech/relicta/internal/errors"
@@ -153,6 +155,110 @@ func maskSlice(s []interface{}) []interface{} {
 	return result
 }
 
+// SensitiveKeys is the list of config key names that should always be masked.
+// These are matched case-insensitively.
+var SensitiveKeys = map[string]bool{
+	"token":            true,
+	"password":         true,
+	"secret":           true,
+	"api_key":          true,
+	"apikey":           true,
+	"api-key":          true,
+	"access_token":     true,
+	"access-token":     true,
+	"accesstoken":      true,
+	"auth_token":       true,
+	"auth-token":       true,
+	"authtoken":        true,
+	"private_key":      true,
+	"private-key":      true,
+	"privatekey":       true,
+	"ssh_key_password": true,
+	"ssh-key-password": true,
+	"credential":       true,
+	"credentials":      true,
+	"bearer":           true,
+	"authorization":    true,
+	"webhook_secret":   true,
+	"signing_secret":   true,
+	"client_secret":    true,
+}
+
+// isSensitiveKey checks if a key name should be treated as sensitive.
+func isSensitiveKey(key string) bool {
+	// Convert to lowercase for case-insensitive matching
+	lower := strings.ToLower(key)
+	return SensitiveKeys[lower]
+}
+
+// MaskConfigMap masks sensitive values in a config map by key name.
+// This is always enabled (not controlled by the global masker flag) because
+// it's specifically for redacting config before serialization for security.
+// Returns a new map with sensitive values replaced by "[REDACTED]".
+func MaskConfigMap(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	return maskConfigMapRecursive(m)
+}
+
+// maskConfigMapRecursive recursively masks sensitive values in nested maps.
+func maskConfigMapRecursive(m map[string]any) map[string]any {
+	result := make(map[string]any, len(m))
+	for k, v := range m {
+		if isSensitiveKey(k) {
+			// Mask the entire value for sensitive keys
+			switch val := v.(type) {
+			case string:
+				if val != "" {
+					result[k] = "[REDACTED]"
+				} else {
+					result[k] = val
+				}
+			default:
+				// For non-string sensitive values, still redact if not nil/zero
+				if v != nil {
+					result[k] = "[REDACTED]"
+				} else {
+					result[k] = v
+				}
+			}
+		} else {
+			// For non-sensitive keys, process the value
+			switch val := v.(type) {
+			case string:
+				// Also redact if the value itself looks like a secret
+				result[k] = errors.RedactSensitive(val)
+			case map[string]any:
+				result[k] = maskConfigMapRecursive(val)
+			case []any:
+				result[k] = maskConfigSlice(val)
+			default:
+				result[k] = v
+			}
+		}
+	}
+	return result
+}
+
+// maskConfigSlice recursively masks sensitive values in slices.
+func maskConfigSlice(s []any) []any {
+	result := make([]any, len(s))
+	for i, v := range s {
+		switch val := v.(type) {
+		case string:
+			result[i] = errors.RedactSensitive(val)
+		case map[string]any:
+			result[i] = maskConfigMapRecursive(val)
+		case []any:
+			result[i] = maskConfigSlice(val)
+		default:
+			result[i] = v
+		}
+	}
+	return result
+}
+
 // NewMasker creates a new Masker instance.
 // This can be used for testing or when you need independent masking control.
 func NewMasker() *Masker {
@@ -186,4 +292,13 @@ func (m *Masker) Mask(s string) string {
 		return s
 	}
 	return errors.RedactSensitive(s)
+}
+
+// MaskError redacts sensitive data from an error message.
+// Always enabled - error messages should never contain secrets.
+func MaskError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", errors.RedactSensitive(err.Error()))
 }

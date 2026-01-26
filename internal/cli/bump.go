@@ -15,6 +15,7 @@ import (
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/security"
 )
 
 var (
@@ -127,6 +128,18 @@ func printBumpNextSteps(nextVersion version.SemanticVersion) {
 // runVersion implements the version/bump command.
 func runVersion(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// Validate prerelease and build metadata inputs to prevent injection attacks
+	if bumpPrerelease != "" {
+		if err := security.ValidatePrerelease(bumpPrerelease); err != nil {
+			return fmt.Errorf("invalid prerelease: %w", err)
+		}
+	}
+	if bumpBuild != "" {
+		if err := security.ValidateBuildMetadata(bumpBuild); err != nil {
+			return fmt.Errorf("invalid build metadata: %w", err)
+		}
+	}
 
 	printTitle("Version Bump")
 	fmt.Println()

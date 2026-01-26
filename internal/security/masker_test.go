@@ -2,6 +2,7 @@ package security
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -312,6 +313,160 @@ func TestMaskerInstance(t *testing.T) {
 		result = m.Mask(input)
 		if !strings.Contains(result, "[REDACTED]") {
 			t.Error("Should mask when enabled")
+		}
+	})
+}
+
+func TestMaskConfigMap(t *testing.T) {
+	t.Run("masks sensitive keys by name", func(t *testing.T) {
+		input := map[string]any{
+			"url":      "https://example.com",
+			"token":    "my-secret-token",
+			"password": "super-secret-password",
+			"api_key":  "sk-proj-abcdefghijklmnopqrstuvwxyz123456",
+			"username": "admin",
+		}
+
+		result := MaskConfigMap(input)
+
+		// Sensitive keys should be redacted
+		if result["token"] != "[REDACTED]" {
+			t.Errorf("token should be redacted, got %v", result["token"])
+		}
+		if result["password"] != "[REDACTED]" {
+			t.Errorf("password should be redacted, got %v", result["password"])
+		}
+		if result["api_key"] != "[REDACTED]" {
+			t.Errorf("api_key should be redacted, got %v", result["api_key"])
+		}
+
+		// Non-sensitive keys should be unchanged
+		if result["url"] != "https://example.com" {
+			t.Errorf("url should be unchanged, got %v", result["url"])
+		}
+		if result["username"] != "admin" {
+			t.Errorf("username should be unchanged, got %v", result["username"])
+		}
+	})
+
+	t.Run("masks nested configs", func(t *testing.T) {
+		input := map[string]any{
+			"plugin": map[string]any{
+				"name":   "github",
+				"token":  "ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+				"secret": "my-webhook-secret",
+			},
+		}
+
+		result := MaskConfigMap(input)
+
+		nested := result["plugin"].(map[string]any)
+		if nested["name"] != "github" {
+			t.Errorf("name should be unchanged, got %v", nested["name"])
+		}
+		if nested["token"] != "[REDACTED]" {
+			t.Errorf("nested token should be redacted, got %v", nested["token"])
+		}
+		if nested["secret"] != "[REDACTED]" {
+			t.Errorf("nested secret should be redacted, got %v", nested["secret"])
+		}
+	})
+
+	t.Run("also redacts values that look like secrets", func(t *testing.T) {
+		input := map[string]any{
+			"callback_url": "https://example.com",
+			"data":         "ghp_0123456789abcdefghijklmnopqrstuvwxyz", // looks like a token
+		}
+
+		result := MaskConfigMap(input)
+
+		// URL should be unchanged
+		if result["callback_url"] != "https://example.com" {
+			t.Errorf("callback_url should be unchanged, got %v", result["callback_url"])
+		}
+
+		// Value that looks like a secret should be redacted
+		if result["data"] == "ghp_0123456789abcdefghijklmnopqrstuvwxyz" {
+			t.Errorf("data that looks like a token should be redacted, got %v", result["data"])
+		}
+	})
+
+	t.Run("handles empty and nil maps", func(t *testing.T) {
+		result := MaskConfigMap(nil)
+		if result != nil {
+			t.Error("nil input should return nil")
+		}
+
+		result = MaskConfigMap(map[string]any{})
+		if len(result) != 0 {
+			t.Error("empty input should return empty map")
+		}
+	})
+
+	t.Run("case insensitive key matching", func(t *testing.T) {
+		input := map[string]any{
+			"Token":    "my-token",
+			"PASSWORD": "my-password",
+			"Api_Key":  "my-api-key",
+		}
+
+		result := MaskConfigMap(input)
+
+		if result["Token"] != "[REDACTED]" {
+			t.Errorf("Token should be redacted, got %v", result["Token"])
+		}
+		if result["PASSWORD"] != "[REDACTED]" {
+			t.Errorf("PASSWORD should be redacted, got %v", result["PASSWORD"])
+		}
+		if result["Api_Key"] != "[REDACTED]" {
+			t.Errorf("Api_Key should be redacted, got %v", result["Api_Key"])
+		}
+	})
+
+	t.Run("preserves empty sensitive values", func(t *testing.T) {
+		input := map[string]any{
+			"token":  "",
+			"secret": "",
+		}
+
+		result := MaskConfigMap(input)
+
+		// Empty values should remain empty (not replaced with [REDACTED])
+		if result["token"] != "" {
+			t.Errorf("empty token should remain empty, got %v", result["token"])
+		}
+		if result["secret"] != "" {
+			t.Errorf("empty secret should remain empty, got %v", result["secret"])
+		}
+	})
+}
+
+func TestMaskError(t *testing.T) {
+	t.Run("masks secrets in error message", func(t *testing.T) {
+		err := fmt.Errorf("failed to connect with token ghp_0123456789abcdefghijklmnopqrstuvwxyz")
+		result := MaskError(err)
+
+		if strings.Contains(result.Error(), "ghp_") {
+			t.Error("error should have token redacted")
+		}
+		if !strings.Contains(result.Error(), "[REDACTED]") {
+			t.Error("error should contain [REDACTED]")
+		}
+	})
+
+	t.Run("returns nil for nil error", func(t *testing.T) {
+		result := MaskError(nil)
+		if result != nil {
+			t.Error("nil error should return nil")
+		}
+	})
+
+	t.Run("preserves non-sensitive error message", func(t *testing.T) {
+		err := fmt.Errorf("connection timeout")
+		result := MaskError(err)
+
+		if result.Error() != "connection timeout" {
+			t.Errorf("non-sensitive error should be unchanged, got %v", result.Error())
 		}
 	})
 }

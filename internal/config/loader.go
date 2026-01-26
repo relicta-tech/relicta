@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/security"
 )
 
 // Pre-compiled regex patterns for environment variable expansion.
@@ -347,11 +348,16 @@ func convertToHTTPSURL(remoteURL string) string {
 
 // loadConfigFile loads the configuration file.
 func (l *Loader) loadConfigFile() error {
-	// If explicit path provided, use it
+	// If explicit path provided, validate and use it
 	if l.configPath != "" {
-		l.v.SetConfigFile(l.configPath)
+		// Validate path to prevent directory traversal attacks
+		validPath, err := security.ValidateConfigPath(l.configPath)
+		if err != nil {
+			return fmt.Errorf("invalid config path: %w", err)
+		}
+		l.v.SetConfigFile(validPath)
 		if err := l.v.ReadInConfig(); err != nil {
-			return fmt.Errorf("reading config file %s: %w", l.configPath, err)
+			return fmt.Errorf("reading config file %s: %w", validPath, err)
 		}
 		return nil
 	}
