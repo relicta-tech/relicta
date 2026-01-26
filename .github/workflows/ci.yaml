@@ -171,6 +171,29 @@ jobs:
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
+      - name: Run govulncheck
+        id: govulncheck
+        run: |
+          echo "## Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+          if govulncheck -json ./... > govulncheck-results.json 2>&1; then
+            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "vulns_found=false" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Vulnerabilities detected - review required" >> $GITHUB_STEP_SUMMARY
+            echo "vulns_found=true" >> $GITHUB_OUTPUT
+            # Parse and summarize vulnerabilities
+            if command -v jq &> /dev/null && [ -f govulncheck-results.json ]; then
+              jq -r '.vulnerability // empty | "- **\(.osv.id)**: \(.osv.summary // "No summary")"' govulncheck-results.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+            fi
+          fi
+
+      - name: Upload govulncheck results
+        uses: actions/upload-artifact@v6
+        with:
+          name: govulncheck-results
+          path: govulncheck-results.json
+        if: always()
+
       - name: Run VerdictSec Security Scan
         run: |
           verdict scan --json -o verdict-results.json || true

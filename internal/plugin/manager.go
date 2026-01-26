@@ -295,6 +295,9 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 
 	m.logger.Info("plugin loaded", "name", cfg.Name, "version", info.Version, "hooks", info.Hooks)
 
+	// Log capability summary for auditing
+	sb.LogCapabilitySummary()
+
 	// Log successful load
 	_ = audit.LogLoad(ctx, cfg.Name, true, "")
 
@@ -761,6 +764,54 @@ func (m *Manager) Shutdown() {
 func (m *Manager) Close() error {
 	m.Shutdown()
 	return nil
+}
+
+// GetPluginViolations returns sandbox violations for a specific plugin.
+// This is useful for debugging and auditing plugin behavior.
+func (m *Manager) GetPluginViolations(name string) ([]sandbox.Violation, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	lp, ok := m.plugins[name]
+	if !ok {
+		return nil, errors.NotFound("plugin.GetPluginViolations", fmt.Sprintf("plugin not found: %s", name))
+	}
+
+	if lp.sandbox == nil {
+		return nil, nil
+	}
+
+	return lp.sandbox.GetViolations(), nil
+}
+
+// GetAllViolations returns sandbox violations from all loaded plugins.
+// This is useful for post-release auditing and debugging.
+func (m *Manager) GetAllViolations() map[string][]sandbox.Violation {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	result := make(map[string][]sandbox.Violation)
+	for name, lp := range m.plugins {
+		if lp.sandbox != nil && lp.sandbox.HasViolations() {
+			result[name] = lp.sandbox.GetViolations()
+		}
+	}
+
+	return result
+}
+
+// HasAnyViolations returns true if any plugin has recorded violations.
+func (m *Manager) HasAnyViolations() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	for _, lp := range m.plugins {
+		if lp.sandbox != nil && lp.sandbox.HasViolations() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // joinErrors joins error messages with a separator.
