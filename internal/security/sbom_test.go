@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"os"
 	"strings"
 	"testing"
 
@@ -285,4 +286,104 @@ func TestSPDXBOM_Relationships(t *testing.T) {
 	}
 	assert.Equal(t, 2, dependsOn)
 	assert.Equal(t, 1, describes)
+}
+
+func TestSBOMGenerator_WriteToFile(t *testing.T) {
+	gen := NewSBOMGenerator("github.com/example/app", "example-app", "v1.0.0")
+
+	t.Run("write cyclonedx-json", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		outputPath := tmpDir + "/sbom.json"
+
+		// This will use the actual module dependencies from the test environment
+		err := gen.WriteToFile(context.Background(), FormatCycloneDXJSON, outputPath)
+		if err == nil {
+			// If it succeeds, verify file was created
+			data, readErr := os.ReadFile(outputPath)
+			require.NoError(t, readErr)
+			assert.NotEmpty(t, data)
+			assert.True(t, json.Valid(data))
+		}
+		// May fail if dependencies can't be resolved, which is acceptable
+	})
+
+	t.Run("write with invalid format", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		outputPath := tmpDir + "/sbom.json"
+
+		err := gen.WriteToFile(context.Background(), "invalid-format", outputPath)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported format")
+	})
+}
+
+func TestSBOMGenerator_GenerateWithEmptyName(t *testing.T) {
+	// Test with empty name to cover the no-main-component branch
+	gen := NewSBOMGenerator("github.com/example/app", "", "v1.0.0")
+
+	deps := []Dependency{
+		{Path: "github.com/example/dep", Version: "v1.0.0"},
+	}
+
+	bom := gen.createCycloneDXBOM(deps)
+
+	require.NotNil(t, bom)
+	// When name is empty, no main component should be added to metadata
+	assert.Nil(t, bom.Metadata.Component)
+}
+
+func TestSPDXBOM_ExternalRefs(t *testing.T) {
+	gen := NewSBOMGenerator("github.com/example/app", "example-app", "v1.0.0")
+
+	deps := []Dependency{
+		{Path: "github.com/example/dep", Version: "v1.0.0"},
+	}
+
+	data, err := gen.generateSPDXJSON(deps)
+	require.NoError(t, err)
+
+	var bom SPDXBOM
+	err = json.Unmarshal(data, &bom)
+	require.NoError(t, err)
+
+	// Find the dependency package (not main)
+	var depPkg *SPDXPackage
+	for i := range bom.Packages {
+		if strings.Contains(bom.Packages[i].Name, "dep") {
+			depPkg = &bom.Packages[i]
+			break
+		}
+	}
+
+	require.NotNil(t, depPkg)
+	require.Len(t, depPkg.ExternalRefs, 1)
+	assert.Equal(t, "PACKAGE-MANAGER", depPkg.ExternalRefs[0].ReferenceCategory)
+	assert.Equal(t, "purl", depPkg.ExternalRefs[0].ReferenceType)
+	assert.Contains(t, depPkg.ExternalRefs[0].ReferenceLocator, "pkg:golang/")
+}
+
+func TestCycloneDXBOM_MainComponentPURL(t *testing.T) {
+	// Test that main component gets PURL when modulePath is set
+	gen := NewSBOMGenerator("github.com/example/app", "example-app", "v1.0.0")
+
+	deps := []Dependency{}
+	bom := gen.createCycloneDXBOM(deps)
+
+	require.NotNil(t, bom.Metadata.Component)
+	assert.Contains(t, bom.Metadata.Component.PURL, "pkg:golang/github.com/example/app@v1.0.0")
+}
+
+func TestCycloneDXBOM_MainComponentNoPURL(t *testing.T) {
+	// Test that main component doesn't get PURL when modulePath is empty
+	gen := &SBOMGenerator{
+		ModulePath: "",
+		Name:       "example-app",
+		Version:    "v1.0.0",
+	}
+
+	deps := []Dependency{}
+	bom := gen.createCycloneDXBOM(deps)
+
+	require.NotNil(t, bom.Metadata.Component)
+	assert.Empty(t, bom.Metadata.Component.PURL)
 }

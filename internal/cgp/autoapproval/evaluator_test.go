@@ -2,6 +2,8 @@ package autoapproval
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -587,5 +589,474 @@ func createTestAnalysis(features, breaking, security int) *cgp.ChangeAnalysis {
 		Features: features,
 		Breaking: breaking,
 		Security: security,
+	}
+}
+
+func TestWithLogger(t *testing.T) {
+	logger := slog.Default()
+	evaluator := New(WithLogger(logger))
+
+	if evaluator.logger != logger {
+		t.Error("WithLogger should set the logger")
+	}
+}
+
+func TestCheckTimeConstraints(t *testing.T) {
+	evaluator := New()
+
+	// Test business hours only
+	tc := &TimeConstraints{
+		BusinessHoursOnly: true,
+	}
+	// This test depends on current time, so we just verify it runs without panic
+	blocked, _ := evaluator.checkTimeConstraints(tc)
+	_ = blocked // Result depends on current time
+
+	// Test blocked dates
+	today := time.Now().Format("2006-01-02")
+	tc = &TimeConstraints{
+		BlockedDates: []string{today},
+	}
+	blocked, reason := evaluator.checkTimeConstraints(tc)
+	if !blocked {
+		t.Error("should be blocked on today's date")
+	}
+	if reason == "" {
+		t.Error("should have a reason")
+	}
+
+	// Test allowed days (block all days except non-existent day 10)
+	tc = &TimeConstraints{
+		AllowedDays: []int{10}, // Day 10 doesn't exist (weekdays are 0-6)
+	}
+	blocked, _ = evaluator.checkTimeConstraints(tc)
+	if !blocked {
+		t.Error("should be blocked when today is not in allowed days")
+	}
+
+	// Test allowed days - today should pass
+	tc = &TimeConstraints{
+		AllowedDays: []int{int(time.Now().Weekday())},
+	}
+	blocked, _ = evaluator.checkTimeConstraints(tc)
+	if blocked {
+		t.Error("should not be blocked when today is in allowed days")
+	}
+
+	// Test freeze windows
+	tc = &TimeConstraints{
+		FreezeWindows: []FreezeWindow{
+			{
+				Name:   "Current freeze",
+				Start:  time.Now().Add(-time.Hour),
+				End:    time.Now().Add(time.Hour),
+				Reason: "Testing",
+			},
+		},
+	}
+	blocked, reason = evaluator.checkTimeConstraints(tc)
+	if !blocked {
+		t.Error("should be blocked during freeze window")
+	}
+	if !strings.Contains(reason, "Current freeze") {
+		t.Errorf("reason should mention freeze window name, got: %s", reason)
+	}
+
+	// Test no constraints trigger
+	tc = &TimeConstraints{}
+	blocked, reason = evaluator.checkTimeConstraints(tc)
+	if blocked {
+		t.Errorf("empty constraints should not block, got reason: %s", reason)
+	}
+}
+
+func TestCheckActorConstraints(t *testing.T) {
+	evaluator := New()
+
+	// Test blocked actor
+	ac := &ActorConstraints{
+		BlockedActorIDs: []string{"blocked-user"},
+	}
+	actor := cgp.Actor{ID: "blocked-user", Kind: cgp.ActorKindHuman}
+	blocked, reason := evaluator.checkActorConstraints(ac, actor)
+	if !blocked {
+		t.Error("blocked actor should be blocked")
+	}
+	if !strings.Contains(reason, "blocked-user") {
+		t.Errorf("reason should mention actor ID, got: %s", reason)
+	}
+
+	// Test allowed actors list
+	ac = &ActorConstraints{
+		AllowedActorIDs: []string{"allowed-user"},
+	}
+	actor = cgp.Actor{ID: "not-allowed-user", Kind: cgp.ActorKindHuman}
+	blocked, _ = evaluator.checkActorConstraints(ac, actor)
+	if !blocked {
+		t.Error("actor not in allowed list should be blocked")
+	}
+
+	// Test allowed actor in list
+	actor = cgp.Actor{ID: "allowed-user", Kind: cgp.ActorKindHuman}
+	blocked, _ = evaluator.checkActorConstraints(ac, actor)
+	if blocked {
+		t.Error("actor in allowed list should not be blocked")
+	}
+
+	// Test allowed actor kinds
+	ac = &ActorConstraints{
+		AllowedActorKinds: []cgp.ActorKind{cgp.ActorKindCI},
+	}
+	actor = cgp.Actor{ID: "user", Kind: cgp.ActorKindHuman}
+	blocked, _ = evaluator.checkActorConstraints(ac, actor)
+	if !blocked {
+		t.Error("actor kind not in allowed list should be blocked")
+	}
+
+	// Test actor kind in allowed list
+	actor = cgp.Actor{ID: "ci-bot", Kind: cgp.ActorKindCI}
+	blocked, _ = evaluator.checkActorConstraints(ac, actor)
+	if blocked {
+		t.Error("actor kind in allowed list should not be blocked")
+	}
+
+	// Test minimum trust level
+	ac = &ActorConstraints{
+		MinTrustLevel: cgp.TrustLevelTrusted,
+	}
+	actor = cgp.Actor{ID: "user", Kind: cgp.ActorKindHuman, TrustLevel: cgp.TrustLevelUntrusted}
+	blocked, reason = evaluator.checkActorConstraints(ac, actor)
+	if !blocked {
+		t.Error("actor with low trust level should be blocked")
+	}
+	if !strings.Contains(reason, "trust level") {
+		t.Errorf("reason should mention trust level, got: %s", reason)
+	}
+}
+
+func TestMatchPattern(t *testing.T) {
+	tests := []struct {
+		value   string
+		pattern string
+		want    bool
+	}{
+		{"main", "main", true},
+		{"main", "release/*", false},
+		{"release/v1.0", "release/*", true},
+		{"release/v2.0", "release/*", true},
+		{"develop", "release/*", false},
+		{"feature/test", "feature/*", true},
+		{"main", "*", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.value+"/"+tt.pattern, func(t *testing.T) {
+			got := matchPattern(tt.value, tt.pattern)
+			if got != tt.want {
+				t.Errorf("matchPattern(%q, %q) = %v, want %v", tt.value, tt.pattern, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCompareFloatEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		a    float64
+		b    any
+		want bool
+	}{
+		{"float64 equal", 0.5, 0.5, true},
+		{"float64 not equal", 0.5, 0.6, false},
+		{"int equal", 1.0, 1, true},
+		{"int64 equal", 1.0, int64(1), true},
+		{"string", 1.0, "1.0", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := compareFloatEqual(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("compareFloatEqual(%v, %v) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestToFloat64(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  any
+		want   float64
+		wantOk bool
+	}{
+		{"float64", 1.5, 1.5, true},
+		{"float32", float32(1.5), 1.5, true},
+		{"int", 10, 10.0, true},
+		{"int64", int64(20), 20.0, true},
+		{"int32", int32(30), 30.0, true},
+		{"string", "1.5", 0, false},
+		{"bool", true, 0, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := toFloat64(tt.input)
+			if ok != tt.wantOk {
+				t.Errorf("toFloat64(%v) ok = %v, want %v", tt.input, ok, tt.wantOk)
+			}
+			if ok && got != tt.want {
+				t.Errorf("toFloat64(%v) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValuesEqual_BoolAndOther(t *testing.T) {
+	// Test bool equality
+	if !valuesEqual(true, true) {
+		t.Error("true == true should be true")
+	}
+	if valuesEqual(true, false) {
+		t.Error("true == false should be false")
+	}
+	// Note: valuesEqual uses fmt.Sprintf fallback, so true == "true" is actually true
+	if !valuesEqual(true, "true") {
+		t.Error("true == \"true\" should be true due to sprintf fallback")
+	}
+
+	// Test int64 path
+	if !valuesEqual(int64(5), 5) {
+		t.Error("int64(5) == 5 should be true")
+	}
+
+	// Test fallback to fmt.Sprintf comparison
+	if !valuesEqual("5", "5") {
+		t.Error("\"5\" == \"5\" should be true")
+	}
+}
+
+func TestProtectedBranchesExemption(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Exemptions.ProtectedBranches = []string{"main", "release/*"}
+	cfg.Exemptions.BreakingChanges = false
+	cfg.Exemptions.SecurityChanges = false
+	cfg.Exemptions.MajorVersions = false
+	evaluator := New(WithConfig(cfg))
+
+	// Test protected branch
+	proposal := createTestProposal("patch", cgp.ActorKindCI, cgp.TrustLevelTrusted)
+	proposal.Scope.Branch = "main"
+	analysis := createTestAnalysis(0, 0, 0)
+	riskAssessment := &risk.Assessment{Score: 0.1, Severity: cgp.SeverityLow}
+
+	result, err := evaluator.Evaluate(context.Background(), proposal, analysis, riskAssessment)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+
+	if result.Decision != DecisionRequireReview {
+		t.Errorf("Decision = %s, want require_review (protected branch)", result.Decision)
+	}
+	found := false
+	for _, exemption := range result.ExemptionHits {
+		if strings.Contains(exemption, "protected") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("ExemptionHits should mention protected branch")
+	}
+}
+
+func TestNewDependenciesExemption(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Exemptions.NewDependencies = true
+	cfg.Exemptions.BreakingChanges = false
+	cfg.Exemptions.SecurityChanges = false
+	cfg.Exemptions.MajorVersions = false
+	evaluator := New(WithConfig(cfg))
+
+	proposal := createTestProposal("patch", cgp.ActorKindCI, cgp.TrustLevelTrusted)
+	analysis := &cgp.ChangeAnalysis{
+		Features:     0,
+		Breaking:     0,
+		Security:     0,
+		Dependencies: 3, // New dependencies
+	}
+	riskAssessment := &risk.Assessment{Score: 0.1, Severity: cgp.SeverityLow}
+
+	result, err := evaluator.Evaluate(context.Background(), proposal, analysis, riskAssessment)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+
+	if result.Decision != DecisionRequireReview {
+		t.Errorf("Decision = %s, want require_review (new dependencies)", result.Decision)
+	}
+}
+
+func TestPolicyWithTimeConstraints(t *testing.T) {
+	cfg := DefaultConfig()
+	// Create a policy that would match but has time constraints blocking it
+	cfg.Policies = []AutoApprovalPolicy{
+		{
+			ID:       "test-policy",
+			Name:     "Test Policy",
+			Enabled:  true,
+			Priority: 100,
+			Conditions: []PolicyCondition{
+				{Field: "risk.score", Operator: "lte", Value: 0.5},
+			},
+			TimeConstraints: &TimeConstraints{
+				BlockedDates: []string{time.Now().Format("2006-01-02")},
+			},
+		},
+	}
+	cfg.Exemptions.BreakingChanges = false
+	cfg.Exemptions.SecurityChanges = false
+	cfg.Exemptions.MajorVersions = false
+	evaluator := New(WithConfig(cfg))
+
+	proposal := createTestProposal("patch", cgp.ActorKindCI, cgp.TrustLevelTrusted)
+	analysis := createTestAnalysis(0, 0, 0)
+	riskAssessment := &risk.Assessment{Score: 0.1, Severity: cgp.SeverityLow}
+
+	result, err := evaluator.Evaluate(context.Background(), proposal, analysis, riskAssessment)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+
+	if result.Decision != DecisionRequireReview {
+		t.Errorf("Decision = %s, want require_review (time constraints)", result.Decision)
+	}
+}
+
+func TestPolicyWithActorConstraints(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Policies = []AutoApprovalPolicy{
+		{
+			ID:       "test-policy",
+			Name:     "Test Policy",
+			Enabled:  true,
+			Priority: 100,
+			Conditions: []PolicyCondition{
+				{Field: "risk.score", Operator: "lte", Value: 0.5},
+			},
+			ActorConstraints: &ActorConstraints{
+				BlockedActorIDs: []string{"test-actor"},
+			},
+		},
+	}
+	cfg.Exemptions.BreakingChanges = false
+	cfg.Exemptions.SecurityChanges = false
+	cfg.Exemptions.MajorVersions = false
+	evaluator := New(WithConfig(cfg))
+
+	proposal := createTestProposal("patch", cgp.ActorKindCI, cgp.TrustLevelTrusted)
+	analysis := createTestAnalysis(0, 0, 0)
+	riskAssessment := &risk.Assessment{Score: 0.1, Severity: cgp.SeverityLow}
+
+	result, err := evaluator.Evaluate(context.Background(), proposal, analysis, riskAssessment)
+	if err != nil {
+		t.Fatalf("Evaluate failed: %v", err)
+	}
+
+	if result.Decision != DecisionRequireReview {
+		t.Errorf("Decision = %s, want require_review (actor constraints)", result.Decision)
+	}
+}
+
+func TestValueInWithAnySlice(t *testing.T) {
+	// Test with []any slice
+	list := []any{"patch", "minor"}
+	if !valueIn("patch", list) {
+		t.Error("\"patch\" should be in list")
+	}
+	if valueIn("major", list) {
+		t.Error("\"major\" should not be in list")
+	}
+}
+
+func TestValueContainsEdgeCases(t *testing.T) {
+	// Test with non-string field
+	if valueContains(123, "1") {
+		t.Error("non-string field should return false")
+	}
+	// Test with non-string search
+	if valueContains("hello", 123) {
+		t.Error("non-string search should return false")
+	}
+}
+
+func TestValueMatchesEdgeCases(t *testing.T) {
+	// Test with non-string field
+	if valueMatches(123, ".*") {
+		t.Error("non-string field should return false")
+	}
+	// Test with non-string pattern
+	if valueMatches("hello", 123) {
+		t.Error("non-string pattern should return false")
+	}
+	// Test with invalid regex
+	if valueMatches("hello", "[invalid") {
+		t.Error("invalid regex should return false")
+	}
+}
+
+func TestGetNestedValueEdgeCases(t *testing.T) {
+	data := map[string]any{
+		"level1": map[string]any{
+			"level2": "value",
+		},
+		"string": "not a map",
+	}
+
+	// Test valid path
+	if getNestedValue(data, "level1.level2") != "value" {
+		t.Error("should get nested value")
+	}
+
+	// Test non-existent key
+	if getNestedValue(data, "level1.notexist") != nil {
+		t.Error("non-existent key should return nil")
+	}
+
+	// Test path through non-map
+	if getNestedValue(data, "string.child") != nil {
+		t.Error("path through non-map should return nil")
+	}
+}
+
+func TestToGovernanceDecisionWithRequiredApprovers(t *testing.T) {
+	result := &Result{
+		Decision:          DecisionRequireReview,
+		CGPDecision:       cgp.DecisionApprovalRequired,
+		Approved:          false,
+		RiskScore:         0.6,
+		Rationale:         []string{"High risk"},
+		RequiredApprovers: 2,
+		MatchedPolicy:     nil,
+	}
+
+	decision := result.ToGovernanceDecision("proposal-123")
+
+	if decision.ProposalID != "proposal-123" {
+		t.Errorf("ProposalID = %s, want proposal-123", decision.ProposalID)
+	}
+	if decision.Decision != cgp.DecisionApprovalRequired {
+		t.Errorf("Decision = %s, want approval_required", decision.Decision)
+	}
+	// Check that required action was added
+	found := false
+	for _, action := range decision.RequiredActions {
+		if action.Type == "human_approval" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("should have human_approval required action")
 	}
 }

@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/relicta-tech/relicta/internal/domain/changes"
@@ -210,5 +211,68 @@ func TestCommitAnalyzer_AnalyzeAllStats(t *testing.T) {
 	}
 	if len(result.Stats.LowConfidenceCommits) != 2 {
 		t.Fatalf("LowConfidenceCommits length = %d, want 2", len(result.Stats.LowConfidenceCommits))
+	}
+}
+
+func TestCommitAnalyzer_WithLogger(t *testing.T) {
+	logger := slog.Default()
+	analyzer := NewAnalyzer(DefaultConfig(), WithLogger(logger))
+
+	// Verify analyzer was created with the logger
+	if analyzer == nil {
+		t.Fatal("NewAnalyzer should not return nil")
+	}
+
+	// The logger is private, so we just verify analyzer works
+	commit := CommitInfo{
+		Hash:    sourcecontrol.CommitHash("abc"),
+		Message: "feat: test",
+		Subject: "feat: test",
+	}
+
+	result, err := analyzer.Analyze(context.Background(), commit)
+	if err != nil {
+		t.Fatalf("Analyze error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllWithEmptyCommits(t *testing.T) {
+	analyzer := NewAnalyzer(DefaultConfig())
+
+	result, err := analyzer.AnalyzeAll(context.Background(), []CommitInfo{})
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.TotalCommits != 0 {
+		t.Errorf("TotalCommits = %d, want 0", result.Stats.TotalCommits)
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllWithSkippedCommits(t *testing.T) {
+	cfg := DefaultConfig()
+	analyzer := NewAnalyzer(cfg, WithHeuristics(&stubHeuristics{
+		classification: &CommitClassification{
+			CommitHash: sourcecontrol.CommitHash("abc"),
+			Type:       changes.CommitTypeFix,
+			Confidence: 0.9,
+			Method:     MethodSkipped,
+			ShouldSkip: true,
+			SkipReason: "Merge commit",
+		},
+	}))
+
+	commits := []CommitInfo{
+		{Hash: sourcecontrol.CommitHash("abc"), Message: "Merge branch", Subject: "Merge branch"},
+	}
+
+	result, err := analyzer.AnalyzeAll(context.Background(), commits)
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.SkippedCount != 1 {
+		t.Errorf("SkippedCount = %d, want 1", result.Stats.SkippedCount)
 	}
 }
