@@ -86,3 +86,86 @@ func TestGetPlan_NilRun(t *testing.T) {
 		t.Error("GetPlan(nil) should return nil")
 	}
 }
+
+func TestSetPlan(t *testing.T) {
+	// Create a release run
+	run := NewReleaseRun(
+		"org/repo",
+		"/tmp/repo",
+		"v1.0.0",
+		"abc123",
+		[]CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+
+	currentVersion := version.MustParse("1.0.0")
+	nextVersion := version.MustParse("1.1.0")
+	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
+	plan := NewReleasePlan(currentVersion, nextVersion, changes.ReleaseTypeMinor, changeSet, false)
+
+	err := SetPlan(run, plan)
+	if err != nil {
+		t.Fatalf("SetPlan failed: %v", err)
+	}
+
+	// Verify the run has the plan data
+	if run.VersionNext().String() != "1.1.0" {
+		t.Errorf("VersionNext = %s, want 1.1.0", run.VersionNext().String())
+	}
+	if !run.HasChangeSet() {
+		t.Error("Run should have changeset")
+	}
+}
+
+func TestSetPlan_NilPlan(t *testing.T) {
+	run := NewReleaseRun(
+		"org/repo",
+		"/tmp/repo",
+		"v1.0.0",
+		"abc123",
+		[]CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+
+	err := SetPlan(run, nil)
+	if err == nil {
+		t.Error("SetPlan(run, nil) should return error")
+	}
+}
+
+func TestGetPlan_WithRun(t *testing.T) {
+	run := NewReleaseRun(
+		"org/repo",
+		"/tmp/repo",
+		"v1.0.0",
+		"abc123",
+		[]CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+
+	currentVersion := version.MustParse("1.0.0")
+	nextVersion := version.MustParse("1.1.0")
+	changeSet := changes.NewChangeSet("cs-1", "v1.0.0", "HEAD")
+	plan := NewReleasePlan(currentVersion, nextVersion, changes.ReleaseTypeMinor, changeSet, false)
+
+	err := SetPlan(run, plan)
+	if err != nil {
+		t.Fatalf("SetPlan failed: %v", err)
+	}
+
+	// Now get the plan back
+	retrievedPlan := GetPlan(run)
+	if retrievedPlan == nil {
+		t.Fatal("GetPlan returned nil")
+	}
+
+	if retrievedPlan.NextVersion.String() != "1.1.0" {
+		t.Errorf("NextVersion = %s, want 1.1.0", retrievedPlan.NextVersion.String())
+	}
+	if !retrievedPlan.HasChangeSet() {
+		t.Error("Plan should have changeset")
+	}
+}

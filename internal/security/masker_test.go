@@ -441,6 +441,178 @@ func TestMaskConfigMap(t *testing.T) {
 	})
 }
 
+func TestEnableInCI(t *testing.T) {
+	// Save original state
+	wasEnabled := IsEnabled()
+	defer func() {
+		if wasEnabled {
+			Enable()
+		} else {
+			Disable()
+		}
+	}()
+
+	t.Run("enables when CI env var is set", func(t *testing.T) {
+		Disable()
+		t.Setenv("CI", "true")
+		EnableInCI()
+		if !IsEnabled() {
+			t.Error("Masker should be enabled when CI=true")
+		}
+	})
+
+	t.Run("enables when GITHUB_ACTIONS env var is set", func(t *testing.T) {
+		Disable()
+		t.Setenv("GITHUB_ACTIONS", "true")
+		EnableInCI()
+		if !IsEnabled() {
+			t.Error("Masker should be enabled when GITHUB_ACTIONS=true")
+		}
+	})
+
+	t.Run("enables when GITLAB_CI env var is set", func(t *testing.T) {
+		Disable()
+		t.Setenv("GITLAB_CI", "true")
+		EnableInCI()
+		if !IsEnabled() {
+			t.Error("Masker should be enabled when GITLAB_CI=true")
+		}
+	})
+
+	t.Run("stays disabled when no CI env vars", func(t *testing.T) {
+		Disable()
+		// Don't set any CI env vars
+		EnableInCI()
+		if IsEnabled() {
+			t.Error("Masker should remain disabled when no CI env vars are set")
+		}
+	})
+}
+
+func TestMaskConfigSlice(t *testing.T) {
+	t.Run("masks strings containing secrets", func(t *testing.T) {
+		input := []any{
+			"normal string",
+			"token: ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+			42,
+		}
+
+		result := maskConfigSlice(input)
+
+		if result[0] != "normal string" {
+			t.Errorf("normal string should be unchanged, got %v", result[0])
+		}
+		if !strings.Contains(result[1].(string), "[REDACTED]") {
+			t.Errorf("token should be redacted, got %v", result[1])
+		}
+		if result[2] != 42 {
+			t.Errorf("integer should be unchanged, got %v", result[2])
+		}
+	})
+
+	t.Run("handles nested maps in slice", func(t *testing.T) {
+		input := []any{
+			map[string]any{
+				"token": "secret-token",
+				"name":  "test",
+			},
+		}
+
+		result := maskConfigSlice(input)
+
+		nestedMap := result[0].(map[string]any)
+		if nestedMap["token"] != "[REDACTED]" {
+			t.Errorf("nested token should be redacted, got %v", nestedMap["token"])
+		}
+		if nestedMap["name"] != "test" {
+			t.Errorf("nested name should be unchanged, got %v", nestedMap["name"])
+		}
+	})
+
+	t.Run("handles nested slices", func(t *testing.T) {
+		input := []any{
+			[]any{"normal", "sk-proj-abcdefghijklmnopqrstuvwxyz123456"},
+		}
+
+		result := maskConfigSlice(input)
+
+		nestedSlice := result[0].([]any)
+		if nestedSlice[0] != "normal" {
+			t.Errorf("nested normal should be unchanged, got %v", nestedSlice[0])
+		}
+		if !strings.Contains(nestedSlice[1].(string), "[REDACTED]") {
+			t.Errorf("nested secret should be redacted, got %v", nestedSlice[1])
+		}
+	})
+
+	t.Run("handles empty slice", func(t *testing.T) {
+		result := maskConfigSlice([]any{})
+		if len(result) != 0 {
+			t.Error("empty slice should return empty slice")
+		}
+	})
+}
+
+func TestMaskSlice(t *testing.T) {
+	defer Disable()
+
+	t.Run("masks strings when enabled", func(t *testing.T) {
+		Enable()
+		input := []interface{}{
+			"normal string",
+			"ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+			123,
+		}
+
+		result := maskSlice(input)
+
+		if result[0] != "normal string" {
+			t.Errorf("normal string should be unchanged, got %v", result[0])
+		}
+		if !strings.Contains(result[1].(string), "[REDACTED]") {
+			t.Errorf("secret should be redacted, got %v", result[1])
+		}
+		if result[2] != 123 {
+			t.Errorf("integer should be unchanged, got %v", result[2])
+		}
+	})
+
+	t.Run("handles nested maps", func(t *testing.T) {
+		Enable()
+		input := []interface{}{
+			map[string]interface{}{
+				"key": "sk-proj-abcdefghijklmnopqrstuvwxyz123456",
+			},
+		}
+
+		result := maskSlice(input)
+
+		nestedMap := result[0].(map[string]interface{})
+		if !strings.Contains(nestedMap["key"].(string), "[REDACTED]") {
+			t.Errorf("nested secret should be redacted, got %v", nestedMap["key"])
+		}
+	})
+
+	t.Run("handles deeply nested slices", func(t *testing.T) {
+		Enable()
+		input := []interface{}{
+			[]interface{}{
+				[]interface{}{
+					"ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+				},
+			},
+		}
+
+		result := maskSlice(input)
+
+		nested1 := result[0].([]interface{})
+		nested2 := nested1[0].([]interface{})
+		if !strings.Contains(nested2[0].(string), "[REDACTED]") {
+			t.Errorf("deeply nested secret should be redacted, got %v", nested2[0])
+		}
+	})
+}
+
 func TestMaskError(t *testing.T) {
 	t.Run("masks secrets in error message", func(t *testing.T) {
 		err := fmt.Errorf("failed to connect with token ghp_0123456789abcdefghijklmnopqrstuvwxyz")
