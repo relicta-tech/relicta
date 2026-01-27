@@ -337,3 +337,102 @@ func TestEncodePretty(t *testing.T) {
 		t.Errorf("EncodePretty output is not valid JSON: %v", err)
 	}
 }
+
+func TestNewAuthorizationMessage(t *testing.T) {
+	actor := cgp.NewHumanActor("test@example.com", "Test User")
+	auth := cgp.NewAuthorization("decision-456", "proposal-123", actor, "1.0.0")
+
+	msg, err := NewAuthorizationMessage(auth)
+	if err != nil {
+		t.Fatalf("NewAuthorizationMessage failed: %v", err)
+	}
+
+	if msg.Header.Type != cgp.MessageTypeAuthorization {
+		t.Errorf("Header.Type = %s, want %s", msg.Header.Type, cgp.MessageTypeAuthorization)
+	}
+	if msg.Header.CorrelationID != auth.ProposalID {
+		t.Errorf("CorrelationID = %s, want %s", msg.Header.CorrelationID, auth.ProposalID)
+	}
+}
+
+func TestMessage_WithCorrelationID(t *testing.T) {
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("test@example.com", "Test"),
+		cgp.ProposalScope{Repository: "org/repo", CommitRange: "a..b"},
+		cgp.ProposalIntent{Summary: "Test", Confidence: 0.8},
+	)
+
+	msg, _ := NewMessage(cgp.MessageTypeProposal, proposal)
+
+	// Set correlation ID
+	result := msg.WithCorrelationID("custom-correlation-123")
+
+	// Should return the same message for chaining
+	if result != msg {
+		t.Error("WithCorrelationID should return the same message")
+	}
+
+	if msg.Header.CorrelationID != "custom-correlation-123" {
+		t.Errorf("CorrelationID = %s, want custom-correlation-123", msg.Header.CorrelationID)
+	}
+}
+
+func TestMessage_AsAuthorization(t *testing.T) {
+	actor := cgp.NewHumanActor("test@example.com", "Test User")
+	auth := cgp.NewAuthorization("decision-456", "proposal-123", actor, "1.0.0")
+
+	msg, _ := NewAuthorizationMessage(auth)
+
+	decoded, err := msg.AsAuthorization()
+	if err != nil {
+		t.Fatalf("AsAuthorization failed: %v", err)
+	}
+
+	if decoded.ProposalID != auth.ProposalID {
+		t.Errorf("ProposalID = %s, want %s", decoded.ProposalID, auth.ProposalID)
+	}
+	if decoded.DecisionID != auth.DecisionID {
+		t.Errorf("DecisionID = %s, want %s", decoded.DecisionID, auth.DecisionID)
+	}
+	if decoded.Version != "1.0.0" {
+		t.Errorf("Version = %s, want 1.0.0", decoded.Version)
+	}
+}
+
+func TestMessage_AsAuthorization_WrongType(t *testing.T) {
+	decision := cgp.NewDecision("proposal-123", cgp.DecisionApproved)
+	msg, _ := NewDecisionMessage(decision)
+
+	_, err := msg.AsAuthorization()
+	if err == nil {
+		t.Error("AsAuthorization should fail for non-authorization message")
+	}
+}
+
+func TestMessage_AsEvaluation_WrongType(t *testing.T) {
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("test@example.com", "Test"),
+		cgp.ProposalScope{Repository: "org/repo", CommitRange: "a..b"},
+		cgp.ProposalIntent{Summary: "Test", Confidence: 0.8},
+	)
+	msg, _ := NewProposalMessage(proposal)
+
+	_, err := msg.AsEvaluation()
+	if err == nil {
+		t.Error("AsEvaluation should fail for non-evaluation message")
+	}
+}
+
+func TestMessage_AsDecision_WrongType(t *testing.T) {
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("test@example.com", "Test"),
+		cgp.ProposalScope{Repository: "org/repo", CommitRange: "a..b"},
+		cgp.ProposalIntent{Summary: "Test", Confidence: 0.8},
+	)
+	msg, _ := NewProposalMessage(proposal)
+
+	_, err := msg.AsDecision()
+	if err == nil {
+		t.Error("AsDecision should fail for non-decision message")
+	}
+}

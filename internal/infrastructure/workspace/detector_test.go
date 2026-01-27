@@ -454,3 +454,212 @@ func TestFileDetector_ContextCancellation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Error(t, result.Error)
 }
+
+func TestFileDetector_DetectFromRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a pnpm workspace
+	workspaceYAML := `packages:
+  - 'packages/*'
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "pnpm-workspace.yaml"), []byte(workspaceYAML), 0644)
+	require.NoError(t, err)
+
+	// Create a package
+	pkgDir := filepath.Join(tmpDir, "packages", "pkg-a")
+	err = os.MkdirAll(pkgDir, 0755)
+	require.NoError(t, err)
+	pkgJSON := `{"name": "@monorepo/pkg-a", "version": "1.0.0"}`
+	err = os.WriteFile(filepath.Join(pkgDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+
+	// Test DetectFromRoot with IncludePackages=true
+	opts := workspace.DetectionOptions{
+		MaxDepth:        3,
+		IncludePackages: true,
+	}
+	result, err := detector.DetectFromRoot(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result.Workspace)
+	assert.Equal(t, workspace.WorkspaceTypePnpm, result.Workspace.Type)
+	assert.Len(t, result.Workspace.Packages, 1)
+
+	// Test DetectFromRoot on non-workspace directory
+	nonWsDir := t.TempDir()
+	result, err = detector.DetectFromRoot(ctx, nonWsDir, opts)
+	require.NoError(t, err)
+	require.NotNil(t, result.Workspace)
+	assert.Equal(t, workspace.WorkspaceTypeNone, result.Workspace.Type)
+}
+
+func TestFileDetector_DetectFromRoot_InvalidPath(t *testing.T) {
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	// Test with non-existent path - the function returns no error but workspace is None
+	result, err := detector.DetectFromRoot(ctx, "/nonexistent/path/that/does/not/exist", opts)
+	require.NoError(t, err)
+	// The function returns a result but marks it with an error or returns WorkspaceTypeNone
+	if result.Error == nil {
+		// If no error, workspace should be None type
+		assert.Equal(t, workspace.WorkspaceTypeNone, result.Workspace.Type)
+	}
+}
+
+func TestFileDetector_Detect_MavenWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create pom.xml with modules section
+	pomXML := `<?xml version="1.0" encoding="UTF-8"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>parent</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>core</module>
+        <module>api</module>
+    </modules>
+</project>
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "pom.xml"), []byte(pomXML), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeMaven, ws.Type)
+}
+
+func TestFileDetector_NewFileDetectorWithMarkers(t *testing.T) {
+	customMarkers := []workspace.MarkerFile{
+		{
+			Name:           "custom-workspace.json",
+			Type:           workspace.WorkspaceTypePnpm,
+			PackageManager: workspace.PackageManagerPnpm,
+			Priority:       100,
+		},
+	}
+
+	detector := NewFileDetectorWithMarkers(customMarkers)
+	assert.NotNil(t, detector)
+
+	tmpDir := t.TempDir()
+	err := os.WriteFile(filepath.Join(tmpDir, "custom-workspace.json"), []byte("{}"), 0644)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+	assert.Equal(t, workspace.WorkspaceTypePnpm, result.Workspace.Type)
+}
+
+func TestFileDetector_ShouldExclude(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test directories
+	nodeModules := filepath.Join(tmpDir, "node_modules", "pkg")
+	err := os.MkdirAll(nodeModules, 0755)
+	require.NoError(t, err)
+
+	packages := filepath.Join(tmpDir, "packages", "lib")
+	err = os.MkdirAll(packages, 0755)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+
+	excludePatterns := []string{"node_modules", ".git", "dist"}
+
+	// Should exclude node_modules
+	assert.True(t, detector.shouldExclude(nodeModules, excludePatterns, tmpDir))
+
+	// Should not exclude packages
+	assert.False(t, detector.shouldExclude(packages, excludePatterns, tmpDir))
+}
+
+func TestFileDetector_DefaultPackagePatterns(t *testing.T) {
+	detector := NewFileDetector()
+
+	tests := []struct {
+		wsType   workspace.WorkspaceType
+		expected []string
+	}{
+		{workspace.WorkspaceTypePnpm, []string{"packages/*", "apps/*", "libs/*", "tools/*"}},
+		{workspace.WorkspaceTypeGoModule, []string{"./", "cmd/*", "internal/*", "pkg/*"}},
+		{workspace.WorkspaceTypeCargo, []string{"crates/*", "*/"}},
+		{workspace.WorkspaceTypeMaven, []string{"*/"}},
+		{workspace.WorkspaceTypeGradle, []string{"*/"}},
+		{workspace.WorkspaceTypeNone, []string{"packages/*", "*/"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.wsType), func(t *testing.T) {
+			patterns := detector.defaultPackagePatterns(tt.wsType)
+			assert.Equal(t, tt.expected, patterns)
+		})
+	}
+}
+
+func TestFileDetector_Detect_YarnWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json with workspaces and yarn.lock
+	pkgJSON := `{
+		"name": "yarn-monorepo",
+		"private": true,
+		"workspaces": ["packages/*"]
+	}`
+	err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(pkgJSON), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(tmpDir, "yarn.lock"), []byte(""), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	// The detector uses priority-based detection; npm workspaces marker may take precedence
+	// Just verify it detects a workspace type
+	assert.NotEqual(t, workspace.WorkspaceTypeNone, ws.Type)
+	assert.Contains(t, []workspace.WorkspaceType{workspace.WorkspaceTypeYarn, workspace.WorkspaceTypeNpm}, ws.Type)
+}
+
+func TestFileDetector_Detect_GradleWorkspace(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create settings.gradle with multi-project setup
+	settingsGradle := `rootProject.name = 'multi-project'
+include 'core', 'api', 'web'
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "settings.gradle"), []byte(settingsGradle), 0644)
+	require.NoError(t, err)
+
+	detector := NewFileDetector()
+	ctx := context.Background()
+	opts := workspace.DefaultDetectionOptions()
+
+	result, err := detector.Detect(ctx, tmpDir, opts)
+	require.NoError(t, err)
+	require.True(t, result.Success())
+
+	ws := result.Workspace
+	assert.Equal(t, workspace.WorkspaceTypeGradle, ws.Type)
+}

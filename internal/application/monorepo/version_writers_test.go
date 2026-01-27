@@ -512,3 +512,166 @@ end
 		t.Errorf("ReadVersion after write = %s, want 2.0.0", newVer)
 	}
 }
+
+func TestCargoVersionWriter_Files(t *testing.T) {
+	w := &CargoVersionWriter{}
+	tmpDir := t.TempDir()
+
+	// Create Cargo.toml
+	if err := os.WriteFile(filepath.Join(tmpDir, "Cargo.toml"), []byte("[package]\nversion = \"1.0.0\""), 0644); err != nil {
+		t.Fatalf("Failed to write Cargo.toml: %v", err)
+	}
+
+	files := w.Files(tmpDir)
+	if len(files) != 1 {
+		t.Errorf("Files() returned %d files, want 1", len(files))
+	}
+	if files[0] != filepath.Join(tmpDir, "Cargo.toml") {
+		t.Errorf("Files()[0] = %s, want Cargo.toml path", files[0])
+	}
+}
+
+func TestPythonVersionWriter_Files(t *testing.T) {
+	w := &PythonVersionWriter{}
+	tmpDir := t.TempDir()
+
+	// Create pyproject.toml
+	if err := os.WriteFile(filepath.Join(tmpDir, "pyproject.toml"), []byte("[project]\nversion = \"1.0.0\""), 0644); err != nil {
+		t.Fatalf("Failed to write pyproject.toml: %v", err)
+	}
+
+	files := w.Files(tmpDir)
+	if len(files) < 1 {
+		t.Errorf("Files() returned %d files, want at least 1", len(files))
+	}
+}
+
+func TestGoModuleVersionWriter_Files(t *testing.T) {
+	w := &GoModuleVersionWriter{}
+	tmpDir := t.TempDir()
+
+	// Create version.go
+	if err := os.WriteFile(filepath.Join(tmpDir, "version.go"), []byte("package main\nconst Version = \"1.0.0\""), 0644); err != nil {
+		t.Fatalf("Failed to write version.go: %v", err)
+	}
+
+	files := w.Files(tmpDir)
+	if len(files) < 1 {
+		t.Errorf("Files() returned %d files, want at least 1", len(files))
+	}
+}
+
+func TestNPMVersionWriter_ReadVersion_NoFile(t *testing.T) {
+	w := &NPMVersionWriter{}
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	_, err := w.ReadVersion(ctx, tmpDir)
+	if err == nil {
+		t.Error("ReadVersion should fail when package.json doesn't exist")
+	}
+}
+
+func TestCargoVersionWriter_ReadVersion_NoFile(t *testing.T) {
+	w := &CargoVersionWriter{}
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	_, err := w.ReadVersion(ctx, tmpDir)
+	if err == nil {
+		t.Error("ReadVersion should fail when Cargo.toml doesn't exist")
+	}
+}
+
+func TestPythonVersionWriter_ReadVersion_NoFile(t *testing.T) {
+	w := &PythonVersionWriter{}
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	_, err := w.ReadVersion(ctx, tmpDir)
+	if err == nil {
+		t.Error("ReadVersion should fail when no Python version files exist")
+	}
+}
+
+func TestGoModuleVersionWriter_ReadVersion_NoFile(t *testing.T) {
+	w := &GoModuleVersionWriter{}
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	_, err := w.ReadVersion(ctx, tmpDir)
+	if err == nil {
+		t.Error("ReadVersion should fail when version.go doesn't exist")
+	}
+}
+
+func TestDirectoryVersionWriter_Files(t *testing.T) {
+	w := &DirectoryVersionWriter{}
+	tmpDir := t.TempDir()
+
+	// Create VERSION file
+	if err := os.WriteFile(filepath.Join(tmpDir, "VERSION"), []byte("1.0.0"), 0644); err != nil {
+		t.Fatalf("Failed to write VERSION: %v", err)
+	}
+
+	files := w.Files(tmpDir)
+	if len(files) != 1 {
+		t.Errorf("Files() returned %d files, want 1", len(files))
+	}
+}
+
+func TestPythonVersionWriter_SetupPy(t *testing.T) {
+	w := &PythonVersionWriter{}
+	tmpDir := t.TempDir()
+
+	setupPy := `from setuptools import setup
+
+setup(
+    name="mypackage",
+    version="1.2.3",
+    packages=["mypackage"],
+)
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "setup.py"), []byte(setupPy), 0644); err != nil {
+		t.Fatalf("Failed to write setup.py: %v", err)
+	}
+
+	ctx := context.Background()
+	ver, err := w.ReadVersion(ctx, tmpDir)
+	if err != nil {
+		t.Fatalf("ReadVersion failed: %v", err)
+	}
+	if ver != "1.2.3" {
+		t.Errorf("ReadVersion = %s, want 1.2.3", ver)
+	}
+}
+
+func TestGradleVersionWriter_BuildGradle(t *testing.T) {
+	w := &GradleVersionWriter{}
+	tmpDir := t.TempDir()
+
+	// Test with build.gradle (Groovy DSL)
+	buildGradle := `plugins {
+    id 'java'
+}
+
+group = 'com.example'
+version = '1.2.3'
+
+repositories {
+    mavenCentral()
+}
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "build.gradle"), []byte(buildGradle), 0644); err != nil {
+		t.Fatalf("Failed to write build.gradle: %v", err)
+	}
+
+	ctx := context.Background()
+	ver, err := w.ReadVersion(ctx, tmpDir)
+	if err != nil {
+		t.Fatalf("ReadVersion failed: %v", err)
+	}
+	if ver != "1.2.3" {
+		t.Errorf("ReadVersion = %s, want 1.2.3", ver)
+	}
+}
