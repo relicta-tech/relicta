@@ -300,6 +300,27 @@ func TestPluginExecutedEvent(t *testing.T) {
 	}
 }
 
+func TestTagPushModeDetectedEvent(t *testing.T) {
+	now := time.Now()
+	event := &TagPushModeDetectedEvent{
+		RunID:       "run-123",
+		TagName:     "v1.2.0",
+		VersionNext: version.MustParse("1.2.0"),
+		Actor:       "ci",
+		At:          now,
+	}
+
+	if event.EventName() != "run.tag_push_mode_detected" {
+		t.Errorf("EventName() = %v, want run.tag_push_mode_detected", event.EventName())
+	}
+	if event.OccurredAt() != now {
+		t.Errorf("OccurredAt() = %v, want %v", event.OccurredAt(), now)
+	}
+	if event.AggregateID() != "run-123" {
+		t.Errorf("AggregateID() = %v, want run-123", event.AggregateID())
+	}
+}
+
 // Test that all events implement DomainEvent interface
 func TestAllEventsImplementDomainEvent(t *testing.T) {
 	now := time.Now()
@@ -318,6 +339,7 @@ func TestAllEventsImplementDomainEvent(t *testing.T) {
 		&RunNotesUpdatedEvent{RunID: "run-1", At: now},
 		&RunPublishingStartedEvent{RunID: "run-1", At: now},
 		&PluginExecutedEvent{RunID: "run-1", At: now},
+		&TagPushModeDetectedEvent{RunID: "run-1", At: now},
 	}
 
 	for _, event := range events {

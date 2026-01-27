@@ -1109,3 +1109,218 @@ func TestMultiLevelApproval_PolicyHelpers(t *testing.T) {
 		}
 	})
 }
+
+// ============================================================================
+// Additional Coverage Tests
+// ============================================================================
+
+func TestReleaseRun_BaseRef(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+	baseRef := run.BaseRef()
+	if baseRef != "v1.0.0" {
+		t.Errorf("BaseRef() = %s, want v1.0.0", baseRef)
+	}
+}
+
+func TestReleaseRun_Reasons(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Initially empty
+	reasons := run.Reasons()
+	if reasons != nil {
+		t.Errorf("Reasons() = %v, want nil", reasons)
+	}
+}
+
+func TestReleaseRun_ChangeSet(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Initially no changeset
+	if run.HasChangeSet() {
+		t.Error("HasChangeSet() should be false initially")
+	}
+	if run.ChangeSet() != nil {
+		t.Error("ChangeSet() should be nil initially")
+	}
+	if run.ChangesetID() != "" {
+		t.Errorf("ChangesetID() = %s, want empty", run.ChangesetID())
+	}
+
+	// Set changeset
+	cs := changes.NewChangeSet("cs-123", "v1.0.0", "HEAD")
+	run.SetChangeSet(cs)
+
+	if !run.HasChangeSet() {
+		t.Error("HasChangeSet() should be true after SetChangeSet")
+	}
+	if run.ChangeSet() != cs {
+		t.Error("ChangeSet() should return the set changeset")
+	}
+	if run.ChangesetID() != string(cs.ID()) {
+		t.Errorf("ChangesetID() = %s, want %s", run.ChangesetID(), cs.ID())
+	}
+
+	// Clear changeset
+	run.SetChangeSet(nil)
+	if run.HasChangeSet() {
+		t.Error("HasChangeSet() should be false after clearing")
+	}
+}
+
+func TestReleaseRun_EmitCreatedEvent(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Clear any existing events
+	run.ClearDomainEvents()
+
+	// Emit created event
+	run.EmitCreatedEvent()
+
+	events := run.DomainEvents()
+	if len(events) == 0 {
+		t.Fatal("EmitCreatedEvent should add an event")
+	}
+
+	if events[0].EventName() != "run.created" {
+		t.Errorf("Event name = %s, want run.created", events[0].EventName())
+	}
+}
+
+func TestReleaseRun_SetActor(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	run.SetActor(ActorHuman, "user@example.com")
+
+	if run.ActorType() != ActorHuman {
+		t.Errorf("ActorType() = %s, want %s", run.ActorType(), ActorHuman)
+	}
+	if run.ActorID() != "user@example.com" {
+		t.Errorf("ActorID() = %s, want user@example.com", run.ActorID())
+	}
+}
+
+func TestReleaseRun_SetChangesetID(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	run.SetChangesetID("changeset-456")
+
+	if run.ChangesetID() != "changeset-456" {
+		t.Errorf("ChangesetID() = %s, want changeset-456", run.ChangesetID())
+	}
+}
+
+func TestReleaseRun_CanApprove(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// In draft state, cannot approve
+	if run.CanApprove() {
+		t.Error("CanApprove() should be false in draft state")
+	}
+
+	// Plan the run
+	_ = run.Plan("test-actor")
+	if run.CanApprove() {
+		t.Error("CanApprove() should be false in planned state")
+	}
+}
+
+func TestReleaseRun_CanProceedToPublish(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// In draft state, cannot proceed
+	if run.CanProceedToPublish() {
+		t.Error("CanProceedToPublish() should be false in draft state")
+	}
+}
+
+func TestReleaseRun_MultiLevelApprovalStatus(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Initially nil
+	status := run.MultiLevelApprovalStatus()
+	if status != nil {
+		t.Error("MultiLevelApprovalStatus() should be nil initially")
+	}
+}
+
+func TestReleaseRun_IsMultiLevelApprovalEnabled(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Initially disabled
+	if run.IsMultiLevelApprovalEnabled() {
+		t.Error("IsMultiLevelApprovalEnabled() should be false initially")
+	}
+}
+
+func TestReleaseRun_InvariantViolations(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	violations := run.InvariantViolations()
+	if violations == nil {
+		t.Fatal("InvariantViolations should not return nil")
+	}
+
+	// A valid new run should have no violations
+	if len(violations) != 0 {
+		t.Errorf("InvariantViolations() = %v, want empty", violations)
+	}
+}
+
+func TestMultiLevelApproval_AllApprovals(t *testing.T) {
+	policy := DefaultApprovalPolicy()
+	mla := NewMultiLevelApproval(policy)
+
+	// Initially empty
+	approvals := mla.AllApprovals()
+	if len(approvals) != 0 {
+		t.Errorf("AllApprovals() = %d, want 0", len(approvals))
+	}
+
+	// Grant an approval
+	approval := &Approval{
+		ApprovedBy:    "approver",
+		ApprovedAt:    time.Now(),
+		ApproverType:  ActorHuman,
+		Justification: "Approved",
+	}
+	err := mla.Grant(ApprovalLevelRelease, approval)
+	if err != nil {
+		t.Fatalf("Grant failed: %v", err)
+	}
+
+	approvals = mla.AllApprovals()
+	if len(approvals) != 1 {
+		t.Errorf("AllApprovals() = %d, want 1", len(approvals))
+	}
+}
+
+func TestReleaseRun_RecordTagPushMode(t *testing.T) {
+	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
+
+	// Clear any existing events
+	run.ClearDomainEvents()
+
+	// Record tag push mode
+	run.RecordTagPushMode("v1.1.0", "ci-bot")
+
+	events := run.DomainEvents()
+	if len(events) == 0 {
+		t.Fatal("RecordTagPushMode should add an event")
+	}
+
+	if events[0].EventName() != "run.tag_push_mode_detected" {
+		t.Errorf("Event name = %s, want run.tag_push_mode_detected", events[0].EventName())
+	}
+
+	// Verify it's the correct event type with correct tag name
+	tagEvent, ok := events[0].(*TagPushModeDetectedEvent)
+	if !ok {
+		t.Fatal("Event is not TagPushModeDetectedEvent")
+	}
+	if tagEvent.TagName != "v1.1.0" {
+		t.Errorf("TagName = %s, want v1.1.0", tagEvent.TagName)
+	}
+	if tagEvent.Actor != "ci-bot" {
+		t.Errorf("Actor = %s, want ci-bot", tagEvent.Actor)
+	}
+}
