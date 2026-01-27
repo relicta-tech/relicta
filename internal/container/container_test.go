@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
 )
 
 // mockCloseable implements Closeable for testing.
@@ -876,5 +877,142 @@ func initGitRepo(t *testing.T, dir string) {
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to initialize git repository: %v", err)
+	}
+}
+
+func TestApp_MemoryStore_BeforeInitialize(t *testing.T) {
+	cfg := &config.Config{}
+	c, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	// MemoryStore should return nil before initialization
+	if c.MemoryStore() != nil {
+		t.Error("MemoryStore should return nil before Initialize")
+	}
+	if c.HasMemory() {
+		t.Error("HasMemory should return false before Initialize")
+	}
+}
+
+func TestApp_SubscribeToEvents_BeforeInitialize(t *testing.T) {
+	cfg := &config.Config{}
+	c, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	// SubscribeToEvents should not panic before initialization
+	// even if the base event publisher is nil
+	c.SubscribeToEvents(func(event domainrelease.DomainEvent) {
+		// This handler should never be called since publisher is nil
+	})
+}
+
+func TestApp_Initialize_WithMemoryEnabled(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &config.Config{
+		AI: config.AIConfig{
+			Enabled: false,
+		},
+		Plugins: []config.PluginConfig{},
+		Governance: config.GovernanceConfig{
+			Enabled:       true,
+			MemoryEnabled: true,
+		},
+	}
+
+	c, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
+	initGitRepo(t, tmpDir)
+
+	ctx := context.Background()
+	err = c.Initialize(ctx)
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	// Memory should be initialized when governance and memory are both enabled
+	if !c.HasMemory() {
+		t.Error("HasMemory should return true when memory is enabled")
+	}
+	if c.MemoryStore() == nil {
+		t.Error("MemoryStore should not be nil when memory is enabled")
+	}
+
+	if err := c.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+}
+
+func TestApp_InitReleaseServices_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &config.Config{
+		AI: config.AIConfig{
+			Enabled: false,
+		},
+		Plugins: []config.PluginConfig{},
+	}
+
+	c, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current directory: %v", err)
+	}
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
+	initGitRepo(t, tmpDir)
+
+	ctx := context.Background()
+	err = c.Initialize(ctx)
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	// ReleaseServices should be nil before InitReleaseServices
+	if c.HasReleaseServices() {
+		t.Error("HasReleaseServices should return false before InitReleaseServices")
+	}
+
+	// Initialize release services
+	err = c.InitReleaseServices(ctx, tmpDir)
+	if err != nil {
+		t.Fatalf("InitReleaseServices failed: %v", err)
+	}
+
+	// ReleaseServices should be initialized after InitReleaseServices
+	if !c.HasReleaseServices() {
+		t.Error("HasReleaseServices should return true after InitReleaseServices")
+	}
+	if c.ReleaseServices() == nil {
+		t.Error("ReleaseServices should not be nil after InitReleaseServices")
+	}
+
+	if err := c.Close(); err != nil {
+		t.Errorf("Close failed: %v", err)
 	}
 }
