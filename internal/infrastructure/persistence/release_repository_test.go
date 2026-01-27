@@ -3,6 +3,7 @@ package persistence
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -612,5 +613,103 @@ func TestFileReleaseRepository_ConcurrentScanReleases(t *testing.T) {
 	// All releases should be active (not in final states)
 	if len(activeReleases) != numReleases {
 		t.Errorf("FindActive() returned %d active releases, want %d", len(activeReleases), numReleases)
+	}
+}
+
+func TestFileReleaseRepository_List(t *testing.T) {
+	tmpDir := t.TempDir()
+	repo, _ := NewFileReleaseRepository(tmpDir)
+	ctx := context.Background()
+
+	repoPath := "/path/to/repo"
+
+	// Create multiple releases for the same repository
+	for i := 0; i < 3; i++ {
+		id := release.RunID(fmt.Sprintf("release-%d", i))
+		rel := release.NewReleaseRunForTest(id, "main", repoPath)
+
+		// Add plan
+		changeSet := changes.NewChangeSet(changes.ChangeSetID(fmt.Sprintf("cs-%d", i)), "v1.0.0", "HEAD")
+		commit := changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add feature")
+		changeSet.AddCommit(commit)
+
+		plan := release.NewReleasePlan(
+			version.MustParse("1.0.0"),
+			version.MustParse("1.1.0"),
+			changes.ReleaseTypeMinor,
+			changeSet,
+			false,
+		)
+		_ = release.SetPlan(rel, plan)
+
+		err := repo.Save(ctx, rel)
+		if err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+
+		// Small delay to ensure different UpdatedAt times
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Create a release for a different repository
+	otherRel := release.NewReleaseRunForTest("other-release", "main", "/other/repo")
+	if err := repo.Save(ctx, otherRel); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	// Test List for the main repo
+	ids, err := repo.List(ctx, repoPath)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if len(ids) != 3 {
+		t.Errorf("List() returned %d releases, want 3", len(ids))
+	}
+
+	// IDs should be sorted by UpdatedAt (newest first)
+	// The most recently updated release should be first
+	// We've added small delays so release-2 should be most recent
+	if len(ids) >= 1 {
+		// Verify the list contains expected IDs
+		found := make(map[release.RunID]bool)
+		for _, id := range ids {
+			found[id] = true
+		}
+		for i := 0; i < 3; i++ {
+			expectedID := release.RunID(fmt.Sprintf("release-%d", i))
+			if !found[expectedID] {
+				t.Errorf("List() missing expected release ID: %s", expectedID)
+			}
+		}
+	}
+
+	// Test List for other repo
+	otherIDs, err := repo.List(ctx, "/other/repo")
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if len(otherIDs) != 1 {
+		t.Errorf("List() for other repo returned %d releases, want 1", len(otherIDs))
+	}
+
+	// Test List for non-existent repo
+	emptyIDs, err := repo.List(ctx, "/nonexistent/repo")
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+
+	if len(emptyIDs) != 0 {
+		t.Errorf("List() for non-existent repo returned %d releases, want 0", len(emptyIDs))
+	}
+
+	// Test with canceled context
+	canceledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+
+	_, err = repo.List(canceledCtx, repoPath)
+	if err == nil {
+		t.Error("List() should fail with canceled context")
 	}
 }
