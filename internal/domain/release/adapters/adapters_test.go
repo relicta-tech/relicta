@@ -2253,3 +2253,304 @@ func TestFileEventStore_AllEventTypes(t *testing.T) {
 		t.Errorf("First event: got %s, want run.created", loaded[0].EventName())
 	}
 }
+
+// ============================================================================
+// RealClock Tests
+// ============================================================================
+
+func TestRealClock_Now(t *testing.T) {
+	clock := NewRealClock()
+	before := time.Now()
+	result := clock.Now()
+	after := time.Now()
+
+	if result.Before(before) || result.After(after) {
+		t.Errorf("RealClock.Now() returned time outside expected range")
+	}
+}
+
+func TestNewRealClock(t *testing.T) {
+	clock := NewRealClock()
+	if clock == nil {
+		t.Error("NewRealClock() returned nil")
+	}
+}
+
+// ============================================================================
+// EventPublishingRepository Pass-through Tests
+// ============================================================================
+
+// mockReleaseRunRepository is a minimal mock for testing pass-through methods.
+type mockReleaseRunRepository struct {
+	runs                 map[domain.RunID]*domain.ReleaseRun
+	latestRunID          domain.RunID
+	loadCalled           bool
+	loadBatchCalled      bool
+	loadLatestCalled     bool
+	setLatestCalled      bool
+	listCalled           bool
+	deleteCalled         bool
+	findByStateCalled    bool
+	findActiveCalled     bool
+	findByPlanHashCalled bool
+}
+
+func newMockReleaseRunRepository() *mockReleaseRunRepository {
+	return &mockReleaseRunRepository{
+		runs: make(map[domain.RunID]*domain.ReleaseRun),
+	}
+}
+
+func (m *mockReleaseRunRepository) Save(_ context.Context, run *domain.ReleaseRun) error {
+	m.runs[run.ID()] = run
+	return nil
+}
+
+func (m *mockReleaseRunRepository) Load(_ context.Context, runID domain.RunID) (*domain.ReleaseRun, error) {
+	m.loadCalled = true
+	if run, ok := m.runs[runID]; ok {
+		return run, nil
+	}
+	return nil, nil
+}
+
+func (m *mockReleaseRunRepository) LoadBatch(_ context.Context, _ string, runIDs []domain.RunID) (map[domain.RunID]*domain.ReleaseRun, error) {
+	m.loadBatchCalled = true
+	result := make(map[domain.RunID]*domain.ReleaseRun)
+	for _, id := range runIDs {
+		if run, ok := m.runs[id]; ok {
+			result[id] = run
+		}
+	}
+	return result, nil
+}
+
+func (m *mockReleaseRunRepository) LoadLatest(_ context.Context, _ string) (*domain.ReleaseRun, error) {
+	m.loadLatestCalled = true
+	if m.latestRunID != "" {
+		return m.runs[m.latestRunID], nil
+	}
+	return nil, nil
+}
+
+func (m *mockReleaseRunRepository) SetLatest(_ context.Context, _ string, runID domain.RunID) error {
+	m.setLatestCalled = true
+	m.latestRunID = runID
+	return nil
+}
+
+func (m *mockReleaseRunRepository) List(_ context.Context, _ string) ([]domain.RunID, error) {
+	m.listCalled = true
+	var ids []domain.RunID
+	for id := range m.runs {
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func (m *mockReleaseRunRepository) Delete(_ context.Context, runID domain.RunID) error {
+	m.deleteCalled = true
+	delete(m.runs, runID)
+	return nil
+}
+
+func (m *mockReleaseRunRepository) FindByState(_ context.Context, _ string, state domain.RunState) ([]*domain.ReleaseRun, error) {
+	m.findByStateCalled = true
+	var result []*domain.ReleaseRun
+	for _, run := range m.runs {
+		if run.State() == state {
+			result = append(result, run)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockReleaseRunRepository) FindActive(_ context.Context, _ string) ([]*domain.ReleaseRun, error) {
+	m.findActiveCalled = true
+	var result []*domain.ReleaseRun
+	for _, run := range m.runs {
+		if !run.State().IsFinal() {
+			result = append(result, run)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockReleaseRunRepository) FindByPlanHash(_ context.Context, _ string, _ string) (*domain.ReleaseRun, error) {
+	m.findByPlanHashCalled = true
+	return nil, nil
+}
+
+func (m *mockReleaseRunRepository) LoadFromRepo(ctx context.Context, _ string, runID domain.RunID) (*domain.ReleaseRun, error) {
+	return m.Load(ctx, runID)
+}
+
+func TestEventPublishingRepository_Load(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	loaded, err := eventPubRepo.Load(context.Background(), run.ID())
+
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if !mockRepo.loadCalled {
+		t.Error("Expected Load to be called on underlying repository")
+	}
+	if loaded == nil || loaded.ID() != run.ID() {
+		t.Error("Loaded run doesn't match expected run")
+	}
+}
+
+func TestEventPublishingRepository_LoadBatch(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run1 := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	run2 := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "def456", []domain.CommitSHA{"def456"}, "cfg", "plug")
+	mockRepo.runs[run1.ID()] = run1
+	mockRepo.runs[run2.ID()] = run2
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	loaded, err := eventPubRepo.LoadBatch(context.Background(), "/tmp/repo", []domain.RunID{run1.ID(), run2.ID()})
+
+	if err != nil {
+		t.Fatalf("LoadBatch failed: %v", err)
+	}
+	if !mockRepo.loadBatchCalled {
+		t.Error("Expected LoadBatch to be called on underlying repository")
+	}
+	if len(loaded) != 2 {
+		t.Errorf("Expected 2 runs, got %d", len(loaded))
+	}
+}
+
+func TestEventPublishingRepository_LoadLatest(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+	mockRepo.latestRunID = run.ID()
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	loaded, err := eventPubRepo.LoadLatest(context.Background(), "/tmp/repo")
+
+	if err != nil {
+		t.Fatalf("LoadLatest failed: %v", err)
+	}
+	if !mockRepo.loadLatestCalled {
+		t.Error("Expected LoadLatest to be called on underlying repository")
+	}
+	if loaded == nil || loaded.ID() != run.ID() {
+		t.Error("Loaded run doesn't match expected run")
+	}
+}
+
+func TestEventPublishingRepository_SetLatest(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	runID := domain.RunID("test-run-id")
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	err := eventPubRepo.SetLatest(context.Background(), "/tmp/repo", runID)
+
+	if err != nil {
+		t.Fatalf("SetLatest failed: %v", err)
+	}
+	if !mockRepo.setLatestCalled {
+		t.Error("Expected SetLatest to be called on underlying repository")
+	}
+	if mockRepo.latestRunID != runID {
+		t.Error("Latest run ID was not set correctly")
+	}
+}
+
+func TestEventPublishingRepository_List(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	ids, err := eventPubRepo.List(context.Background(), "/tmp/repo")
+
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if !mockRepo.listCalled {
+		t.Error("Expected List to be called on underlying repository")
+	}
+	if len(ids) != 1 {
+		t.Errorf("Expected 1 ID, got %d", len(ids))
+	}
+}
+
+func TestEventPublishingRepository_Delete(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	err := eventPubRepo.Delete(context.Background(), run.ID())
+
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+	if !mockRepo.deleteCalled {
+		t.Error("Expected Delete to be called on underlying repository")
+	}
+	if _, exists := mockRepo.runs[run.ID()]; exists {
+		t.Error("Run should have been deleted")
+	}
+}
+
+func TestEventPublishingRepository_FindByState(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	runs, err := eventPubRepo.FindByState(context.Background(), "/tmp/repo", domain.StateDraft)
+
+	if err != nil {
+		t.Fatalf("FindByState failed: %v", err)
+	}
+	if !mockRepo.findByStateCalled {
+		t.Error("Expected FindByState to be called on underlying repository")
+	}
+	if len(runs) != 1 {
+		t.Errorf("Expected 1 run in draft state, got %d", len(runs))
+	}
+}
+
+func TestEventPublishingRepository_FindActive(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	runs, err := eventPubRepo.FindActive(context.Background(), "/tmp/repo")
+
+	if err != nil {
+		t.Fatalf("FindActive failed: %v", err)
+	}
+	if !mockRepo.findActiveCalled {
+		t.Error("Expected FindActive to be called on underlying repository")
+	}
+	if len(runs) != 1 {
+		t.Errorf("Expected 1 active run, got %d", len(runs))
+	}
+}
+
+func TestEventPublishingRepository_LoadFromRepo_WithSupport(t *testing.T) {
+	mockRepo := newMockReleaseRunRepository()
+	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
+	mockRepo.runs[run.ID()] = run
+
+	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	loaded, err := eventPubRepo.LoadFromRepo(context.Background(), "/tmp/repo", run.ID())
+
+	if err != nil {
+		t.Fatalf("LoadFromRepo failed: %v", err)
+	}
+	if loaded == nil || loaded.ID() != run.ID() {
+		t.Error("Loaded run doesn't match expected run")
+	}
+}
