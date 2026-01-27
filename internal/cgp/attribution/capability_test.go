@@ -4,6 +4,24 @@ import (
 	"testing"
 )
 
+func TestCapability_String(t *testing.T) {
+	tests := []struct {
+		cap  Capability
+		want string
+	}{
+		{CapabilityPropose, "propose"},
+		{CapabilityProposeMinor, "propose:minor"},
+		{CapabilityApproveAll, "approve:all"},
+		{CapabilityExecuteTag, "execute:tag"},
+	}
+
+	for _, tt := range tests {
+		if got := tt.cap.String(); got != tt.want {
+			t.Errorf("%s.String() = %s, want %s", tt.cap, got, tt.want)
+		}
+	}
+}
+
 func TestCapability_CategorySubcategory(t *testing.T) {
 	tests := []struct {
 		cap        Capability

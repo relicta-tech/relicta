@@ -481,3 +481,105 @@ func TestFileStore_Validation(t *testing.T) {
 		})
 	}
 }
+
+func TestFileStore_GetDecisionsByProposal(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewFileStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileStore() error = %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Record decisions for different proposals
+	decisions := []*cgp.GovernanceDecision{
+		{ID: "decision-1", ProposalID: "proposal-a"},
+		{ID: "decision-2", ProposalID: "proposal-a"},
+		{ID: "decision-3", ProposalID: "proposal-b"},
+		{ID: "decision-4", ProposalID: "proposal-a"},
+	}
+
+	for _, d := range decisions {
+		if err := store.RecordDecision(ctx, d); err != nil {
+			t.Fatalf("RecordDecision() error = %v", err)
+		}
+	}
+
+	// Get decisions for proposal-a (should return 3)
+	result, err := store.GetDecisionsByProposal(ctx, "proposal-a")
+	if err != nil {
+		t.Fatalf("GetDecisionsByProposal() error = %v", err)
+	}
+	if len(result) != 3 {
+		t.Errorf("GetDecisionsByProposal() returned %d decisions, want 3", len(result))
+	}
+
+	// Get decisions for proposal-b (should return 1)
+	result, err = store.GetDecisionsByProposal(ctx, "proposal-b")
+	if err != nil {
+		t.Fatalf("GetDecisionsByProposal() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("GetDecisionsByProposal() returned %d decisions, want 1", len(result))
+	}
+
+	// Get decisions for non-existent proposal (should return empty)
+	result, err = store.GetDecisionsByProposal(ctx, "proposal-z")
+	if err != nil {
+		t.Fatalf("GetDecisionsByProposal() error = %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("GetDecisionsByProposal() returned %d decisions, want 0", len(result))
+	}
+}
+
+func TestFileStore_GetAuthorizationsByDecision(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewFileStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewFileStore() error = %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Record authorizations for different decisions
+	auths := []*cgp.ExecutionAuthorization{
+		{ID: "auth-1", DecisionID: "decision-a"},
+		{ID: "auth-2", DecisionID: "decision-a"},
+		{ID: "auth-3", DecisionID: "decision-b"},
+		{ID: "auth-4", DecisionID: "decision-a"},
+	}
+
+	for _, a := range auths {
+		if err := store.RecordAuthorization(ctx, a); err != nil {
+			t.Fatalf("RecordAuthorization() error = %v", err)
+		}
+	}
+
+	// Get authorizations for decision-a (should return 3)
+	result, err := store.GetAuthorizationsByDecision(ctx, "decision-a")
+	if err != nil {
+		t.Fatalf("GetAuthorizationsByDecision() error = %v", err)
+	}
+	if len(result) != 3 {
+		t.Errorf("GetAuthorizationsByDecision() returned %d authorizations, want 3", len(result))
+	}
+
+	// Get authorizations for decision-b (should return 1)
+	result, err = store.GetAuthorizationsByDecision(ctx, "decision-b")
+	if err != nil {
+		t.Fatalf("GetAuthorizationsByDecision() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("GetAuthorizationsByDecision() returned %d authorizations, want 1", len(result))
+	}
+
+	// Get authorizations for non-existent decision (should return empty)
+	result, err = store.GetAuthorizationsByDecision(ctx, "decision-z")
+	if err != nil {
+		t.Fatalf("GetAuthorizationsByDecision() error = %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("GetAuthorizationsByDecision() returned %d authorizations, want 0", len(result))
+	}
+}

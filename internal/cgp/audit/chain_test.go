@@ -417,3 +417,80 @@ func TestEntryBuilder(t *testing.T) {
 		t.Errorf("Details[key2] = %v, want 42", entry.Details["key2"])
 	}
 }
+
+func TestChain_Get(t *testing.T) {
+	chain := NewChain()
+
+	// Add entries
+	entry1 := NewEntry("entry-1", EventProposalReceived).WithProposal("p1").Build()
+	entry2 := NewEntry("entry-2", EventDecisionMade).WithProposal("p1").Build()
+	chain.Append(entry1)
+	chain.Append(entry2)
+
+	// Get existing entry
+	found, ok := chain.Get("entry-1")
+	if !ok {
+		t.Error("Get should find entry-1")
+	}
+	if found.ID != "entry-1" {
+		t.Errorf("Get returned entry with ID = %s, want entry-1", found.ID)
+	}
+
+	// Get another existing entry
+	found, ok = chain.Get("entry-2")
+	if !ok {
+		t.Error("Get should find entry-2")
+	}
+	if found.ID != "entry-2" {
+		t.Errorf("Get returned entry with ID = %s, want entry-2", found.ID)
+	}
+
+	// Get non-existent entry
+	found, ok = chain.Get("entry-999")
+	if ok {
+		t.Error("Get should not find non-existent entry")
+	}
+	if found != nil {
+		t.Error("Get should return nil for non-existent entry")
+	}
+}
+
+func TestChain_List(t *testing.T) {
+	chain := NewChain()
+
+	// Empty chain
+	entries := chain.List()
+	if len(entries) != 0 {
+		t.Errorf("List on empty chain returned %d entries, want 0", len(entries))
+	}
+
+	// Add entries
+	entry1 := NewEntry("entry-1", EventProposalReceived).WithProposal("p1").Build()
+	entry2 := NewEntry("entry-2", EventDecisionMade).WithProposal("p1").Build()
+	entry3 := NewEntry("entry-3", EventExecutionAuthorized).WithProposal("p1").Build()
+	chain.Append(entry1)
+	chain.Append(entry2)
+	chain.Append(entry3)
+
+	// List returns all entries in order
+	entries = chain.List()
+	if len(entries) != 3 {
+		t.Errorf("List returned %d entries, want 3", len(entries))
+	}
+	if entries[0].ID != "entry-1" {
+		t.Errorf("First entry ID = %s, want entry-1", entries[0].ID)
+	}
+	if entries[1].ID != "entry-2" {
+		t.Errorf("Second entry ID = %s, want entry-2", entries[1].ID)
+	}
+	if entries[2].ID != "entry-3" {
+		t.Errorf("Third entry ID = %s, want entry-3", entries[2].ID)
+	}
+
+	// Verify List returns a copy (modifying the result doesn't affect chain)
+	entries[0] = nil
+	verify := chain.List()
+	if verify[0] == nil {
+		t.Error("List should return a copy, not the internal slice")
+	}
+}

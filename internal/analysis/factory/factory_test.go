@@ -60,3 +60,36 @@ func TestFactory_NewAnalyzer_NoAIWhenUnavailable(t *testing.T) {
 		t.Fatal("expected analyzer")
 	}
 }
+
+func TestFactory_AIAvailable(t *testing.T) {
+	tests := []struct {
+		name      string
+		aiService ai.Service
+		want      bool
+	}{
+		{
+			name:      "nil_service",
+			aiService: nil,
+			want:      false,
+		},
+		{
+			name:      "service_not_ready",
+			aiService: &stubAIService{ready: false},
+			want:      false,
+		},
+		{
+			name:      "service_ready",
+			aiService: &stubAIService{ready: true},
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := NewFactory(tt.aiService)
+			if got := factory.AIAvailable(); got != tt.want {
+				t.Errorf("AIAvailable() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

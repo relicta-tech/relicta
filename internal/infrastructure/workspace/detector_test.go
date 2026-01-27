@@ -663,3 +663,191 @@ include 'core', 'api', 'web'
 	ws := result.Workspace
 	assert.Equal(t, workspace.WorkspaceTypeGradle, ws.Type)
 }
+
+func TestFileDetector_parseCargoPackage(t *testing.T) {
+	tmpDir := t.TempDir()
+	detector := NewFileDetector()
+
+	tests := []struct {
+		name        string
+		cargoToml   string
+		wantName    string
+		wantVersion string
+		wantErr     bool
+	}{
+		{
+			name: "valid_cargo_package",
+			cargoToml: `[package]
+name = "my-crate"
+version = "1.2.3"
+edition = "2021"
+`,
+			wantName:    "my-crate",
+			wantVersion: "1.2.3",
+			wantErr:     false,
+		},
+		{
+			name: "package_with_single_quotes",
+			cargoToml: `[package]
+name = 'my-crate'
+version = '0.1.0'
+`,
+			wantName:    "my-crate",
+			wantVersion: "0.1.0",
+			wantErr:     false,
+		},
+		{
+			name: "package_no_version",
+			cargoToml: `[package]
+name = "no-version-crate"
+`,
+			wantName:    "no-version-crate",
+			wantVersion: "",
+			wantErr:     false,
+		},
+		{
+			name: "missing_name",
+			cargoToml: `[package]
+version = "1.0.0"
+`,
+			wantErr: true,
+		},
+		{
+			name: "multiple_sections",
+			cargoToml: `[workspace]
+members = ["crates/*"]
+
+[package]
+name = "root-crate"
+version = "2.0.0"
+
+[dependencies]
+serde = "1.0"
+`,
+			wantName:    "root-crate",
+			wantVersion: "2.0.0",
+			wantErr:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pkgDir := filepath.Join(tmpDir, tt.name)
+			err := os.MkdirAll(pkgDir, 0755)
+			require.NoError(t, err)
+
+			err = os.WriteFile(filepath.Join(pkgDir, "Cargo.toml"), []byte(tt.cargoToml), 0644)
+			require.NoError(t, err)
+
+			pkg, err := detector.parseCargoPackage(pkgDir, tmpDir)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, pkg.Name)
+			assert.Equal(t, tt.wantVersion, pkg.Version)
+		})
+	}
+}
+
+func TestFileDetector_parseCargoPackage_FileNotFound(t *testing.T) {
+	detector := NewFileDetector()
+	_, err := detector.parseCargoPackage("/nonexistent/path", "/")
+	assert.Error(t, err)
+}
+
+func TestFileDetector_parseGenericPackage(t *testing.T) {
+	tmpDir := t.TempDir()
+	detector := NewFileDetector()
+
+	// Create a package directory
+	pkgDir := filepath.Join(tmpDir, "packages", "my-generic-pkg")
+	err := os.MkdirAll(pkgDir, 0755)
+	require.NoError(t, err)
+
+	pkg, err := detector.parseGenericPackage(pkgDir, tmpDir)
+	require.NoError(t, err)
+	assert.Equal(t, "my-generic-pkg", pkg.Name)
+	assert.Equal(t, filepath.Join("packages", "my-generic-pkg"), pkg.Path)
+	assert.Equal(t, "", pkg.Version)
+	assert.False(t, pkg.Private)
+}
+
+func TestFileDetector_parseGenericPackage_RootDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	detector := NewFileDetector()
+
+	pkg, err := detector.parseGenericPackage(tmpDir, tmpDir)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Base(tmpDir), pkg.Name)
+	assert.Equal(t, ".", pkg.Path)
+}
+
+func TestFileDetector_detectPackageManager(t *testing.T) {
+	detector := NewFileDetector()
+
+	tests := []struct {
+		name     string
+		lockFile string
+		content  string
+		want     workspace.PackageManagerType
+	}{
+		{
+			name:     "pnpm",
+			lockFile: "pnpm-lock.yaml",
+			content:  "lockfileVersion: 5.4",
+			want:     workspace.PackageManagerPnpm,
+		},
+		{
+			name:     "yarn",
+			lockFile: "yarn.lock",
+			content:  "# yarn lockfile",
+			want:     workspace.PackageManagerYarn,
+		},
+		{
+			name:     "npm",
+			lockFile: "package-lock.json",
+			content:  "{}",
+			want:     workspace.PackageManagerNpm,
+		},
+		{
+			name:     "bun",
+			lockFile: "bun.lockb",
+			content:  "",
+			want:     workspace.PackageManagerBun,
+		},
+		{
+			name:     "go",
+			lockFile: "go.sum",
+			content:  "",
+			want:     workspace.PackageManagerGo,
+		},
+		{
+			name:     "cargo",
+			lockFile: "Cargo.lock",
+			content:  "",
+			want:     workspace.PackageManagerCargo,
+		},
+		{
+			name:     "unknown_no_lockfile",
+			lockFile: "",
+			content:  "",
+			want:     workspace.PackageManagerUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			if tt.lockFile != "" {
+				err := os.WriteFile(filepath.Join(tmpDir, tt.lockFile), []byte(tt.content), 0644)
+				require.NoError(t, err)
+			}
+
+			got := detector.detectPackageManager(tmpDir)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
