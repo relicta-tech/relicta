@@ -1137,3 +1137,164 @@ func TestWebhookConfig_IsWebhookEnabled(t *testing.T) {
 		t.Error("explicit false should return false")
 	}
 }
+
+func TestValidator_ValidateNPMPlugin(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   map[string]any
+		hasError bool
+		errMsg   string
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			hasError: false,
+		},
+		{
+			name: "valid access public",
+			config: map[string]any{
+				"access": "public",
+			},
+			hasError: false,
+		},
+		{
+			name: "valid access restricted",
+			config: map[string]any{
+				"access": "restricted",
+			},
+			hasError: false,
+		},
+		{
+			name: "invalid access",
+			config: map[string]any{
+				"access": "private",
+			},
+			hasError: true,
+			errMsg:   "access",
+		},
+		{
+			name: "valid registry URL",
+			config: map[string]any{
+				"registry": "https://registry.npmjs.org",
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Plugins = []PluginConfig{
+				{
+					Name:   "npm",
+					Config: tt.config,
+				},
+			}
+			v := NewValidator()
+			result := v.Validate(cfg)
+
+			if tt.hasError {
+				if result == nil {
+					t.Error("expected validation error")
+				}
+			}
+		})
+	}
+}
+
+func TestValidator_ValidateSlackPlugin(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   map[string]any
+		hasError bool
+	}{
+		{
+			name:     "empty config - requires webhook",
+			config:   map[string]any{},
+			hasError: true,
+		},
+		{
+			name: "valid webhook",
+			config: map[string]any{
+				"webhook": "https://hooks.slack.com/services/xxx",
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Plugins = []PluginConfig{
+				{
+					Name:   "slack",
+					Config: tt.config,
+				},
+			}
+			v := NewValidator()
+			result := v.Validate(cfg)
+
+			if tt.hasError {
+				if result == nil {
+					t.Error("expected validation error for slack")
+				}
+			}
+		})
+	}
+}
+
+func TestValidator_ValidateGitHubPlugin(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   map[string]any
+		hasError bool
+	}{
+		{
+			name:     "nil config",
+			config:   nil,
+			hasError: false,
+		},
+		{
+			name: "empty owner",
+			config: map[string]any{
+				"owner": "",
+			},
+			hasError: true,
+		},
+		{
+			name: "empty repo",
+			config: map[string]any{
+				"repo": "",
+			},
+			hasError: true,
+		},
+		{
+			name: "valid config",
+			config: map[string]any{
+				"owner": "myorg",
+				"repo":  "myrepo",
+			},
+			hasError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Plugins = []PluginConfig{
+				{
+					Name:   "github",
+					Config: tt.config,
+				},
+			}
+			v := NewValidator()
+			result := v.Validate(cfg)
+
+			if tt.hasError {
+				if result == nil {
+					t.Error("expected validation error for github")
+				}
+			}
+		})
+	}
+}

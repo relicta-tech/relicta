@@ -454,3 +454,31 @@ func TestConcurrentLogging(t *testing.T) {
 		t.Errorf("expected 100 log entries, got %d", len(lines))
 	}
 }
+
+func TestLogUnload(t *testing.T) {
+	tmpDir := t.TempDir()
+	logPath := filepath.Join(tmpDir, "audit.log")
+
+	err := Initialize(logPath)
+	if err != nil {
+		t.Fatalf("failed to initialize: %v", err)
+	}
+	defer Close()
+
+	ctx := context.Background()
+	err = LogUnload(ctx, "test-plugin")
+	if err != nil {
+		t.Errorf("LogUnload error = %v", err)
+	}
+
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("failed to read log file: %v", err)
+	}
+	if !strings.Contains(string(content), "test-plugin") {
+		t.Error("log should contain plugin name")
+	}
+	if !strings.Contains(string(content), string(EventTypeUnload)) {
+		t.Error("log should contain unload event type")
+	}
+}

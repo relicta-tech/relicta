@@ -434,6 +434,142 @@ func TestEngine_TeamBasedApproval(t *testing.T) {
 	})
 }
 
+func TestNewTeamContext(t *testing.T) {
+	teams := map[string]*Team{
+		"platform": NewTeam("platform", "Platform").WithMembers("alice", "bob").WithLeads("carol"),
+	}
+	roles := map[string]*Role{
+		"approver": NewApproverRole("approver", "Approver"),
+	}
+
+	tc := NewTeamContext(teams, roles)
+
+	if len(tc.Teams) != 1 {
+		t.Errorf("expected 1 team, got %d", len(tc.Teams))
+	}
+	if len(tc.Roles) != 1 {
+		t.Errorf("expected 1 role, got %d", len(tc.Roles))
+	}
+	// Members and leads should be mapped
+	aliceTeams := tc.GetActorTeams("alice")
+	if len(aliceTeams) != 1 {
+		t.Errorf("alice should be in 1 team, got %d", len(aliceTeams))
+	}
+	carolTeams := tc.GetActorTeams("carol")
+	if len(carolTeams) != 1 {
+		t.Errorf("carol (lead) should be in 1 team, got %d", len(carolTeams))
+	}
+}
+
+func TestTeamContext_GetTeam(t *testing.T) {
+	tc := DefaultTeamContext()
+	tc.AddTeam(NewTeam("core", "Core Team"))
+
+	team, ok := tc.GetTeam("core")
+	if !ok {
+		t.Error("expected to find core team")
+	}
+	if team.Name != "core" {
+		t.Errorf("Name = %s, want core", team.Name)
+	}
+
+	_, ok = tc.GetTeam("nonexistent")
+	if ok {
+		t.Error("expected not to find nonexistent team")
+	}
+}
+
+func TestTeamContext_CanPublish(t *testing.T) {
+	tc := DefaultTeamContext()
+	tc.AddRole(NewPublisherRole("publisher", "Publisher"))
+	tc.AssignRole("alice", "publisher")
+
+	if !tc.CanPublish("alice") {
+		t.Error("alice should be able to publish")
+	}
+	if tc.CanPublish("bob") {
+		t.Error("bob should not be able to publish")
+	}
+}
+
+func TestTeamContext_GetTeamMembers(t *testing.T) {
+	tc := DefaultTeamContext()
+	tc.AddTeam(NewTeam("core", "Core").WithMembers("alice", "bob").WithLeads("carol"))
+
+	members := tc.GetTeamMembers("core")
+	if len(members) != 3 {
+		t.Errorf("expected 3 members, got %d", len(members))
+	}
+
+	// Non-existent team
+	none := tc.GetTeamMembers("nonexistent")
+	if none != nil {
+		t.Error("expected nil for nonexistent team")
+	}
+}
+
+func TestTeamContext_GetTeamLeads(t *testing.T) {
+	tc := DefaultTeamContext()
+	tc.AddTeam(NewTeam("core", "Core").WithLeads("carol", "dave"))
+
+	leads := tc.GetTeamLeads("core")
+	if len(leads) != 2 {
+		t.Errorf("expected 2 leads, got %d", len(leads))
+	}
+
+	none := tc.GetTeamLeads("nonexistent")
+	if none != nil {
+		t.Error("expected nil for nonexistent team")
+	}
+}
+
+func TestTeamContext_IsTeamMember_NonExistent(t *testing.T) {
+	tc := DefaultTeamContext()
+	if tc.IsTeamMember("alice", "nonexistent") {
+		t.Error("should not be member of nonexistent team")
+	}
+}
+
+func TestTeamContext_IsTeamLead_NonExistent(t *testing.T) {
+	tc := DefaultTeamContext()
+	if tc.IsTeamLead("alice", "nonexistent") {
+		t.Error("should not be lead of nonexistent team")
+	}
+}
+
+func TestTeamContext_HasPermission_TeamPermission(t *testing.T) {
+	tc := DefaultTeamContext()
+	tc.AddTeam(NewTeam("ops", "Ops").WithMembers("alice").WithPermissions("deploy.*"))
+
+	if !tc.HasPermission("alice", "deploy.staging") {
+		t.Error("alice should have deploy.staging through team")
+	}
+	if tc.HasPermission("bob", "deploy.staging") {
+		t.Error("bob should not have deploy.staging")
+	}
+}
+
+func TestMatchesPermission(t *testing.T) {
+	tests := []struct {
+		pattern    string
+		permission string
+		expected   bool
+	}{
+		{"*", "anything", true},
+		{"release.*", "release.approve", true},
+		{"release.*", "admin.delete", false},
+		{"release.approve", "release.approve", true},
+		{"release.approve", "release.publish", false},
+	}
+
+	for _, tt := range tests {
+		result := matchesPermission(tt.pattern, tt.permission)
+		if result != tt.expected {
+			t.Errorf("matchesPermission(%q, %q) = %v, want %v", tt.pattern, tt.permission, result, tt.expected)
+		}
+	}
+}
+
 func TestNewTeam(t *testing.T) {
 	team := NewTeam("engineering", "Engineering Team").
 		WithMembers("alice", "bob").

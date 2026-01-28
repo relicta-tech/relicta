@@ -334,3 +334,43 @@ func TestCompareValues(t *testing.T) {
 		})
 	}
 }
+
+func TestEngine_WithTeamContext(t *testing.T) {
+	engine := NewEngine([]Policy{}, nil)
+	tc := DefaultTeamContext()
+	result := engine.WithTeamContext(tc)
+	if result != engine {
+		t.Error("WithTeamContext should return same engine")
+	}
+}
+
+func TestEngine_AddPolicy(t *testing.T) {
+	engine := NewEngine([]Policy{}, nil)
+
+	p := Policy{
+		Name:    "test-policy",
+		Version: "1.0",
+		Rules: []Rule{
+			*NewRule("high-risk", "High Risk").
+				WithPriority(100).
+				AddCondition("risk.score", OperatorGreaterThan, 0.8).
+				AddAction(ActionRequireApproval, map[string]any{"count": float64(1)}),
+		},
+	}
+
+	engine.AddPolicy(p)
+
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("test@test.com", "Test"),
+		cgp.ProposalScope{Repository: "org/repo", CommitRange: "a..b"},
+		cgp.ProposalIntent{Summary: "Test", Confidence: 0.9},
+	)
+
+	result, err := engine.Evaluate(context.Background(), proposal, nil, 0.9)
+	if err != nil {
+		t.Fatalf("Evaluate() error = %v", err)
+	}
+	if len(result.MatchedRules) == 0 {
+		t.Error("Expected policy to match")
+	}
+}

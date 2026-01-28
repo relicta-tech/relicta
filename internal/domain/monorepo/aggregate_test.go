@@ -314,3 +314,29 @@ func TestParseBumpType(t *testing.T) {
 		}
 	}
 }
+
+func TestMonorepoRelease_CanModifyPackages(t *testing.T) {
+	tests := []struct {
+		state  MonorepoReleaseState
+		canMod bool
+	}{
+		{StateDraft, true},
+		{StatePlanned, true},
+		{StateVersioned, false},
+		{StateNotesReady, false},
+		{StateApproved, false},
+		{StatePublishing, false},
+		{StatePublished, false},
+		{StateFailed, false},
+		{StateCanceled, false},
+	}
+
+	for _, tt := range tests {
+		rel := NewMonorepoRelease("repo", "v1", "HEAD", StrategyIndependent)
+		rel.State = tt.state
+
+		if rel.CanModifyPackages() != tt.canMod {
+			t.Errorf("CanModifyPackages() for %v = %v, want %v", tt.state, rel.CanModifyPackages(), tt.canMod)
+		}
+	}
+}

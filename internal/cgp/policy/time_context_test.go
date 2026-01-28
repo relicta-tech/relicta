@@ -279,6 +279,98 @@ func TestTimeContext_NoFreeze(t *testing.T) {
 	}
 }
 
+func TestNewTimeContext(t *testing.T) {
+	bh := BusinessHoursConfig{StartHour: 8, EndHour: 20, AllowWeekends: true}
+	fp := []FreezePeriod{{Name: "test", Severity: "soft"}}
+	tc := NewTimeContext(bh, fp)
+
+	if tc.Now.IsZero() {
+		t.Error("Now should not be zero")
+	}
+	if tc.BusinessHours.StartHour != 8 {
+		t.Errorf("StartHour = %d, want 8", tc.BusinessHours.StartHour)
+	}
+	if len(tc.FreezePeriods) != 1 {
+		t.Errorf("FreezePeriods = %d, want 1", len(tc.FreezePeriods))
+	}
+}
+
+func TestTimeContext_WithTime(t *testing.T) {
+	tc := DefaultTimeContext()
+	custom := time.Date(2024, 6, 15, 10, 0, 0, 0, time.UTC)
+	result := tc.WithTime(custom)
+
+	if result != tc {
+		t.Error("WithTime should return same instance")
+	}
+	if !tc.Now.Equal(custom) {
+		t.Errorf("Now = %v, want %v", tc.Now, custom)
+	}
+}
+
+func TestTimeContext_HoursUntilEndOfBusinessDay(t *testing.T) {
+	// During business hours
+	tc := &TimeContext{
+		Now:           time.Date(2024, 1, 2, 14, 0, 0, 0, time.Local), // Tuesday 2pm
+		BusinessHours: BusinessHoursConfig{StartHour: 9, EndHour: 17},
+	}
+	hours := tc.HoursUntilEndOfBusinessDay()
+	if hours != 3 {
+		t.Errorf("HoursUntilEndOfBusinessDay = %d, want 3", hours)
+	}
+
+	// Outside business hours
+	tc2 := &TimeContext{
+		Now:           time.Date(2024, 1, 2, 20, 0, 0, 0, time.Local),
+		BusinessHours: BusinessHoursConfig{StartHour: 9, EndHour: 17},
+	}
+	hours2 := tc2.HoursUntilEndOfBusinessDay()
+	if hours2 != 0 {
+		t.Errorf("HoursUntilEndOfBusinessDay outside hours = %d, want 0", hours2)
+	}
+}
+
+func TestTimeContext_DateHelpers(t *testing.T) {
+	tc := &TimeContext{Now: time.Date(2024, 3, 15, 14, 0, 0, 0, time.Local)}
+
+	if tc.DayOfMonth() != 15 {
+		t.Errorf("DayOfMonth = %d, want 15", tc.DayOfMonth())
+	}
+	if tc.Month() != 3 {
+		t.Errorf("Month = %d, want 3", tc.Month())
+	}
+	if tc.MonthName() != "March" {
+		t.Errorf("MonthName = %s, want March", tc.MonthName())
+	}
+}
+
+func TestTimeContext_Timezone(t *testing.T) {
+	tc := &TimeContext{
+		Now: time.Date(2024, 1, 2, 14, 0, 0, 0, time.UTC),
+		BusinessHours: BusinessHoursConfig{
+			StartHour: 9,
+			EndHour:   17,
+			Timezone:  "America/New_York",
+		},
+	}
+	// 14:00 UTC = 9:00 EST, which is business hours
+	if !tc.IsBusinessHours() {
+		t.Error("14:00 UTC should be business hours in EST")
+	}
+
+	// Invalid timezone should fall back to local
+	tc2 := &TimeContext{
+		Now: time.Date(2024, 1, 2, 12, 0, 0, 0, time.Local),
+		BusinessHours: BusinessHoursConfig{
+			StartHour: 9,
+			EndHour:   17,
+			Timezone:  "Invalid/Timezone",
+		},
+	}
+	// Should not panic
+	_ = tc2.IsBusinessHours()
+}
+
 func TestTimeContext_IsEndOfWeek(t *testing.T) {
 	tests := []struct {
 		weekday  time.Weekday
