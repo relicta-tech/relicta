@@ -227,6 +227,166 @@ func TestRespondJSON(t *testing.T) {
 	assert.Equal(t, "hello", resp["message"])
 }
 
+// TestListActors_NoContext tests ListActors with no context.
+func TestListActors_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/actors", nil)
+	rec := httptest.NewRecorder()
+
+	ListActors(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.PaginatedResponse[dto.ActorDTO]
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Empty(t, resp.Data)
+	assert.Equal(t, 0, resp.Total)
+	assert.Equal(t, 1, resp.Page)
+	assert.Equal(t, 20, resp.PageSize)
+}
+
+// TestGetActor_NoContext tests GetActor with no context.
+func TestGetActor_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/actors/test-actor", nil)
+	rec := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Get("/actors/{id}", GetActor)
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+// TestListPendingApprovals_NoContext tests ListPendingApprovals with no context.
+func TestListPendingApprovals_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/approvals", nil)
+	rec := httptest.NewRecorder()
+
+	ListPendingApprovals(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.PaginatedResponse[dto.ApprovalDTO]
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Empty(t, resp.Data)
+	assert.Equal(t, 0, resp.Total)
+}
+
+// TestApproveRelease_NoAuth tests ApproveRelease without authentication.
+func TestApproveRelease_NoAuth(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/approvals/123/approve", nil)
+	rec := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Post("/approvals/{id}/approve", ApproveRelease)
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// TestRejectRelease_NoAuth tests RejectRelease without authentication.
+func TestRejectRelease_NoAuth(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/approvals/123/reject", nil)
+	rec := httptest.NewRecorder()
+
+	r := chi.NewRouter()
+	r.Post("/approvals/{id}/reject", RejectRelease)
+	r.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+// TestListGovernanceDecisions_NoContext tests ListGovernanceDecisions with no context.
+func TestListGovernanceDecisions_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/governance/decisions", nil)
+	rec := httptest.NewRecorder()
+
+	ListGovernanceDecisions(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Empty(t, resp.Data)
+	assert.Equal(t, 0, resp.Total)
+}
+
+// TestGetRiskTrends_NoContext tests GetRiskTrends with no context.
+func TestGetRiskTrends_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/governance/risk-trends", nil)
+	rec := httptest.NewRecorder()
+
+	GetRiskTrends(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	trends, ok := resp["trends"].([]any)
+	require.True(t, ok)
+	assert.Empty(t, trends)
+}
+
+// TestGetFactorDistribution_NoContext tests GetFactorDistribution with no context.
+func TestGetFactorDistribution_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/governance/factors", nil)
+	rec := httptest.NewRecorder()
+
+	GetFactorDistribution(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp map[string]any
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	factors, ok := resp["factors"].([]any)
+	require.True(t, ok)
+	assert.Empty(t, factors)
+}
+
+// TestListAuditEvents_NoContext tests ListAuditEvents with no context.
+func TestListAuditEvents_NoContext(t *testing.T) {
+	SetContext(nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/audit", nil)
+	rec := httptest.NewRecorder()
+
+	ListAuditEvents(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	err := json.NewDecoder(rec.Body).Decode(&resp)
+	require.NoError(t, err)
+
+	assert.Empty(t, resp.Data)
+	assert.Equal(t, 0, resp.Total)
+}
+
 // TestRespondError tests error response helper.
 func TestRespondError(t *testing.T) {
 	tests := []struct {
