@@ -1112,3 +1112,139 @@ func TestApprover_Evaluate_SignedCommitsAllSigned(t *testing.T) {
 		t.Errorf("Should be approved when all commits are signed, reasons: %v", result.Reasons)
 	}
 }
+
+func TestDetectCIActor_GitLabWithPipeline(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("GITLAB_CI", "true")
+	t.Setenv("GITLAB_USER_LOGIN", "testuser")
+	t.Setenv("CI_PIPELINE_NAME", "deploy")
+
+	actor := detectCIActor()
+	if actor != "ci:gitlab:deploy" {
+		t.Errorf("detectCIActor() = %q, want ci:gitlab:deploy", actor)
+	}
+}
+
+func TestDetectCIActor_GitLabDefault(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("GITLAB_CI", "true")
+
+	actor := detectCIActor()
+	if actor != "ci:gitlab:gitlab-ci" {
+		t.Errorf("detectCIActor() = %q, want ci:gitlab:gitlab-ci", actor)
+	}
+}
+
+func TestDetectCIActor_Jenkins(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("JENKINS_URL", "http://jenkins.local")
+	t.Setenv("JOB_NAME", "release-job")
+
+	actor := detectCIActor()
+	if actor != "ci:jenkins:release-job" {
+		t.Errorf("detectCIActor() = %q, want ci:jenkins:release-job", actor)
+	}
+}
+
+func TestDetectCIActor_JenkinsDefault(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("JENKINS_URL", "http://jenkins.local")
+
+	actor := detectCIActor()
+	if actor != "ci:jenkins:jenkins" {
+		t.Errorf("detectCIActor() = %q, want ci:jenkins:jenkins", actor)
+	}
+}
+
+func TestDetectCIActor_CircleCI(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("CIRCLECI", "true")
+	t.Setenv("CIRCLE_WORKFLOW_ID", "wf-123")
+
+	actor := detectCIActor()
+	if actor != "ci:circleci:wf-123" {
+		t.Errorf("detectCIActor() = %q, want ci:circleci:wf-123", actor)
+	}
+}
+
+func TestDetectCIActor_Azure(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("TF_BUILD", "True")
+	t.Setenv("BUILD_DEFINITIONNAME", "my-pipeline")
+
+	actor := detectCIActor()
+	if actor != "ci:azure:my-pipeline" {
+		t.Errorf("detectCIActor() = %q, want ci:azure:my-pipeline", actor)
+	}
+}
+
+func TestDetectCIActor_Buildkite(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("BUILDKITE", "true")
+	t.Setenv("BUILDKITE_PIPELINE_SLUG", "my-build")
+
+	actor := detectCIActor()
+	if actor != "ci:buildkite:my-build" {
+		t.Errorf("detectCIActor() = %q, want ci:buildkite:my-build", actor)
+	}
+}
+
+func TestDetectCIActor_GenericCI(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("CI", "true")
+
+	actor := detectCIActor()
+	if actor != "ci:generic" {
+		t.Errorf("detectCIActor() = %q, want ci:generic", actor)
+	}
+}
+
+func TestDetectCIActor_Unknown(t *testing.T) {
+	clearCIEnv(t)
+
+	actor := detectCIActor()
+	if actor != "ci:unknown" {
+		t.Errorf("detectCIActor() = %q, want ci:unknown", actor)
+	}
+}
+
+func TestGetCIContext_Jenkins(t *testing.T) {
+	clearCIEnv(t)
+	t.Setenv("JENKINS_URL", "http://jenkins.local")
+	t.Setenv("JOB_NAME", "my-job")
+	t.Setenv("GIT_BRANCH", "main")
+	t.Setenv("GIT_COMMIT", "abc123")
+
+	ctx := GetCIContext()
+	if ctx["provider"] != "jenkins" {
+		t.Errorf("provider = %s, want jenkins", ctx["provider"])
+	}
+}
+
+func TestGetCIContext_NoneDetected(t *testing.T) {
+	clearCIEnv(t)
+
+	ctx := GetCIContext()
+	if ctx["provider"] != "" {
+		t.Errorf("provider = %s, want empty when no CI detected", ctx["provider"])
+	}
+}
+
+// clearCIEnv unsets all CI environment variables for clean testing.
+func clearCIEnv(t *testing.T) {
+	t.Helper()
+	for _, env := range []string{
+		"GITHUB_ACTIONS", "GITHUB_ACTOR", "GITHUB_WORKFLOW",
+		"GITHUB_REPOSITORY", "GITHUB_REF", "GITHUB_SHA",
+		"GITLAB_CI", "GITLAB_USER_LOGIN", "CI_PIPELINE_NAME",
+		"CI_PROJECT_PATH", "CI_COMMIT_REF_NAME", "CI_COMMIT_SHA",
+		"JENKINS_URL", "BUILD_USER", "BUILD_USER_ID", "JOB_NAME",
+		"GIT_BRANCH", "GIT_COMMIT",
+		"CIRCLECI", "CIRCLE_WORKFLOW_ID",
+		"AZURE_PIPELINES", "TF_BUILD", "BUILD_DEFINITIONNAME",
+		"BUILDKITE", "BUILDKITE_PIPELINE_SLUG",
+		"CI",
+	} {
+		t.Setenv(env, "")
+	}
+}
