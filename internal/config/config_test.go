@@ -1115,3 +1115,25 @@ func TestVersionFileConfig_Fields(t *testing.T) {
 		t.Error("Update should be true")
 	}
 }
+
+func TestWebhookConfig_IsWebhookEnabled(t *testing.T) {
+	// nil Enabled defaults to true
+	w := &WebhookConfig{}
+	if !w.IsWebhookEnabled() {
+		t.Error("nil Enabled should return true")
+	}
+
+	// explicitly true
+	enabled := true
+	w2 := &WebhookConfig{Enabled: &enabled}
+	if !w2.IsWebhookEnabled() {
+		t.Error("explicit true should return true")
+	}
+
+	// explicitly false
+	disabled := false
+	w3 := &WebhookConfig{Enabled: &disabled}
+	if w3.IsWebhookEnabled() {
+		t.Error("explicit false should return false")
+	}
+}

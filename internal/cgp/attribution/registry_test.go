@@ -373,3 +373,14 @@ func TestAgentConfigBuilder(t *testing.T) {
 		t.Error("Config should be disabled")
 	}
 }
+
+func TestRegistry_List(t *testing.T) {
+	reg := NewRegistry()
+	_ = reg.Register(NewAgentConfig(cgp.NewAgentActor("list-1", "Agent One", "model-1")).Build())
+	_ = reg.Register(NewAgentConfig(cgp.NewAgentActor("list-2", "Agent Two", "model-2")).Build())
+
+	all := reg.List()
+	if len(all) != 2 {
+		t.Errorf("List() returned %d agents, want 2", len(all))
+	}
+}

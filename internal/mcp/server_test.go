@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"fmt"
+
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
 	"github.com/relicta-tech/relicta/internal/config"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
@@ -55,6 +57,58 @@ func createTestReleaseRunWithVersion() *domainrelease.ReleaseRun {
 	v, _ := version.Parse("1.2.3")
 	_ = run.SetVersion(v, "v1.2.3")
 	return run
+}
+
+func TestParseRemoteURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"github ssh with .git", "git@github.com:owner/repo.git", "https://github.com/owner/repo"},
+		{"github ssh without .git", "git@github.com:owner/repo", "https://github.com/owner/repo"},
+		{"gitlab ssh with .git", "git@gitlab.com:owner/repo.git", "https://gitlab.com/owner/repo"},
+		{"gitlab ssh without .git", "git@gitlab.com:owner/repo", "https://gitlab.com/owner/repo"},
+		{"https with .git", "https://github.com/owner/repo.git", "https://github.com/owner/repo"},
+		{"https without .git", "https://github.com/owner/repo", "https://github.com/owner/repo"},
+		{"http with .git", "http://github.com/owner/repo.git", "http://github.com/owner/repo"},
+		{"empty string", "", ""},
+		{"short string", "abc", ""},
+		{"unknown format", "svn://example.com/repo", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseRemoteURL(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestUserError(t *testing.T) {
+	t.Run("nil error returns nil", func(t *testing.T) {
+		assert.Nil(t, userError(nil))
+	})
+
+	t.Run("non-nil error returns formatted error", func(t *testing.T) {
+		err := fmt.Errorf("something failed")
+		result := userError(err)
+		assert.NotNil(t, result)
+		assert.Contains(t, result.Error(), "something failed")
+	})
+}
+
+func TestToJSONString(t *testing.T) {
+	t.Run("simple map", func(t *testing.T) {
+		m := map[string]any{"key": "value"}
+		result := toJSONString(m)
+		assert.JSONEq(t, `{"key":"value"}`, result)
+	})
+
+	t.Run("nil map", func(t *testing.T) {
+		result := toJSONString(nil)
+		assert.Equal(t, "null", result)
+	})
 }
 
 func TestNewServer(t *testing.T) {

@@ -316,6 +316,65 @@ func TestValidateAny(t *testing.T) {
 	}
 }
 
+func TestValidator_ValidateMessage_Evaluation(t *testing.T) {
+	v := NewValidator()
+
+	eval := cgp.NewEvaluation("proposal-123").
+		WithRiskAssessment(&cgp.RiskAssessment{
+			OverallScore: 0.4,
+			Severity:     cgp.SeverityMedium,
+		})
+
+	msg, err := NewEvaluationMessage(eval)
+	if err != nil {
+		t.Fatalf("NewEvaluationMessage() error = %v", err)
+	}
+
+	result := v.Validate(msg)
+	if !result.Valid {
+		t.Errorf("Valid evaluation message should pass: %s", result.ErrorMessages())
+	}
+}
+
+func TestValidator_ValidateMessage_Decision(t *testing.T) {
+	v := NewValidator()
+
+	decision := cgp.NewDecision("proposal-123", cgp.DecisionApproved).
+		WithRiskScore(0.3).
+		AddRationale("Low risk")
+
+	msg, err := NewDecisionMessage(decision)
+	if err != nil {
+		t.Fatalf("NewDecisionMessage() error = %v", err)
+	}
+
+	result := v.Validate(msg)
+	if !result.Valid {
+		t.Errorf("Valid decision message should pass: %s", result.ErrorMessages())
+	}
+}
+
+func TestValidator_ValidateMessage_Authorization(t *testing.T) {
+	v := NewValidator()
+
+	auth := cgp.NewAuthorization(
+		"decision-123",
+		"proposal-123",
+		cgp.NewHumanActor("approver@example.com", "Approver"),
+		"1.0.0",
+	)
+
+	msg, err := NewAuthorizationMessage(auth)
+	if err != nil {
+		t.Fatalf("NewAuthorizationMessage() error = %v", err)
+	}
+
+	result := v.Validate(msg)
+	if !result.Valid {
+		t.Errorf("Valid authorization message should pass: %s", result.ErrorMessages())
+	}
+}
+
 func TestValidationError_Error(t *testing.T) {
 	// With field
 	e1 := ValidationError{Field: "header.type", Message: "is required"}

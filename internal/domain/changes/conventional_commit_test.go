@@ -350,3 +350,42 @@ func TestConventionalCommit_FormattedSubject(t *testing.T) {
 		})
 	}
 }
+
+func TestWithFooter(t *testing.T) {
+	c := NewConventionalCommit("abc123", CommitTypeFeat, "add feature", WithFooter("Closes #123"))
+	if c.Footer() != "Closes #123" {
+		t.Errorf("Footer() = %v, want %v", c.Footer(), "Closes #123")
+	}
+}
+
+func TestWithRawMessage(t *testing.T) {
+	c := NewConventionalCommit("abc123", CommitTypeFix, "fix bug", WithRawMessage("fix: fix bug\n\nDetailed description"))
+	if c.RawMessage() != "fix: fix bug\n\nDetailed description" {
+		t.Errorf("RawMessage() = %v", c.RawMessage())
+	}
+}
+
+func TestIsFooterToken(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"BREAKING CHANGE", true},
+		{"breaking change", true},
+		{"Closes", true},
+		{"fixes", true},
+		{"Co-authored-by", true},
+		{"Signed-off-by", true},
+		{"random-token", false},
+		{"", false},
+		{"  Resolves  ", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			if got := isFooterToken(tt.input); got != tt.expected {
+				t.Errorf("isFooterToken(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}

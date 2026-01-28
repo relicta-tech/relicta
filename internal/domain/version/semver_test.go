@@ -223,3 +223,28 @@ func TestSemanticVersion_IsZero(t *testing.T) {
 		t.Error("0.0.1.IsZero() should return false")
 	}
 }
+
+func TestNewSemanticVersionWithPrerelease(t *testing.T) {
+	pre := Prerelease("beta.1")
+	v := NewSemanticVersionWithPrerelease(1, 2, 3, pre)
+	if v.Major() != 1 || v.Minor() != 2 || v.Patch() != 3 {
+		t.Errorf("version = %v, want 1.2.3", v)
+	}
+	if v.Prerelease() != pre {
+		t.Errorf("prerelease = %v, want %v", v.Prerelease(), pre)
+	}
+}
+
+func TestWithoutMetadata(t *testing.T) {
+	v, err := Parse("1.2.3+build.456")
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	clean := v.WithoutMetadata()
+	if clean.Metadata() != "" {
+		t.Errorf("WithoutMetadata().Metadata() = %q, want empty", clean.Metadata())
+	}
+	if clean.Major() != 1 || clean.Minor() != 2 || clean.Patch() != 3 {
+		t.Errorf("version = %v, want 1.2.3", clean)
+	}
+}

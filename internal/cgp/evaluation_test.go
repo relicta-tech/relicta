@@ -304,6 +304,18 @@ func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsAt(s, substr, 0))
 }
 
+func TestGovernanceEvaluation_WithChangeAnalysis(t *testing.T) {
+	eval := NewEvaluation("proposal-123")
+	analysis := &ChangeAnalysis{}
+	result := eval.WithChangeAnalysis(analysis)
+	if result.ChangeAnalysis != analysis {
+		t.Error("WithChangeAnalysis did not set analysis")
+	}
+	if result != eval {
+		t.Error("WithChangeAnalysis should return same instance")
+	}
+}
+
 func containsAt(s, substr string, start int) bool {
 	for i := start; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {

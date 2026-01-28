@@ -11,8 +11,33 @@ import (
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
+	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )
+
+func TestWithRepoRoot(t *testing.T) {
+	adapter := NewAdapter(WithRepoRoot("/test/path"))
+	assert.Equal(t, "/test/path", adapter.repoRoot)
+}
+
+func TestReleaseTypeToBumpKind(t *testing.T) {
+	tests := []struct {
+		input    changes.ReleaseType
+		expected releasedomain.BumpKind
+	}{
+		{changes.ReleaseTypeMajor, releasedomain.BumpMajor},
+		{changes.ReleaseTypeMinor, releasedomain.BumpMinor},
+		{changes.ReleaseTypePatch, releasedomain.BumpPatch},
+		{changes.ReleaseType("unknown"), releasedomain.BumpPatch},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.input), func(t *testing.T) {
+			result := releaseTypeToBumpKind(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
 
 func TestNewAdapter(t *testing.T) {
 	t.Run("creates empty adapter", func(t *testing.T) {

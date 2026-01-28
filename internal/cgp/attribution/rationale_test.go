@@ -182,3 +182,16 @@ func TestRationale_AllSourceTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestRationaleBuilder_WithDetails(t *testing.T) {
+	details := map[string]any{"key1": "val1", "key2": 42}
+	r := NewRationale("test", "conclusion").
+		WithDetails(details).
+		Build()
+	if r.Details["key1"] != "val1" {
+		t.Errorf("Details[key1] = %v, want val1", r.Details["key1"])
+	}
+	if r.Details["key2"] != 42 {
+		t.Errorf("Details[key2] = %v, want 42", r.Details["key2"])
+	}
+}
