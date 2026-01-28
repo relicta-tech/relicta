@@ -1703,3 +1703,32 @@ func TestExecuteHook_PluginFailureWithMessage(t *testing.T) {
 		t.Errorf("Expected error to contain 'permission denied', got %q", responses[0].Error)
 	}
 }
+
+func TestManager_GetPluginViolations_NotFound(t *testing.T) {
+	cfg := &config.Config{}
+	m := NewManager(cfg)
+
+	_, err := m.GetPluginViolations("nonexistent")
+	if err == nil {
+		t.Error("expected error for nonexistent plugin")
+	}
+}
+
+func TestManager_GetAllViolations_Empty(t *testing.T) {
+	cfg := &config.Config{}
+	m := NewManager(cfg)
+
+	violations := m.GetAllViolations()
+	if len(violations) != 0 {
+		t.Errorf("expected 0 violations, got %d", len(violations))
+	}
+}
+
+func TestManager_HasAnyViolations_Empty(t *testing.T) {
+	cfg := &config.Config{}
+	m := NewManager(cfg)
+
+	if m.HasAnyViolations() {
+		t.Error("expected no violations for empty manager")
+	}
+}

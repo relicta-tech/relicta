@@ -689,3 +689,26 @@ rule "not-test" {
 	assert.Equal(t, "_not", rule.Conditions[0].Field)
 	assert.Equal(t, "not", rule.Conditions[0].Operator)
 }
+
+func TestParseFile(t *testing.T) {
+	source := `rule "test-rule" {
+		priority = 50
+		when {
+			risk.score > 0.5
+		}
+		then {
+			require_approval(count: 1)
+		}
+	}`
+
+	pol, err := ParseFile("test.policy", source)
+	require.NoError(t, err)
+	require.NotNil(t, pol)
+	require.Len(t, pol.Rules, 1)
+	assert.Equal(t, "test-rule", pol.Rules[0].Name)
+}
+
+func TestParseFile_Invalid(t *testing.T) {
+	_, err := ParseFile("test.policy", `invalid content {{{`)
+	require.Error(t, err)
+}

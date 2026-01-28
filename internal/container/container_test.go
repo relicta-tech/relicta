@@ -960,6 +960,24 @@ func TestApp_Initialize_WithMemoryEnabled(t *testing.T) {
 	}
 }
 
+func TestApp_BlastService(t *testing.T) {
+	cfg := &config.Config{
+		AI: config.AIConfig{Enabled: false},
+	}
+	c, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New failed: %v", err)
+	}
+
+	// BlastService should be nil before initialization
+	if c.BlastService() != nil {
+		t.Error("BlastService should be nil before initialization")
+	}
+	if c.HasBlastService() {
+		t.Error("HasBlastService should return false before initialization")
+	}
+}
+
 func TestApp_InitReleaseServices_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 

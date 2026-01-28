@@ -1905,5 +1905,82 @@ func TestConsistentRepoPathAcrossToolCalls(t *testing.T) {
 	})
 }
 
+func TestHandleCancelWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleCancel(ctx, CancelToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "run 'relicta mcp serve' with configured dependencies", parsed["status"])
+}
+
+func TestHandleResetWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleReset(ctx, ResetToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "run 'relicta mcp serve' with configured dependencies", parsed["status"])
+}
+
+func TestHandleBlastRadiusWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleBlastRadius(ctx, BlastRadiusToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "not_configured", parsed["status"])
+}
+
+func TestHandleInferVersionWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleInferVersion(ctx, InferVersionToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "not_configured", parsed["status"])
+}
+
+func TestHandleSummarizeDiffWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleSummarizeDiff(ctx, SummarizeDiffToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "not_configured", parsed["status"])
+}
+
+func TestHandleValidateReleaseWithoutAdapter(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleValidateRelease(ctx, ValidateReleaseToolInput{})
+	require.NoError(t, err)
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, true, parsed["valid"])
+}
+
+func TestHandleInitBasic(t *testing.T) {
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	// handleInit creates a config file; should not panic
+	result, err := server.handleInit(ctx, InitToolInput{})
+	_ = result
+	_ = err
+}
+
 // Suppress unused variable warnings
 var _ = time.Now
