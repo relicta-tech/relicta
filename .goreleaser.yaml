@@ -58,6 +58,8 @@ builds:
 
 archives:
   - id: default
+    builds:
+      - relicta
     formats:
       - tar.gz
     format_overrides:
@@ -65,6 +67,16 @@ archives:
         formats:
           - zip
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+  - id: openai-only
+    builds:
+      - relicta-openai-only
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}-openai-only_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
