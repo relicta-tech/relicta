@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/config"
@@ -201,5 +202,182 @@ func TestWebSocketHubClientCount(t *testing.T) {
 
 	if server.Hub().ClientCount() != 0 {
 		t.Error("Expected 0 clients initially")
+	}
+}
+
+func TestServerAddress(t *testing.T) {
+	cfg := config.DashboardConfig{
+		Address: "127.0.0.1:9090",
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: nil,
+	})
+
+	if server.Address() != "127.0.0.1:9090" {
+		t.Errorf("Address() = %s, want 127.0.0.1:9090", server.Address())
+	}
+}
+
+func TestServerEventBroadcaster(t *testing.T) {
+	cfg := config.DashboardConfig{
+		Address: ":0",
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: nil,
+	})
+
+	broadcaster := server.EventBroadcaster()
+	if broadcaster == nil {
+		t.Error("EventBroadcaster() returned nil")
+	}
+}
+
+func TestServerTimeoutDefaults(t *testing.T) {
+	// Test with zero timeouts to trigger defaults
+	cfg := config.DashboardConfig{
+		Address: ":0",
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: nil,
+	})
+
+	if server.httpServer.ReadTimeout != 15*time.Second {
+		t.Errorf("ReadTimeout = %v, want 15s", server.httpServer.ReadTimeout)
+	}
+	if server.httpServer.WriteTimeout != 15*time.Second {
+		t.Errorf("WriteTimeout = %v, want 15s", server.httpServer.WriteTimeout)
+	}
+	if server.httpServer.IdleTimeout != 60*time.Second {
+		t.Errorf("IdleTimeout = %v, want 60s", server.httpServer.IdleTimeout)
+	}
+}
+
+func TestServerCustomTimeouts(t *testing.T) {
+	cfg := config.DashboardConfig{
+		Address:      ":0",
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 45 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: nil,
+	})
+
+	if server.httpServer.ReadTimeout != 30*time.Second {
+		t.Errorf("ReadTimeout = %v, want 30s", server.httpServer.ReadTimeout)
+	}
+	if server.httpServer.WriteTimeout != 45*time.Second {
+		t.Errorf("WriteTimeout = %v, want 45s", server.httpServer.WriteTimeout)
+	}
+	if server.httpServer.IdleTimeout != 120*time.Second {
+		t.Errorf("IdleTimeout = %v, want 120s", server.httpServer.IdleTimeout)
+	}
+}
+
+func TestServerWithFrontend(t *testing.T) {
+	// Test with embedded frontend FS
+	frontendFS := fstest.MapFS{
+		"index.html":    {Data: []byte("<html>Test</html>")},
+		"assets/app.js": {Data: []byte("console.log('test')")},
+		"favicon.svg":   {Data: []byte("<svg></svg>")},
+	}
+
+	cfg := config.DashboardConfig{
+		Address: ":0",
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: frontendFS,
+	})
+
+	// Test root path serves index.html
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Root path: expected status 200, got %d", rec.Code)
+	}
+	if rec.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Errorf("Root path: expected text/html content type, got %s", rec.Header().Get("Content-Type"))
+	}
+
+	// Test SPA fallback (non-API, non-asset path)
+	req = httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
+	rec = httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("SPA fallback: expected status 200, got %d", rec.Code)
+	}
+
+	// Test API path does not get SPA fallback
+	req = httptest.NewRequest(http.MethodGet, "/api/nonexistent", nil)
+	rec = httptest.NewRecorder()
+	server.router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("API 404: expected status 404, got %d", rec.Code)
+	}
+}
+
+func TestAPIEndpoints(t *testing.T) {
+	cfg := config.DashboardConfig{
+		Address: ":0",
+		Auth: config.DashboardAuthConfig{
+			Mode: config.DashboardAuthNone,
+		},
+	}
+
+	server := NewServer(ServerDeps{
+		Config:   cfg,
+		Frontend: nil,
+	})
+
+	// Test various API endpoints return 200 (with no services, they return empty data)
+	endpoints := []string{
+		"/api/v1/releases",
+		"/api/v1/governance/decisions",
+		"/api/v1/governance/risk-trends",
+		"/api/v1/governance/factors",
+		"/api/v1/actors",
+		"/api/v1/approvals/pending",
+		"/api/v1/audit",
+	}
+
+	for _, endpoint := range endpoints {
+		t.Run(endpoint, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, endpoint, nil)
+			rec := httptest.NewRecorder()
+			server.router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Errorf("GET %s: expected status 200, got %d", endpoint, rec.Code)
+			}
+		})
 	}
 }

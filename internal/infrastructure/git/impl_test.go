@@ -1268,3 +1268,152 @@ func TestServiceImplConventionalCommitMethods(t *testing.T) {
 		}
 	})
 }
+
+func TestSplitMessage(t *testing.T) {
+	tests := []struct {
+		name        string
+		message     string
+		wantSubject string
+		wantBody    string
+	}{
+		{
+			name:        "subject only",
+			message:     "feat: add feature",
+			wantSubject: "feat: add feature",
+			wantBody:    "",
+		},
+		{
+			name:        "subject and body",
+			message:     "feat: add feature\n\nThis is the body.",
+			wantSubject: "feat: add feature",
+			wantBody:    "This is the body.",
+		},
+		{
+			name:        "subject with leading whitespace",
+			message:     "  feat: add feature  ",
+			wantSubject: "feat: add feature",
+			wantBody:    "",
+		},
+		{
+			name:        "multi-line body",
+			message:     "fix: bug\n\nLine 1\nLine 2",
+			wantSubject: "fix: bug",
+			wantBody:    "Line 1\nLine 2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			subject, body := splitMessage(tt.message)
+			if subject != tt.wantSubject {
+				t.Errorf("subject = %q, want %q", subject, tt.wantSubject)
+			}
+			if body != tt.wantBody {
+				t.Errorf("body = %q, want %q", body, tt.wantBody)
+			}
+		})
+	}
+}
+
+func TestCategorizedChanges_DetermineReleaseType(t *testing.T) {
+	tests := []struct {
+		name    string
+		changes CategorizedChanges
+		want    ReleaseType
+	}{
+		{
+			name:    "no changes returns none",
+			changes: CategorizedChanges{},
+			want:    ReleaseTypeNone,
+		},
+		{
+			name: "breaking changes returns major",
+			changes: CategorizedChanges{
+				All:      []ConventionalCommit{{Type: CommitTypeFeat}},
+				Breaking: []ConventionalCommit{{Type: CommitTypeFeat, Breaking: true}},
+			},
+			want: ReleaseTypeMajor,
+		},
+		{
+			name: "features return minor",
+			changes: CategorizedChanges{
+				All:      []ConventionalCommit{{Type: CommitTypeFeat}},
+				Features: []ConventionalCommit{{Type: CommitTypeFeat}},
+			},
+			want: ReleaseTypeMinor,
+		},
+		{
+			name: "fixes return patch",
+			changes: CategorizedChanges{
+				All:   []ConventionalCommit{{Type: CommitTypeFix}},
+				Fixes: []ConventionalCommit{{Type: CommitTypeFix}},
+			},
+			want: ReleaseTypePatch,
+		},
+		{
+			name: "performance return patch",
+			changes: CategorizedChanges{
+				All:         []ConventionalCommit{{Type: CommitTypePerf}},
+				Performance: []ConventionalCommit{{Type: CommitTypePerf}},
+			},
+			want: ReleaseTypePatch,
+		},
+		{
+			name: "other commits return patch",
+			changes: CategorizedChanges{
+				All: []ConventionalCommit{{Type: CommitTypeChore}},
+			},
+			want: ReleaseTypePatch,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.changes.DetermineReleaseType()
+			if got != tt.want {
+				t.Errorf("DetermineReleaseType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCategorizedChanges_HasChanges(t *testing.T) {
+	empty := CategorizedChanges{}
+	if empty.HasChanges() {
+		t.Error("HasChanges() should return false for empty changes")
+	}
+
+	withChanges := CategorizedChanges{
+		All: []ConventionalCommit{{Type: CommitTypeFeat}},
+	}
+	if !withChanges.HasChanges() {
+		t.Error("HasChanges() should return true when there are changes")
+	}
+}
+
+func TestCategorizedChanges_HasBreakingChanges(t *testing.T) {
+	empty := CategorizedChanges{}
+	if empty.HasBreakingChanges() {
+		t.Error("HasBreakingChanges() should return false for empty changes")
+	}
+
+	withBreaking := CategorizedChanges{
+		Breaking: []ConventionalCommit{{Type: CommitTypeFeat, Breaking: true}},
+	}
+	if !withBreaking.HasBreakingChanges() {
+		t.Error("HasBreakingChanges() should return true when there are breaking changes")
+	}
+}
+
+func TestCategorizedChanges_TotalCount(t *testing.T) {
+	changes := CategorizedChanges{
+		All: []ConventionalCommit{
+			{Type: CommitTypeFeat},
+			{Type: CommitTypeFix},
+			{Type: CommitTypeChore},
+		},
+	}
+	if changes.TotalCount() != 3 {
+		t.Errorf("TotalCount() = %d, want 3", changes.TotalCount())
+	}
+}

@@ -736,3 +736,25 @@ func createTestReleaseRunWithNotes(t *testing.T) *domain.ReleaseRun {
 
 	return run
 }
+
+func TestPtrTo(t *testing.T) {
+	s := "hello"
+	p := ptrTo(s)
+	if p == nil {
+		t.Fatal("ptrTo returned nil")
+	}
+	if *p != s {
+		t.Errorf("ptrTo value = %v, want %v", *p, s)
+	}
+
+	*p = "world"
+	if s != "hello" {
+		t.Error("ptrTo should return pointer to copy")
+	}
+
+	n := 42
+	np := ptrTo(n)
+	if *np != 42 {
+		t.Errorf("ptrTo(42) = %v, want 42", *np)
+	}
+}

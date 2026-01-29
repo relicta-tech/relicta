@@ -91,6 +91,23 @@ func TestValidatePath(t *testing.T) {
 	}
 }
 
+func TestValidatePath_AbsPathWithBaseDir(t *testing.T) {
+	// Absolute path within base dir
+	result, err := ValidatePath("/home/user/subdir/file.txt", "/home/user")
+	require.NoError(t, err)
+	assert.Equal(t, "/home/user/subdir/file.txt", result)
+
+	// Absolute path escaping base dir
+	_, err = ValidatePath("/etc/passwd", "/home/user")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "escapes base directory")
+
+	// Path that equals base dir exactly
+	result, err = ValidatePath("/home/user", "/home/user")
+	require.NoError(t, err)
+	assert.Equal(t, "/home/user", result)
+}
+
 func TestValidateConfigPath(t *testing.T) {
 	tests := []struct {
 		name    string

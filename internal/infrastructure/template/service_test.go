@@ -818,6 +818,80 @@ func TestLastFunc(t *testing.T) {
 	}
 }
 
+func TestNewService_WithNonExistentCustomDir(t *testing.T) {
+	// This covers the loadCustomTemplates error path that logs warning but continues
+	svc, err := NewService(WithCustomDir("/nonexistent/template/dir"))
+	if err != nil {
+		t.Fatalf("NewService should not fail with nonexistent custom dir: %v", err)
+	}
+	if svc == nil {
+		t.Fatal("NewService returned nil")
+	}
+}
+
+func TestNewService_WithZeroTimeout(t *testing.T) {
+	// Covers the timeout <= 0 branch in NewService
+	svc, err := NewService(WithExecutionTimeout(0))
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+	if svc.executionTimeout != DefaultExecutionTimeout {
+		t.Errorf("executionTimeout = %v, want default %v", svc.executionTimeout, DefaultExecutionTimeout)
+	}
+}
+
+func TestNewService_WithNegativeTimeout(t *testing.T) {
+	svc, err := NewService(WithExecutionTimeout(-1 * time.Second))
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+	if svc.executionTimeout != DefaultExecutionTimeout {
+		t.Errorf("executionTimeout = %v, want default %v", svc.executionTimeout, DefaultExecutionTimeout)
+	}
+}
+
+func TestServiceImpl_RenderFile_NonExistent(t *testing.T) {
+	svc, err := NewService()
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	_, err = svc.RenderFile("/nonexistent/file.tmpl", nil)
+	if err == nil {
+		t.Error("RenderFile should fail for nonexistent file")
+	}
+}
+
+func TestServiceImpl_LoadCustomTemplates_WithSubdirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a subdirectory with a template
+	subDir := filepath.Join(tmpDir, "sub")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(subDir, "nested.tmpl"), []byte("Nested {{.Value}}"), 0600); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	// Also a non-template file that should be skipped
+	if err := os.WriteFile(filepath.Join(tmpDir, "readme.txt"), []byte("not a template"), 0600); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+
+	svc, err := NewService(WithCustomDir(tmpDir))
+	if err != nil {
+		t.Fatalf("NewService failed: %v", err)
+	}
+
+	out, err := svc.Render("sub/nested", map[string]string{"Value": "OK"})
+	if err != nil {
+		t.Fatalf("Render error: %v", err)
+	}
+	if out != "Nested OK" {
+		t.Errorf("unexpected output: %q", out)
+	}
+}
+
 func TestCoalesceFunc(t *testing.T) {
 	tests := []struct {
 		name   string

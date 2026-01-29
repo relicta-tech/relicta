@@ -592,6 +592,221 @@ func TestFileUnitOfWork_AddEvents(t *testing.T) {
 	})
 }
 
+func TestFileUnitOfWork_List(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	// Save a release to base repo first
+	rel := release.NewReleaseRunForTest("list-test-1", "main", "/list/repo")
+	if err := baseRepo.Save(ctx, rel); err != nil {
+		t.Fatalf("failed to save: %v", err)
+	}
+
+	t.Run("list delegates to base repo", func(t *testing.T) {
+		uow, _ := factory.Begin(ctx)
+		defer uow.Rollback()
+
+		repo := uow.ReleaseRepository()
+		ids, err := repo.List(ctx, "/list/repo")
+		if err != nil {
+			t.Fatalf("List failed: %v", err)
+		}
+		if len(ids) == 0 {
+			t.Error("expected at least one ID from List")
+		}
+	})
+
+	t.Run("list on inactive uow fails", func(t *testing.T) {
+		uow, _ := factory.Begin(ctx)
+		_ = uow.Commit(ctx)
+
+		repo := uow.ReleaseRepository()
+		_, err := repo.List(ctx, "/list/repo")
+		if err == nil {
+			t.Error("expected error on inactive uow")
+		}
+	})
+}
+
+func TestFileUnitOfWork_SaveOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	rel := release.NewReleaseRunForTest("inactive-save", "main", "/repo")
+	err = repo.Save(ctx, rel)
+	if err == nil {
+		t.Error("expected error saving on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_DeleteOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	err = repo.Delete(ctx, "any-id")
+	if err == nil {
+		t.Error("expected error deleting on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_FindBySpecificationOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	_, err = repo.FindBySpecification(ctx, release.ByRepositoryPath("/repo"))
+	if err == nil {
+		t.Error("expected error on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_FindByStateOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	_, err = repo.FindByState(ctx, release.StateDraft)
+	if err == nil {
+		t.Error("expected error on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_FindActiveOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	_, err = repo.FindActive(ctx)
+	if err == nil {
+		t.Error("expected error on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_FindLatestOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	repo := uow.ReleaseRepository()
+	_, err = repo.FindLatest(ctx, "/repo")
+	if err == nil {
+		t.Error("expected error on inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_CommitOnInactiveUoW(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	uow, _ := factory.Begin(ctx)
+	_ = uow.Commit(ctx)
+
+	err = uow.Commit(ctx)
+	if err == nil {
+		t.Error("expected error committing inactive uow")
+	}
+}
+
+func TestFileUnitOfWork_FindLatestPendingNewerThanBase(t *testing.T) {
+	tempDir := t.TempDir()
+	baseRepo, err := NewFileReleaseRepository(tempDir)
+	if err != nil {
+		t.Fatalf("failed to create base repo: %v", err)
+	}
+
+	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
+	ctx := context.Background()
+
+	// Save an older release to base
+	older := release.NewReleaseRunForTest("older-rel", "main", "/latest/repo")
+	_ = baseRepo.Save(ctx, older)
+
+	// Small delay so pending write has newer timestamp
+	time.Sleep(10 * time.Millisecond)
+
+	uow, _ := factory.Begin(ctx)
+	defer uow.Rollback()
+
+	repo := uow.ReleaseRepository()
+	newer := release.NewReleaseRunForTest("newer-rel", "main", "/latest/repo")
+	_ = repo.Save(ctx, newer)
+
+	found, err := repo.FindLatest(ctx, "/latest/repo")
+	if err != nil {
+		t.Fatalf("FindLatest failed: %v", err)
+	}
+	if found.ID() != "newer-rel" {
+		t.Errorf("expected newer-rel, got %s", found.ID())
+	}
+}
+
 // testDomainEvent is a simple domain event for testing
 type testDomainEvent struct {
 	eventName   string

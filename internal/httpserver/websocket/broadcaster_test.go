@@ -145,6 +145,17 @@ func TestEventBroadcaster_EventToMessage(t *testing.T) {
 			expectedType: "release.step_completed",
 		},
 		{
+			name: "StepCompletedEvent with error",
+			event: &domain.StepCompletedEvent{
+				RunID:    "run-1",
+				StepName: "tag",
+				Success:  false,
+				Error:    "tag creation failed",
+				At:       time.Now(),
+			},
+			expectedType: "release.step_completed",
+		},
+		{
 			name: "PluginExecutedEvent",
 			event: &domain.PluginExecutedEvent{
 				RunID:      "run-1",
@@ -186,5 +197,45 @@ func TestEventBroadcaster_EventToMessage(t *testing.T) {
 				t.Error("expected timestamp in payload")
 			}
 		})
+	}
+}
+
+func TestEventBroadcaster_StepCompletedWithError(t *testing.T) {
+	hub := NewHub(nil)
+	broadcaster := NewEventBroadcaster(hub)
+
+	// Test step with error field set
+	msg := broadcaster.eventToMessage(&domain.StepCompletedEvent{
+		RunID:    "run-1",
+		StepName: "tag",
+		Success:  false,
+		Error:    "tag creation failed",
+		At:       time.Now(),
+	})
+
+	payload, ok := msg.Payload.(map[string]any)
+	if !ok {
+		t.Fatal("expected payload to be map[string]any")
+	}
+
+	errField, ok := payload["error"]
+	if !ok {
+		t.Error("expected error field in payload for failed step")
+	}
+	if errField != "tag creation failed" {
+		t.Errorf("expected error 'tag creation failed', got %v", errField)
+	}
+
+	// Test step without error field
+	msg2 := broadcaster.eventToMessage(&domain.StepCompletedEvent{
+		RunID:    "run-1",
+		StepName: "analyze",
+		Success:  true,
+		At:       time.Now(),
+	})
+
+	payload2, _ := msg2.Payload.(map[string]any)
+	if _, ok := payload2["error"]; ok {
+		t.Error("expected no error field in payload for successful step")
 	}
 }

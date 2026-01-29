@@ -712,3 +712,313 @@ func TestParseFile_Invalid(t *testing.T) {
 	_, err := ParseFile("test.policy", `invalid content {{{`)
 	require.Error(t, err)
 }
+
+func TestCompiler_RuleWithNoWhenBlock(t *testing.T) {
+	input := `
+rule "always-match" {
+  priority = 10
+  then {
+    block()
+  }
+}
+`
+	pol, err := Parse(input, "test")
+	require.NoError(t, err)
+
+	require.Len(t, pol.Rules, 1)
+	rule := pol.Rules[0]
+	require.Len(t, rule.Conditions, 1)
+	assert.Equal(t, "_always", rule.Conditions[0].Field)
+	assert.Equal(t, "eq", rule.Conditions[0].Operator)
+	assert.Equal(t, true, rule.Conditions[0].Value)
+}
+
+func TestCompiler_MatchesOperator(t *testing.T) {
+	input := `
+rule "matches-test" {
+  when {
+    change.files matches "*.go"
+  }
+  then {
+    add_rationale(message: "Go files changed")
+  }
+}
+`
+	pol, err := Parse(input, "test")
+	require.NoError(t, err)
+
+	require.Len(t, pol.Rules, 1)
+	rule := pol.Rules[0]
+	require.Len(t, rule.Conditions, 1)
+	assert.Equal(t, policy.OperatorMatches, rule.Conditions[0].Operator)
+	assert.Equal(t, "*.go", rule.Conditions[0].Value)
+}
+
+func TestCompiler_NotConditionWithComparison(t *testing.T) {
+	input := `
+rule "not-compare" {
+  when {
+    NOT risk.score > 0.5
+  }
+  then {
+    approve()
+  }
+}
+`
+	pol, err := Parse(input, "test")
+	require.NoError(t, err)
+
+	require.Len(t, pol.Rules, 1)
+	require.Len(t, pol.Rules[0].Conditions, 1)
+	assert.Equal(t, "_not", pol.Rules[0].Conditions[0].Field)
+}
+
+func TestCompiler_DefaultsWithAllowedActors(t *testing.T) {
+	input := `
+defaults {
+  decision = "approve"
+  required_approvers = 3
+  allowed_actors = "human,admin"
+}
+`
+	pol, err := Parse(input, "test")
+	require.NoError(t, err)
+
+	assert.Equal(t, "approve", pol.Defaults.Decision)
+	assert.Equal(t, 3, pol.Defaults.RequiredApprovers)
+	assert.Equal(t, []string{"human", "admin"}, pol.Defaults.AllowedActors)
+}
+
+func TestCompiler_AllActionTypes(t *testing.T) {
+	tests := []struct {
+		action   string
+		expected string
+	}{
+		{"block()", policy.ActionBlock},
+		{"approve()", policy.ActionSetDecision},
+		{"set_decision(value: \"approve\")", policy.ActionSetDecision},
+		{"add_condition(field: \"test\")", policy.ActionAddCondition},
+		{"add_label(name: \"release\")", "add_label"},
+		{"notify(channel: \"#ops\")", "notify"},
+		{"warn(message: \"caution\")", "warn"},
+		{"warning(message: \"caution\")", "warn"},
+		{"log(message: \"info\")", "log"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.action, func(t *testing.T) {
+			input := `rule "test" { when { risk.score > 0 } then { ` + tt.action + ` } }`
+			pol, err := Parse(input, "test")
+			require.NoError(t, err)
+			require.Len(t, pol.Rules[0].Actions, 1)
+			assert.Equal(t, tt.expected, pol.Rules[0].Actions[0].Type)
+		})
+	}
+}
+
+func TestCompiler_UnknownAction(t *testing.T) {
+	input := `rule "test" { when { risk.score > 0 } then { unknown_action() } }`
+	_, err := Parse(input, "test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown action")
+}
+
+func TestCompiler_DefaultsInvalidDecisionType(t *testing.T) {
+	// Compile directly with a defaults node that has a non-string decision
+	file := &PolicyFile{
+		Defaults: &DefaultsNode{
+			Settings: map[string]any{
+				"decision": 123, // should be string
+			},
+		},
+	}
+	compiler := NewCompiler(file)
+	_, err := compiler.Compile("test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "decision must be a string")
+}
+
+func TestCompiler_DefaultsInvalidApproversType(t *testing.T) {
+	file := &PolicyFile{
+		Defaults: &DefaultsNode{
+			Settings: map[string]any{
+				"required_approvers": "not-a-number",
+			},
+		},
+	}
+	compiler := NewCompiler(file)
+	_, err := compiler.Compile("test")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required_approvers must be a number")
+}
+
+func TestCompiler_DefaultsFloatApprovers(t *testing.T) {
+	file := &PolicyFile{
+		Defaults: &DefaultsNode{
+			Settings: map[string]any{
+				"required_approvers": float64(2.0),
+			},
+		},
+	}
+	compiler := NewCompiler(file)
+	pol, err := compiler.Compile("test")
+	require.NoError(t, err)
+	assert.Equal(t, 2, pol.Defaults.RequiredApprovers)
+}
+
+func TestCompiler_BareIdentifierCondition(t *testing.T) {
+	input := `
+rule "bare-ident" {
+  when {
+    actor.trusted
+  }
+  then {
+    approve()
+  }
+}
+`
+	pol, err := Parse(input, "test")
+	require.NoError(t, err)
+
+	require.Len(t, pol.Rules[0].Conditions, 1)
+	assert.Equal(t, "actor.trusted", pol.Rules[0].Conditions[0].Field)
+	assert.Equal(t, "eq", pol.Rules[0].Conditions[0].Operator)
+	assert.Equal(t, true, pol.Rules[0].Conditions[0].Value)
+}
+
+func TestTokenType_String_Unknown(t *testing.T) {
+	tt := TokenType(999)
+	s := tt.String()
+	assert.Equal(t, "UNKNOWN", s)
+}
+
+func parseHelper(t *testing.T, input string) *PolicyFile {
+	t.Helper()
+	lexer := NewLexer(input)
+	tokens, err := lexer.Tokenize()
+	require.NoError(t, err)
+	parser := NewParser(tokens)
+	file, err := parser.Parse()
+	require.NoError(t, err)
+	return file
+}
+
+func parseHelperErr(t *testing.T, input string) error {
+	t.Helper()
+	lexer := NewLexer(input)
+	tokens, err := lexer.Tokenize()
+	require.NoError(t, err)
+	parser := NewParser(tokens)
+	_, err = parser.Parse()
+	return err
+}
+
+func TestParser_ParenthesizedExpression(t *testing.T) {
+	input := `
+rule "paren-test" {
+    when {
+        (actor.kind == "human" || actor.kind == "agent")
+    }
+    then {
+        approve
+    }
+}
+`
+	file := parseHelper(t, input)
+	require.Len(t, file.Rules, 1)
+}
+
+func TestParser_NumberLiteralInExpr(t *testing.T) {
+	input := `
+rule "num-test" {
+    when {
+        risk.score > 0.5
+    }
+    then {
+        require_approval
+    }
+}
+`
+	file := parseHelper(t, input)
+	require.Len(t, file.Rules, 1)
+}
+
+func TestParser_BoolLiteralInExpr(t *testing.T) {
+	input := `
+rule "bool-test" {
+    when {
+        actor.trusted == true
+    }
+    then {
+        approve
+    }
+}
+`
+	file := parseHelper(t, input)
+	require.Len(t, file.Rules, 1)
+}
+
+func TestParser_DefaultsWithNumericAndBoolValues(t *testing.T) {
+	input := `
+defaults {
+    risk_threshold = 0.7
+    auto_approve = true
+    name = "default"
+}
+`
+	file := parseHelper(t, input)
+	require.NotNil(t, file.Defaults)
+	assert.Equal(t, 0.7, file.Defaults.Settings["risk_threshold"])
+	assert.Equal(t, true, file.Defaults.Settings["auto_approve"])
+	assert.Equal(t, "default", file.Defaults.Settings["name"])
+}
+
+func TestParser_ParseValueError(t *testing.T) {
+	input := `
+defaults {
+    name = {
+}
+`
+	err := parseHelperErr(t, input)
+	require.Error(t, err)
+}
+
+func TestCompiler_ParenthesizedCondition(t *testing.T) {
+	input := `
+rule "paren-compiled" {
+    when {
+        (actor.kind == "human")
+    }
+    then {
+        approve
+    }
+}
+`
+	p, err := Parse(input, "paren-test")
+	require.NoError(t, err)
+	require.NotNil(t, p)
+}
+
+func TestCompiler_NumberAndBoolConditions(t *testing.T) {
+	input := `
+rule "num-bool" {
+    when {
+        risk.score > 0.5 && actor.trusted == true
+    }
+    then {
+        require_approval
+    }
+}
+`
+	p, err := Parse(input, "num-bool-test")
+	require.NoError(t, err)
+	require.Len(t, p.Rules, 1)
+}
+
+func TestLexer_BackslashInString(t *testing.T) {
+	input := `"path\\to\\file"`
+	lexer := NewLexer(input)
+	tok := lexer.NextToken()
+	assert.Equal(t, TokenString, tok.Type)
+	assert.Equal(t, "path\\to\\file", tok.Value)
+}

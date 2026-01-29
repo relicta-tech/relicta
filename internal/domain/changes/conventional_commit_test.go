@@ -365,6 +365,54 @@ func TestWithRawMessage(t *testing.T) {
 	}
 }
 
+func TestParseConventionalCommit_UnknownType(t *testing.T) {
+	// Covers the unknown commit type branch (valid=false path)
+	got := ParseConventionalCommit("abc123", "customtype: some message")
+	if got == nil {
+		t.Fatal("ParseConventionalCommit() = nil, want non-nil for unknown type")
+	}
+	if got.Type() != CommitType("customtype") {
+		t.Errorf("Type() = %v, want customtype", got.Type())
+	}
+}
+
+func TestParseConventionalCommit_FooterTokenLine(t *testing.T) {
+	// Covers the footer detection branch for lines with colon that are footer tokens
+	message := `fix: resolve issue
+
+This is the body.
+
+Closes: #42
+Reviewed-by: someone`
+
+	got := ParseConventionalCommit("abc123", message)
+	if got == nil {
+		t.Fatal("ParseConventionalCommit() = nil, want non-nil")
+	}
+	if got.Footer() == "" {
+		t.Error("Footer() is empty, expected footer with Closes and Reviewed-by")
+	}
+	if got.Body() == "" {
+		t.Error("Body() is empty, expected body text")
+	}
+}
+
+func TestParseConventionalCommit_ContinuationInFooter(t *testing.T) {
+	// Covers the inFooter continuation branch (line after footer token that is not a new token)
+	message := `feat: add feature
+
+BREAKING CHANGE: this is a breaking change
+that continues on the next line`
+
+	got := ParseConventionalCommit("abc123", message)
+	if got == nil {
+		t.Fatal("ParseConventionalCommit() = nil, want non-nil")
+	}
+	if !got.IsBreaking() {
+		t.Error("IsBreaking() = false, want true")
+	}
+}
+
 func TestIsFooterToken(t *testing.T) {
 	tests := []struct {
 		input    string

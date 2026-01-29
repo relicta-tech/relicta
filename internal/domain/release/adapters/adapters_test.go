@@ -1343,6 +1343,145 @@ func TestEventPublishingRepository_SavePublishesEvents(t *testing.T) {
 // FindByPlanHash Tests
 // =============================================================================
 
+func TestFileReleaseRunRepository_LoadBatch(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create and save two runs
+	run1 := domain.NewReleaseRun("github.com/test/repo", repoRoot, "v1.0.0",
+		domain.CommitSHA("abc123"), []domain.CommitSHA{"abc123"}, "config1", "plugin1")
+	run2 := domain.NewReleaseRun("github.com/test/repo", repoRoot, "v1.1.0",
+		domain.CommitSHA("def456"), []domain.CommitSHA{"def456"}, "config2", "plugin2")
+
+	_ = repo.Save(ctx, run1)
+	_ = repo.Save(ctx, run2)
+
+	// LoadBatch with both IDs
+	result, err := repo.LoadBatch(ctx, repoRoot, []domain.RunID{run1.ID(), run2.ID()})
+	if err != nil {
+		t.Fatalf("LoadBatch failed: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("Expected 2 runs, got %d", len(result))
+	}
+	if result[run1.ID()] == nil {
+		t.Error("Expected run1 in result")
+	}
+	if result[run2.ID()] == nil {
+		t.Error("Expected run2 in result")
+	}
+}
+
+func TestFileReleaseRunRepository_LoadBatchWithMissing(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create one run
+	run1 := domain.NewReleaseRun("github.com/test/repo", repoRoot, "v1.0.0",
+		domain.CommitSHA("abc123"), []domain.CommitSHA{"abc123"}, "config1", "plugin1")
+	_ = repo.Save(ctx, run1)
+
+	// LoadBatch with one valid and one invalid ID
+	result, err := repo.LoadBatch(ctx, repoRoot, []domain.RunID{run1.ID(), "nonexistent-id"})
+	if err != nil {
+		t.Fatalf("LoadBatch failed: %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("Expected 1 run (skipping missing), got %d", len(result))
+	}
+}
+
+func TestFileReleaseRunRepository_LoadBatchEmpty(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	result, err := repo.LoadBatch(ctx, repoRoot, []domain.RunID{})
+	if err != nil {
+		t.Fatalf("LoadBatch failed: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("Expected 0 runs for empty input, got %d", len(result))
+	}
+}
+
+func TestValidateRepoRoot(t *testing.T) {
+	// Valid directory
+	tmpDir := t.TempDir()
+	path, err := validateRepoRoot(tmpDir)
+	if err != nil {
+		t.Fatalf("validateRepoRoot(%s) failed: %v", tmpDir, err)
+	}
+	if path == "" {
+		t.Error("Expected non-empty path")
+	}
+
+	// Empty path
+	_, err = validateRepoRoot("")
+	if err == nil {
+		t.Error("Expected error for empty path")
+	}
+
+	// Non-existent path
+	_, err = validateRepoRoot("/nonexistent/path/that/does/not/exist")
+	if err == nil {
+		t.Error("Expected error for non-existent path")
+	}
+
+	// File instead of directory
+	tmpFile := filepath.Join(tmpDir, "not-a-dir")
+	_ = os.WriteFile(tmpFile, []byte("content"), 0644)
+	_, err = validateRepoRoot(tmpFile)
+	if err == nil {
+		t.Error("Expected error for file path (not directory)")
+	}
+}
+
+func TestFileReleaseRunRepository_LoadWithKnownRoot(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create and save a run (this registers the repo root)
+	run := domain.NewReleaseRun("github.com/test/repo", repoRoot, "v1.0.0",
+		domain.CommitSHA("abc123"), []domain.CommitSHA{"abc123"}, "config", "plugin")
+	_ = repo.Save(ctx, run)
+
+	// Now Load (without repoRoot) should find it via known roots
+	loaded, err := repo.Load(ctx, run.ID())
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.ID() != run.ID() {
+		t.Errorf("Load returned wrong run: got %s, want %s", loaded.ID(), run.ID())
+	}
+}
+
+func TestFileReleaseRunRepository_DeleteWithKnownRoot(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	// Create and save a run (registers repo root)
+	run := domain.NewReleaseRun("github.com/test/repo", repoRoot, "v1.0.0",
+		domain.CommitSHA("abc123"), []domain.CommitSHA{"abc123"}, "config", "plugin")
+	_ = repo.Save(ctx, run)
+
+	// Delete via known roots
+	err := repo.Delete(ctx, run.ID())
+	if err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	// Verify it's gone
+	_, err = repo.LoadFromRepo(ctx, repoRoot, run.ID())
+	if err != domain.ErrRunNotFound {
+		t.Errorf("Expected ErrRunNotFound after delete, got %v", err)
+	}
+}
+
 func TestFileReleaseRunRepository_FindByPlanHash(t *testing.T) {
 	repo := NewFileReleaseRunRepository()
 	repoRoot := t.TempDir()
@@ -2552,5 +2691,37 @@ func TestEventPublishingRepository_LoadFromRepo_WithSupport(t *testing.T) {
 	}
 	if loaded == nil || loaded.ID() != run.ID() {
 		t.Error("Loaded run doesn't match expected run")
+	}
+}
+
+func TestDeserializeEvent_StepCompleted(t *testing.T) {
+	payload := json.RawMessage(`{"RunID":"run-1","StepName":"tag","Status":"completed"}`)
+	evt, err := deserializeEvent("step.completed", payload)
+	if err != nil {
+		t.Fatalf("deserializeEvent error: %v", err)
+	}
+	if evt == nil {
+		t.Fatal("expected non-nil event")
+	}
+}
+
+func TestDeserializeEvent_PluginExecuted(t *testing.T) {
+	payload := json.RawMessage(`{"RunID":"run-1","PluginName":"github","Hook":"PostPublish"}`)
+	evt, err := deserializeEvent("plugin.executed", payload)
+	if err != nil {
+		t.Fatalf("deserializeEvent error: %v", err)
+	}
+	if evt == nil {
+		t.Fatal("expected non-nil event")
+	}
+}
+
+func TestDeserializeEvent_Unknown(t *testing.T) {
+	_, err := deserializeEvent("unknown.event", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatal("expected error for unknown event type")
+	}
+	if !strings.Contains(err.Error(), "unknown event type") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }

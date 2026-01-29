@@ -2175,3 +2175,253 @@ func createNotesReadyRun() *domain.ReleaseRun {
 	_ = run.GenerateNotes(notes, "hash", "test")
 	return run
 }
+
+// =============================================================================
+// loadRun with RunID tests (covers the 40% loadRun branches)
+// =============================================================================
+
+func TestBumpVersionUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{}
+	verWriter := &mockVersionWriter{}
+
+	// Create a planned run with version proposal
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	repo.runs[run.ID()] = run
+	// Do NOT set as latest - force RunID path
+
+	uc := NewBumpVersionUseCase(repo, inspector, lockMgr, verWriter, nil)
+
+	input := BumpVersionInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(), // Explicitly specify run ID
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+	if output.VersionNext == "" {
+		t.Error("Execute() returned empty VersionNext")
+	}
+}
+
+func TestGenerateNotesUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create a versioned run
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	// Do NOT set as latest - force RunID path
+
+	notesGen := &mockNotesGenerator{
+		notes:    "## Release Notes\n\n- Feature A",
+		provider: "mock",
+		model:    "test-model",
+	}
+
+	uc := NewGenerateNotesUseCase(repo, inspector, notesGen, nil)
+
+	input := GenerateNotesInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+	if output.Notes == nil || output.Notes.Text == "" {
+		t.Error("Execute() returned empty Notes")
+	}
+}
+
+func TestApproveReleaseUseCase_Execute_ByRunID(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create a notes-ready run
+	run := createNotesReadyRun()
+	repo.runs[run.ID()] = run
+	// Do NOT set as latest - force RunID path
+
+	uc := NewApproveReleaseUseCase(repo, inspector, nil, nil)
+
+	input := ApproveReleaseInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "approver@example.com",
+		},
+	}
+
+	output, err := uc.Execute(ctx, input)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if output.RunID != run.ID() {
+		t.Errorf("Execute() RunID = %v, want %v", output.RunID, run.ID())
+	}
+	if !output.Approved {
+		t.Error("Execute() Approved = false, want true")
+	}
+}
+
+func TestBumpVersionUseCase_Execute_SaveError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	lockMgr := &mockLockManager{}
+	verWriter := &mockVersionWriter{}
+
+	// Create a planned run with version proposal
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	// Set save error after the run is loaded but before final save
+	uc := NewBumpVersionUseCase(repo, inspector, lockMgr, verWriter, nil)
+
+	input := BumpVersionInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	// Set save error to trigger after load succeeds
+	repo.saveErr = errors.New("save failed")
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when save fails")
+	}
+}
+
+func TestGenerateNotesUseCase_Execute_SaveError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	// Create a versioned run
+	run := domain.NewReleaseRun(
+		"repo", "/path/to/repo", "v1.0.0",
+		domain.CommitSHA("abc123def456"), nil, "", "",
+	)
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	notesGen := &mockNotesGenerator{
+		notes:    "notes",
+		provider: "mock",
+		model:    "test",
+	}
+
+	uc := NewGenerateNotesUseCase(repo, inspector, notesGen, nil)
+
+	input := GenerateNotesInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "test-actor",
+		},
+	}
+
+	repo.saveErr = errors.New("save failed")
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when save fails")
+	}
+}
+
+func TestApproveReleaseUseCase_Execute_SaveError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+
+	run := createNotesReadyRun()
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewApproveReleaseUseCase(repo, inspector, nil, nil)
+
+	input := ApproveReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor: ports.ActorInfo{
+			Type: domain.ActorHuman,
+			ID:   "approver@example.com",
+		},
+	}
+
+	repo.saveErr = errors.New("save failed")
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when save fails")
+	}
+}
+
+func TestGetStatusUseCase_Execute_LoadError(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	repo.loadErr = errors.New("load error")
+
+	uc := NewGetStatusUseCase(repo, inspector)
+
+	input := GetStatusInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    "some-run-id",
+	}
+
+	_, err := uc.Execute(ctx, input)
+	if err == nil {
+		t.Error("Execute() expected error when load fails")
+	}
+}

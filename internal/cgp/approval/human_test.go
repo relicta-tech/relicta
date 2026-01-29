@@ -472,6 +472,96 @@ func TestSuggestedRationales(t *testing.T) {
 	}
 }
 
+func TestApprovalRequest_RiskLevel_NilAssessment(t *testing.T) {
+	req := &ApprovalRequest{}
+	if got := req.RiskLevel(); got != "unknown" {
+		t.Errorf("RiskLevel() = %s, want unknown", got)
+	}
+}
+
+func TestSuggestedRationales_HighRisk(t *testing.T) {
+	highRisk := &ApprovalRequest{
+		RiskAssessment: &RiskSummary{OverallScore: 0.9},
+	}
+	suggestions := SuggestedRationales(highRisk)
+	// High risk should not have "low risk" suggestions, but should have a default
+	if suggestions == nil {
+		t.Error("Should return non-nil suggestions")
+	}
+}
+
+func TestApprover_ValidateResponse_MissingRequestID(t *testing.T) {
+	approver := New(nil)
+	resp := &ApprovalResponse{
+		RequestID: "", // Missing
+		Status:    StatusApproved,
+		Approver:  cgp.NewHumanActor("test@example.com", "Test"),
+	}
+	err := approver.ValidateResponse(resp)
+	if err == nil {
+		t.Error("ValidateResponse should fail with missing request ID")
+	}
+}
+
+func TestApprover_ValidateResponse_MissingStatus(t *testing.T) {
+	approver := New(nil)
+	resp := &ApprovalResponse{
+		RequestID: "req-123",
+		Status:    "", // Missing
+		Approver:  cgp.NewHumanActor("test@example.com", "Test"),
+	}
+	err := approver.ValidateResponse(resp)
+	if err == nil {
+		t.Error("ValidateResponse should fail with missing status")
+	}
+}
+
+func TestApprover_ProcessApproval_Deferred(t *testing.T) {
+	approver := New(nil)
+
+	req := &ApprovalRequest{
+		ID:         "approval-123",
+		ProposalID: "proposal-456",
+		ExpiresAt:  time.Now().Add(time.Hour),
+	}
+
+	resp := &ApprovalResponse{
+		RequestID:     "approval-123",
+		Status:        StatusDeferred,
+		Approver:      cgp.NewHumanActor("approver@example.com", "Approver"),
+		Rationale:     "Need more time to review",
+		RationaleType: RationaleTypeOther,
+		Timestamp:     time.Now(),
+	}
+
+	decision, err := approver.ProcessApproval(context.Background(), req, resp)
+	if err != nil {
+		t.Fatalf("ProcessApproval failed: %v", err)
+	}
+
+	if decision.Decision != cgp.DecisionDeferred {
+		t.Errorf("Decision = %s, want deferred", decision.Decision)
+	}
+}
+
+func TestApprovalRequest_HasSecurityChanges(t *testing.T) {
+	// No context
+	noCtx := &ApprovalRequest{}
+	if noCtx.HasSecurityChanges() {
+		t.Error("No context should not have security changes")
+	}
+
+	// Has security changes
+	hasSecurity := &ApprovalRequest{
+		Context: &ApprovalContext{
+			SecurityChanges: []string{"Fix CVE-2024-1234"},
+		},
+	}
+	if !hasSecurity.HasSecurityChanges() {
+		t.Error("Should detect security changes")
+	}
+}
+
 func TestRejectionRationales(t *testing.T) {
 	rationales := RejectionRationales()
 	if len(rationales) == 0 {

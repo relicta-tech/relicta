@@ -2,6 +2,7 @@ package cli
 
 import (
 	"testing"
+	"testing/fstest"
 
 	"github.com/relicta-tech/relicta/internal/container"
 )
@@ -24,6 +25,21 @@ func TestContainerAppWrapperAccessors(t *testing.T) {
 	// Test AI accessor - should return nil for empty container
 	if wrapper.AI() != nil {
 		t.Log("AI returned non-nil (expected nil for empty container)")
+	}
+}
+
+func TestSetEmbeddedFrontend(t *testing.T) {
+	// Save and restore
+	prev := embeddedFrontend
+	defer func() { embeddedFrontend = prev }()
+
+	fs := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<html></html>")},
+	}
+	SetEmbeddedFrontend(fs)
+
+	if embeddedFrontend == nil {
+		t.Error("embeddedFrontend should not be nil after SetEmbeddedFrontend")
 	}
 }
 

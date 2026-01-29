@@ -413,6 +413,9 @@ func TestMatchGlob(t *testing.T) {
 		// Docs patterns
 		{"docs/guide.md", "docs/**/*", true},
 		{"docs/api/reference.md", "docs/**/*", true},
+
+		// Invalid pattern (malformed bracket) - should return false
+		{"file.go", "[invalid", false},
 	}
 
 	for _, tt := range tests {
@@ -437,6 +440,16 @@ func TestMatchDoubleGlob(t *testing.T) {
 		{"pkg/config/config.go", "pkg/**/*.go", true},
 		{"src/deep/nested/component.tsx", "src/**/*.tsx", true},
 		{"docs/api/v1/reference.md", "docs/**/*.md", true},
+
+		// No prefix, just **/*.ext
+		{"deep/nested/file.go", "**/*.go", true},
+		{"file.go", "**/*.go", true},
+
+		// No suffix (just prefix/**)
+		{"src/anything/here", "src/**", true},
+
+		// Multiple ** (len(parts) > 2) - should return false
+		{"a/b/c/d.go", "a/**/b/**/*.go", false},
 
 		// Non-matching
 		{"external/auth/handler.go", "internal/**/*.go", false},

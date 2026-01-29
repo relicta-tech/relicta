@@ -788,6 +788,80 @@ func TestFormatBlastRadiusYAML(t *testing.T) {
 	}
 }
 
+func TestFormatBlastRadius_VerboseWithAllFields(t *testing.T) {
+	br := &BlastRadius{
+		FromRef: "v1.0.0",
+		ToRef:   "v2.0.0",
+		Packages: []*Package{
+			{Name: "api", Path: "packages/api", Type: PackageTypeGoModule},
+			{Name: "web", Path: "packages/web", Type: PackageTypeNPM},
+		},
+		Impacts: []*Impact{
+			{
+				Package:   &Package{Name: "api", Path: "packages/api", Type: PackageTypeGoModule},
+				Level:     ImpactLevelDirect,
+				RiskScore: 75,
+				DirectChanges: []ChangedFile{
+					{Path: "handler.go", Category: FileCategorySource, Insertions: 20, Deletions: 5},
+				},
+				AffectedDependencies: []string{"web", "worker"},
+				SuggestedActions:     []string{"Run integration tests", "Update API docs"},
+				RequiresRelease:      true,
+				ReleaseType:          "minor",
+			},
+			{
+				Package:   &Package{Name: "web", Path: "packages/web", Type: PackageTypeNPM},
+				Level:     ImpactLevelTransitive,
+				RiskScore: 30,
+			},
+		},
+		Summary: &Summary{
+			TotalPackages:        2,
+			DirectlyAffected:     1,
+			TransitivelyAffected: 1,
+			TotalFilesChanged:    1,
+			TotalInsertions:      20,
+			TotalDeletions:       5,
+			RiskLevel:            RiskLevelMedium,
+			RiskFactors:          []string{"API breaking changes", "Multiple packages affected"},
+		},
+	}
+
+	output := FormatBlastRadius(br, true)
+
+	if !contains(output, "Risk Factors:") {
+		t.Error("Output should contain Risk Factors section")
+	}
+	if !contains(output, "API breaking changes") {
+		t.Error("Output should contain risk factor text")
+	}
+	if !contains(output, "Affected Dependencies:") {
+		t.Error("Verbose output should contain Affected Dependencies")
+	}
+	if !contains(output, "Suggested Actions:") {
+		t.Error("Verbose output should contain Suggested Actions")
+	}
+	if !contains(output, "~ web") {
+		t.Error("Output should contain transitive impact marker")
+	}
+}
+
+func TestFormatBlastRadius_NoImpacts(t *testing.T) {
+	br := &BlastRadius{
+		FromRef: "v1.0.0",
+		ToRef:   "HEAD",
+		Summary: &Summary{
+			TotalPackages: 0,
+			RiskLevel:     RiskLevelLow,
+		},
+	}
+
+	output := FormatBlastRadius(br, false)
+	if !contains(output, "Legend:") {
+		t.Error("Output should contain legend")
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }

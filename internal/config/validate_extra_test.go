@@ -72,6 +72,103 @@ func TestValidator_ChangelogIssues(t *testing.T) {
 	}
 }
 
+func TestValidator_ChangelogInvalidGroupBy(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Changelog.GroupBy = "invalid"
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for invalid group_by")
+	}
+	if !strings.Contains(err.Error(), "changelog.group_by") {
+		t.Errorf("expected group_by error, got %q", err.Error())
+	}
+}
+
+func TestValidator_ChangelogValidCustomTemplate(t *testing.T) {
+	dir := t.TempDir()
+	tmpl := filepath.Join(dir, "template.md")
+	if err := os.WriteFile(tmpl, []byte("# Template"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Changelog.Format = "custom"
+	cfg.Changelog.Template = tmpl
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Fatalf("expected no error for valid custom template, got %v", err)
+	}
+}
+
+func TestValidator_ChangelogWithRepoURL(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Changelog.LinkCommits = true
+	cfg.Changelog.RepositoryURL = "https://github.com/owner/repo"
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Fatalf("expected no error with valid repo URL, got %v", err)
+	}
+}
+
+func TestValidator_ChangelogWithIssueURL(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Changelog.LinkIssues = true
+	cfg.Changelog.IssueURL = "https://github.com/owner/repo/issues"
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Fatalf("expected no error with valid issue URL, got %v", err)
+	}
+}
+
+func TestValidator_SlackPluginWithWebhook(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Plugins = []PluginConfig{
+		{Name: "slack", Config: map[string]any{"webhook": "https://hooks.slack.com/services/T00/B00/xxx"}},
+	}
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Fatalf("expected no error with valid slack webhook, got %v", err)
+	}
+}
+
+func TestValidator_NPMPluginWithRegistry(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Plugins = []PluginConfig{
+		{Name: "npm", Config: map[string]any{"registry": "https://registry.npmjs.org"}},
+	}
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Fatalf("expected no error with valid npm registry, got %v", err)
+	}
+}
+
+func TestValidator_WorkflowAutoCommitNoMessage(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.AI.Enabled = false
+	cfg.Workflow.AutoCommitChangelog = true
+	cfg.Workflow.ChangelogCommitMessage = ""
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for auto_commit_changelog without message")
+	}
+	if !strings.Contains(err.Error(), "changelog_commit_message") {
+		t.Errorf("expected changelog_commit_message error, got %q", err.Error())
+	}
+}
+
 func TestValidator_PluginValidation(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.AI.Enabled = false

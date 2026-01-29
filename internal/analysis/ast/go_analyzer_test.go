@@ -101,6 +101,67 @@ func TestGoAnalyzer_SupportsFile(t *testing.T) {
 	}
 }
 
+func TestGoAnalyzer_MethodReceiver(t *testing.T) {
+	before := `package example
+
+type MyStruct struct{}
+`
+	after := `package example
+
+type MyStruct struct{}
+
+func (s *MyStruct) DoWork() error { return nil }
+`
+
+	analyzer := NewGoAnalyzer()
+	result, err := analyzer.Analyze(context.Background(), []byte(before), []byte(after), "example.go")
+	if err != nil {
+		t.Fatalf("Analyze error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected analysis result")
+	}
+	if len(result.AddedExports) != 1 {
+		t.Errorf("AddedExports = %v, want 1 method", result.AddedExports)
+	}
+}
+
+func TestGoAnalyzer_ExportedTypesAndVars(t *testing.T) {
+	before := `package example
+
+var OldVar int
+type OldType struct{}
+`
+	after := `package example
+
+var NewVar string
+type NewType struct {
+    Field string
+}
+const MaxRetries = 3
+`
+
+	analyzer := NewGoAnalyzer()
+	result, err := analyzer.Analyze(context.Background(), []byte(before), []byte(after), "example.go")
+	if err != nil {
+		t.Fatalf("Analyze error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected analysis result")
+	}
+	// OldVar and OldType removed = breaking
+	if !result.IsBreaking {
+		t.Error("Removing exported types/vars should be breaking")
+	}
+}
+
+func TestFormatNode_Nil(t *testing.T) {
+	result := formatNode(nil, nil)
+	if result != "" {
+		t.Errorf("formatNode(nil, nil) = %q, want empty string", result)
+	}
+}
+
 func TestGoAnalyzer_EmptySource(t *testing.T) {
 	analyzer := NewGoAnalyzer()
 	result, err := analyzer.Analyze(context.Background(), []byte(""), []byte(""), "empty.go")

@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -248,6 +249,138 @@ func TestCommitAnalyzer_AnalyzeAllWithEmptyCommits(t *testing.T) {
 	}
 	if result.Stats.TotalCommits != 0 {
 		t.Errorf("TotalCommits = %d, want 0", result.Stats.TotalCommits)
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllParallel(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.MinConfidence = 0.7
+	cfg.Concurrency = 4 // Force parallel path
+	analyzer := NewAnalyzer(cfg, WithHeuristics(&stubHeuristics{
+		classification: &CommitClassification{
+			CommitHash: sourcecontrol.CommitHash("abc"),
+			Type:       changes.CommitTypeFix,
+			Confidence: 0.9,
+			Method:     MethodHeuristic,
+		},
+	}))
+
+	// Need >= 10 commits to trigger parallel path
+	commits := make([]CommitInfo, 15)
+	for i := range commits {
+		hash := sourcecontrol.CommitHash(fmt.Sprintf("hash%d", i))
+		commits[i] = CommitInfo{
+			Hash:    hash,
+			Message: fmt.Sprintf("fix: issue %d", i),
+			Subject: fmt.Sprintf("fix: issue %d", i),
+		}
+	}
+
+	result, err := analyzer.AnalyzeAll(context.Background(), commits)
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.TotalCommits != 15 {
+		t.Errorf("TotalCommits = %d, want 15", result.Stats.TotalCommits)
+	}
+	if len(result.Classifications) != 15 {
+		t.Errorf("Classifications count = %d, want 15", len(result.Classifications))
+	}
+	if result.Stats.AverageConfidence == 0 {
+		t.Error("AverageConfidence should be > 0")
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllParallelWithConventional(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Concurrency = 2
+	analyzer := NewAnalyzer(cfg)
+
+	// 10+ commits with conventional format to trigger parallel + conventional method
+	commits := make([]CommitInfo, 12)
+	for i := range commits {
+		hash := sourcecontrol.CommitHash(fmt.Sprintf("hash%d", i))
+		commits[i] = CommitInfo{
+			Hash:    hash,
+			Message: "feat: add feature",
+			Subject: "feat: add feature",
+		}
+	}
+
+	result, err := analyzer.AnalyzeAll(context.Background(), commits)
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.TotalCommits != 12 {
+		t.Errorf("TotalCommits = %d, want 12", result.Stats.TotalCommits)
+	}
+	if result.Stats.ConventionalCount != 12 {
+		t.Errorf("ConventionalCount = %d, want 12", result.Stats.ConventionalCount)
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllParallelWithError(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Concurrency = 2
+	cfg.EnableAI = true
+	// Analyzer with AI that always errors and no other classifiers
+	analyzer := NewAnalyzer(cfg,
+		WithAIClassifier(&stubAI{err: errors.New("ai error")}),
+	)
+
+	// 10+ commits with non-conventional messages, no heuristics
+	// These will get classified via conventional (nil) and fallback, no error propagation
+	commits := make([]CommitInfo, 12)
+	for i := range commits {
+		hash := sourcecontrol.CommitHash(fmt.Sprintf("hash%d", i))
+		commits[i] = CommitInfo{
+			Hash:    hash,
+			Message: "feat: something",
+			Subject: "feat: something",
+		}
+	}
+
+	result, err := analyzer.AnalyzeAll(context.Background(), commits)
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.TotalCommits != 12 {
+		t.Errorf("TotalCommits = %d, want 12", result.Stats.TotalCommits)
+	}
+}
+
+func TestCommitAnalyzer_AnalyzeAllParallelMethodBreakdown(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Concurrency = 3
+	cfg.MinConfidence = 0.7
+	analyzer := NewAnalyzer(cfg, WithHeuristics(&stubHeuristics{
+		classification: &CommitClassification{
+			CommitHash: sourcecontrol.CommitHash("abc"),
+			Type:       changes.CommitTypeFix,
+			Confidence: 0.5, // below MinConfidence
+			Method:     MethodHeuristic,
+		},
+	}))
+
+	commits := make([]CommitInfo, 10)
+	for i := range commits {
+		hash := sourcecontrol.CommitHash(fmt.Sprintf("hash%d", i))
+		commits[i] = CommitInfo{
+			Hash:    hash,
+			Message: "update something",
+			Subject: "update something",
+		}
+	}
+
+	result, err := analyzer.AnalyzeAll(context.Background(), commits)
+	if err != nil {
+		t.Fatalf("AnalyzeAll error: %v", err)
+	}
+	if result.Stats.HeuristicCount != 10 {
+		t.Errorf("HeuristicCount = %d, want 10", result.Stats.HeuristicCount)
+	}
+	if result.Stats.LowConfidenceCount != 10 {
+		t.Errorf("LowConfidenceCount = %d, want 10", result.Stats.LowConfidenceCount)
 	}
 }
 

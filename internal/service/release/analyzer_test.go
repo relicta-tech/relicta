@@ -3,6 +3,7 @@ package release
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -528,4 +529,136 @@ func TestClassificationToCommit_EmptyType(t *testing.T) {
 	if result.Type() != changes.CommitTypeChore {
 		t.Errorf("expected type 'chore' for empty classification, got %q", result.Type())
 	}
+}
+
+func TestAnalyzer_GetCommitFiles(t *testing.T) {
+	diffStats := &sourcecontrol.DiffStats{
+		Files: []sourcecontrol.FileStats{
+			{Path: "main.go"},
+			{Path: "README.md"},
+		},
+	}
+
+	gitRepo := &mockGitRepoWithDiffStats{
+		mockGitRepo: mockGitRepo{
+			info: &sourcecontrol.RepositoryInfo{
+				Name:          "test-repo",
+				CurrentBranch: "main",
+			},
+			tags:    sourcecontrol.TagList{},
+			commits: []*sourcecontrol.Commit{},
+		},
+		diffStats: diffStats,
+	}
+	factory := analysisfactory.NewFactory(nil)
+	analyzer := NewAnalyzer(gitRepo, newTestVersionCalc(), factory)
+
+	files := analyzer.getCommitFiles(context.Background(), "abc123")
+	if len(files) != 2 {
+		t.Errorf("expected 2 files, got %d", len(files))
+	}
+	if len(files) > 0 && files[0] != "main.go" {
+		t.Errorf("expected first file 'main.go', got %q", files[0])
+	}
+}
+
+func TestAnalyzer_GetCommitFiles_Error(t *testing.T) {
+	gitRepo := &mockGitRepoWithDiffStats{
+		mockGitRepo: mockGitRepo{
+			info: &sourcecontrol.RepositoryInfo{
+				Name:          "test-repo",
+				CurrentBranch: "main",
+			},
+		},
+		diffStatsErr: fmt.Errorf("diff stats error"),
+	}
+	factory := analysisfactory.NewFactory(nil)
+	analyzer := NewAnalyzer(gitRepo, newTestVersionCalc(), factory)
+
+	files := analyzer.getCommitFiles(context.Background(), "abc123")
+	if files != nil {
+		t.Errorf("expected nil files on error, got %v", files)
+	}
+}
+
+func TestAnalyzer_GetBatchCommitFiles_Empty(t *testing.T) {
+	gitRepo := &mockGitRepo{}
+	factory := analysisfactory.NewFactory(nil)
+	analyzer := NewAnalyzer(gitRepo, newTestVersionCalc(), factory)
+
+	result := analyzer.getBatchCommitFiles(context.Background(), nil)
+	if result != nil {
+		t.Errorf("expected nil for empty commits, got %v", result)
+	}
+}
+
+func TestAnalyzer_GetBatchCommitFiles_Error(t *testing.T) {
+	commits := []*sourcecontrol.Commit{
+		newTestCommit("abc123", "feat: test"),
+	}
+
+	gitRepo := &mockGitRepoWithDiffStats{
+		mockGitRepo: mockGitRepo{
+			info: &sourcecontrol.RepositoryInfo{
+				Name:          "test-repo",
+				CurrentBranch: "main",
+			},
+		},
+		batchDiffStatsErr: fmt.Errorf("batch error"),
+		diffStats:         &sourcecontrol.DiffStats{Files: []sourcecontrol.FileStats{{Path: "main.go"}}},
+	}
+	factory := analysisfactory.NewFactory(nil)
+	analyzer := NewAnalyzer(gitRepo, newTestVersionCalc(), factory)
+
+	result := analyzer.getBatchCommitFiles(context.Background(), commits)
+	if result == nil {
+		t.Fatal("expected non-nil result from fallback")
+	}
+	// Should have fallen back to individual queries
+	if len(result) != 1 {
+		t.Errorf("expected 1 entry from fallback, got %d", len(result))
+	}
+}
+
+func TestAnalyzer_Analyze_GitRepoError(t *testing.T) {
+	gitRepo := &mockGitRepo{
+		err: fmt.Errorf("git error"),
+	}
+	factory := analysisfactory.NewFactory(nil)
+	analyzer := NewAnalyzer(gitRepo, newTestVersionCalc(), factory)
+
+	input := AnalyzeInput{
+		RepositoryPath: "/test/repo",
+	}
+
+	_, err := analyzer.Analyze(context.Background(), input)
+	if err == nil {
+		t.Error("expected error when git repo fails")
+	}
+}
+
+// mockGitRepoWithDiffStats extends mockGitRepo with configurable diff stats.
+type mockGitRepoWithDiffStats struct {
+	mockGitRepo
+	diffStats         *sourcecontrol.DiffStats
+	diffStatsErr      error
+	batchDiffStatsErr error
+}
+
+func (m *mockGitRepoWithDiffStats) GetCommitDiffStats(ctx context.Context, hash sourcecontrol.CommitHash) (*sourcecontrol.DiffStats, error) {
+	if m.diffStatsErr != nil {
+		return nil, m.diffStatsErr
+	}
+	return m.diffStats, nil
+}
+
+func (m *mockGitRepoWithDiffStats) GetBatchCommitDiffStats(ctx context.Context, hashes []sourcecontrol.CommitHash) (map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats, error) {
+	if m.batchDiffStatsErr != nil {
+		return nil, m.batchDiffStatsErr
+	}
+	result := make(map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats)
+	for _, hash := range hashes {
+		result[hash] = m.diffStats
+	}
+	return result, nil
 }

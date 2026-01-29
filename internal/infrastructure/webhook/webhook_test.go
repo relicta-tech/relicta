@@ -521,6 +521,144 @@ func TestWebhookConfig_Defaults(t *testing.T) {
 	}
 }
 
+func TestPublisher_GetTimeoutWithCustomValue(t *testing.T) {
+	cfg := &config.WebhookConfig{
+		Name:    "test",
+		URL:     "http://example.com",
+		Timeout: 30 * time.Second,
+	}
+
+	if got := getTimeout(cfg); got != 30*time.Second {
+		t.Errorf("getTimeout() = %v, want 30s", got)
+	}
+}
+
+func TestPublisher_GetRetryCountWithCustomValue(t *testing.T) {
+	cfg := &config.WebhookConfig{
+		Name:       "test",
+		URL:        "http://example.com",
+		RetryCount: 5,
+	}
+
+	if got := getRetryCount(cfg); got != 5 {
+		t.Errorf("getRetryCount() = %v, want 5", got)
+	}
+}
+
+func TestPublisher_GetRetryDelayWithCustomValue(t *testing.T) {
+	cfg := &config.WebhookConfig{
+		Name:       "test",
+		URL:        "http://example.com",
+		RetryDelay: 5 * time.Second,
+	}
+
+	if got := getRetryDelay(cfg); got != 5*time.Second {
+		t.Errorf("getRetryDelay() = %v, want 5s", got)
+	}
+}
+
+func TestPublisher_SendWithRetryContextCancellation(t *testing.T) {
+	// Server that always fails
+	var attemptCount int
+	var mu sync.Mutex
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		attemptCount++
+		mu.Unlock()
+		http.Error(w, "error", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	webhooks := []config.WebhookConfig{
+		{
+			Name:       "cancel-test",
+			URL:        server.URL,
+			RetryCount: 10,
+			RetryDelay: 50 * time.Millisecond,
+		},
+	}
+
+	publisher := NewPublisher(webhooks, nil)
+
+	// Cancel context after a short delay
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Millisecond)
+	defer cancel()
+
+	releaseID := release.RunID("test-release")
+	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
+
+	err := publisher.Publish(ctx, event)
+	if err != nil {
+		t.Fatalf("Publish failed: %v", err)
+	}
+
+	// Wait for context to be done plus some buffer
+	time.Sleep(300 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Should have fewer attempts than max retries due to context cancellation
+	if attemptCount >= 10 {
+		t.Errorf("expected fewer than 10 attempts due to context cancellation, got %d", attemptCount)
+	}
+}
+
+func TestPublisher_BuildPayloadStateTransitionedEvent(t *testing.T) {
+	var received *WebhookPayload
+	var mu sync.Mutex
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		body, _ := io.ReadAll(r.Body)
+		var payload WebhookPayload
+		json.Unmarshal(body, &payload)
+		received = &payload
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	webhooks := []config.WebhookConfig{
+		{Name: "test", URL: server.URL},
+	}
+
+	publisher := NewPublisher(webhooks, nil)
+
+	releaseID := release.RunID("test-release")
+	event := &release.StateTransitionedEvent{
+		RunID: releaseID,
+		From:  release.StatePlanned,
+		To:    release.StateVersioned,
+		Event: "BUMP",
+		Actor: "user",
+		At:    time.Now(),
+	}
+
+	err := publisher.Publish(context.Background(), event)
+	if err != nil {
+		t.Fatalf("Publish failed: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if received == nil {
+		t.Fatal("webhook did not receive payload")
+	}
+
+	if received.Data["from_state"] != "planned" {
+		t.Errorf("expected from_state 'planned', got %v", received.Data["from_state"])
+	}
+	if received.Data["to_state"] != "versioned" {
+		t.Errorf("expected to_state 'versioned', got %v", received.Data["to_state"])
+	}
+}
+
 type mockEventPublisher struct {
 	events []release.DomainEvent
 }

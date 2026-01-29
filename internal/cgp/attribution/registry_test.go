@@ -374,6 +374,89 @@ func TestAgentConfigBuilder(t *testing.T) {
 	}
 }
 
+func TestRegistry_RegisterInvalidActor(t *testing.T) {
+	r := NewRegistry()
+
+	// Actor with empty ID should fail validation
+	config := &AgentConfig{
+		Actor: cgp.Actor{ID: "", Kind: cgp.ActorKindAgent},
+	}
+
+	err := r.Register(config)
+	if err == nil {
+		t.Error("Register should fail for invalid actor")
+	}
+}
+
+func TestRegistry_RegisterNilCapabilities(t *testing.T) {
+	r := NewRegistry()
+
+	actor := cgp.NewAgentActor("nil-caps", "Nil Caps Agent", "")
+	config := &AgentConfig{
+		Actor:   actor,
+		Enabled: true,
+		// Capabilities intentionally nil
+	}
+
+	err := r.Register(config)
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	got, _ := r.Get(actor.ID)
+	if got.Capabilities == nil {
+		t.Error("Capabilities should be initialized")
+	}
+	if got.RiskMultiplier != 1.0 {
+		t.Errorf("RiskMultiplier = %f, want 1.0", got.RiskMultiplier)
+	}
+}
+
+func TestRegistry_CanApproveNoCapability(t *testing.T) {
+	r := NewRegistry()
+
+	actor := cgp.NewAgentActor("no-approve", "No Approve", "")
+	config := NewAgentConfig(actor).
+		WithCapabilities(CapabilityPropose). // Only propose, no approve
+		WithMaxAutoApproveRisk(0.5).
+		Build()
+	r.Register(config)
+
+	if r.CanApprove(actor.ID, 0.1) {
+		t.Error("Agent without approve capability should not be able to approve")
+	}
+}
+
+func TestRegistry_CanApproveNonExistent(t *testing.T) {
+	r := NewRegistry()
+
+	if r.CanApprove("nonexistent", 0.1) {
+		t.Error("Non-existent agent should not be able to approve")
+	}
+}
+
+func TestRegistry_CanAccessRepositoryNonExistent(t *testing.T) {
+	r := NewRegistry()
+
+	if r.CanAccessRepository("nonexistent", "any/repo") {
+		t.Error("Non-existent agent should not access any repo")
+	}
+}
+
+func TestRegistry_CanAccessRepositoryWildcard(t *testing.T) {
+	r := NewRegistry()
+
+	actor := cgp.NewAgentActor("wildcard", "Wildcard Agent", "")
+	config := NewAgentConfig(actor).
+		WithAllowedRepositories("*").
+		Build()
+	r.Register(config)
+
+	if !r.CanAccessRepository(actor.ID, "any/repo") {
+		t.Error("Agent with wildcard should access any repo")
+	}
+}
+
 func TestRegistry_List(t *testing.T) {
 	reg := NewRegistry()
 	_ = reg.Register(NewAgentConfig(cgp.NewAgentActor("list-1", "Agent One", "model-1")).Build())

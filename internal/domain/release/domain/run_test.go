@@ -1294,6 +1294,351 @@ func TestMultiLevelApproval_AllApprovals(t *testing.T) {
 	}
 }
 
+func TestReleaseRun_ApprovalStatus_PublishingState(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	_ = run.StartPublishing("test-actor")
+
+	status := run.ApprovalStatus()
+	if status.CanApprove {
+		t.Error("CanApprove should be false in publishing state")
+	}
+}
+
+func TestReleaseRun_ApprovalStatus_FailedState(t *testing.T) {
+	run := newApprovedRun()
+	_ = run.StartPublishing("test-actor")
+	_ = run.MarkFailed("error", "test-actor")
+
+	status := run.ApprovalStatus()
+	if status.CanApprove {
+		t.Error("CanApprove should be false in failed state")
+	}
+}
+
+func TestReleaseRun_MarkPublished_NotAllStepsSucceeded(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{
+		{Name: "tag", Type: StepTypeTag},
+		{Name: "notify", Type: StepTypeNotify},
+	})
+	_ = run.StartPublishing("test-actor")
+	_ = run.MarkStepStarted("tag")
+	_ = run.MarkStepFailed("tag", ErrStepNotFound)
+
+	err := run.MarkPublished("test-actor")
+	if err == nil {
+		t.Error("MarkPublished() should fail when not all steps succeeded")
+	}
+}
+
+func TestReleaseRun_MarkPublished_WrongState(t *testing.T) {
+	run := newApprovedRun()
+	err := run.MarkPublished("test-actor")
+	if err == nil {
+		t.Error("MarkPublished() should fail in approved state")
+	}
+}
+
+func TestReleaseRun_StartPublishing_WrongState(t *testing.T) {
+	run := newNotesReadyRun()
+	err := run.StartPublishing("test-actor")
+	if err == nil {
+		t.Error("StartPublishing() should fail in notes_ready state")
+	}
+}
+
+func TestReleaseRun_GenerateNotes_WrongState(t *testing.T) {
+	run := newTestRun()
+	notes := &ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+	err := run.GenerateNotes(notes, "hash", "actor")
+	if err == nil {
+		t.Error("GenerateNotes() should fail in draft state")
+	}
+}
+
+func TestReleaseRun_Approve_WrongState(t *testing.T) {
+	run := newVersionedRun()
+	err := run.Approve("actor", false)
+	if err == nil {
+		t.Error("Approve() should fail in versioned state")
+	}
+}
+
+func TestReleaseRun_ApproveWithOptions_WrongState(t *testing.T) {
+	run := newVersionedRun()
+	err := run.ApproveWithOptions("actor", false, ActorHuman, "")
+	if err == nil {
+		t.Error("ApproveWithOptions() should fail in versioned state")
+	}
+}
+
+func TestReleaseRun_RetryPublish_WrongState(t *testing.T) {
+	run := newApprovedRun()
+	err := run.RetryPublish("actor")
+	if err == nil {
+		t.Error("RetryPublish() should fail in approved state")
+	}
+}
+
+func TestReleaseRun_TransitionTo_InvalidTransition(t *testing.T) {
+	run := newTestRun()
+	err := run.TransitionTo(StatePublished, "FORCE", "actor", "reason", nil)
+	if err == nil {
+		t.Error("TransitionTo() should fail for invalid transition from draft to published")
+	}
+}
+
+func TestBumpKindFromReleaseType_None(t *testing.T) {
+	got := BumpKindFromReleaseType(changes.ReleaseTypeNone)
+	if got != BumpPatch {
+		t.Errorf("BumpKindFromReleaseType(None) = %v, want BumpPatch", got)
+	}
+}
+
+func TestReleaseRun_Summary_WithStepCounts(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{
+		{Name: "tag", Type: StepTypeTag},
+		{Name: "notify", Type: StepTypeNotify},
+		{Name: "publish", Type: StepTypeFinalize},
+	})
+	_ = run.StartPublishing("test-actor")
+	_ = run.MarkStepDone("tag", "done")
+	_ = run.MarkStepStarted("notify")
+	_ = run.MarkStepFailed("notify", ErrStepNotFound)
+
+	summary := run.Summary()
+	if summary.StepsDone != 1 {
+		t.Errorf("Summary().StepsDone = %d, want 1", summary.StepsDone)
+	}
+	if summary.StepsFailed != 1 {
+		t.Errorf("Summary().StepsFailed = %d, want 1", summary.StepsFailed)
+	}
+	if summary.StepsTotal != 3 {
+		t.Errorf("Summary().StepsTotal = %d, want 3", summary.StepsTotal)
+	}
+}
+
+func TestReleaseRun_PendingApprovalLevels_NilMultiLevel(t *testing.T) {
+	run := newTestRun()
+	pending := run.PendingApprovalLevels()
+	if pending != nil {
+		t.Errorf("PendingApprovalLevels() = %v, want nil", pending)
+	}
+}
+
+func TestReleaseRun_Approval_Nil(t *testing.T) {
+	run := newTestRun()
+	if run.Approval() != nil {
+		t.Error("Approval() should be nil for unapproved run")
+	}
+}
+
+func TestReleaseRun_CompleteMultiLevelApproval_NoPolicy(t *testing.T) {
+	run := newNotesReadyRun()
+	err := run.CompleteMultiLevelApproval("actor")
+	if err == nil {
+		t.Error("CompleteMultiLevelApproval should fail with no policy")
+	}
+}
+
+func TestReleaseRun_CompleteMultiLevelApproval_WithoutReleaseLevel(t *testing.T) {
+	run := newNotesReadyRun()
+
+	// Custom policy with only technical level (no release level)
+	policy := ApprovalPolicy{
+		Requirements: []ApprovalRequirement{
+			{Level: ApprovalLevelTechnical, Description: "Tech review", Required: true},
+		},
+		Sequential: false,
+	}
+	run.SetApprovalPolicy(policy)
+
+	err := run.ApproveAtLevel(ApprovalLevelTechnical, "tech-lead", ActorHuman, "OK")
+	if err != nil {
+		t.Fatalf("ApproveAtLevel failed: %v", err)
+	}
+
+	err = run.CompleteMultiLevelApproval("system")
+	if err != nil {
+		t.Fatalf("CompleteMultiLevelApproval failed: %v", err)
+	}
+
+	if run.State() != StateApproved {
+		t.Errorf("State = %s, want %s", run.State(), StateApproved)
+	}
+}
+
+func TestReleaseRun_ApproveAtLevel_WrongState(t *testing.T) {
+	run := newVersionedRun()
+	err := run.ApproveAtLevel(ApprovalLevelRelease, "actor", ActorHuman, "")
+	if err == nil {
+		t.Error("ApproveAtLevel should fail in versioned state")
+	}
+}
+
+func TestReleaseRun_ApproveAtLevel_InitializesDefaultPolicy(t *testing.T) {
+	run := newNotesReadyRun()
+	// Do not set policy explicitly - it should auto-initialize
+	err := run.ApproveAtLevel(ApprovalLevelRelease, "actor", ActorHuman, "OK")
+	if err != nil {
+		t.Fatalf("ApproveAtLevel failed: %v", err)
+	}
+	if !run.IsMultiLevelApprovalEnabled() {
+		t.Error("Multi-level approval should be enabled after ApproveAtLevel")
+	}
+}
+
+func TestReleaseRun_MarkStepStarted_AlreadyDone(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	_ = run.StartPublishing("test-actor")
+	_ = run.MarkStepDone("tag", "done")
+
+	err := run.MarkStepStarted("tag")
+	if err == nil {
+		t.Error("MarkStepStarted should fail for already-done step")
+	}
+}
+
+func TestReleaseRun_MarkStepDone_NotFound(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	_ = run.StartPublishing("test-actor")
+
+	err := run.MarkStepDone("nonexistent", "output")
+	if err == nil {
+		t.Error("MarkStepDone should fail for nonexistent step")
+	}
+}
+
+func TestReleaseRun_MarkStepFailed_NotFound(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	_ = run.StartPublishing("test-actor")
+
+	err := run.MarkStepFailed("nonexistent", ErrStepNotFound)
+	if err == nil {
+		t.Error("MarkStepFailed should fail for nonexistent step")
+	}
+}
+
+func TestReleaseRun_MarkStepSkipped_NotFound(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	_ = run.StartPublishing("test-actor")
+
+	err := run.MarkStepSkipped("nonexistent", "reason")
+	if err == nil {
+		t.Error("MarkStepSkipped should fail for nonexistent step")
+	}
+}
+
+func TestRunState_NextValidStates_InvalidState(t *testing.T) {
+	invalid := RunState("bogus")
+	next := invalid.NextValidStates()
+	if next != nil {
+		t.Errorf("NextValidStates() for invalid state = %v, want nil", next)
+	}
+}
+
+func TestRunState_CanTransitionTo_InvalidState(t *testing.T) {
+	invalid := RunState("bogus")
+	if invalid.CanTransitionTo(StateDraft) {
+		t.Error("CanTransitionTo should be false for invalid source state")
+	}
+}
+
+func TestRunState_Description_Unknown(t *testing.T) {
+	unknown := RunState("unknown")
+	desc := unknown.Description()
+	if desc == "" {
+		t.Error("Description() for unknown state should return non-empty string")
+	}
+}
+
+func TestReleaseRun_Bump_WrongState(t *testing.T) {
+	run := newTestRun()
+	err := run.Bump("actor")
+	if err == nil {
+		t.Error("Bump() should fail in draft state")
+	}
+}
+
+func TestReleaseRun_UpdateNotes_WrongState(t *testing.T) {
+	run := newVersionedRun()
+	notes := &ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}
+	err := run.UpdateNotes(notes, "editor")
+	if err == nil {
+		t.Error("UpdateNotes() should fail in versioned state")
+	}
+}
+
+func TestReleaseRun_IsValid_WithViolation(t *testing.T) {
+	// Create a run in an invalid state by reconstructing with mismatched data
+	run := newTestRun()
+	// Reconstruct with approved state but nil approval - this violates an invariant
+	run.ReconstructState(RunSnapshot{
+		ID:         run.ID(),
+		PlanHash:   run.PlanHash(),
+		RepoID:     run.RepoID(),
+		RepoRoot:   run.RepoRoot(),
+		BaseRef:    "v1.0.0",
+		HeadSHA:    run.HeadSHA(),
+		Commits:    []CommitSHA{"abc123"},
+		State:      StateApproved,
+		StepStatus: make(map[string]*StepStatus),
+		CreatedAt:  run.CreatedAt(),
+		UpdatedAt:  run.UpdatedAt(),
+	})
+
+	if run.IsValid() {
+		t.Error("IsValid() should be false when invariants are violated")
+	}
+
+	violations := run.InvariantViolations()
+	if len(violations) == 0 {
+		t.Error("InvariantViolations() should return violations")
+	}
+}
+
+func TestMultiLevelApproval_NilApprovalsMap(t *testing.T) {
+	mla := &MultiLevelApproval{
+		Policy: DefaultApprovalPolicy(),
+	}
+
+	// IsLevelApproved with nil map
+	if mla.IsLevelApproved(ApprovalLevelRelease) {
+		t.Error("IsLevelApproved should be false with nil map")
+	}
+
+	// GetApproval with nil map
+	if mla.GetApproval(ApprovalLevelRelease) != nil {
+		t.Error("GetApproval should be nil with nil map")
+	}
+
+	// Grant should initialize the map
+	err := mla.Grant(ApprovalLevelRelease, &Approval{ApprovedBy: "test"})
+	if err != nil {
+		t.Fatalf("Grant failed: %v", err)
+	}
+	if !mla.IsLevelApproved(ApprovalLevelRelease) {
+		t.Error("IsLevelApproved should be true after Grant")
+	}
+}
+
+func TestMultiLevelApproval_NextRequiredLevel_AllApproved(t *testing.T) {
+	policy := DefaultApprovalPolicy()
+	mla := NewMultiLevelApproval(policy)
+	_ = mla.Grant(ApprovalLevelRelease, &Approval{ApprovedBy: "test"})
+
+	next := mla.NextRequiredLevel()
+	if next != nil {
+		t.Errorf("NextRequiredLevel() = %v, want nil when all approved", next)
+	}
+}
+
 func TestReleaseRun_RecordTagPushMode(t *testing.T) {
 	run := NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []CommitSHA{"abc123"}, "cfg", "plug")
 

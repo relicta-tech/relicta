@@ -455,6 +455,123 @@ func TestChain_Get(t *testing.T) {
 	}
 }
 
+func TestEntry_ComputeHashWithDetails(t *testing.T) {
+	entry := &Entry{
+		ID:           "test-details",
+		Timestamp:    time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		EventType:    EventDecisionMade,
+		ProposalID:   "proposal-123",
+		ActorID:      "user@example.com",
+		ActorKind:    cgp.ActorKindHuman,
+		PreviousHash: "",
+		Details: map[string]any{
+			"riskScore":    0.5,
+			"decisionType": "approved",
+		},
+	}
+
+	hash := entry.ComputeHash()
+	if hash == "" {
+		t.Error("ComputeHash with details returned empty string")
+	}
+
+	// Without details should produce different hash
+	entryNoDetails := &Entry{
+		ID:           "test-details",
+		Timestamp:    time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
+		EventType:    EventDecisionMade,
+		ProposalID:   "proposal-123",
+		ActorID:      "user@example.com",
+		ActorKind:    cgp.ActorKindHuman,
+		PreviousHash: "",
+	}
+	hashNoDetails := entryNoDetails.ComputeHash()
+	if hash == hashNoDetails {
+		t.Error("Hash with details should differ from hash without details")
+	}
+}
+
+func TestFromAuthorization_WithValidUntil(t *testing.T) {
+	validUntil := time.Now().Add(24 * time.Hour).UTC()
+	auth := &cgp.ExecutionAuthorization{
+		ID:         "auth-vu",
+		ProposalID: "proposal-789",
+		ApprovedBy: cgp.NewHumanActor("approver@example.com", "Approver"),
+		ApprovedAt: time.Now().UTC(),
+		Version:    "2.0.0",
+		ValidUntil: validUntil,
+		AllowedSteps: []cgp.ExecutionStep{
+			cgp.ExecutionStepTag,
+		},
+	}
+
+	entry := FromAuthorization(auth)
+
+	if entry.Details["validUntil"] != validUntil {
+		t.Errorf("validUntil = %v, want %v", entry.Details["validUntil"], validUntil)
+	}
+}
+
+func TestFromApproval_UnknownAction(t *testing.T) {
+	auth := &cgp.ExecutionAuthorization{
+		ID:         "auth-unknown",
+		ProposalID: "proposal-unknown",
+	}
+
+	approval := cgp.ApprovalRecord{
+		Actor:     cgp.NewHumanActor("user@example.com", "User"),
+		Action:    "request",
+		Timestamp: time.Now().UTC(),
+	}
+
+	entry := FromApproval(auth, approval)
+
+	if entry.EventType != EventApprovalRequested {
+		t.Errorf("EventType = %s, want %s", entry.EventType, EventApprovalRequested)
+	}
+}
+
+func TestFromApproval_WithoutComment(t *testing.T) {
+	auth := &cgp.ExecutionAuthorization{
+		ID:         "auth-nocomment",
+		ProposalID: "proposal-nc",
+	}
+
+	approval := cgp.ApprovalRecord{
+		Actor:     cgp.NewHumanActor("user@example.com", "User"),
+		Action:    "approve",
+		Timestamp: time.Now().UTC(),
+		Comment:   "",
+	}
+
+	entry := FromApproval(auth, approval)
+
+	if _, ok := entry.Details["comment"]; ok {
+		t.Error("Details should not contain comment when empty")
+	}
+}
+
+func TestChain_SearchByProposalID(t *testing.T) {
+	chain := NewChain()
+
+	chain.Append(NewEntry("e1", EventProposalReceived).
+		WithProposal("p1").
+		WithActor("user1", cgp.ActorKindHuman).
+		Build())
+	chain.Append(NewEntry("e2", EventDecisionMade).
+		WithProposal("p2").
+		WithActor("user1", cgp.ActorKindHuman).
+		Build())
+
+	results := chain.Search(Query{ProposalID: "p1"})
+	if len(results) != 1 {
+		t.Errorf("Search by proposal ID returned %d, want 1", len(results))
+	}
+	if results[0].ProposalID != "p1" {
+		t.Errorf("ProposalID = %s, want p1", results[0].ProposalID)
+	}
+}
+
 func TestChain_List(t *testing.T) {
 	chain := NewChain()
 

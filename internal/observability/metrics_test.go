@@ -238,6 +238,42 @@ func TestMetrics_ConcurrentAccess(t *testing.T) {
 	}
 }
 
+func TestMetrics_RecordCommandInvocation_UnknownCommand(t *testing.T) {
+	m := NewMetrics("1.0.0")
+
+	// "custom-cmd" is not in knownCommands, so it triggers the write-lock path
+	m.RecordCommandInvocation("custom-cmd", 42*time.Millisecond)
+	m.RecordCommandInvocation("custom-cmd", 58*time.Millisecond)
+
+	snapshot := m.Snapshot()
+	if snapshot.CommandInvocations["custom-cmd"] != 2 {
+		t.Errorf("CommandInvocations[custom-cmd] = %d, want 2", snapshot.CommandInvocations["custom-cmd"])
+	}
+}
+
+func TestMetrics_RecordCommandInvocation_UnknownConcurrent(t *testing.T) {
+	m := NewMetrics("1.0.0")
+
+	// Race multiple goroutines on the same unknown command to exercise the double-check lock
+	done := make(chan bool)
+	for i := 0; i < 5; i++ {
+		go func() {
+			for j := 0; j < 50; j++ {
+				m.RecordCommandInvocation("new-cmd", time.Millisecond)
+			}
+			done <- true
+		}()
+	}
+	for i := 0; i < 5; i++ {
+		<-done
+	}
+
+	snapshot := m.Snapshot()
+	if snapshot.CommandInvocations["new-cmd"] != 250 {
+		t.Errorf("CommandInvocations[new-cmd] = %d, want 250", snapshot.CommandInvocations["new-cmd"])
+	}
+}
+
 func TestGlobal(t *testing.T) {
 	// Get the global instance
 	m := Global()

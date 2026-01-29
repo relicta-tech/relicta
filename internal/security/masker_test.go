@@ -613,6 +613,96 @@ func TestMaskSlice(t *testing.T) {
 	})
 }
 
+func TestMaskedWriter_WriteError(t *testing.T) {
+	defer Disable()
+	Enable()
+
+	errWriter := &errorWriter{}
+	mw := NewMaskedWriter(errWriter)
+
+	_, err := mw.Write([]byte("some data"))
+	if err == nil {
+		t.Error("Write should propagate underlying writer error")
+	}
+}
+
+type errorWriter struct{}
+
+func (ew *errorWriter) Write(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("write error")
+}
+
+func TestMaskConfigMap_NonStringSensitiveValue(t *testing.T) {
+	input := map[string]any{
+		"token":  12345, // non-string sensitive value
+		"secret": nil,   // nil sensitive value
+	}
+
+	result := MaskConfigMap(input)
+
+	if result["token"] != "[REDACTED]" {
+		t.Errorf("non-string token should be redacted, got %v", result["token"])
+	}
+	if result["secret"] != nil {
+		t.Errorf("nil secret should remain nil, got %v", result["secret"])
+	}
+}
+
+func TestMaskConfigMap_SliceWithNonStringValues(t *testing.T) {
+	input := map[string]any{
+		"items": []any{42, true, nil},
+	}
+
+	result := MaskConfigMap(input)
+
+	items := result["items"].([]any)
+	if items[0] != 42 {
+		t.Errorf("integer should be unchanged, got %v", items[0])
+	}
+	if items[1] != true {
+		t.Errorf("bool should be unchanged, got %v", items[1])
+	}
+	if items[2] != nil {
+		t.Errorf("nil should be unchanged, got %v", items[2])
+	}
+}
+
+func TestMaskConfigMap_NonSensitiveNonStringValues(t *testing.T) {
+	input := map[string]any{
+		"count":   42,
+		"enabled": true,
+	}
+
+	result := MaskConfigMap(input)
+
+	if result["count"] != 42 {
+		t.Errorf("count should be unchanged, got %v", result["count"])
+	}
+	if result["enabled"] != true {
+		t.Errorf("enabled should be unchanged, got %v", result["enabled"])
+	}
+}
+
+func TestMaskMap_DefaultBranch(t *testing.T) {
+	defer Disable()
+	Enable()
+	input := map[string]interface{}{
+		"count":   42,
+		"enabled": true,
+		"ratio":   3.14,
+	}
+	result := MaskMap(input)
+	if result["count"] != 42 {
+		t.Errorf("integer should pass through, got %v", result["count"])
+	}
+	if result["enabled"] != true {
+		t.Errorf("bool should pass through, got %v", result["enabled"])
+	}
+	if result["ratio"] != 3.14 {
+		t.Errorf("float should pass through, got %v", result["ratio"])
+	}
+}
+
 func TestMaskError(t *testing.T) {
 	t.Run("masks secrets in error message", func(t *testing.T) {
 		err := fmt.Errorf("failed to connect with token ghp_0123456789abcdefghijklmnopqrstuvwxyz")

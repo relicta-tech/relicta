@@ -375,6 +375,114 @@ func TestValidator_ValidateMessage_Authorization(t *testing.T) {
 	}
 }
 
+func TestValidator_StrictMode_EvaluationWithoutRisk(t *testing.T) {
+	v := NewStrictValidator()
+
+	eval := cgp.NewEvaluation("proposal-123")
+	// No risk assessment set
+	result := v.ValidateEvaluation(eval)
+	if len(result.Errors) == 0 {
+		t.Error("Strict mode should require risk assessment")
+	}
+}
+
+func TestValidator_StrictMode_EvaluationInvalidScore(t *testing.T) {
+	v := NewStrictValidator()
+
+	eval := cgp.NewEvaluation("proposal-123").
+		WithRiskAssessment(&cgp.RiskAssessment{
+			OverallScore: 1.5, // Invalid: > 1
+			Severity:     cgp.SeverityHigh,
+		})
+
+	result := v.ValidateEvaluation(eval)
+	if result.Valid {
+		t.Error("Strict mode should reject invalid risk score > 1")
+	}
+}
+
+func TestValidator_StrictMode_AuthorizationNoSteps(t *testing.T) {
+	v := NewStrictValidator()
+
+	auth := cgp.NewAuthorization(
+		"decision-123",
+		"proposal-123",
+		cgp.NewHumanActor("approver@example.com", "Approver"),
+		"1.0.0",
+	)
+	auth.AllowedSteps = []cgp.ExecutionStep{} // No steps
+
+	result := v.ValidateAuthorization(auth)
+	if len(result.Warnings) == 0 {
+		t.Error("Strict mode should warn about no allowed steps")
+	}
+}
+
+func TestValidator_StrictMode_ProposalPayloadWarnings(t *testing.T) {
+	v := NewStrictValidator()
+
+	proposal := cgp.NewProposal(
+		cgp.NewHumanActor("test@example.com", "Test"),
+		cgp.ProposalScope{Repository: "org/repo", CommitRange: "a..b"},
+		cgp.ProposalIntent{
+			Summary:    "Test",
+			Confidence: 0, // Zero confidence - should warn
+			Categories: []string{},
+		},
+	)
+
+	result := v.ValidateProposal(proposal)
+	if len(result.Warnings) == 0 {
+		t.Error("Strict mode should warn about zero confidence and empty categories")
+	}
+}
+
+func TestValidator_ValidateMessage_InvalidPayload(t *testing.T) {
+	v := NewValidator()
+
+	msg := &Message{
+		Header: Header{
+			MessageID:  "msg-123",
+			Type:       cgp.MessageTypeEvaluation,
+			CGPVersion: cgp.Version,
+			Timestamp:  time.Now(),
+		},
+		Payload: []byte("not valid json"),
+	}
+
+	result := v.Validate(msg)
+	if result.Valid {
+		t.Error("Invalid payload should fail validation")
+	}
+}
+
+func TestNewMessage_AllTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		msgType cgp.MessageType
+	}{
+		{"proposal", cgp.MessageTypeProposal},
+		{"evaluation", cgp.MessageTypeEvaluation},
+		{"decision", cgp.MessageTypeDecision},
+		{"authorization", cgp.MessageTypeAuthorization},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			msg, err := NewMessage(tt.msgType, map[string]string{"key": "value"})
+			if err != nil {
+				t.Fatalf("NewMessage(%s) error = %v", tt.msgType, err)
+			}
+			if msg.Header.Type != tt.msgType {
+				t.Errorf("Type = %s, want %s", msg.Header.Type, tt.msgType)
+			}
+			if msg.Header.MessageID == "" {
+				t.Error("MessageID should not be empty")
+			}
+		})
+	}
+}
+
 func TestValidationError_Error(t *testing.T) {
 	// With field
 	e1 := ValidationError{Field: "header.type", Message: "is required"}

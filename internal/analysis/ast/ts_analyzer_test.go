@@ -256,3 +256,47 @@ export function actual() {}
 		t.Error("should detect actual export")
 	}
 }
+
+func TestTypeScriptAnalyzer_ModifiedSignature(t *testing.T) {
+	before := `
+export function process(input: string): void {}
+export function unchanged(): void {}
+`
+	after := `
+export function process(input: string, options: object): void {}
+export function unchanged(): void {}
+`
+
+	analyzer := NewTypeScriptAnalyzer()
+	result, err := analyzer.Analyze(context.Background(), []byte(before), []byte(after), "api.ts")
+	if err != nil {
+		t.Fatalf("Analyze error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected analysis result")
+	}
+	if len(result.ModifiedExports) != 1 || result.ModifiedExports[0] != "process" {
+		t.Errorf("ModifiedExports = %v, want [process]", result.ModifiedExports)
+	}
+	if !result.IsBreaking {
+		t.Error("IsBreaking = false, want true for modified signature")
+	}
+}
+
+func TestNormalizeParams(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"a: string, b: number", "a: string, b: number"},
+		{"  a:  string,   b:  number  ", "a: string, b: number"},
+		{"", ""},
+	}
+
+	for _, tt := range tests {
+		result := normalizeParams(tt.input)
+		if result != tt.expected {
+			t.Errorf("normalizeParams(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+	}
+}
