@@ -1,0 +1,126 @@
+{
+  "id": "plan-relicta-mcp-apps-1769706557",
+  "spec_id": "relicta-mcp-apps",
+  "tasks": [
+    {
+      "id": "task-app-resource-registration",
+      "title": "Implement app resource registration",
+      "description": "Implement app resource registration",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-embed-built-assets",
+      "title": "Embed built assets for MCP App Resource Infrastructure",
+      "description": "Embed built assets for MCP App Resource Infrastructure",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-app-data-bridge",
+      "title": "Establish the data bridge for MCP App Resource Infrastructure",
+      "description": "Establish the data bridge for MCP App Resource Infrastructure",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-pipeline-state-view",
+      "title": "Develop the pipeline state view for Release Pipeline Visualizer App",
+      "description": "Develop the pipeline state view for Release Pipeline Visualizer App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-pipeline-action-triggers",
+      "title": "Implement pipeline action triggers for Release Pipeline Visualizer App",
+      "description": "Implement pipeline action triggers for Release Pipeline Visualizer App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-risk-gauge-display",
+      "title": "Design and implement risk gauge display for CGP Risk Dashboard App",
+      "description": "Design and implement risk gauge display for CGP Risk Dashboard App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-factor-breakdown",
+      "title": "Create a factor breakdown visualization for CGP Risk Dashboard App",
+      "description": "Create a factor breakdown visualization for CGP Risk Dashboard App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-commit-table",
+      "title": "Develop the commit table view for Commit Classification Review App",
+      "description": "Develop the commit table view for Commit Classification Review App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-classification-summary",
+      "title": "Implement classification summary for Commit Classification Review App",
+      "description": "Implement classification summary for Commit Classification Review App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-approval-checklist",
+      "title": "Create an approval checklist for Approval Workflow App",
+      "description": "Create an approval checklist for Approval Workflow App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-notes-preview",
+      "title": "Develop a notes preview feature for Approval Workflow App",
+      "description": "Develop a notes preview feature for Approval Workflow App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-impact-graph",
+      "title": "Design and implement impact graph visualization for Blast Radius Visualization A…",
+      "description": "Design and implement impact graph visualization for Blast Radius Visualization App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    },
+    {
+      "id": "task-risk-per-package",
+      "title": "Create a risk per package breakdown for Blast Radius Visualization App",
+      "description": "Create a risk per package breakdown for Blast Radius Visualization App",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": null,
+      "feature_id": ""
+    }
+  ],
+  "approval_status": "approved",
+  "created_at": "2026-01-29T18:09:17.55797+01:00",
+  "updated_at": "2026-01-29T18:09:17.55797+01:00"
+}

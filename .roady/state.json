@@ -1,0 +1,71 @@
+{
+  "project_id": "new-project",
+  "task_states": {
+    "task-app-data-bridge": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-app-resource-registration": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-approval-checklist": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-classification-summary": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-commit-table": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-embed-built-assets": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-factor-breakdown": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-impact-graph": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-notes-preview": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-pipeline-action-triggers": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-pipeline-state-view": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-risk-gauge-display": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    },
+    "task-risk-per-package": {
+      "status": "done",
+      "path": "",
+      "owner": "felixgeelhaar"
+    }
+  },
+  "updated_at": "2026-01-29T18:20:24.274312+01:00"
+}

@@ -27,7 +27,8 @@ CMD_DIR := cmd/relicta
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
         check-binary-size help release-local release-snapshot check install-hooks \
-        frontend frontend-deps build-with-frontend clean-frontend
+        frontend frontend-deps build-with-frontend clean-frontend \
+        mcp-apps mcp-apps-deps clean-mcp-apps
 
 # Default target
 all: lint test build
@@ -97,6 +98,26 @@ build-with-frontend: frontend
 clean-frontend:
 	@echo "Cleaning frontend artifacts..."
 	rm -rf $(WEB_DIR)/dist $(WEB_DIR)/node_modules $(FRONTEND_DEST)
+
+## MCP Apps targets
+APP_DIR := app
+MCP_APPS_DEST := internal/mcp/dist
+
+# Install MCP app dependencies
+mcp-apps-deps:
+	@echo "Installing MCP app dependencies..."
+	cd $(APP_DIR) && npm ci
+
+# Build MCP apps (single-file HTML bundles embedded into Go binary)
+mcp-apps: mcp-apps-deps
+	@echo "Building MCP apps..."
+	cd $(APP_DIR) && bash build.sh
+	@echo "✓ MCP apps built and copied to $(MCP_APPS_DEST)"
+
+# Clean MCP app artifacts
+clean-mcp-apps:
+	@echo "Cleaning MCP app artifacts..."
+	rm -rf $(APP_DIR)/dist $(APP_DIR)/node_modules
 
 ## Test targets
 

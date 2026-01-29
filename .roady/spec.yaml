@@ -1,0 +1,89 @@
+id: relicta-mcp-apps
+title: Relicta MCP Apps
+description: |
+  Add MCP app resources to Relicta so that interactive, rich UI views render
+  directly inside Claude Desktop (or any MCP client). This turns Relicta from
+  a tool-call interface into an embedded governance workspace where users
+  visually inspect risk, approve releases, review commit classifications,
+  and track the release pipeline — all inline.
+features:
+  - id: mcp-app-infrastructure
+    title: MCP App Resource Infrastructure
+    description: |
+      Register MCP app resources in the existing MCP server so clients can
+      discover and render HTML/JS apps. Reuse Vue components from web/src/
+      where possible. Support embedding built assets as Go embed.FS.
+    requirements:
+      - id: app-resource-registration
+        description: Register MCP resource templates that serve HTML app bundles
+      - id: embed-built-assets
+        description: Embed compiled Vue app bundles into the Go binary via embed.FS
+      - id: app-data-bridge
+        description: Apps receive context data (release state, config) via resource URI params or injected JSON
+
+  - id: release-pipeline-app
+    title: Release Pipeline Visualizer App
+    description: |
+      Render the full release state machine (plan → bump → notes → evaluate →
+      approve → publish) as a visual pipeline. Show current step, completed
+      steps, and available next actions.
+    requirements:
+      - id: pipeline-state-view
+        description: Visual pipeline showing all release stages and current position
+      - id: pipeline-action-triggers
+        description: Buttons/links to trigger next steps via MCP tool calls
+
+  - id: cgp-risk-dashboard-app
+    title: CGP Risk Dashboard App
+    description: |
+      Render CGP risk evaluation as a visual dashboard with severity gauges,
+      per-factor breakdowns, and clear pass/fail indicators.
+    requirements:
+      - id: risk-gauge-display
+        description: Visual risk level gauge with color-coded severity
+      - id: factor-breakdown
+        description: Per-factor risk breakdown (file churn, breaking changes, dependencies)
+
+  - id: commit-review-app
+    title: Commit Classification Review App
+    description: |
+      Render commit analysis results as an interactive table showing each
+      commit's classification, confidence, and type. Allow override review.
+    requirements:
+      - id: commit-table
+        description: Table of commits with hash, message, classification type, and confidence
+      - id: classification-summary
+        description: Summary counts by type (feat, fix, breaking, chore) with version bump recommendation
+
+  - id: approval-workflow-app
+    title: Approval Workflow App
+    description: |
+      Present a consolidated approval view with risk summary, release notes
+      preview, diff stats, and policy compliance — all in one place.
+    requirements:
+      - id: approval-checklist
+        description: Consolidated checklist of release readiness criteria
+      - id: notes-preview
+        description: Inline release notes preview within the approval view
+
+  - id: blast-radius-app
+    title: Blast Radius Visualization App
+    description: |
+      Render monorepo blast radius analysis as a dependency graph showing
+      impacted packages, transitive effects, and deployment risk.
+    requirements:
+      - id: impact-graph
+        description: Visual dependency graph highlighting affected packages
+      - id: risk-per-package
+        description: Per-package deployment risk indicator
+
+constraints:
+  - id: lightweight-bundles
+    description: Apps must be lightweight HTML/CSS/JS bundles (no heavy framework runtime in MCP apps)
+  - id: reuse-vue-components
+    description: Reuse existing Vue component logic from web/src/ where applicable
+  - id: read-only-apps
+    description: Apps render read-only data; actions delegate back to MCP tool calls
+  - id: stdio-transport
+    description: All apps must work with the existing stdio MCP transport
+version: 0.1.0

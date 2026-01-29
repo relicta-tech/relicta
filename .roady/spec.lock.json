@@ -1,0 +1,172 @@
+{
+  "id": "relicta-mcp-apps",
+  "title": "Relicta MCP Apps",
+  "description": "Add MCP app resources to Relicta so that interactive, rich UI views render\ndirectly inside Claude Desktop (or any MCP client). This turns Relicta from\na tool-call interface into an embedded governance workspace where users\nvisually inspect risk, approve releases, review commit classifications,\nand track the release pipeline — all inline.\n",
+  "features": [
+    {
+      "id": "mcp-app-infrastructure",
+      "title": "MCP App Resource Infrastructure",
+      "description": "Register MCP app resources in the existing MCP server so clients can\ndiscover and render HTML/JS apps. Reuse Vue components from web/src/\nwhere possible. Support embedding built assets as Go embed.FS.\n",
+      "requirements": [
+        {
+          "id": "app-resource-registration",
+          "title": "",
+          "description": "Register MCP resource templates that serve HTML app bundles",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "embed-built-assets",
+          "title": "",
+          "description": "Embed compiled Vue app bundles into the Go binary via embed.FS",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "app-data-bridge",
+          "title": "",
+          "description": "Apps receive context data (release state, config) via resource URI params or injected JSON",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    },
+    {
+      "id": "release-pipeline-app",
+      "title": "Release Pipeline Visualizer App",
+      "description": "Render the full release state machine (plan → bump → notes → evaluate →\napprove → publish) as a visual pipeline. Show current step, completed\nsteps, and available next actions.\n",
+      "requirements": [
+        {
+          "id": "pipeline-state-view",
+          "title": "",
+          "description": "Visual pipeline showing all release stages and current position",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "pipeline-action-triggers",
+          "title": "",
+          "description": "Buttons/links to trigger next steps via MCP tool calls",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    },
+    {
+      "id": "cgp-risk-dashboard-app",
+      "title": "CGP Risk Dashboard App",
+      "description": "Render CGP risk evaluation as a visual dashboard with severity gauges,\nper-factor breakdowns, and clear pass/fail indicators.\n",
+      "requirements": [
+        {
+          "id": "risk-gauge-display",
+          "title": "",
+          "description": "Visual risk level gauge with color-coded severity",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "factor-breakdown",
+          "title": "",
+          "description": "Per-factor risk breakdown (file churn, breaking changes, dependencies)",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    },
+    {
+      "id": "commit-review-app",
+      "title": "Commit Classification Review App",
+      "description": "Render commit analysis results as an interactive table showing each\ncommit's classification, confidence, and type. Allow override review.\n",
+      "requirements": [
+        {
+          "id": "commit-table",
+          "title": "",
+          "description": "Table of commits with hash, message, classification type, and confidence",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "classification-summary",
+          "title": "",
+          "description": "Summary counts by type (feat, fix, breaking, chore) with version bump recommendation",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    },
+    {
+      "id": "approval-workflow-app",
+      "title": "Approval Workflow App",
+      "description": "Present a consolidated approval view with risk summary, release notes\npreview, diff stats, and policy compliance — all in one place.\n",
+      "requirements": [
+        {
+          "id": "approval-checklist",
+          "title": "",
+          "description": "Consolidated checklist of release readiness criteria",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "notes-preview",
+          "title": "",
+          "description": "Inline release notes preview within the approval view",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    },
+    {
+      "id": "blast-radius-app",
+      "title": "Blast Radius Visualization App",
+      "description": "Render monorepo blast radius analysis as a dependency graph showing\nimpacted packages, transitive effects, and deployment risk.\n",
+      "requirements": [
+        {
+          "id": "impact-graph",
+          "title": "",
+          "description": "Visual dependency graph highlighting affected packages",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        },
+        {
+          "id": "risk-per-package",
+          "title": "",
+          "description": "Per-package deployment risk indicator",
+          "priority": "",
+          "estimate": "",
+          "depends_on": null
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "id": "lightweight-bundles",
+      "description": "Apps must be lightweight HTML/CSS/JS bundles (no heavy framework runtime in MCP apps)"
+    },
+    {
+      "id": "reuse-vue-components",
+      "description": "Reuse existing Vue component logic from web/src/ where applicable"
+    },
+    {
+      "id": "read-only-apps",
+      "description": "Apps render read-only data; actions delegate back to MCP tool calls"
+    },
+    {
+      "id": "stdio-transport",
+      "description": "All apps must work with the existing stdio MCP transport"
+    }
+  ],
+  "version": "0.1.0"
+}

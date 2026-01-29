@@ -299,6 +299,9 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 	// Register prompts
 	s.registerPrompts()
 
+	// Register MCP app resources
+	s.registerApps()
+
 	return s, nil
 }
 
@@ -313,6 +316,7 @@ func (s *Server) registerTools() {
 	// Status tool
 	s.server.Tool("relicta.status").
 		Description("Get the current release state and pending actions").
+		UIResource("ui://relicta/status").
 		Handler(s.handleStatus)
 
 	// Init tool
@@ -323,6 +327,7 @@ func (s *Server) registerTools() {
 	// Plan tool
 	s.server.Tool("relicta.plan").
 		Description("Analyze commits since the last release and suggest a version bump").
+		UIResource("ui://relicta/commits").
 		Handler(s.handlePlan)
 
 	// Bump tool
@@ -338,16 +343,19 @@ func (s *Server) registerTools() {
 	// Evaluate tool
 	s.server.Tool("relicta.evaluate").
 		Description("Evaluate release risk using the Change Governance Protocol (CGP)").
+		UIResource("ui://relicta/risk").
 		Handler(s.handleEvaluate)
 
 	// Approve tool
 	s.server.Tool("relicta.approve").
 		Description("Approve the release for publishing").
+		UIResource("ui://relicta/approval").
 		Handler(s.handleApprove)
 
 	// Publish tool
 	s.server.Tool("relicta.publish").
 		Description("Execute the release by creating tags and running plugins").
+		UIResource("ui://relicta/pipeline").
 		Handler(s.handlePublish)
 
 	// Cancel tool
@@ -365,6 +373,7 @@ func (s *Server) registerTools() {
 	// Blast Radius tool - Monorepo change impact analysis
 	s.server.Tool("relicta.blast_radius").
 		Description("Analyze blast radius of changes in a monorepo. Returns impacted packages, transitive dependencies, and deployment risk assessment.").
+		UIResource("ui://relicta/blast").
 		Handler(s.handleBlastRadius)
 
 	// Infer Version tool - Lightweight version inference
@@ -380,6 +389,7 @@ func (s *Server) registerTools() {
 	// Validate Release tool - Pre-flight checks
 	s.server.Tool("relicta.validate_release").
 		Description("Run pre-flight validation checks before release. Validates git state, plugins, and governance requirements.").
+		UIResource("ui://relicta/approval").
 		Handler(s.handleValidateRelease)
 }
 

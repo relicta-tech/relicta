@@ -51,6 +51,7 @@ AGENTS.md
 
 # Build output
 dist/
+!internal/mcp/dist/
 
 # Embedded frontend (copied during build)
 cmd/relicta/frontend/
@@ -58,6 +59,10 @@ cmd/relicta/frontend/
 # Frontend build output
 web/dist/
 web/node_modules/
+
+# MCP Apps build output
+app/dist/
+app/node_modules/
 
 # Debug files
 debug

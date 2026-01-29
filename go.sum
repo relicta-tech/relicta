@@ -82,6 +82,8 @@ github.com/felixgeelhaar/fortify v1.1.2 h1:v/413a60nA9dusR0jOrI7wtaL67gtyH4nUO0x
 github.com/felixgeelhaar/fortify v1.1.2/go.mod h1:SXyIu11ChgBHTX+7gmVdUwIcpC0udaH8tRp05tUl3S4=
 github.com/felixgeelhaar/mcp-go v1.3.1 h1:Ey6xXnWEfB5z2vu170aPUwGrTduYUiWtKb7a3OR0IZA=
 github.com/felixgeelhaar/mcp-go v1.3.1/go.mod h1:mst8EzfTEix4U5HrnDDCIRo8+6etCNbJw1cizW6k3Gg=
+github.com/felixgeelhaar/mcp-go v1.6.2 h1:ZH6CbaetZEWiONqPKEsk8Aq1eDuMBdp3CzqlZYnzb6Y=
+github.com/felixgeelhaar/mcp-go v1.6.2/go.mod h1:YQo2nWhXhJcu/b9QO65kz50fV3+1f5B+cg73dGLCeL8=
 github.com/felixgeelhaar/statekit v1.0.1 h1:tW1QnLQOKC1L4cXR/lqhLLv/KoKtNTa9Kfaj2psjiiM=
 github.com/felixgeelhaar/statekit v1.0.1/go.mod h1:dg0ZE7IKw8E+KNdYit8hqpNZXlanokaWLB1FB/TdDWs=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
