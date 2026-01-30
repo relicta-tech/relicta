@@ -481,7 +481,10 @@ func TestEnableInCI(t *testing.T) {
 
 	t.Run("stays disabled when no CI env vars", func(t *testing.T) {
 		Disable()
-		// Don't set any CI env vars
+		// Unset all CI env vars that EnableInCI checks
+		for _, env := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "JENKINS_URL", "TRAVIS", "BITBUCKET_PIPELINES", "AZURE_PIPELINES", "TEAMCITY_VERSION", "BUILDKITE"} {
+			t.Setenv(env, "")
+		}
 		EnableInCI()
 		if IsEnabled() {
 			t.Error("Masker should remain disabled when no CI env vars are set")

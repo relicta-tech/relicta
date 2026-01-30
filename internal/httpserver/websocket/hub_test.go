@@ -259,9 +259,12 @@ func TestHub_Run(t *testing.T) {
 	cancel()
 
 	// Give hub time to close
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
-	assert.True(t, hub.closed)
+	hub.mu.RLock()
+	closed := hub.closed
+	hub.mu.RUnlock()
+	assert.True(t, closed)
 }
 
 // TestHub_RunWithBroadcast tests broadcasting through the event loop.
