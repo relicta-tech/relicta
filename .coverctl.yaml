@@ -65,7 +65,7 @@ policy:
     - name: security
       match:
         - ./internal/security/...
-      min: null
+      min: 75
     - name: ui
       match:
         - ./internal/ui/...
