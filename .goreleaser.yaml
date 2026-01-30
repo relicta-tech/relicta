@@ -103,6 +103,8 @@ release:
 # Homebrew formula
 brews:
   - name: relicta
+    ids:
+      - default
     repository:
       owner: relicta-tech
       name: homebrew-tap
