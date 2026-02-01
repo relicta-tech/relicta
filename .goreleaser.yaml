@@ -12,7 +12,6 @@ before:
     - go mod verify
 
 builds:
-  # Full build with all AI providers
   - id: relicta
     main: ./cmd/relicta
     binary: relicta
@@ -34,28 +33,6 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
 
-  # Minimal build with OpenAI only (smaller binary)
-  # Use: goreleaser build --id relicta-openai-only
-  - id: relicta-openai-only
-    main: ./cmd/relicta
-    binary: relicta
-    env:
-      - CGO_ENABLED=0
-    tags:
-      - relicta_minimal
-      - relicta_openai
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - -s -w
-      - -X main.ver={{.Version}}-openai
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
-
 archives:
   - id: default
     builds:
@@ -67,16 +44,6 @@ archives:
         formats:
           - zip
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-      - CHANGELOG.md
-  - id: openai-only
-    builds:
-      - relicta-openai-only
-    formats:
-      - tar.gz
-    name_template: "{{ .ProjectName }}-openai-only_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
