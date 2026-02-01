@@ -9,6 +9,36 @@ Release 3.2.2
 
 Release 3.3.4
 
+## [3.4.5] - 2026-02-01
+
+### Chores
+
+- **gitignore:** ignore stale `.relicta.yaml` in `internal/mcp/` (8a6c204)
+
+## [3.4.4] - 2026-02-01
+
+### Tests
+
+- **persistence:** add changeset round-trip tests for file repository (c56fa6c)
+
+## [3.4.3] - 2026-02-01
+
+### Chores
+
+- **release:** remove provider-specific openai-only build variant (ee08e6b)
+- **release:** clean up openai-only assets from v3.4.2 and v3.4.1
+- **release:** delete draft v3.3.4 release
+
+## [3.4.2] - 2026-02-01
+
+### Bug Fixes
+
+- **persistence:** persist changeset data in FileReleaseRunRepository (bc911a8)
+  - The file repository only serialized `changeset_id` but never the actual changeset data
+  - All multi-command workflows (`plan → bump → notes`) were broken in both CLI and MCP
+  - Only `relicta release` worked because it kept the changeset in memory
+  - Closes #47
+
 ## [Unreleased]
 
 ### Bug Fixes
