@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/internal/domain/version"
@@ -62,6 +63,146 @@ func TestFileReleaseRunRepository_SaveAndLoad(t *testing.T) {
 	}
 	if len(loaded.Commits()) != len(run.Commits()) {
 		t.Errorf("Commits count mismatch: got %d, want %d", len(loaded.Commits()), len(run.Commits()))
+	}
+}
+
+func TestFileReleaseRunRepository_ChangeSetRoundTrip(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	run := domain.NewReleaseRun(
+		"github.com/test/repo",
+		repoRoot,
+		"v1.0.0",
+		domain.CommitSHA("abc123"),
+		[]domain.CommitSHA{"abc123", "def456"},
+		"config-hash",
+		"plugin-hash",
+	)
+
+	// Build a changeset with diverse commits
+	cs := changes.NewChangeSet("cs-test-001", "v1.0.0", "HEAD")
+	cs.AddCommit(changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "add user auth",
+		changes.WithScope("auth"),
+		changes.WithBody("Implements JWT-based authentication"),
+		changes.WithAuthor("Alice", "alice@test.com"),
+		changes.WithDate(time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)),
+		changes.WithRawMessage("feat(auth): add user auth\n\nImplements JWT-based authentication"),
+	))
+	cs.AddCommit(changes.NewConventionalCommit("def456", changes.CommitTypeFix, "fix login redirect",
+		changes.WithBreaking("changes redirect URL format"),
+		changes.WithFooter("BREAKING CHANGE: changes redirect URL format"),
+	))
+	run.SetChangeSet(cs)
+
+	// Save
+	if err := repo.Save(ctx, run); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Load from disk
+	loaded, err := repo.LoadFromRepo(ctx, repoRoot, run.ID())
+	if err != nil {
+		t.Fatalf("LoadFromRepo failed: %v", err)
+	}
+
+	// Verify changeset survived round-trip
+	if !loaded.HasChangeSet() {
+		t.Fatal("loaded run has no changeset")
+	}
+	loadedCS := loaded.ChangeSet()
+	if loadedCS.ID() != cs.ID() {
+		t.Errorf("changeset ID: got %s, want %s", loadedCS.ID(), cs.ID())
+	}
+	if loadedCS.FromRef() != "v1.0.0" {
+		t.Errorf("FromRef: got %s, want v1.0.0", loadedCS.FromRef())
+	}
+	if loadedCS.ToRef() != "HEAD" {
+		t.Errorf("ToRef: got %s, want HEAD", loadedCS.ToRef())
+	}
+	if loadedCS.CommitCount() != 2 {
+		t.Fatalf("commit count: got %d, want 2", loadedCS.CommitCount())
+	}
+
+	commits := loadedCS.Commits()
+
+	// Verify first commit fields
+	c0 := commits[0]
+	if c0.Hash() != "abc123" {
+		t.Errorf("commit[0].Hash: got %s, want abc123", c0.Hash())
+	}
+	if c0.Type() != changes.CommitTypeFeat {
+		t.Errorf("commit[0].Type: got %s, want feat", c0.Type())
+	}
+	if c0.Scope() != "auth" {
+		t.Errorf("commit[0].Scope: got %s, want auth", c0.Scope())
+	}
+	if c0.Subject() != "add user auth" {
+		t.Errorf("commit[0].Subject: got %s, want 'add user auth'", c0.Subject())
+	}
+	if c0.Body() != "Implements JWT-based authentication" {
+		t.Errorf("commit[0].Body: got %q", c0.Body())
+	}
+	if c0.Author() != "Alice" {
+		t.Errorf("commit[0].Author: got %s, want Alice", c0.Author())
+	}
+	if c0.AuthorEmail() != "alice@test.com" {
+		t.Errorf("commit[0].AuthorEmail: got %s", c0.AuthorEmail())
+	}
+
+	// Verify second commit (breaking change)
+	c1 := commits[1]
+	if !c1.IsBreaking() {
+		t.Error("commit[1] should be breaking")
+	}
+	if c1.BreakingMessage() != "changes redirect URL format" {
+		t.Errorf("commit[1].BreakingMessage: got %q", c1.BreakingMessage())
+	}
+	if c1.Footer() != "BREAKING CHANGE: changes redirect URL format" {
+		t.Errorf("commit[1].Footer: got %q", c1.Footer())
+	}
+
+	// Verify categories work after deserialization
+	cats := loadedCS.Categories()
+	if len(cats.Features) != 1 {
+		t.Errorf("Features count: got %d, want 1", len(cats.Features))
+	}
+	if len(cats.Fixes) != 1 {
+		t.Errorf("Fixes count: got %d, want 1", len(cats.Fixes))
+	}
+	if len(cats.Breaking) != 1 {
+		t.Errorf("Breaking count: got %d, want 1", len(cats.Breaking))
+	}
+}
+
+func TestFileReleaseRunRepository_NoChangeSetRoundTrip(t *testing.T) {
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	ctx := context.Background()
+
+	run := domain.NewReleaseRun(
+		"github.com/test/repo",
+		repoRoot,
+		"v1.0.0",
+		domain.CommitSHA("abc123"),
+		[]domain.CommitSHA{"abc123"},
+		"config-hash",
+		"plugin-hash",
+	)
+
+	// Save without changeset
+	if err := repo.Save(ctx, run); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	loaded, err := repo.LoadFromRepo(ctx, repoRoot, run.ID())
+	if err != nil {
+		t.Fatalf("LoadFromRepo failed: %v", err)
+	}
+
+	if loaded.HasChangeSet() {
+		t.Error("loaded run should not have a changeset")
 	}
 }
 
