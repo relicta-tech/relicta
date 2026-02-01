@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
@@ -142,6 +143,7 @@ type ReleaseRunDTO struct {
 	History        []TransitionRecordDTO    `json:"history"`
 	LastError      string                   `json:"last_error,omitempty"`
 	ChangesetID    string                   `json:"changeset_id,omitempty"`
+	ChangeSet      *ChangeSetDTO            `json:"changeset,omitempty"`
 	CreatedAt      time.Time                `json:"created_at"`
 	UpdatedAt      time.Time                `json:"updated_at"`
 	PublishedAt    *time.Time               `json:"published_at,omitempty"`
@@ -194,6 +196,30 @@ type TransitionRecordDTO struct {
 	Actor    string            `json:"actor"`
 	Reason   string            `json:"reason"`
 	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+// ChangeSetDTO is the DTO for changeset serialization.
+type ChangeSetDTO struct {
+	ID      string      `json:"id"`
+	FromRef string      `json:"from_ref"`
+	ToRef   string      `json:"to_ref"`
+	Commits []CommitDTO `json:"commits"`
+}
+
+// CommitDTO is the DTO for conventional commit serialization.
+type CommitDTO struct {
+	Hash        string    `json:"hash"`
+	Type        string    `json:"type"`
+	Scope       string    `json:"scope,omitempty"`
+	Subject     string    `json:"subject"`
+	Body        string    `json:"body,omitempty"`
+	Footer      string    `json:"footer,omitempty"`
+	Breaking    bool      `json:"breaking,omitempty"`
+	BreakingMsg string    `json:"breaking_msg,omitempty"`
+	Author      string    `json:"author,omitempty"`
+	AuthorEmail string    `json:"author_email,omitempty"`
+	Date        time.Time `json:"date"`
+	RawMessage  string    `json:"raw_message,omitempty"`
 }
 
 // ApprovalDTO is the DTO for approval information.
@@ -659,6 +685,7 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 		History:        history,
 		LastError:      run.LastError(),
 		ChangesetID:    run.ChangesetID(),
+		ChangeSet:      changesetToDTO(run),
 		CreatedAt:      run.CreatedAt(),
 		UpdatedAt:      run.UpdatedAt(),
 		PublishedAt:    run.PublishedAt(),
@@ -814,5 +841,72 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 		PublishedAt:     dto.PublishedAt,
 	})
 
+	// Reconstruct changeset if persisted
+	if dto.ChangeSet != nil {
+		cs := changesetFromDTO(dto.ChangeSet)
+		run.SetChangeSet(cs)
+	}
+
 	return run, nil
+}
+
+func changesetToDTO(run *domain.ReleaseRun) *ChangeSetDTO {
+	if !run.HasChangeSet() {
+		return nil
+	}
+	cs := run.ChangeSet()
+	commits := cs.Commits()
+	commitDTOs := make([]CommitDTO, len(commits))
+	for i, c := range commits {
+		commitDTOs[i] = CommitDTO{
+			Hash:        c.Hash(),
+			Type:        string(c.Type()),
+			Scope:       c.Scope(),
+			Subject:     c.Subject(),
+			Body:        c.Body(),
+			Footer:      c.Footer(),
+			Breaking:    c.IsBreaking(),
+			BreakingMsg: c.BreakingMessage(),
+			Author:      c.Author(),
+			AuthorEmail: c.AuthorEmail(),
+			Date:        c.Date(),
+			RawMessage:  c.RawMessage(),
+		}
+	}
+	return &ChangeSetDTO{
+		ID:      string(cs.ID()),
+		FromRef: cs.FromRef(),
+		ToRef:   cs.ToRef(),
+		Commits: commitDTOs,
+	}
+}
+
+func changesetFromDTO(dto *ChangeSetDTO) *changes.ChangeSet {
+	cs := changes.NewChangeSet(changes.ChangeSetID(dto.ID), dto.FromRef, dto.ToRef)
+	for _, c := range dto.Commits {
+		opts := []changes.ConventionalCommitOption{
+			changes.WithDate(c.Date),
+		}
+		if c.Scope != "" {
+			opts = append(opts, changes.WithScope(c.Scope))
+		}
+		if c.Body != "" {
+			opts = append(opts, changes.WithBody(c.Body))
+		}
+		if c.Footer != "" {
+			opts = append(opts, changes.WithFooter(c.Footer))
+		}
+		if c.Breaking {
+			opts = append(opts, changes.WithBreaking(c.BreakingMsg))
+		}
+		if c.Author != "" || c.AuthorEmail != "" {
+			opts = append(opts, changes.WithAuthor(c.Author, c.AuthorEmail))
+		}
+		if c.RawMessage != "" {
+			opts = append(opts, changes.WithRawMessage(c.RawMessage))
+		}
+		commit := changes.NewConventionalCommit(c.Hash, changes.CommitType(c.Type), c.Subject, opts...)
+		cs.AddCommit(commit)
+	}
+	return cs
 }
