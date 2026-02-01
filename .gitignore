@@ -49,6 +49,9 @@ AGENTS.md
 # Relicta state directory
 .relicta/
 
+# Stale config from MCP testing
+internal/mcp/.relicta.yaml
+
 # Build output
 dist/
 !internal/mcp/dist/
