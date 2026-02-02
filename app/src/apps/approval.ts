@@ -49,9 +49,9 @@ const ApprovalApp = defineComponent({
         const app = createApp("relicta-approval");
 
         const [statusRes, evalRes, valRes] = await Promise.all([
-          callTool(app, "relicta.status"),
-          callTool(app, "relicta.evaluate"),
-          callTool(app, "relicta.validate_release", {
+          callTool(app, "relicta_status"),
+          callTool(app, "relicta_evaluate"),
+          callTool(app, "relicta_validate_release", {
             check_git: true,
             check_plugins: true,
             check_governance: true,

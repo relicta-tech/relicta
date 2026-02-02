@@ -25,7 +25,7 @@ const PipelineApp = defineComponent({
     onMounted(async () => {
       try {
         const app = createApp("relicta-pipeline");
-        const result = await callTool(app, "relicta.status");
+        const result = await callTool(app, "relicta_status");
         const data = extractJSON<ReleaseStatus>(result);
         if (data && data.release_id) {
           status.value = data;

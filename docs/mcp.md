@@ -42,7 +42,7 @@ Add to `~/.config/claude/claude_desktop_config.json` (macOS/Linux) or `%APPDATA%
 
 ## Tools Reference
 
-### relicta.status
+### relicta_status
 
 Get the current release state and pending actions.
 
@@ -65,7 +65,7 @@ Get the current release state and pending actions.
 }
 ```
 
-### relicta.plan
+### relicta_plan
 
 Analyze commits since the last release and suggest a version bump.
 
@@ -101,7 +101,7 @@ Analyze commits since the last release and suggest a version bump.
 }
 ```
 
-### relicta.bump
+### relicta_bump
 
 Calculate and set the next version based on commits.
 
@@ -135,7 +135,7 @@ Calculate and set the next version based on commits.
 }
 ```
 
-### relicta.notes
+### relicta_notes
 
 Generate changelog and release notes for the current release.
 
@@ -161,7 +161,7 @@ Generate changelog and release notes for the current release.
 }
 ```
 
-### relicta.evaluate
+### relicta_evaluate
 
 Evaluate release risk using the Change Governance Protocol (CGP).
 
@@ -188,7 +188,7 @@ Evaluate release risk using the Change Governance Protocol (CGP).
 }
 ```
 
-### relicta.approve
+### relicta_approve
 
 Approve the release for publishing.
 
@@ -214,7 +214,7 @@ Approve the release for publishing.
 }
 ```
 
-### relicta.publish
+### relicta_publish
 
 Execute the release by creating tags and running plugins.
 
@@ -334,11 +334,11 @@ relicta mcp serve --multi-repo
 ```
 
 **Additional tools:**
-- `relicta.repos.list` - List all repositories
-- `relicta.repos.add` - Add a repository
-- `relicta.repos.remove` - Remove a repository
-- `relicta.repos.switch` - Switch primary repository
-- `relicta.repos.refresh` - Refresh repository state
+- `relicta_repos.list` - List all repositories
+- `relicta_repos.add` - Add a repository
+- `relicta_repos.remove` - Remove a repository
+- `relicta_repos.switch` - Switch primary repository
+- `relicta_repos.refresh` - Refresh repository state
 
 **Additional resource:**
 - `relicta://repos` - Multi-repo state
@@ -348,10 +348,10 @@ relicta mcp serve --multi-repo
 Manage and execute plugins via MCP:
 
 **Additional tools:**
-- `relicta.plugins.list` - List installed plugins
-- `relicta.plugins.info` - Get plugin details
-- `relicta.plugins.execute` - Execute a plugin hook
-- `relicta.plugins.hooks` - List available hooks
+- `relicta_plugins.list` - List installed plugins
+- `relicta_plugins.info` - Get plugin details
+- `relicta_plugins.execute` - Execute a plugin hook
+- `relicta_plugins.hooks` - List available hooks
 
 **Additional resource:**
 - `relicta://plugins` - Plugin registry
@@ -515,11 +515,11 @@ User: Plan and execute a release for my project
 
 Agent: I'll help you create a release. Let me check the current state.
 
-[calls relicta.status]
+[calls relicta_status]
 
 Agent: There's no active release. Let me analyze your commits.
 
-[calls relicta.plan with analyze: true]
+[calls relicta_plan with analyze: true]
 
 Agent: I found 15 commits since v1.1.0:
 - 3 features
@@ -532,9 +532,9 @@ User: Yes, proceed
 
 Agent: Creating the release...
 
-[calls relicta.bump]
-[calls relicta.notes with ai: true]
-[calls relicta.evaluate]
+[calls relicta_bump]
+[calls relicta_notes with ai: true]
+[calls relicta_evaluate]
 
 Agent: The release has been prepared:
 - Version: 1.2.0
@@ -545,7 +545,7 @@ Ready to publish?
 
 User: Yes, publish it
 
-[calls relicta.publish]
+[calls relicta_publish]
 
 Agent: Release v1.2.0 has been published!
 - GitHub release: https://github.com/org/repo/releases/tag/v1.2.0

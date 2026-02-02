@@ -47,7 +47,7 @@ const BlastApp = defineComponent({
     onMounted(async () => {
       try {
         const app = createApp("relicta-blast-radius");
-        const res = await callTool(app, "relicta.blast_radius", { transitive: true });
+        const res = await callTool(app, "relicta_blast_radius", { transitive: true });
         data.value = extractJSON<BlastRadius>(res);
       } catch (e) {
         error.value = String(e);

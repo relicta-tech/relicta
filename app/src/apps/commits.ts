@@ -49,7 +49,7 @@ const CommitReview = defineComponent({
     onMounted(async () => {
       try {
         const app = createApp("commit-review");
-        const result = await callTool(app, "relicta.plan", { analyze: true });
+        const result = await callTool(app, "relicta_plan", { analyze: true });
         data.value = extractJSON<PlanData>(result);
         if (!data.value) error.value = "No data returned from plan.";
       } catch (e: unknown) {

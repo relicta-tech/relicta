@@ -314,80 +314,80 @@ func (s *Server) ServeStdio() error {
 // registerTools registers all tool handlers.
 func (s *Server) registerTools() {
 	// Status tool
-	s.server.Tool("relicta.status").
+	s.server.Tool("relicta_status").
 		Description("Get the current release state and pending actions").
 		UIResource("ui://relicta/status").
 		Handler(s.handleStatus)
 
 	// Init tool
-	s.server.Tool("relicta.init").
+	s.server.Tool("relicta_init").
 		Description("Initialize a new Relicta configuration file with sensible defaults").
 		Handler(s.handleInit)
 
 	// Plan tool
-	s.server.Tool("relicta.plan").
+	s.server.Tool("relicta_plan").
 		Description("Analyze commits since the last release and suggest a version bump").
 		UIResource("ui://relicta/commits").
 		Handler(s.handlePlan)
 
 	// Bump tool
-	s.server.Tool("relicta.bump").
+	s.server.Tool("relicta_bump").
 		Description("Calculate and set the next version based on commits").
 		Handler(s.handleBump)
 
 	// Notes tool
-	s.server.Tool("relicta.notes").
+	s.server.Tool("relicta_notes").
 		Description("Generate changelog and release notes for the current release").
 		Handler(s.handleNotes)
 
 	// Evaluate tool
-	s.server.Tool("relicta.evaluate").
+	s.server.Tool("relicta_evaluate").
 		Description("Evaluate release risk using the Change Governance Protocol (CGP)").
 		UIResource("ui://relicta/risk").
 		Handler(s.handleEvaluate)
 
 	// Approve tool
-	s.server.Tool("relicta.approve").
+	s.server.Tool("relicta_approve").
 		Description("Approve the release for publishing").
 		UIResource("ui://relicta/approval").
 		Handler(s.handleApprove)
 
 	// Publish tool
-	s.server.Tool("relicta.publish").
+	s.server.Tool("relicta_publish").
 		Description("Execute the release by creating tags and running plugins").
 		UIResource("ui://relicta/pipeline").
 		Handler(s.handlePublish)
 
 	// Cancel tool
-	s.server.Tool("relicta.cancel").
+	s.server.Tool("relicta_cancel").
 		Description("Cancel the current in-progress release").
 		Handler(s.handleCancel)
 
 	// Reset tool
-	s.server.Tool("relicta.reset").
+	s.server.Tool("relicta_reset").
 		Description("Reset a failed or canceled release to allow starting fresh").
 		Handler(s.handleReset)
 
 	// --- Specialized AI Agent Tools ---
 
 	// Blast Radius tool - Monorepo change impact analysis
-	s.server.Tool("relicta.blast_radius").
+	s.server.Tool("relicta_blast_radius").
 		Description("Analyze blast radius of changes in a monorepo. Returns impacted packages, transitive dependencies, and deployment risk assessment.").
 		UIResource("ui://relicta/blast").
 		Handler(s.handleBlastRadius)
 
 	// Infer Version tool - Lightweight version inference
-	s.server.Tool("relicta.infer_version").
+	s.server.Tool("relicta_infer_version").
 		Description("Infer the next semantic version based on commits. Lightweight alternative to plan for quick queries.").
 		Handler(s.handleInferVersion)
 
 	// Summarize Diff tool - Audience-tailored change summaries
-	s.server.Tool("relicta.summarize_diff").
+	s.server.Tool("relicta_summarize_diff").
 		Description("Generate audience-tailored summary of changes between refs. Supports developer, operator, and end-user audiences.").
 		Handler(s.handleSummarizeDiff)
 
 	// Validate Release tool - Pre-flight checks
-	s.server.Tool("relicta.validate_release").
+	s.server.Tool("relicta_validate_release").
 		Description("Run pre-flight validation checks before release. Validates git state, plugins, and governance requirements.").
 		UIResource("ui://relicta/approval").
 		Handler(s.handleValidateRelease)

@@ -34,7 +34,7 @@ const RiskDashboard = defineComponent({
     onMounted(async () => {
       try {
         const app = createApp("risk-dashboard");
-        const result = await callTool(app, "relicta.evaluate");
+        const result = await callTool(app, "relicta_evaluate");
         data.value = extractJSON<RiskData>(result);
         if (!data.value) error.value = "No data returned from evaluation.";
       } catch (e: unknown) {
