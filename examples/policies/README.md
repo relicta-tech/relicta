@@ -25,6 +25,16 @@ relicta plan --dry-run
 | `time-based.policy` | Release windows and freezes | Production environments with SLAs |
 | `team-based.policy` | Team ownership rules | Large organizations with domain teams |
 
+## Test Fixtures
+
+Use these with `relicta policy test` to validate policy behavior quickly:
+
+| Fixture | Format | Purpose |
+|--------|--------|---------|
+| `policy-input.json` | JSON object | Single scenario input |
+| `policy-matrix.json` | JSON array | Multi-scenario regression matrix |
+| `policy-matrix.yaml` | YAML array | Multi-scenario matrix in YAML |
+
 ## Policy Syntax
 
 CGP uses a simple, readable DSL:
@@ -85,6 +95,17 @@ defaults {
 - `time.day_of_week` - "monday", "tuesday", etc.
 - `time.hour` - 0-23
 
+### Canonical vs Legacy Field Names
+
+Use canonical dotted fields in policies whenever possible:
+
+- `risk.score` (canonical) over `risk_score` (legacy alias)
+- `actor.kind` (canonical) over `actor_type` (legacy alias)
+- `change.bump_kind` (canonical) over `bump_type` (legacy alias)
+- `change.breaking` (canonical) over `has_breaking_changes` (legacy alias)
+
+Legacy names remain supported for compatibility with older policy files.
+
 ## Operators
 
 | Operator | Example | Description |
@@ -123,11 +144,122 @@ Multiple policies can be combined. Rules are evaluated in priority order (highes
 
 ```bash
 # Validate policy syntax
-relicta policy validate .relicta/policies/
+relicta policy validate --dir .relicta/policies
 
 # Test with dry-run
 relicta plan --dry-run
 
+# Scaffold starter fixtures from policy rules
+relicta policy scaffold --file .relicta/policies/starter.policy --input-out policy-input.json --matrix-out policy-matrix.yaml
+
 # View evaluation details
 relicta plan --analyze
+
+# Evaluate a single fixture
+relicta policy test --file .relicta/policies/starter.policy --input examples/policies/policy-input.json --json
+
+# Evaluate a full matrix
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.json --json
+
+# Include aggregate matrix summary (total/blocked/mismatched/decisions)
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.json --summary --json
+
+# Show per-rule/per-condition evaluation trace
+relicta policy test --file .relicta/policies/starter.policy --input examples/policies/policy-input.json --explain --json
+
+# Only include matched rules in trace output
+relicta policy test --file .relicta/policies/starter.policy --input examples/policies/policy-input.json --explain --explain-mode matched --json
+
+# Contract-test matrix expectations (`expect.decision` / `expect.blocked` / `expect.block_reason` / `expect.reviewers` / `expect.required_approvers` / `expect.required_actions` / `expect.rationale` / `expect.conditions` / `expect.matched_rules`)
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.yaml --assert-expected
+
+# Discover matrix scenario names for filtering/sharding
+relicta policy test --matrix examples/policies/policy-matrix.yaml --list-scenarios --json
+
+# Select scenarios by glob pattern
+relicta policy test --matrix examples/policies/policy-matrix.yaml --scenario-pattern "high-*" --json
+
+# Select scenarios by tag (if matrix scenarios define `tags`)
+relicta policy test --matrix examples/policies/policy-matrix.yaml --scenario-tag critical --json
+
+# Exclude selected scenarios
+relicta policy test --matrix examples/policies/policy-matrix.yaml --exclude-scenario low-risk-patch --json
+
+# Exclude scenarios by tag
+relicta policy test --matrix examples/policies/policy-matrix.yaml --exclude-scenario-tag flaky --json
+
+# Run one deterministic shard for CI parallelization
+relicta policy test --matrix examples/policies/policy-matrix.yaml --shard-index 2 --shard-total 4 --json
+
+# Write JUnit XML report for CI test dashboards
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.yaml --assert-expected --junit-out policy-matrix.xml
+
+# Write compact JSON summary artifact for CI uploads or annotations
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.yaml --assert-expected --summary-out policy-matrix-summary.json
+
+# Compare baseline and candidate policy files with one matrix run
+relicta policy test --matrix examples/policies/policy-matrix.yaml --baseline-file examples/policies/starter.policy --candidate-file examples/policies/enterprise.policy --json
+
+# Compare-mode JSON includes `baseline_output`, `candidate_output`, and `comparison` deltas
+
+# Enforce compare regression thresholds in CI
+relicta policy test --matrix examples/policies/policy-matrix.yaml --baseline-file examples/policies/starter.policy --candidate-file examples/policies/enterprise.policy --compare-max-stricter 2 --compare-max-looser 0
+
+# Canonical dotted-field policy example (uses risk.score, actor.kind, change.bump_kind in rules)
+relicta policy test --file examples/policies/agent-aware.policy --risk-score 0.92 --bump-type major --actor-type agent --json
+
+# Fail CI if any matrix case is blocked
+relicta policy test --file .relicta/policies/starter.policy --matrix examples/policies/policy-matrix.yaml --fail-on-blocked
+
+# Stream matrix from stdin (JSON or YAML auto-detected)
+cat examples/policies/policy-matrix.yaml | relicta policy test --file .relicta/policies/starter.policy --matrix -
+```
+
+## Scaffold Iteration Loop
+
+Use scaffolding to keep policy contract tests in sync with rule changes:
+
+1. Bootstrap fixtures:
+```bash
+relicta policy scaffold --file .relicta/policies/starter.policy --input-out policy-input.json --matrix-out policy-matrix.yaml
+```
+2. Evaluate and inspect:
+```bash
+relicta policy test --matrix policy-matrix.yaml --json
+```
+3. Gate expected behavior:
+```bash
+relicta policy test --matrix policy-matrix.yaml --assert-expected
+```
+4. After policy edits, regenerate with `--force` and update expectations intentionally.
+
+## Explainability Output
+
+Use `--explain` to include `rule_trace` in JSON output for each decision:
+
+- `rule_trace[].rule_id`, `rule_name`, `priority`, `matched`
+- `rule_trace[].conditions[]` with `field`, `operator`, `expected`, `actual`, `matched`
+- Optional condition diagnostics: `missing_field`, `error`
+
+`--explain-mode all` includes all evaluated rules.  
+`--explain-mode matched` includes only matched rules.
+
+For CI, a practical flow is:
+
+1. Run matrix gating without trace for speed.
+2. Re-run failed subset with `--explain --explain-mode matched --json`.
+3. Upload the JSON output as an artifact for review.
+
+## CI Integration Example
+
+Use both artifact outputs in CI:
+
+```bash
+go run ./cmd/relicta policy test \
+  --file examples/policies/starter.policy \
+  --matrix examples/policies/policy-matrix.yaml \
+  --assert-expected \
+  --junit-out policy-matrix.xml \
+  --summary-out policy-matrix-summary.json \
+  --json
 ```
