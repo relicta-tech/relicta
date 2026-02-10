@@ -349,9 +349,14 @@ func (m *Manager) isPathInAllowedDir(resolvedPath string) bool {
 			continue
 		}
 
+		allowedPath := absAllowed
+		if resolvedAllowed, err := filepath.EvalSymlinks(absAllowed); err == nil {
+			allowedPath = resolvedAllowed
+		}
+
 		// Use filepath.Rel for robust relative path check
 		// This properly handles edge cases like /usr/local/lib/relicta/plugins2
-		rel, err := filepath.Rel(absAllowed, resolvedPath)
+		rel, err := filepath.Rel(allowedPath, resolvedPath)
 		if err != nil {
 			continue
 		}
