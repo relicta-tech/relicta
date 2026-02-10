@@ -23,11 +23,12 @@ BIN_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd/relicta
 
-.PHONY: all build install clean clean-dist test test-race test-coverage coverage coverage-integration lint fmt fmt-check vet \
+.PHONY: all build install clean clean-dist test test-race test-coverage test-compile coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
-        check-binary-size help release-local release-snapshot check install-hooks \
+        check-binary-size help release-local release-snapshot check check-ci install-hooks \
         frontend frontend-deps build-with-frontend clean-frontend \
+        test-policy-gate skill-preflight \
         mcp-apps mcp-apps-deps clean-mcp-apps
 
 # Default target
@@ -131,6 +132,11 @@ test-race:
 	@echo "Running tests with race detection..."
 	$(GOTEST) -race -v ./internal/... ./pkg/...
 
+# Compile tests without running them (fast, deterministic, non-mutating)
+test-compile:
+	@echo "Compiling tests..."
+	$(GOTEST) -run '^$$' ./internal/... ./pkg/...
+
 # Run tests with coverage (simple)
 test-coverage:
 	@echo "Running tests with coverage..."
@@ -153,6 +159,24 @@ coverage-integration:
 test-integration:
 	@echo "Running integration tests..."
 	$(GOTEST) -v -tags=integration ./test/integration/...
+
+# Run policy matrix gate checks (same assertions as CI policy-gate job)
+test-policy-gate:
+	@echo "Running policy matrix gate checks..."
+	$(GOCMD) run ./cmd/relicta policy validate --file examples/policies/starter.policy
+	$(GOCMD) run ./cmd/relicta policy test \
+		--file examples/policies/starter.policy \
+		--matrix examples/policies/policy-matrix.yaml \
+		--assert-expected \
+		--json >/dev/null
+	@echo "✓ Policy matrix gate checks passed"
+
+# Run skill-focused preflight checks
+skill-preflight: test-policy-gate
+	@echo "Validating skill package files..."
+	@test -f skills/relicta-release-governance/SKILL.md
+	@test -f skills/relicta-release-governance/agents/openai.yaml
+	@echo "✓ Skill package files present"
 
 # Run end-to-end tests
 test-e2e:
@@ -399,6 +423,8 @@ help:
 	@echo "  make coverage          Run coverage with policy enforcement (coverctl)"
 	@echo "  make coverage-integration  Run coverage including integration tests"
 	@echo "  make test-integration  Run integration tests"
+	@echo "  make test-policy-gate  Run policy simulation gate checks"
+	@echo "  make skill-preflight   Validate skill package + policy gates"
 	@echo "  make test-e2e          Run end-to-end tests"
 	@echo "  make bench             Run all benchmarks"
 	@echo "  make bench-save        Run benchmarks and save results"
@@ -427,15 +453,21 @@ help:
 	@echo "  make version        Show version info"
 	@echo ""
 	@echo "Pre-commit:"
-	@echo "  make check          Run all pre-commit checks (fmt, lint, vet, test)"
+	@echo "  make check          Run fast pre-commit checks (fmt, lint, vet, test compile)"
+	@echo "  make check-ci       Run full CI checks (fmt, lint, vet, full test suite)"
 	@echo "  make install-hooks  Install git pre-commit hook"
 
 ## Pre-commit targets
 
-# Run all pre-commit checks (mirrors CI workflow)
-check: fmt-check vet lint test
+# Run fast pre-commit checks (non-mutating)
+check: fmt-check vet lint test-compile
 	@echo ""
 	@echo "✓ All pre-commit checks passed!"
+
+# Run full CI-equivalent checks
+check-ci: fmt-check vet lint test
+	@echo ""
+	@echo "✓ All CI checks passed!"
 
 # Install git pre-commit hook
 install-hooks:
@@ -457,5 +489,6 @@ install-hooks:
 	@chmod +x .git/hooks/pre-commit
 	@echo "✓ Pre-commit hook installed successfully!"
 	@echo ""
-	@echo "The hook will run: make check (fmt-check, vet, lint, test)"
+	@echo "The hook will run: make check (fmt-check, vet, lint, test-compile)"
+	@echo "Run full local validation with: make check-ci"
 	@echo "To skip the hook temporarily: git commit --no-verify"
