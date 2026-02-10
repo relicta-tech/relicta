@@ -23,7 +23,7 @@ As AI agents and CI systems generate more code, deciding what should ship become
 - **Approval Workflow**: Review and approve releases before publishing with full audit trails
 - **Agent Integration**: MCP server enables AI agents (Claude, GPT) to manage releases with human oversight
 
-See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, or the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition.
+See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
 
 ### Release Automation
 - **Automatic Version Calculation**: Semantic version bumps from conventional commits
@@ -443,12 +443,18 @@ This installs a git hook that runs before each commit:
 - **Format check** - Verifies code formatting
 - **Vet** - Runs Go static analysis
 - **Lint** - Runs golangci-lint
-- **Test** - Runs unit tests
+- **Test compile** - Compiles unit tests without executing them
 
-To manually run all checks:
+To manually run fast pre-commit checks:
 
 ```bash
 make check
+```
+
+To run full CI-equivalent checks locally:
+
+```bash
+make check-ci
 ```
 
 To skip the hook temporarily (use sparingly):
