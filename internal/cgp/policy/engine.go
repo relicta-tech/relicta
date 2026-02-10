@@ -47,6 +47,29 @@ type Result struct {
 
 	// BlockReason explains why the change was blocked.
 	BlockReason string
+
+	// RuleTrace captures per-rule and per-condition evaluation details.
+	RuleTrace []RuleTrace
+}
+
+// RuleTrace captures the evaluation result for a single rule.
+type RuleTrace struct {
+	RuleID     string           `json:"rule_id"`
+	RuleName   string           `json:"rule_name"`
+	Priority   int              `json:"priority"`
+	Matched    bool             `json:"matched"`
+	Conditions []ConditionTrace `json:"conditions,omitempty"`
+}
+
+// ConditionTrace captures the evaluation result for a single condition.
+type ConditionTrace struct {
+	Field        string `json:"field"`
+	Operator     string `json:"operator"`
+	Expected     any    `json:"expected,omitempty"`
+	Actual       any    `json:"actual,omitempty"`
+	Matched      bool   `json:"matched"`
+	MissingField bool   `json:"missing_field,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // ruleWithPolicy pairs a rule with its parent policy.
@@ -140,6 +163,7 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 		Rationale:         []string{},
 		RequiredApprovers: 0,
 		Reviewers:         []string{},
+		RuleTrace:         []RuleTrace{},
 	}
 
 	// If no policies, use defaults
@@ -176,7 +200,8 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 
 	// Evaluate each rule
 	for _, rp := range allRules {
-		matched, err := e.evaluateRule(ctx, rp.rule, evalCtx)
+		matched, trace, err := e.evaluateRuleWithTrace(ctx, rp.rule, evalCtx)
+		result.RuleTrace = append(result.RuleTrace, trace)
 		if err != nil {
 			e.logger.Warn("rule evaluation failed",
 				"rule", rp.rule.ID,
@@ -221,18 +246,47 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 	return result, nil
 }
 
-// evaluateRule checks if all conditions match.
-func (e *Engine) evaluateRule(ctx context.Context, rule Rule, evalCtx map[string]any) (bool, error) {
+func (e *Engine) evaluateRuleWithTrace(ctx context.Context, rule Rule, evalCtx map[string]any) (bool, RuleTrace, error) {
+	trace := RuleTrace{
+		RuleID:     rule.ID,
+		RuleName:   rule.Name,
+		Priority:   rule.Priority,
+		Conditions: make([]ConditionTrace, 0, len(rule.Conditions)),
+	}
+
 	for _, cond := range rule.Conditions {
+		conditionTrace := ConditionTrace{
+			Field:    cond.Field,
+			Operator: cond.Operator,
+			Expected: cond.Value,
+		}
+		fieldValue, ok := getNestedValue(evalCtx, cond.Field)
+		if !ok {
+			conditionTrace.Matched = false
+			conditionTrace.MissingField = true
+			trace.Conditions = append(trace.Conditions, conditionTrace)
+			trace.Matched = false
+			return false, trace, nil
+		}
+
+		conditionTrace.Actual = fieldValue
 		matched, err := e.evaluateCondition(cond, evalCtx)
 		if err != nil {
-			return false, err
+			conditionTrace.Error = err.Error()
+			conditionTrace.Matched = false
+			trace.Conditions = append(trace.Conditions, conditionTrace)
+			trace.Matched = false
+			return false, trace, err
 		}
+		conditionTrace.Matched = matched
+		trace.Conditions = append(trace.Conditions, conditionTrace)
 		if !matched {
-			return false, nil
+			trace.Matched = false
+			return false, trace, nil
 		}
 	}
-	return true, nil
+	trace.Matched = true
+	return true, trace, nil
 }
 
 // evaluateCondition checks a single condition.
@@ -265,12 +319,7 @@ func (e *Engine) applyActions(result *Result, actions []Action, teamCtx *TeamCon
 
 		case ActionRequireApproval:
 			result.Decision = cgp.DecisionApprovalRequired
-			if count, ok := action.Params["count"].(int); ok {
-				if count > result.RequiredApprovers {
-					result.RequiredApprovers = count
-				}
-			} else if countFloat, ok := action.Params["count"].(float64); ok {
-				count := int(countFloat)
+			if count, ok := intFromValue(action.Params["count"]); ok {
 				if count > result.RequiredApprovers {
 					result.RequiredApprovers = count
 				}
@@ -319,9 +368,9 @@ func (e *Engine) applyActions(result *Result, actions []Action, teamCtx *TeamCon
 					result.Reviewers = append(result.Reviewers, members...)
 				}
 				// Set minimum approvers from team
-				if count, ok := action.Params["count"].(float64); ok {
-					if int(count) > result.RequiredApprovers {
-						result.RequiredApprovers = int(count)
+				if count, ok := intFromValue(action.Params["count"]); ok {
+					if count > result.RequiredApprovers {
+						result.RequiredApprovers = count
 					}
 				} else {
 					// Default to 1 team member
@@ -350,9 +399,9 @@ func (e *Engine) applyActions(result *Result, actions []Action, teamCtx *TeamCon
 					}
 				}
 				// Set minimum approvers
-				if count, ok := action.Params["count"].(float64); ok {
-					if int(count) > result.RequiredApprovers {
-						result.RequiredApprovers = int(count)
+				if count, ok := intFromValue(action.Params["count"]); ok {
+					if count > result.RequiredApprovers {
+						result.RequiredApprovers = count
 					}
 				} else {
 					if result.RequiredApprovers < 1 {
@@ -385,17 +434,52 @@ func (e *Engine) applyActions(result *Result, actions []Action, teamCtx *TeamCon
 	}
 }
 
+func intFromValue(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int8:
+		return int(n), true
+	case int16:
+		return int(n), true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case uint:
+		return int(n), true
+	case uint8:
+		return int(n), true
+	case uint16:
+		return int(n), true
+	case uint32:
+		return int(n), true
+	case uint64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	case float64:
+		return int(n), true
+	default:
+		return 0, false
+	}
+}
+
 // buildEvalContext creates the context for rule evaluation.
 func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis, riskScore float64, timeCtx *TimeContext, teamCtx *TeamContext, actorID string) map[string]any {
 	ctx := map[string]any{
 		"risk": map[string]any{
 			"score": riskScore,
 		},
+		// Legacy/DSL-friendly aliases used in docs and policy examples.
+		"risk_score": riskScore,
 	}
 
 	// Add time context if available
 	if timeCtx != nil {
 		ctx["time"] = timeCtx.ToEvalContext()
+		ctx["hour"] = timeCtx.Hour()
+		ctx["day_of_week"] = timeCtx.WeekdayNum()
 	}
 
 	// Add team context if available
@@ -419,18 +503,23 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 			actorCtx["isTeamLead"] = teamCtx.isAnyTeamLead(actorID)
 		}
 		ctx["actor"] = actorCtx
+		ctx["actor_type"] = string(proposal.Actor.Kind)
+		ctx["actor_id"] = proposal.Actor.ID
 		ctx["intent"] = map[string]any{
 			"summary":       proposal.Intent.Summary,
 			"suggestedBump": string(proposal.Intent.SuggestedBump),
 			"confidence":    proposal.Intent.Confidence,
 			"hasBreaking":   proposal.Intent.HasBreakingChanges(),
 		}
+		ctx["bump_type"] = string(proposal.Intent.SuggestedBump)
+		ctx["has_breaking_changes"] = proposal.Intent.HasBreakingChanges()
 		ctx["scope"] = map[string]any{
 			"repository":  proposal.Scope.Repository,
 			"branch":      proposal.Scope.Branch,
 			"commitRange": proposal.Scope.CommitRange,
 			"fileCount":   len(proposal.Scope.Files),
 		}
+		ctx["commit_count"] = len(proposal.Scope.Commits)
 	}
 
 	// Analysis context
@@ -451,6 +540,8 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 				"filesChanged": analysis.BlastRadius.FilesChanged,
 				"linesChanged": analysis.BlastRadius.LinesChanged,
 			}
+			ctx["files_changed"] = analysis.BlastRadius.FilesChanged
+			ctx["lines_changed"] = analysis.BlastRadius.LinesChanged
 		}
 	}
 

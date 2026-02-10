@@ -1,71 +1,232 @@
 {
   "project_id": "new-project",
+  "version": 75,
   "task_states": {
     "task-app-data-bridge": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-app-resource-registration": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-approval-checklist": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
+    "task-artifact-docs-and-ci": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Documented CI artifact workflow for --junit-out and --summary-out in governance/examples docs"
+      ]
+    },
     "task-classification-summary": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-commit-table": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
+    },
+    "task-compare-fail-threshold": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added compare threshold gates (--compare-fail-on-stricter/looser, --compare-max-stricter/looser) with strictness direction logic; tests and docs updated"
+      ]
+    },
+    "task-decision-trace-output": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Implemented --explain rule/condition trace in policy engine + CLI; validated with go test ./... and make test-policy-gate"
+      ]
+    },
+    "task-deterministic-sharding": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added deterministic --shard-index/--shard-total matrix sharding; added CLI tests and docs"
+      ]
+    },
+    "task-dual-policy-input": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added matrix compare mode with --baseline-* and --candidate-* flags; emits baseline_output/candidate_output; added CLI tests and docs"
+      ]
     },
     "task-embed-built-assets": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
+    },
+    "task-explainability-docs": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Updated docs/governance.md and examples/policies/README.md with explainability output contract and CI workflow; validated with go test ./internal/cli and make test-policy-gate"
+      ]
     },
     "task-factor-breakdown": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
+    },
+    "task-fixture-scaffold-command": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added relicta policy scaffold command with --input-out/--matrix-out/--force and fixture file generation"
+      ]
     },
     "task-impact-graph": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
+    "task-junit-export": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added --junit-out matrix report export; includes blocked/assertion mismatch failures; added CLI tests and docs"
+      ]
+    },
+    "task-matrix-tagging-and-sharding": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Implemented scenario tags, include/exclude tag filters, deterministic sharding, and list-scenarios shard visibility with tests"
+      ]
+    },
     "task-notes-preview": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-pipeline-action-triggers": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-pipeline-state-view": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
+    "task-policy-aware-scenario-seeds": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Scaffold now seeds low/high risk scenarios and per-rule candidate scenarios from detected policy conditions"
+      ]
+    },
+    "task-policy-decision-explainability": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Completed explainability implementation and docs: rule trace output, explain mode controls, documentation updates, and passing tests"
+      ]
+    },
+    "task-policy-fixture-scaffolding": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Completed fixture scaffolding feature with command, seeded scenarios, guidance, and passing tests"
+      ]
+    },
+    "task-policy-test-ci-artifacts": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Implemented --junit-out and --summary-out exporters and documented CI artifact workflows"
+      ]
+    },
     "task-risk-gauge-display": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
     },
     "task-risk-per-package": {
-      "status": "done",
+      "status": "verified",
       "path": "",
       "owner": "felixgeelhaar"
+    },
+    "task-scaffold-guidance": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Documented scaffold workflow and iteration loop in docs/governance.md and examples/policies/README.md"
+      ]
+    },
+    "task-scenario-diff-output": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added per-scenario compare  deltas (decision/blocked/required_approvers) in compare mode; tests and docs updated"
+      ]
+    },
+    "task-scenario-tag-support": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added --scenario-tag/--exclude-scenario-tag filters with matrix tags support; added CLI tests and docs"
+      ]
+    },
+    "task-shard-selection-visibility": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Made --list-scenarios respect selectors/sharding and emit shard metadata; added CLI tests"
+      ]
+    },
+    "task-summary-file-output": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added --summary-out compact matrix JSON report export; writes on failing assertions; added CLI tests and docs"
+      ]
+    },
+    "task-trace-verbosity-controls": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Added --explain-mode (all|matched) with validation and filtering; added CLI tests; validated with internal/cli + policy tests + policy gate"
+      ]
+    },
+    "task-what-if-policy-comparison": {
+      "status": "verified",
+      "path": "",
+      "owner": "felixgeelhaar",
+      "evidence": [
+        "Implemented baseline/candidate matrix compare output and compare fail thresholds with strictness direction"
+      ]
     }
   },
-  "updated_at": "2026-01-29T18:20:24.274312+01:00"
+  "updated_at": "2026-02-09T23:38:49.877344+01:00"
 }

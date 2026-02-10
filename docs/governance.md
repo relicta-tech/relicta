@@ -24,8 +24,7 @@ Add to your `.relicta.yaml`:
 ```yaml
 governance:
   enabled: true
-  policy_paths:
-    - .relicta/policies
+  policy_dir: .relicta/policies
   memory_enabled: true
 ```
 
@@ -215,7 +214,168 @@ relicta policy validate --dir .relicta/policies
 
 # List all loaded policies
 relicta policy list
+
+# Scaffold starter fixtures from existing policy rules
+relicta policy scaffold --file .relicta/policies/security.policy --input-out policy-input.json --matrix-out policy-matrix.yaml
+
+# Test policy behavior with simulated input
+relicta policy test --risk-score 0.85 --bump-type major --actor-type agent
+
+# Test multiple scenarios from one matrix file (JSON or YAML)
+relicta policy test --matrix policy-matrix.yaml --json
+
+# Test one scenario from input file (JSON or YAML)
+relicta policy test --input policy-input.json --json
+
+# Use in CI: fail if any scenario is blocked
+relicta policy test --matrix policy-matrix.json --fail-on-blocked
+
+# Strict CI gate: require all scenarios to be approved
+relicta policy test --matrix policy-matrix.json --require-approved
+
+# Contract test gate: assert each scenario's expected decision/block/block_reason/reviewers/required_approvers/required_actions/rationale/conditions/matched_rules
+relicta policy test --matrix policy-matrix.json --assert-expected
+
+# Include per-scenario assertion diffs in JSON output on failure
+relicta policy test --matrix policy-matrix.json --assert-expected --json
+
+# Include aggregate matrix summary (JSON: {"results":[...],"summary":{...}})
+relicta policy test --matrix policy-matrix.json --summary --json
+
+# Include per-rule and per-condition trace in output
+relicta policy test --risk-score 0.85 --bump-type major --explain --json
+
+# Trace verbosity: include only matched rules in trace output
+relicta policy test --risk-score 0.85 --bump-type major --explain --explain-mode matched --json
+
+# Run only selected scenarios from a matrix (repeat flag to select multiple)
+relicta policy test --matrix policy-matrix.json --scenario high-risk-major --scenario medium-risk-minor --json
+
+# Run scenario subsets by glob pattern
+relicta policy test --matrix policy-matrix.json --scenario-pattern "high-*" --json
+
+# Run scenarios by tag (repeat flag to include multiple tags)
+relicta policy test --matrix policy-matrix.json --scenario-tag critical --scenario-tag smoke --json
+
+# Exclude specific scenarios or patterns
+relicta policy test --matrix policy-matrix.json --exclude-scenario flaky-case --exclude-scenario-pattern "experimental-*" --json
+
+# Exclude scenarios by tag
+relicta policy test --matrix policy-matrix.json --exclude-scenario-tag flaky --json
+
+# Deterministic matrix sharding for CI parallel jobs
+relicta policy test --matrix policy-matrix.json --shard-index 1 --shard-total 4 --json
+
+# Export matrix results as JUnit XML for CI test reports
+relicta policy test --matrix policy-matrix.json --assert-expected --junit-out policy-matrix.xml
+
+# Write compact JSON summary artifact for CI step summaries
+relicta policy test --matrix policy-matrix.json --assert-expected --summary-out policy-matrix-summary.json
+
+# Compare baseline vs candidate policy sets on the same matrix
+relicta policy test --matrix policy-matrix.json --baseline-file policy-current.policy --candidate-file policy-next.policy --json
+
+# Compare output includes per-scenario `comparison` with changed fields (decision, blocked, required_approvers)
+
+# Fail if candidate is stricter in any scenario
+relicta policy test --matrix policy-matrix.json --baseline-file policy-current.policy --candidate-file policy-next.policy --compare-fail-on-stricter
+
+# Fail if stricter/looser scenario counts exceed thresholds
+relicta policy test --matrix policy-matrix.json --baseline-file policy-current.policy --candidate-file policy-next.policy --compare-max-stricter 3 --compare-max-looser 0
+
+# List available matrix scenario names
+relicta policy test --matrix policy-matrix.json --list-scenarios --json
+
+# List selected scenarios for a CI shard
+relicta policy test --matrix policy-matrix.json --scenario-tag critical --shard-index 1 --shard-total 4 --list-scenarios --json
+
+# Read scenario matrix from stdin ("-" accepts JSON or YAML)
+cat policy-matrix.yaml | relicta policy test --matrix - --json
 ```
+
+### Scaffold Workflow
+
+Use `relicta policy scaffold` to bootstrap contract tests quickly:
+
+1. Generate fixtures from current rules:
+```bash
+relicta policy scaffold --dir .relicta/policies --input-out policy-input.json --matrix-out policy-matrix.yaml
+```
+2. Review generated scenarios (`low-risk-seed`, `high-risk-seed`, and `rule-*`).
+3. Run matrix and inspect outcomes:
+```bash
+relicta policy test --matrix policy-matrix.yaml --json
+```
+4. Lock in behavior in CI:
+```bash
+relicta policy test --matrix policy-matrix.yaml --assert-expected
+```
+5. Re-run scaffold with `--force` when rules change, then reconcile updated expectations.
+
+### Explainability Output Contract
+
+When `--explain` is enabled, each decision output includes `rule_trace`:
+
+- `rule_trace[].rule_id`: stable rule identifier from policy.
+- `rule_trace[].rule_name`: human-readable rule name.
+- `rule_trace[].priority`: evaluated priority (higher runs first).
+- `rule_trace[].matched`: whether the rule matched.
+- `rule_trace[].conditions[]`: per-condition trace details:
+- `field`, `operator`, `expected`, `actual`, `matched`, and optional `missing_field` / `error`.
+
+`--explain-mode all` keeps traces for every evaluated rule.  
+`--explain-mode matched` keeps only matched rules in `rule_trace`.
+
+Example JSON fragment:
+
+```json
+{
+  "decision": "approval_required",
+  "matched_rules": ["high-risk-major"],
+  "rule_trace": [
+    {
+      "rule_id": "high-risk-major",
+      "rule_name": "High risk major changes",
+      "priority": 90,
+      "matched": true,
+      "conditions": [
+        {"field": "risk.score", "operator": "gte", "expected": 0.8, "actual": 0.85, "matched": true},
+        {"field": "change.bump_kind", "operator": "eq", "expected": "major", "actual": "major", "matched": true}
+      ]
+    }
+  ]
+}
+```
+
+CI guidance:
+
+- Keep default runs lean (`--json` only) for fast checks.
+- Enable `--explain --explain-mode matched` on failing shards to capture compact diagnostics.
+- Persist explain output as an artifact for approvals/audits when policy behavior changes.
+
+### CI Artifact Example (GitHub Actions)
+
+```yaml
+- name: Run policy matrix with artifacts
+  run: |
+    go run ./cmd/relicta policy test \
+      --file examples/policies/starter.policy \
+      --matrix examples/policies/policy-matrix.yaml \
+      --assert-expected \
+      --junit-out policy-matrix.xml \
+      --summary-out policy-matrix-summary.json \
+      --json
+
+- name: Upload policy artifacts
+  uses: actions/upload-artifact@v4
+  with:
+    name: policy-matrix-artifacts
+    path: |
+      policy-matrix.xml
+      policy-matrix-summary.json
+```
+
+Use canonical dotted fields in policy rules (`risk.score`, `actor.kind`, `change.bump_kind`) for new files. Legacy aliases like `risk_score`, `actor_type`, and `bump_type` are still supported for compatibility.
 
 ## Risk Scoring
 
@@ -240,19 +400,21 @@ Relicta calculates a risk score (0.0 - 1.0) based on multiple factors:
 | 0.6 - 0.8 | High | Extra scrutiny |
 | 0.8 - 1.0 | Critical | Block or escalate |
 
-### Customize Weights
+### Risk Tuning
 
 ```yaml
 governance:
-  risk:
-    weights:
-      api_changes: 0.30
-      blast_radius: 0.20
-      dependency_impact: 0.15
-      security_impact: 0.15
-      historical_risk: 0.10
-      actor_trust: 0.05
-      test_coverage: 0.05
+  # Auto-approve very low risk changes
+  auto_approve_threshold: 0.30
+  # Never auto-approve above this score
+  max_auto_approve_risk: 0.50
+  # Always require humans for high-impact areas
+  require_human_for_breaking: true
+  require_human_for_security: true
+  # Optional trust list for low-risk automation
+  trusted_actors:
+    - github-actions
+    - ci-release-bot
 ```
 
 ## Release History
@@ -474,35 +636,19 @@ Complete governance configuration:
 governance:
   enabled: true
 
-  # Policy paths
-  policy_paths:
-    - .relicta/policies
-    - .github/relicta/policies
+  # Policy directory (contains .policy files)
+  policy_dir: .relicta/policies
 
   # Memory/history
   memory_enabled: true
-  memory_path: .relicta/memory
-
-  # Risk weights
-  risk:
-    weights:
-      api_changes: 0.25
-      blast_radius: 0.20
-      dependency_impact: 0.15
-      security_impact: 0.15
-      historical_risk: 0.10
-      actor_trust: 0.10
-      test_coverage: 0.05
+  memory_path: .relicta/governance/memory.json
 
   # Auto-approval
   auto_approve_threshold: 0.3
-  require_human_for_major: true
-
-  # Audit
-  audit:
-    enabled: true
-    retention_days: 365
-    store_path: .relicta/audit
+  max_auto_approve_risk: 0.5
+  require_human_for_breaking: true
+  require_human_for_security: true
+  trusted_actors: []
 
 # Webhooks
 webhooks:
@@ -521,6 +667,6 @@ webhooks:
 
 4. **Secure Webhooks**: Always use `secret` for webhook authentication.
 
-5. **Regular Audits**: Periodically run `relicta audit verify` to ensure audit trail integrity.
+5. **Review History Regularly**: Use `relicta history` to validate governance outcomes over time.
 
 6. **Agent Boundaries**: Set clear policies for what AI agents can release autonomously.
