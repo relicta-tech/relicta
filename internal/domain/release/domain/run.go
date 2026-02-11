@@ -308,13 +308,14 @@ type ReleaseNotes struct {
 type StepType string
 
 const (
-	StepTypeTag       StepType = "tag"
-	StepTypeBuild     StepType = "build"
-	StepTypeArtifact  StepType = "artifact"
-	StepTypeNotify    StepType = "notify"
-	StepTypeFinalize  StepType = "finalize"
-	StepTypePlugin    StepType = "plugin"
-	StepTypeChangelog StepType = "changelog"
+	StepTypeTag         StepType = "tag"
+	StepTypeBuild       StepType = "build"
+	StepTypeArtifact    StepType = "artifact"
+	StepTypeNotify      StepType = "notify"
+	StepTypeFinalize    StepType = "finalize"
+	StepTypePlugin      StepType = "plugin"
+	StepTypeChangelog   StepType = "changelog"
+	StepTypeAttestation StepType = "attestation"
 )
 
 // StepPlan describes a single step in the publishing execution plan.

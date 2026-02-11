@@ -5,9 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/relicta-tech/relicta/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/changes"
 	"github.com/relicta-tech/relicta/internal/domain/integration"
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
@@ -15,6 +20,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/internal/security/attestation"
 )
 
 // NotesGeneratorAdapter adapts the AI service to the ports.NotesGenerator interface.
@@ -226,10 +232,12 @@ func (a *NotesGeneratorAdapter) mapAudience(preset string) ai.Audience {
 
 // PublisherAdapter adapts the plugin executor to the ports.Publisher interface.
 type PublisherAdapter struct {
-	executor   integration.PluginExecutor
-	gitAdapter *git.Adapter
-	tagCreator ports.TagCreator
-	skipPush   bool // Skip pushing tags (useful for dry-run or local testing)
+	executor          integration.PluginExecutor
+	gitAdapter        *git.Adapter
+	tagCreator        ports.TagCreator
+	skipPush          bool // Skip pushing tags (useful for dry-run or local testing)
+	attestationConfig *config.AttestationConfig
+	auditChain        *audit.Chain
 }
 
 // PublisherAdapterOption configures the PublisherAdapter.
@@ -239,6 +247,20 @@ type PublisherAdapterOption func(*PublisherAdapter)
 func WithSkipPush(skip bool) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
 		a.skipPush = skip
+	}
+}
+
+// WithAttestationConfig configures attestation generation for the PublisherAdapter.
+func WithAttestationConfig(cfg *config.AttestationConfig) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.attestationConfig = cfg
+	}
+}
+
+// WithAuditChain provides an audit chain for attestation generation.
+func WithAuditChain(chain *audit.Chain) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.auditChain = chain
 	}
 }
 
@@ -260,6 +282,11 @@ func (a *PublisherAdapter) ExecuteStep(ctx context.Context, run *domain.ReleaseR
 	// Handle tag step specially - this is where tags are created during publish
 	if step.Type == domain.StepTypeTag {
 		return a.executeTagStep(ctx, run)
+	}
+
+	// Handle attestation step - generates signed governance attestation
+	if step.Type == domain.StepTypeAttestation {
+		return a.executeAttestationStep(ctx, run)
 	}
 
 	// For other steps, use the plugin executor
@@ -367,6 +394,93 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 	}, nil
 }
 
+// executeAttestationStep generates a signed governance attestation for the release.
+// This step is non-blocking: any failure is logged as a warning but does not prevent publishing.
+func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *domain.ReleaseRun) (*ports.StepResult, error) {
+	if a.attestationConfig == nil || !a.attestationConfig.Enabled {
+		return &ports.StepResult{
+			Success: true,
+			Output:  "Attestation generation skipped (not enabled)",
+		}, nil
+	}
+
+	// Build the attestation generator
+	repoID := run.RepoRoot()
+	gen := attestation.NewGenerator(repoID, a.auditChain)
+
+	// Generate the attestation statement
+	stmt, err := gen.Generate(ctx, run)
+	if err != nil {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Attestation generation failed (non-blocking): %v", err),
+		}, nil
+	}
+
+	// Parse signing mode and create signer
+	mode, err := attestation.ParseSigningMode(a.attestationConfig.SigningMode)
+	if err != nil {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Attestation signing mode invalid (non-blocking): %v", err),
+		}, nil
+	}
+
+	var signerOpts []attestation.SignerOption
+	if a.attestationConfig.KeyPath != "" {
+		signerOpts = append(signerOpts, attestation.WithKeyPath(a.attestationConfig.KeyPath))
+	}
+
+	signer := attestation.NewSigner(mode, signerOpts...)
+
+	// Sign the attestation
+	signed, err := signer.Sign(ctx, stmt)
+	if err != nil {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Attestation signing failed (non-blocking): %v", err),
+		}, nil
+	}
+
+	// Write the signed attestation to the release directory
+	outputPath, err := a.writeAttestation(run, signed)
+	if err != nil {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Attestation write failed (non-blocking): %v", err),
+		}, nil
+	}
+
+	return &ports.StepResult{
+		Success: true,
+		Output:  fmt.Sprintf("Governance attestation written to %s", outputPath),
+	}, nil
+}
+
+// writeAttestation writes the signed attestation to the release directory.
+func (a *PublisherAdapter) writeAttestation(run *domain.ReleaseRun, att *attestation.SignedAttestation) (string, error) {
+	dir := filepath.Join(run.RepoRoot(), ".relicta", "releases", string(run.ID()))
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create release directory: %w", err)
+	}
+
+	outputPath := filepath.Join(dir, "attestation.intoto.jsonl")
+
+	data, err := json.Marshal(att)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal attestation: %w", err)
+	}
+
+	// Append newline for JSONL format
+	data = append(data, '\n')
+
+	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
+		return "", fmt.Errorf("failed to write attestation file: %w", err)
+	}
+
+	return outputPath, nil
+}
+
 // CheckIdempotency checks if a step has already been executed.
 func (a *PublisherAdapter) CheckIdempotency(ctx context.Context, run *domain.ReleaseRun, step *domain.StepPlan) (bool, error) {
 	// Check specific step types for idempotency
@@ -386,6 +500,12 @@ func (a *PublisherAdapter) CheckIdempotency(ctx context.Context, run *domain.Rel
 			}
 			// Tag exists if we got a non-nil tag
 			return tag != nil, nil
+		}
+	case domain.StepTypeAttestation:
+		// Check if attestation file already exists
+		attPath := filepath.Join(run.RepoRoot(), ".relicta", "releases", string(run.ID()), "attestation.intoto.jsonl")
+		if _, err := os.Stat(attPath); err == nil {
+			return true, nil
 		}
 	}
 

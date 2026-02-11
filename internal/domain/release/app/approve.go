@@ -29,10 +29,11 @@ type ApproveReleaseOutput struct {
 
 // ApproveReleaseUseCase handles the approve release use case.
 type ApproveReleaseUseCase struct {
-	repo          ports.ReleaseRunRepository
-	repoInspector ports.RepoInspector
-	lockManager   ports.LockManager
-	stateMachine  *domain.StateMachineService
+	repo               ports.ReleaseRunRepository
+	repoInspector      ports.RepoInspector
+	lockManager        ports.LockManager
+	stateMachine       *domain.StateMachineService
+	attestationEnabled bool
 }
 
 // NewApproveReleaseUseCase creates a new ApproveReleaseUseCase.
@@ -89,6 +90,11 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 	// The tag step is the first step in publish, creating the version tag
 	uc.ensureTagStep(run)
 
+	// Add attestation step if enabled
+	if uc.attestationEnabled {
+		uc.ensureAttestationStep(run)
+	}
+
 	// Approve the release
 	if err := run.Approve(input.Actor.ID, input.AutoApprove); err != nil {
 		return nil, fmt.Errorf("failed to approve: %w", err)
@@ -119,6 +125,33 @@ func (uc *ApproveReleaseUseCase) loadRun(ctx context.Context, repoRoot string, r
 		return uc.repo.Load(ctx, runID)
 	}
 	return uc.repo.LoadLatest(ctx, repoRoot)
+}
+
+// SetAttestationEnabled sets whether attestation step generation is enabled.
+func (uc *ApproveReleaseUseCase) SetAttestationEnabled(enabled bool) {
+	uc.attestationEnabled = enabled
+}
+
+// ensureAttestationStep ensures the execution plan includes an attestation step.
+// The attestation step generates a signed governance attestation after publishing.
+func (uc *ApproveReleaseUseCase) ensureAttestationStep(run *domain.ReleaseRun) {
+	steps := run.Steps()
+
+	// Check if attestation step already exists
+	for _, step := range steps {
+		if step.Type == domain.StepTypeAttestation {
+			return // Already has attestation step
+		}
+	}
+
+	// Append attestation step at end (after tag, plugins)
+	attestStep := domain.StepPlan{
+		Name: "generate-attestation",
+		Type: domain.StepTypeAttestation,
+	}
+
+	steps = append(steps, attestStep)
+	run.SetExecutionPlan(steps)
 }
 
 // ensureTagStep ensures the execution plan includes a tag step.

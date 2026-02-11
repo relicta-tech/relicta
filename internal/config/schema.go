@@ -31,6 +31,8 @@ type Config struct {
 	Monorepo MonorepoConfig `mapstructure:"monorepo" json:"monorepo,omitempty"`
 	// Dashboard configures the self-hosted web dashboard.
 	Dashboard DashboardConfig `mapstructure:"dashboard" json:"dashboard,omitempty"`
+	// Attestation configures SLSA governance attestation generation and signing.
+	Attestation AttestationConfig `mapstructure:"attestation" json:"attestation,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -509,6 +511,10 @@ func DefaultConfig() *Config {
 				SessionMaxAge: 24 * time.Hour,
 			},
 		},
+		Attestation: AttestationConfig{
+			Enabled:     false,  // Disabled by default, opt-in
+			SigningMode: "none", // Unsigned by default for safety
+		},
 	}
 }
 
@@ -963,6 +969,20 @@ const (
 	// DashboardRoleApprover can approve/reject releases in addition to viewer access.
 	DashboardRoleApprover DashboardRole = "approver"
 )
+
+// AttestationConfig configures SLSA governance attestation generation and signing.
+type AttestationConfig struct {
+	// Enabled indicates whether attestation generation is enabled.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// SigningMode determines how attestations are signed (keyless, local, none).
+	SigningMode string `mapstructure:"signing_mode" json:"signing_mode"`
+	// KeyPath is the path to the private key file (for local signing mode).
+	KeyPath string `mapstructure:"key_path" json:"key_path,omitempty"`
+	// RekorURL is the Rekor transparency log URL (for keyless mode).
+	RekorURL string `mapstructure:"rekor_url" json:"rekor_url,omitempty"`
+	// FulcioURL is the Fulcio CA URL (for keyless mode).
+	FulcioURL string `mapstructure:"fulcio_url" json:"fulcio_url,omitempty"`
+}
 
 // ConfigFileNames to search for.
 // Only .relicta.{yaml,yml,json,toml} is supported for consistency
