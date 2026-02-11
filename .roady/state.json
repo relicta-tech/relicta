@@ -1,232 +1,111 @@
 {
-  "project_id": "new-project",
-  "version": 75,
+  "project_id": "relicta-phase-2a",
+  "version": 77,
   "task_states": {
-    "task-app-data-bridge": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-jwt-token-service": {
+      "status": "pending",
+      "path": ""
     },
-    "task-app-resource-registration": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-session-auth-middleware": {
+      "status": "pending",
+      "path": ""
     },
-    "task-approval-checklist": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-login-logout-endpoints": {
+      "status": "pending",
+      "path": ""
     },
-    "task-artifact-docs-and-ci": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Documented CI artifact workflow for --junit-out and --summary-out in governance/examples docs"
-      ]
+    "task-session-auth-tests": {
+      "status": "pending",
+      "path": ""
     },
-    "task-classification-summary": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-oidc-provider-config": {
+      "status": "pending",
+      "path": ""
     },
-    "task-commit-table": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-oidc-auth-flow": {
+      "status": "pending",
+      "path": ""
     },
-    "task-compare-fail-threshold": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added compare threshold gates (--compare-fail-on-stricter/looser, --compare-max-stricter/looser) with strictness direction logic; tests and docs updated"
-      ]
+    "task-oidc-claim-role-mapping": {
+      "status": "pending",
+      "path": ""
     },
-    "task-decision-trace-output": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Implemented --explain rule/condition trace in policy engine + CLI; validated with go test ./... and make test-policy-gate"
-      ]
+    "task-oidc-tests-and-docs": {
+      "status": "pending",
+      "path": ""
     },
-    "task-deterministic-sharding": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added deterministic --shard-index/--shard-total matrix sharding; added CLI tests and docs"
-      ]
+    "task-persistence-port-interface": {
+      "status": "pending",
+      "path": ""
     },
-    "task-dual-policy-input": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added matrix compare mode with --baseline-* and --candidate-* flags; emits baseline_output/candidate_output; added CLI tests and docs"
-      ]
+    "task-postgres-adapter": {
+      "status": "pending",
+      "path": ""
     },
-    "task-embed-built-assets": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-schema-migrations": {
+      "status": "pending",
+      "path": ""
     },
-    "task-explainability-docs": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Updated docs/governance.md and examples/policies/README.md with explainability output contract and CI workflow; validated with go test ./internal/cli and make test-policy-gate"
-      ]
+    "task-persistence-config": {
+      "status": "pending",
+      "path": ""
     },
-    "task-factor-breakdown": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-persistence-tests": {
+      "status": "pending",
+      "path": ""
     },
-    "task-fixture-scaffold-command": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added relicta policy scaffold command with --input-out/--matrix-out/--force and fixture file generation"
-      ]
+    "task-analytics-event-capture": {
+      "status": "pending",
+      "path": ""
     },
-    "task-impact-graph": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-analytics-query-api": {
+      "status": "pending",
+      "path": ""
     },
-    "task-junit-export": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added --junit-out matrix report export; includes blocked/assertion mismatch failures; added CLI tests and docs"
-      ]
+    "task-analytics-aggregation": {
+      "status": "pending",
+      "path": ""
     },
-    "task-matrix-tagging-and-sharding": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Implemented scenario tags, include/exclude tag filters, deterministic sharding, and list-scenarios shard visibility with tests"
-      ]
+    "task-analytics-tests": {
+      "status": "pending",
+      "path": ""
     },
-    "task-notes-preview": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-api-versioning": {
+      "status": "pending",
+      "path": ""
     },
-    "task-pipeline-action-triggers": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-pagination-filtering": {
+      "status": "pending",
+      "path": ""
     },
-    "task-pipeline-state-view": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-openapi-spec": {
+      "status": "pending",
+      "path": ""
     },
-    "task-policy-aware-scenario-seeds": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Scaffold now seeds low/high risk scenarios and per-rule candidate scenarios from detected policy conditions"
-      ]
+    "task-structured-errors": {
+      "status": "pending",
+      "path": ""
     },
-    "task-policy-decision-explainability": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Completed explainability implementation and docs: rule trace output, explain mode controls, documentation updates, and passing tests"
-      ]
+    "task-api-tests": {
+      "status": "pending",
+      "path": ""
     },
-    "task-policy-fixture-scaffolding": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Completed fixture scaffolding feature with command, seeded scenarios, guidance, and passing tests"
-      ]
+    "task-webhook-delivery-queue": {
+      "status": "pending",
+      "path": ""
     },
-    "task-policy-test-ci-artifacts": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Implemented --junit-out and --summary-out exporters and documented CI artifact workflows"
-      ]
+    "task-webhook-retry-backoff": {
+      "status": "pending",
+      "path": ""
     },
-    "task-risk-gauge-display": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
+    "task-webhook-delivery-log": {
+      "status": "pending",
+      "path": ""
     },
-    "task-risk-per-package": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar"
-    },
-    "task-scaffold-guidance": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Documented scaffold workflow and iteration loop in docs/governance.md and examples/policies/README.md"
-      ]
-    },
-    "task-scenario-diff-output": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added per-scenario compare  deltas (decision/blocked/required_approvers) in compare mode; tests and docs updated"
-      ]
-    },
-    "task-scenario-tag-support": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added --scenario-tag/--exclude-scenario-tag filters with matrix tags support; added CLI tests and docs"
-      ]
-    },
-    "task-shard-selection-visibility": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Made --list-scenarios respect selectors/sharding and emit shard metadata; added CLI tests"
-      ]
-    },
-    "task-summary-file-output": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added --summary-out compact matrix JSON report export; writes on failing assertions; added CLI tests and docs"
-      ]
-    },
-    "task-trace-verbosity-controls": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Added --explain-mode (all|matched) with validation and filtering; added CLI tests; validated with internal/cli + policy tests + policy gate"
-      ]
-    },
-    "task-what-if-policy-comparison": {
-      "status": "verified",
-      "path": "",
-      "owner": "felixgeelhaar",
-      "evidence": [
-        "Implemented baseline/candidate matrix compare output and compare fail thresholds with strictness direction"
-      ]
+    "task-webhook-tests": {
+      "status": "pending",
+      "path": ""
     }
   },
-  "updated_at": "2026-02-09T23:38:49.877344+01:00"
+  "updated_at": "2026-02-11T19:25:00.000000+01:00"
 }
