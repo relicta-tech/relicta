@@ -16,7 +16,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.4
 	github.com/go-chi/cors v1.2.2
-	github.com/go-git/go-git/v5 v5.16.4
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-hclog v1.6.3
