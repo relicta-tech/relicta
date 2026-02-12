@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/security/token"
 )
 
 // contextKey is a custom type for context keys to avoid collisions.
@@ -47,7 +48,8 @@ func (u *AuthenticatedUser) CanApprove() bool {
 }
 
 // Auth returns authentication middleware based on the auth config.
-func Auth(cfg config.DashboardAuthConfig) func(http.Handler) http.Handler {
+// tokenSvc is required for session mode; it may be nil for other modes.
+func Auth(cfg config.DashboardAuthConfig, tokenSvc *token.Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch cfg.Mode {
@@ -71,13 +73,42 @@ func Auth(cfg config.DashboardAuthConfig) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r.WithContext(ctx))
 
 			case config.DashboardAuthSession:
-				// Session authentication - TODO: implement session validation
-				http.Error(w, "Session authentication not yet implemented", http.StatusNotImplemented)
+				user := validateSession(r, tokenSvc)
+				if user == nil {
+					http.Error(w, "Unauthorized: invalid or expired token", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserContextKey, user)
+				next.ServeHTTP(w, r.WithContext(ctx))
 
 			default:
 				http.Error(w, "Invalid authentication mode", http.StatusInternalServerError)
 			}
 		})
+	}
+}
+
+// validateSession validates a JWT Bearer token from the Authorization header.
+func validateSession(r *http.Request, tokenSvc *token.Service) *AuthenticatedUser {
+	if tokenSvc == nil {
+		return nil
+	}
+
+	auth := r.Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return nil
+	}
+
+	tokenStr := strings.TrimPrefix(auth, "Bearer ")
+
+	claims, err := tokenSvc.Validate(tokenStr)
+	if err != nil {
+		return nil
+	}
+
+	return &AuthenticatedUser{
+		Name:  claims.Name,
+		Roles: claims.Roles,
 	}
 }
 

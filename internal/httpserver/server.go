@@ -16,15 +16,17 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/httpserver/handlers"
 	httpws "github.com/relicta-tech/relicta/internal/httpserver/websocket"
+	"github.com/relicta-tech/relicta/internal/security/token"
 )
 
 // Server is the HTTP server for the dashboard.
 type Server struct {
-	config     config.DashboardConfig
-	router     chi.Router
-	httpServer *http.Server
-	wsHub      *httpws.Hub
-	frontend   fs.FS
+	config       config.DashboardConfig
+	router       chi.Router
+	httpServer   *http.Server
+	wsHub        *httpws.Hub
+	frontend     fs.FS
+	tokenService *token.Service
 }
 
 // ServerDeps contains dependencies for creating a new server.
@@ -42,9 +44,26 @@ func NewServer(deps ServerDeps) *Server {
 		frontend: deps.Frontend,
 	}
 
+	// Create token service for session authentication.
+	if deps.Config.Auth.Mode == config.DashboardAuthSession && deps.Config.Auth.SessionSecret != "" {
+		ttl := deps.Config.Auth.SessionMaxAge
+		if ttl == 0 {
+			ttl = 24 * time.Hour
+		}
+		svc, err := token.NewService(token.Config{
+			Secret:     []byte(deps.Config.Auth.SessionSecret),
+			RefreshTTL: ttl,
+		})
+		if err == nil {
+			s.tokenService = svc
+		}
+	}
+
 	// Set handler context for dependency injection
 	handlers.SetContext(&handlers.Context{
 		ReleaseServices: deps.ReleaseServices,
+		TokenService:    s.tokenService,
+		AuthConfig:      deps.Config.Auth,
 	})
 
 	s.router = s.setupRouter()

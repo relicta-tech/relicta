@@ -939,6 +939,8 @@ type DashboardAuthConfig struct {
 	Mode DashboardAuthMode `mapstructure:"mode" json:"mode"`
 	// APIKeys is a list of API keys for api_key mode.
 	APIKeys []DashboardAPIKeyConfig `mapstructure:"api_keys" json:"api_keys,omitempty"`
+	// Users is a list of users for session mode.
+	Users []DashboardUserConfig `mapstructure:"users" json:"users,omitempty"`
 	// SessionSecret is the secret for signing session tokens (required for session mode).
 	// Should be a random 32+ character string, can use environment variable expansion.
 	SessionSecret string `mapstructure:"session_secret" json:"session_secret,omitempty"`
@@ -954,6 +956,18 @@ type DashboardAPIKeyConfig struct {
 	// Name is a friendly name for this key (for audit logging).
 	Name string `mapstructure:"name" json:"name"`
 	// Roles is a list of roles this key grants (admin, viewer).
+	// Default: ["viewer"] if empty.
+	Roles []string `mapstructure:"roles" json:"roles,omitempty"`
+}
+
+// DashboardUserConfig configures a single user for session-based dashboard authentication.
+type DashboardUserConfig struct {
+	// Username is the login username.
+	Username string `mapstructure:"username" json:"username"`
+	// PasswordHash is the bcrypt-hashed password.
+	// Generate with: htpasswd -nbBC 10 "" 'password' | cut -d: -f2
+	PasswordHash string `mapstructure:"password_hash" json:"password_hash"`
+	// Roles is a list of roles this user has (admin, viewer, approver).
 	// Default: ["viewer"] if empty.
 	Roles []string `mapstructure:"roles" json:"roles,omitempty"`
 }

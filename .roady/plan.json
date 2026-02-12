@@ -4,8 +4,8 @@
   "tasks": [
     {
       "id": "task-jwt-token-service",
-      "title": "Implement JWT token service",
-      "description": "Create a token service that issues signed JWTs with configurable expiry, refresh tokens, and revocation via a deny list. Use HMAC-SHA256 with a server-generated secret or RSA key pair.",
+      "title": "Implement JWT token service (Session Authentication)",
+      "description": "Create a token service that issues signed JWTs with configurable\nexpiry, refresh tokens, and revocation via a deny list. Use\nHMAC-SHA256 with a server-generated secret or RSA key pair.\n",
       "priority": "high",
       "estimate": "3d",
       "depends_on": [],
@@ -13,35 +13,42 @@
     },
     {
       "id": "task-session-auth-middleware",
-      "title": "Wire session auth into middleware",
-      "description": "Replace the TODO stub in auth.go session mode with real JWT validation. Extract claims, map to roles (Admin, Approver, Viewer), and populate request context.",
+      "title": "Wire session auth into middleware (Session Authentication)",
+      "description": "Replace the TODO stub in auth.go session mode with real JWT\nvalidation. Extract claims, map to roles (Admin, Approver,\nViewer), and populate request context.\n",
       "priority": "high",
       "estimate": "2d",
-      "depends_on": ["task-jwt-token-service"],
+      "depends_on": [
+        "task-jwt-token-service"
+      ],
       "feature_id": "session-authentication"
     },
     {
       "id": "task-login-logout-endpoints",
-      "title": "Add login and logout API endpoints",
-      "description": "POST /api/auth/login (credentials → JWT + refresh token), POST /api/auth/refresh (refresh → new JWT), POST /api/auth/logout (revoke tokens). Rate-limit login attempts.",
+      "title": "Add login and logout API endpoints (Session Authentication)",
+      "description": "POST /api/auth/login (credentials → JWT + refresh token),\nPOST /api/auth/refresh (refresh → new JWT),\nPOST /api/auth/logout (revoke tokens).\nRate-limit login attempts.\n",
       "priority": "high",
       "estimate": "2d",
-      "depends_on": ["task-jwt-token-service"],
+      "depends_on": [
+        "task-jwt-token-service"
+      ],
       "feature_id": "session-authentication"
     },
     {
       "id": "task-session-auth-tests",
-      "title": "Add session auth test coverage",
-      "description": "Unit tests for token service (issue, validate, refresh, revoke). Integration tests for login flow, expired tokens, role mapping, and rate limiting. Target 90%+ coverage on auth package.",
+      "title": "Add session auth test coverage (Session Authentication)",
+      "description": "Unit tests for token service (issue, validate, refresh, revoke).\nIntegration tests for login flow, expired tokens, role mapping,\nand rate limiting. Target 90%+ coverage on auth package.\n",
       "priority": "high",
       "estimate": "2d",
-      "depends_on": ["task-session-auth-middleware", "task-login-logout-endpoints"],
+      "depends_on": [
+        "task-session-auth-middleware",
+        "task-login-logout-endpoints"
+      ],
       "feature_id": "session-authentication"
     },
     {
       "id": "task-oidc-provider-config",
-      "title": "Add OIDC provider configuration",
-      "description": "Extend DashboardAuthConfig with OIDC fields: issuer URL, client ID, client secret, redirect URI, scopes, and claim mappings. Support discovery via .well-known/openid-configuration.",
+      "title": "Add OIDC provider configuration (OIDC / SSO Integration)",
+      "description": "Extend DashboardAuthConfig with OIDC fields: issuer URL,\nclient ID, client secret, redirect URI, scopes, and claim\nmappings. Support discovery via .well-known/openid-configuration.\n",
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
@@ -49,35 +56,42 @@
     },
     {
       "id": "task-oidc-auth-flow",
-      "title": "Implement OIDC authorization code flow",
-      "description": "Add /api/auth/oidc/login (redirect to IdP), /api/auth/oidc/callback (exchange code for tokens, create session). Validate ID tokens, extract claims, map groups to roles.",
+      "title": "Implement OIDC authorization code flow (OIDC / SSO Integration)",
+      "description": "Add /api/auth/oidc/login (redirect to IdP), /api/auth/oidc/callback\n(exchange code for tokens, create session). Validate ID tokens,\nextract claims, map groups to roles.\n",
       "priority": "high",
       "estimate": "4d",
-      "depends_on": ["task-oidc-provider-config", "task-session-auth-middleware"],
+      "depends_on": [
+        "task-oidc-provider-config",
+        "task-session-auth-middleware"
+      ],
       "feature_id": "oidc-sso-integration"
     },
     {
       "id": "task-oidc-claim-role-mapping",
-      "title": "Map OIDC claims to Relicta roles",
-      "description": "Configurable claim-to-role mapping (e.g., groups claim 'relicta-admins' → Admin role). Support multiple IdPs with independent mappings. Fallback to default Viewer role for unmapped users.",
+      "title": "Map OIDC claims to Relicta roles (OIDC / SSO Integration)",
+      "description": "Configurable claim-to-role mapping (e.g., groups claim \"relicta-admins\"\n→ Admin role). Support multiple IdPs with independent mappings.\nFallback to default Viewer role for unmapped users.\n",
       "priority": "medium",
       "estimate": "2d",
-      "depends_on": ["task-oidc-auth-flow"],
+      "depends_on": [
+        "task-oidc-auth-flow"
+      ],
       "feature_id": "oidc-sso-integration"
     },
     {
       "id": "task-oidc-tests-and-docs",
-      "title": "Test OIDC flows and document setup",
-      "description": "Integration tests with a mock OIDC provider. Document IdP setup for Okta, Azure AD, and Google Workspace with example configs.",
+      "title": "Test OIDC flows and document setup (OIDC / SSO Integration)",
+      "description": "Integration tests with a mock OIDC provider. Document IdP setup\nfor Okta, Azure AD, and Google Workspace with example configs.\n",
       "priority": "medium",
       "estimate": "3d",
-      "depends_on": ["task-oidc-claim-role-mapping"],
+      "depends_on": [
+        "task-oidc-claim-role-mapping"
+      ],
       "feature_id": "oidc-sso-integration"
     },
     {
       "id": "task-persistence-port-interface",
-      "title": "Define persistence port interface",
-      "description": "Extract a clean port interface from the file event store adapter. Both file-based and PostgreSQL adapters implement the same interface. Use the repository pattern from the existing hexagonal architecture.",
+      "title": "Define persistence port interface (Database Persistence Layer)",
+      "description": "Extract a clean port interface from the file event store adapter.\nBoth file-based and PostgreSQL adapters implement the same interface.\nUse the repository pattern from the existing hexagonal architecture.\n",
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
@@ -85,80 +99,97 @@
     },
     {
       "id": "task-postgres-adapter",
-      "title": "Implement PostgreSQL adapter with sqlc",
-      "description": "Implement the persistence port using sqlc for type-safe query generation with pgx as the driver. Store events in an append-only events table with JSONB payload. Add indexes for release ID, timestamp, and event type. Use connection pooling.",
+      "title": "Implement PostgreSQL adapter (Database Persistence Layer)",
+      "description": "Implement the persistence port using sqlc for type-safe query\ngeneration with pgx as the driver. Store events in an append-only\nevents table with JSONB payload. Add indexes for release ID,\ntimestamp, and event type. Use connection pooling.\n",
       "priority": "high",
       "estimate": "4d",
-      "depends_on": ["task-persistence-port-interface"],
+      "depends_on": [
+        "task-persistence-port-interface"
+      ],
       "feature_id": "database-persistence"
     },
     {
       "id": "task-schema-migrations",
-      "title": "Add database migration framework",
-      "description": "Embed SQL migrations via go:embed. Support up/down migrations with version tracking. Add relicta db migrate and relicta db status CLI commands. Use golang-migrate or similar.",
+      "title": "Add database migration framework (Database Persistence Layer)",
+      "description": "Embed SQL migrations via go:embed. Support up/down migrations\nwith version tracking. Add `relicta db migrate` and\n`relicta db status` CLI commands. Use golang-migrate or similar.\n",
       "priority": "high",
       "estimate": "3d",
-      "depends_on": ["task-postgres-adapter"],
+      "depends_on": [
+        "task-postgres-adapter"
+      ],
       "feature_id": "database-persistence"
     },
     {
       "id": "task-persistence-config",
-      "title": "Add persistence configuration",
-      "description": "Extend config schema with persistence section: backend type (file, postgres), connection string (with env var expansion), pool size, migration mode (auto, manual). Wire adapter selection in container setup.",
+      "title": "Add persistence configuration (Database Persistence Layer)",
+      "description": "Extend config schema with persistence section: backend type\n(file, postgres), connection string (with env var expansion),\npool size, migration mode (auto, manual). Wire adapter selection\nin container setup.\n",
       "priority": "high",
       "estimate": "2d",
-      "depends_on": ["task-postgres-adapter"],
+      "depends_on": [
+        "task-postgres-adapter"
+      ],
       "feature_id": "database-persistence"
     },
     {
       "id": "task-persistence-tests",
-      "title": "Add persistence layer tests",
-      "description": "Unit tests with interface mocks. Integration tests with testcontainers for PostgreSQL. Test migration up/down, concurrent writes, event replay, and failover to file-based when DB is unreachable.",
+      "title": "Add persistence layer tests (Database Persistence Layer)",
+      "description": "Unit tests with interface mocks. Integration tests with testcontainers\nfor PostgreSQL. Test migration up/down, concurrent writes, event\nreplay, and failover to file-based when DB is unreachable.\n",
       "priority": "high",
       "estimate": "3d",
-      "depends_on": ["task-schema-migrations", "task-persistence-config"],
+      "depends_on": [
+        "task-schema-migrations",
+        "task-persistence-config"
+      ],
       "feature_id": "database-persistence"
     },
     {
       "id": "task-analytics-event-capture",
-      "title": "Capture analytics events",
-      "description": "Emit structured analytics events for: risk evaluations, policy decisions, approval outcomes, release durations, bump types. Store via the persistence port (file or PostgreSQL).",
+      "title": "Capture analytics events (Analytics Persistence)",
+      "description": "Emit structured analytics events for: risk evaluations, policy\ndecisions, approval outcomes, release durations, bump types.\nStore via the persistence port (file or PostgreSQL).\n",
       "priority": "medium",
       "estimate": "3d",
-      "depends_on": ["task-persistence-port-interface"],
+      "depends_on": [
+        "task-persistence-port-interface"
+      ],
       "feature_id": "analytics-persistence"
     },
     {
       "id": "task-analytics-query-api",
-      "title": "Add analytics query endpoints",
-      "description": "GET /api/analytics/risk-trends (time-series risk scores), GET /api/analytics/decisions (policy decision distribution), GET /api/analytics/team (approvals per actor, release velocity). Support date range and granularity parameters.",
+      "title": "Add analytics query endpoints (Analytics Persistence)",
+      "description": "GET /api/analytics/risk-trends (time-series risk scores),\nGET /api/analytics/decisions (policy decision distribution),\nGET /api/analytics/team (approvals per actor, release velocity).\nSupport date range and granularity parameters.\n",
       "priority": "medium",
       "estimate": "3d",
-      "depends_on": ["task-analytics-event-capture"],
+      "depends_on": [
+        "task-analytics-event-capture"
+      ],
       "feature_id": "analytics-persistence"
     },
     {
       "id": "task-analytics-aggregation",
-      "title": "Implement analytics aggregation",
-      "description": "Pre-aggregate metrics for dashboard performance: daily/weekly/monthly rollups for risk scores, decision counts, release frequency. For file backend, aggregate on read. For PostgreSQL, use materialized views or scheduled aggregation.",
+      "title": "Implement analytics aggregation (Analytics Persistence)",
+      "description": "Pre-aggregate metrics for dashboard performance: daily/weekly/monthly\nrollups for risk scores, decision counts, release frequency.\nFor file backend, aggregate on read. For PostgreSQL, use\nmaterialized views or scheduled aggregation.\n",
       "priority": "medium",
       "estimate": "3d",
-      "depends_on": ["task-analytics-query-api"],
+      "depends_on": [
+        "task-analytics-query-api"
+      ],
       "feature_id": "analytics-persistence"
     },
     {
       "id": "task-analytics-tests",
-      "title": "Add analytics test coverage",
-      "description": "Unit tests for event capture and aggregation logic. Integration tests for query endpoints with seeded data. Verify both file and PostgreSQL backends produce consistent results.",
+      "title": "Add analytics test coverage (Analytics Persistence)",
+      "description": "Unit tests for event capture and aggregation logic. Integration\ntests for query endpoints with seeded data. Verify both file\nand PostgreSQL backends produce consistent results.\n",
       "priority": "medium",
       "estimate": "2d",
-      "depends_on": ["task-analytics-aggregation"],
+      "depends_on": [
+        "task-analytics-aggregation"
+      ],
       "feature_id": "analytics-persistence"
     },
     {
       "id": "task-api-versioning",
-      "title": "Add API versioning",
-      "description": "Prefix all API routes with /api/v1/. Add version negotiation via Accept header. Document versioning policy (additive changes in minor, breaking changes in major).",
+      "title": "Add API versioning (REST API Hardening)",
+      "description": "Prefix all API routes with /api/v1/. Add version negotiation\nvia Accept header. Document versioning policy (additive changes\nin minor, breaking changes in major).\n",
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
@@ -166,44 +197,54 @@
     },
     {
       "id": "task-pagination-filtering",
-      "title": "Add pagination and filtering to list endpoints",
-      "description": "Cursor-based pagination for releases, events, and audit trail endpoints. Support limit, cursor, sort, and filter query params. Return Link headers and pagination metadata in response body.",
+      "title": "Add pagination and filtering to list endpoints (REST API Hardening)",
+      "description": "Cursor-based pagination for releases, events, and audit trail\nendpoints. Support limit, cursor, sort, and filter query params.\nReturn Link headers and pagination metadata in response body.\n",
       "priority": "high",
       "estimate": "3d",
-      "depends_on": ["task-api-versioning"],
+      "depends_on": [
+        "task-api-versioning"
+      ],
       "feature_id": "api-hardening"
     },
     {
       "id": "task-openapi-spec",
-      "title": "Generate OpenAPI specification",
-      "description": "Annotate handlers with OpenAPI metadata. Generate spec at build time or serve at /api/v1/openapi.json. Include authentication schemes, error responses, and example payloads.",
+      "title": "Generate OpenAPI specification (REST API Hardening)",
+      "description": "Annotate handlers with OpenAPI metadata. Generate spec at build\ntime or serve at /api/v1/openapi.json. Include authentication\nschemes, error responses, and example payloads.\n",
       "priority": "medium",
       "estimate": "3d",
-      "depends_on": ["task-api-versioning", "task-pagination-filtering"],
+      "depends_on": [
+        "task-api-versioning",
+        "task-pagination-filtering"
+      ],
       "feature_id": "api-hardening"
     },
     {
       "id": "task-structured-errors",
-      "title": "Implement structured error responses",
-      "description": "Standardize error format: {code, message, details, request_id}. Map domain errors to HTTP status codes consistently. Add request ID middleware for correlation.",
+      "title": "Implement structured error responses (REST API Hardening)",
+      "description": "Standardize error format: {code, message, details, request_id}.\nMap domain errors to HTTP status codes consistently. Add\nrequest ID middleware for correlation.\n",
       "priority": "high",
       "estimate": "2d",
-      "depends_on": ["task-api-versioning"],
+      "depends_on": [
+        "task-api-versioning"
+      ],
       "feature_id": "api-hardening"
     },
     {
       "id": "task-api-tests",
-      "title": "Add API contract tests",
-      "description": "Integration tests verifying pagination, error formats, versioning, and OpenAPI spec accuracy. Use golden file tests for response shapes. Target full endpoint coverage.",
+      "title": "Add API contract tests (REST API Hardening)",
+      "description": "Integration tests verifying pagination, error formats, versioning,\nand OpenAPI spec accuracy. Use golden file tests for response\nshapes. Target full endpoint coverage.\n",
       "priority": "high",
       "estimate": "3d",
-      "depends_on": ["task-openapi-spec", "task-structured-errors"],
+      "depends_on": [
+        "task-openapi-spec",
+        "task-structured-errors"
+      ],
       "feature_id": "api-hardening"
     },
     {
       "id": "task-webhook-delivery-queue",
-      "title": "Add persistent webhook delivery queue",
-      "description": "Queue webhook deliveries for async processing. Persist pending deliveries so they survive restarts. Process in order per endpoint with configurable concurrency.",
+      "title": "Add persistent webhook delivery queue (Webhook Delivery Hardening)",
+      "description": "Queue webhook deliveries for async processing. Persist pending\ndeliveries so they survive restarts. Process in order per\nendpoint with configurable concurrency.\n",
       "priority": "medium",
       "estimate": "3d",
       "depends_on": [],
@@ -211,32 +252,39 @@
     },
     {
       "id": "task-webhook-retry-backoff",
-      "title": "Implement retry with exponential backoff",
-      "description": "Retry failed deliveries with exponential backoff and jitter. Respect Retry-After headers. Move to dead-letter after max retries. Log all delivery attempts with status codes.",
+      "title": "Implement retry with exponential backoff (Webhook Delivery Hardening)",
+      "description": "Retry failed deliveries with exponential backoff and jitter.\nRespect Retry-After headers. Move to dead-letter after max\nretries. Log all delivery attempts with status codes.\n",
       "priority": "medium",
       "estimate": "2d",
-      "depends_on": ["task-webhook-delivery-queue"],
+      "depends_on": [
+        "task-webhook-delivery-queue"
+      ],
       "feature_id": "webhook-hardening"
     },
     {
       "id": "task-webhook-delivery-log",
-      "title": "Add webhook delivery log",
-      "description": "Log delivery attempts with timestamp, endpoint, status code, response time, and payload hash. Expose via GET /api/v1/webhooks/:id/deliveries. Support manual re-delivery.",
+      "title": "Add webhook delivery log (Webhook Delivery Hardening)",
+      "description": "Log delivery attempts with timestamp, endpoint, status code,\nresponse time, and payload hash. Expose via\nGET /api/v1/webhooks/:id/deliveries. Support manual re-delivery.\n",
       "priority": "medium",
       "estimate": "2d",
-      "depends_on": ["task-webhook-retry-backoff"],
+      "depends_on": [
+        "task-webhook-retry-backoff"
+      ],
       "feature_id": "webhook-hardening"
     },
     {
       "id": "task-webhook-tests",
-      "title": "Add webhook delivery tests",
-      "description": "Unit tests for queue, retry logic, and backoff calculation. Integration tests with httptest server simulating failures, slow responses, and redirects.",
+      "title": "Add webhook delivery tests (Webhook Delivery Hardening)",
+      "description": "Unit tests for queue, retry logic, and backoff calculation.\nIntegration tests with httptest server simulating failures,\nslow responses, and redirects.\n",
       "priority": "medium",
       "estimate": "2d",
-      "depends_on": ["task-webhook-delivery-log"],
+      "depends_on": [
+        "task-webhook-delivery-log"
+      ],
       "feature_id": "webhook-hardening"
     }
   ],
-  "approved": true,
-  "approved_at": "2026-02-11T19:25:00Z"
+  "approval_status": "approved",
+  "created_at": "0001-01-01T00:00:00Z",
+  "updated_at": "2026-02-11T19:54:37.710334+01:00"
 }

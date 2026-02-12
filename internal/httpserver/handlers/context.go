@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/internal/security/token"
 )
 
 // Context holds dependencies for HTTP handlers.
@@ -9,6 +11,10 @@ import (
 type Context struct {
 	// ReleaseServices provides access to release domain use cases.
 	ReleaseServices *release.Services
+	// TokenService provides JWT token operations for session auth.
+	TokenService *token.Service
+	// AuthConfig holds dashboard authentication configuration.
+	AuthConfig config.DashboardAuthConfig
 }
 
 // DefaultContext is the global handler context.

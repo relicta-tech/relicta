@@ -3,6 +3,7 @@ package httpserver
 import (
 	"io/fs"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
@@ -33,10 +34,22 @@ func (s *Server) setupRouter() chi.Router {
 	r.Get("/health", handlers.Health)
 	r.Get("/api/v1/health", handlers.Health)
 
+	// Auth endpoints (unauthenticated, rate-limited)
+	r.Route("/api/v1/auth", func(r chi.Router) {
+		r.Use(middleware.RateLimit(&middleware.RateLimiterConfig{
+			Rate:     10,
+			Burst:    5,
+			Interval: time.Minute,
+		}))
+		r.Post("/login", handlers.Login)
+		r.Post("/refresh", handlers.Refresh)
+		r.Post("/logout", handlers.Logout)
+	})
+
 	// API routes (authenticated)
 	r.Route("/api/v1", func(r chi.Router) {
 		// Apply authentication middleware
-		r.Use(middleware.Auth(s.config.Auth))
+		r.Use(middleware.Auth(s.config.Auth, s.tokenService))
 
 		// WebSocket endpoint
 		r.Get("/ws", s.handleWebSocket)

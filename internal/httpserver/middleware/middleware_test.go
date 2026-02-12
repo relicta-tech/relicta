@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/internal/security/token"
 )
 
 // testHandler is a simple handler for testing middleware
@@ -19,6 +20,16 @@ func testHandler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
+}
+
+// newTestTokenService creates a token.Service for testing.
+func newTestTokenService(t *testing.T) *token.Service {
+	t.Helper()
+	svc, err := token.NewService(token.Config{
+		Secret: []byte("test-secret-key-that-is-at-least-32-bytes-long!"),
+	})
+	require.NoError(t, err)
+	return svc
 }
 
 // TestAuthenticatedUser_HasRole tests the HasRole method.
@@ -135,7 +146,7 @@ func TestAuthenticatedUser_CanApprove(t *testing.T) {
 // TestAuth_NoAuth tests the Auth middleware with no authentication.
 func TestAuth_NoAuth(t *testing.T) {
 	cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthNone}
-	handler := Auth(cfg)(testHandler())
+	handler := Auth(cfg, nil)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
@@ -148,7 +159,7 @@ func TestAuth_NoAuth(t *testing.T) {
 // TestAuth_EmptyMode tests the Auth middleware with empty mode (defaults to no auth).
 func TestAuth_EmptyMode(t *testing.T) {
 	cfg := config.DashboardAuthConfig{Mode: ""}
-	handler := Auth(cfg)(testHandler())
+	handler := Auth(cfg, nil)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
@@ -167,7 +178,7 @@ func TestAuth_APIKey(t *testing.T) {
 			{Key: validKey, Name: "test-key", Roles: []string{string(config.DashboardRoleAdmin)}},
 		},
 	}
-	handler := Auth(cfg)(testHandler())
+	handler := Auth(cfg, nil)(testHandler())
 
 	tests := []struct {
 		name       string
@@ -224,23 +235,79 @@ func TestAuth_APIKey(t *testing.T) {
 	}
 }
 
-// TestAuth_SessionNotImplemented tests that session auth returns 501.
-func TestAuth_SessionNotImplemented(t *testing.T) {
+// TestAuth_Session_NoToken tests session auth rejects requests without a token.
+func TestAuth_Session_NoToken(t *testing.T) {
+	svc := newTestTokenService(t)
 	cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthSession}
-	handler := Auth(cfg)(testHandler())
+	handler := Auth(cfg, svc)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// TestAuth_Session_ValidToken tests session auth accepts a valid JWT.
+func TestAuth_Session_ValidToken(t *testing.T) {
+	svc := newTestTokenService(t)
+	cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthSession}
+
+	pair, err := svc.Issue("alice", []string{"admin"})
+	require.NoError(t, err)
+
+	var capturedUser *AuthenticatedUser
+	handler := Auth(cfg, svc)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedUser = GetUser(r)
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, capturedUser)
+	assert.Equal(t, "alice", capturedUser.Name)
+	assert.Equal(t, []string{"admin"}, capturedUser.Roles)
+}
+
+// TestAuth_Session_InvalidToken tests session auth rejects an invalid token.
+func TestAuth_Session_InvalidToken(t *testing.T) {
+	svc := newTestTokenService(t)
+	cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthSession}
+	handler := Auth(cfg, svc)(testHandler())
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer invalid.token.here")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// TestAuth_Session_NilService tests session auth when token service is nil.
+func TestAuth_Session_NilService(t *testing.T) {
+	cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthSession}
+	handler := Auth(cfg, nil)(testHandler())
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer some.token.value")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 // TestAuth_InvalidMode tests that invalid auth mode returns 500.
 func TestAuth_InvalidMode(t *testing.T) {
 	cfg := config.DashboardAuthConfig{Mode: "invalid"}
-	handler := Auth(cfg)(testHandler())
+	handler := Auth(cfg, nil)(testHandler())
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
@@ -272,7 +339,7 @@ func TestGetUser(t *testing.T) {
 		cfg := config.DashboardAuthConfig{Mode: config.DashboardAuthNone}
 		var capturedUser *AuthenticatedUser
 
-		handler := Auth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler := Auth(cfg, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			capturedUser = GetUser(r)
 			w.WriteHeader(http.StatusOK)
 		}))
@@ -324,7 +391,7 @@ func TestRequireRole(t *testing.T) {
 				},
 			}
 
-			handler := Auth(authCfg)(RequireRole(tt.requiredRole)(testHandler()))
+			handler := Auth(authCfg, nil)(RequireRole(tt.requiredRole)(testHandler()))
 
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			req.Header.Set("X-API-Key", "test-key")
