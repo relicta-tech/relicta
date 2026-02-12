@@ -30,60 +30,66 @@ func (s *Server) setupRouter() chi.Router {
 	// CORS configuration
 	r.Use(s.corsMiddleware())
 
-	// Health check (unauthenticated)
+	// Health check (unauthenticated, outside API version negotiation)
 	r.Get("/health", handlers.Health)
-	r.Get("/api/v1/health", handlers.Health)
 
-	// Auth endpoints (unauthenticated, rate-limited)
-	r.Route("/api/v1/auth", func(r chi.Router) {
-		r.Use(middleware.RateLimit(&middleware.RateLimiterConfig{
-			Rate:     10,
-			Burst:    5,
-			Interval: time.Minute,
-		}))
-		r.Post("/login", handlers.Login)
-		r.Post("/refresh", handlers.Refresh)
-		r.Post("/logout", handlers.Logout)
-	})
-
-	// API routes (authenticated)
+	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {
-		// Apply authentication middleware
-		r.Use(middleware.Auth(s.config.Auth, s.tokenService))
+		r.Use(middleware.APIVersion())
 
-		// WebSocket endpoint
-		r.Get("/ws", s.handleWebSocket)
+		// Health check (unauthenticated)
+		r.Get("/health", handlers.Health)
 
-		// Release endpoints
-		r.Route("/releases", func(r chi.Router) {
-			r.Get("/", handlers.ListReleases)
-			r.Get("/active", handlers.GetActiveRelease)
-			r.Get("/{id}", handlers.GetRelease)
-			r.Get("/{id}/events", handlers.GetReleaseEvents)
+		// Auth endpoints (unauthenticated, rate-limited)
+		r.Route("/auth", func(r chi.Router) {
+			r.Use(middleware.RateLimit(&middleware.RateLimiterConfig{
+				Rate:     10,
+				Burst:    5,
+				Interval: time.Minute,
+			}))
+			r.Post("/login", handlers.Login)
+			r.Post("/refresh", handlers.Refresh)
+			r.Post("/logout", handlers.Logout)
 		})
 
-		// Governance endpoints
-		r.Route("/governance", func(r chi.Router) {
-			r.Get("/decisions", handlers.ListGovernanceDecisions)
-			r.Get("/risk-trends", handlers.GetRiskTrends)
-			r.Get("/factors", handlers.GetFactorDistribution)
-		})
+		// Authenticated API routes
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(s.config.Auth, s.tokenService))
 
-		// Actor endpoints
-		r.Route("/actors", func(r chi.Router) {
-			r.Get("/", handlers.ListActors)
-			r.Get("/{id}", handlers.GetActor)
-		})
+			// WebSocket endpoint
+			r.Get("/ws", s.handleWebSocket)
 
-		// Approval endpoints
-		r.Route("/approvals", func(r chi.Router) {
-			r.Get("/pending", handlers.ListPendingApprovals)
-			r.Post("/{id}/approve", handlers.ApproveRelease)
-			r.Post("/{id}/reject", handlers.RejectRelease)
-		})
+			// Release endpoints
+			r.Route("/releases", func(r chi.Router) {
+				r.Get("/", handlers.ListReleases)
+				r.Get("/active", handlers.GetActiveRelease)
+				r.Get("/{id}", handlers.GetRelease)
+				r.Get("/{id}/events", handlers.GetReleaseEvents)
+			})
 
-		// Audit trail endpoint
-		r.Get("/audit", handlers.ListAuditEvents)
+			// Governance endpoints
+			r.Route("/governance", func(r chi.Router) {
+				r.Get("/decisions", handlers.ListGovernanceDecisions)
+				r.Get("/risk-trends", handlers.GetRiskTrends)
+				r.Get("/factors", handlers.GetFactorDistribution)
+			})
+
+			// Actor endpoints
+			r.Route("/actors", func(r chi.Router) {
+				r.Get("/", handlers.ListActors)
+				r.Get("/{id}", handlers.GetActor)
+			})
+
+			// Approval endpoints
+			r.Route("/approvals", func(r chi.Router) {
+				r.Get("/pending", handlers.ListPendingApprovals)
+				r.Post("/{id}/approve", handlers.ApproveRelease)
+				r.Post("/{id}/reject", handlers.RejectRelease)
+			})
+
+			// Audit trail endpoint
+			r.Get("/audit", handlers.ListAuditEvents)
+		})
 	})
 
 	// Serve frontend static files
@@ -106,7 +112,7 @@ func (s *Server) corsMiddleware() func(http.Handler) http.Handler {
 		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-API-Key"},
-		ExposedHeaders:   []string{"Link", "X-Request-ID"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID", "X-API-Version"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	})

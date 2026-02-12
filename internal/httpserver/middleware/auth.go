@@ -81,6 +81,16 @@ func Auth(cfg config.DashboardAuthConfig, tokenSvc *token.Service) func(http.Han
 				ctx := context.WithValue(r.Context(), UserContextKey, user)
 				next.ServeHTTP(w, r.WithContext(ctx))
 
+			case config.DashboardAuthOIDC:
+				// OIDC mode reuses JWT session validation — tokens are issued after OIDC callback.
+				user := validateSession(r, tokenSvc)
+				if user == nil {
+					http.Error(w, "Unauthorized: invalid or expired token", http.StatusUnauthorized)
+					return
+				}
+				ctx := context.WithValue(r.Context(), UserContextKey, user)
+				next.ServeHTTP(w, r.WithContext(ctx))
+
 			default:
 				http.Error(w, "Invalid authentication mode", http.StatusInternalServerError)
 			}

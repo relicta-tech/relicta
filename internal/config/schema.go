@@ -930,22 +930,26 @@ const (
 	DashboardAuthAPIKey DashboardAuthMode = "api_key"
 	// DashboardAuthSession enables session-based authentication with login.
 	DashboardAuthSession DashboardAuthMode = "session"
+	// DashboardAuthOIDC enables OpenID Connect authentication via an external IdP.
+	DashboardAuthOIDC DashboardAuthMode = "oidc"
 )
 
 // DashboardAuthConfig configures authentication for the dashboard.
 type DashboardAuthConfig struct {
-	// Mode is the authentication mode (none, api_key, session).
+	// Mode is the authentication mode (none, api_key, session, oidc).
 	// Default: "api_key" for security.
 	Mode DashboardAuthMode `mapstructure:"mode" json:"mode"`
 	// APIKeys is a list of API keys for api_key mode.
 	APIKeys []DashboardAPIKeyConfig `mapstructure:"api_keys" json:"api_keys,omitempty"`
 	// Users is a list of users for session mode.
 	Users []DashboardUserConfig `mapstructure:"users" json:"users,omitempty"`
-	// SessionSecret is the secret for signing session tokens (required for session mode).
+	// SessionSecret is the secret for signing session tokens (required for session and oidc modes).
 	// Should be a random 32+ character string, can use environment variable expansion.
 	SessionSecret string `mapstructure:"session_secret" json:"session_secret,omitempty"`
 	// SessionMaxAge is the maximum session age (default: 24h).
 	SessionMaxAge time.Duration `mapstructure:"session_max_age" json:"session_max_age,omitempty"`
+	// OIDC configures OpenID Connect authentication (required for oidc mode).
+	OIDC *OIDCConfig `mapstructure:"oidc" json:"oidc,omitempty"`
 }
 
 // DashboardAPIKeyConfig configures a single API key for dashboard access.
@@ -970,6 +974,54 @@ type DashboardUserConfig struct {
 	// Roles is a list of roles this user has (admin, viewer, approver).
 	// Default: ["viewer"] if empty.
 	Roles []string `mapstructure:"roles" json:"roles,omitempty"`
+}
+
+// OIDCConfig configures OpenID Connect provider settings.
+type OIDCConfig struct {
+	// IssuerURL is the OIDC provider issuer URL (e.g., https://accounts.google.com).
+	// Used for .well-known/openid-configuration discovery.
+	IssuerURL string `mapstructure:"issuer_url" json:"issuer_url"`
+	// ClientID is the OAuth 2.0 client identifier registered with the IdP.
+	ClientID string `mapstructure:"client_id" json:"client_id"`
+	// ClientSecret is the OAuth 2.0 client secret (can use environment variable expansion).
+	ClientSecret string `mapstructure:"client_secret" json:"client_secret"`
+	// RedirectURL is the callback URL for the authorization code flow.
+	// Default: "{dashboard_address}/api/v1/auth/oidc/callback"
+	RedirectURL string `mapstructure:"redirect_url" json:"redirect_url,omitempty"`
+	// Scopes is the list of OIDC scopes to request. Default: ["openid", "profile", "email"].
+	Scopes []string `mapstructure:"scopes" json:"scopes,omitempty"`
+	// ClaimMappings maps OIDC claims to Relicta roles.
+	ClaimMappings []OIDCClaimMapping `mapstructure:"claim_mappings" json:"claim_mappings,omitempty"`
+	// GroupsClaim is the OIDC claim that contains group memberships.
+	// Default: "groups".
+	GroupsClaim string `mapstructure:"groups_claim" json:"groups_claim,omitempty"`
+	// DefaultRole is the role assigned to authenticated users with no matching claim mapping.
+	// Default: "viewer".
+	DefaultRole string `mapstructure:"default_role" json:"default_role,omitempty"`
+}
+
+// Defaults fills in default values for OIDCConfig.
+func (c *OIDCConfig) Defaults() {
+	if len(c.Scopes) == 0 {
+		c.Scopes = []string{"openid", "profile", "email"}
+	}
+	if c.GroupsClaim == "" {
+		c.GroupsClaim = "groups"
+	}
+	if c.DefaultRole == "" {
+		c.DefaultRole = string(DashboardRoleViewer)
+	}
+}
+
+// OIDCClaimMapping maps an OIDC claim value to a Relicta dashboard role.
+type OIDCClaimMapping struct {
+	// Claim is the OIDC claim name to match (e.g., "groups", "email").
+	// If empty, defaults to the GroupsClaim from OIDCConfig.
+	Claim string `mapstructure:"claim" json:"claim,omitempty"`
+	// Value is the claim value to match (e.g., "relicta-admins", "admin@example.com").
+	Value string `mapstructure:"value" json:"value"`
+	// Role is the Relicta role to assign when the claim matches (admin, viewer, approver).
+	Role string `mapstructure:"role" json:"role"`
 }
 
 // DashboardRole defines the role for dashboard access.
