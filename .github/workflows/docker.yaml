@@ -60,7 +60,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         with:
           # Use the version from metadata action (strips 'v' prefix)
           image-ref: ghcr.io/${{ github.repository }}:${{ steps.meta.outputs.version }}
