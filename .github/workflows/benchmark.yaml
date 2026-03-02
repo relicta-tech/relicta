@@ -110,7 +110,7 @@ jobs:
           key: bench-baseline-${{ runner.os }}-${{ hashFiles('go.mod') }}
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
@@ -234,7 +234,7 @@ jobs:
           echo "================================"
 
       - name: Upload memory benchmark results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: memory-benchmark-results
           path: bench-memory.txt
@@ -376,7 +376,7 @@ jobs:
           key: bench-history-v1-${{ runner.os }}
 
       - name: Upload trend data
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-trends
           path: |
@@ -429,7 +429,7 @@ jobs:
           fi
 
       - name: Upload parallelization results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: parallelization-benchmark-results
           path: bench-parallel.txt
