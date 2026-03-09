@@ -144,7 +144,7 @@ jobs:
           go build -ldflags="-s -w" -o relicta-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/relicta
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: relicta-${{ matrix.os }}-${{ matrix.arch }}
           path: relicta-*
@@ -188,7 +188,7 @@ jobs:
           fi
 
       - name: Upload govulncheck results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: govulncheck-results
           path: govulncheck-results.json
@@ -225,7 +225,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload VerdictSec results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: security-scan-results
           path: verdict-results.json
