@@ -149,6 +149,8 @@ linters:
         - G304  # Potential file inclusion via variable (needed for config)
         - G306  # WriteFile permissions - plugins need to be executable
         - G702  # Command injection taint - editor path validated before use
+        - G117  # Marshaled secret-pattern fields - webhook configs need serialization
+        - G404  # Weak RNG for jitter - cryptographic strength not needed for backoff
         - G703  # Path traversal taint - paths validated by allowlist checks
 
     misspell:

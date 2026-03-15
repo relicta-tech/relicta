@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	"github.com/relicta-tech/relicta/internal/httpserver/handlers"
 	httpws "github.com/relicta-tech/relicta/internal/httpserver/websocket"
+	"github.com/relicta-tech/relicta/internal/security/oidc"
 	"github.com/relicta-tech/relicta/internal/security/token"
 )
 
@@ -27,6 +29,7 @@ type Server struct {
 	wsHub        *httpws.Hub
 	frontend     fs.FS
 	tokenService *token.Service
+	oidcHandlers *oidc.Handlers
 }
 
 // ServerDeps contains dependencies for creating a new server.
@@ -44,8 +47,9 @@ func NewServer(deps ServerDeps) *Server {
 		frontend: deps.Frontend,
 	}
 
-	// Create token service for session authentication.
-	if deps.Config.Auth.Mode == config.DashboardAuthSession && deps.Config.Auth.SessionSecret != "" {
+	// Create token service for session or OIDC authentication.
+	if (deps.Config.Auth.Mode == config.DashboardAuthSession || deps.Config.Auth.Mode == config.DashboardAuthOIDC) &&
+		deps.Config.Auth.SessionSecret != "" {
 		ttl := deps.Config.Auth.SessionMaxAge
 		if ttl == 0 {
 			ttl = 24 * time.Hour
@@ -56,6 +60,18 @@ func NewServer(deps ServerDeps) *Server {
 		})
 		if err == nil {
 			s.tokenService = svc
+		}
+	}
+
+	// Create OIDC service and handlers when OIDC auth mode is configured.
+	if deps.Config.Auth.Mode == config.DashboardAuthOIDC && deps.Config.Auth.OIDC != nil && s.tokenService != nil {
+		oidcCfg := *deps.Config.Auth.OIDC
+		oidcCfg.Defaults()
+		oidcSvc, err := oidc.NewService(context.Background(), oidcCfg)
+		if err != nil {
+			log.Printf("WARNING: OIDC provider discovery failed: %v", err)
+		} else {
+			s.oidcHandlers = oidc.NewHandlers(oidcSvc, s.tokenService)
 		}
 	}
 

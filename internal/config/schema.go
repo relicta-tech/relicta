@@ -2,6 +2,8 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"time"
 )
 
@@ -33,6 +35,8 @@ type Config struct {
 	Dashboard DashboardConfig `mapstructure:"dashboard" json:"dashboard,omitempty"`
 	// Attestation configures SLSA governance attestation generation and signing.
 	Attestation AttestationConfig `mapstructure:"attestation" json:"attestation,omitempty"`
+	// Persistence configures event store persistence backend.
+	Persistence PersistenceConfig `mapstructure:"persistence" json:"persistence,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -1048,6 +1052,111 @@ type AttestationConfig struct {
 	RekorURL string `mapstructure:"rekor_url" json:"rekor_url,omitempty"`
 	// FulcioURL is the Fulcio CA URL (for keyless mode).
 	FulcioURL string `mapstructure:"fulcio_url" json:"fulcio_url,omitempty"`
+}
+
+// PersistenceBackend defines the event store backend type.
+type PersistenceBackend string
+
+const (
+	// BackendFile uses the local file-based event store.
+	BackendFile PersistenceBackend = "file"
+	// BackendPostgres uses a PostgreSQL-backed event store.
+	BackendPostgres PersistenceBackend = "postgres"
+)
+
+// MigrationMode defines how database migrations are handled.
+type MigrationMode string
+
+const (
+	// MigrationModeManual requires explicit `relicta db migrate` commands.
+	MigrationModeManual MigrationMode = "manual"
+	// MigrationModeAuto applies pending migrations on startup.
+	MigrationModeAuto MigrationMode = "auto"
+)
+
+// PersistenceConfig configures the event store persistence backend.
+type PersistenceConfig struct {
+	// Backend is the persistence backend (file, postgres).
+	Backend PersistenceBackend `mapstructure:"backend" json:"backend"`
+	// ConnectionString is the PostgreSQL connection string (required for postgres backend).
+	// Supports environment variable expansion (e.g., "${DATABASE_URL}").
+	ConnectionString string `mapstructure:"connection_string" json:"connection_string,omitempty"`
+	// PoolSize is the maximum number of connections in the pool (postgres only).
+	PoolSize int32 `mapstructure:"pool_size" json:"pool_size,omitempty"`
+	// MigrationMode controls how database migrations are applied (manual, auto).
+	MigrationMode MigrationMode `mapstructure:"migration_mode" json:"migration_mode,omitempty"`
+	// FilePath is the directory for file-based event storage.
+	FilePath string `mapstructure:"file_path" json:"file_path,omitempty"`
+}
+
+// DefaultPersistenceConfig returns a PersistenceConfig with sensible defaults.
+func DefaultPersistenceConfig() PersistenceConfig {
+	return PersistenceConfig{
+		Backend:       BackendFile,
+		PoolSize:      10,
+		MigrationMode: MigrationModeManual,
+		FilePath:      ".relicta/events",
+	}
+}
+
+// Validate checks the PersistenceConfig for correctness.
+func (c PersistenceConfig) Validate() error {
+	switch c.Backend {
+	case BackendFile:
+		return nil
+	case BackendPostgres:
+		if c.ConnectionString == "" {
+			return fmt.Errorf("connection_string is required for postgres backend")
+		}
+		if c.PoolSize <= 0 {
+			return fmt.Errorf("pool_size must be greater than 0 for postgres backend")
+		}
+		switch c.MigrationMode {
+		case MigrationModeManual, MigrationModeAuto:
+			// valid
+		default:
+			return fmt.Errorf("invalid migration_mode %q: must be %q or %q", c.MigrationMode, MigrationModeManual, MigrationModeAuto)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported persistence backend: %q", c.Backend)
+	}
+}
+
+// ExpandEnvVars expands environment variables in the format ${VAR_NAME}.
+// Variables that are not set remain unexpanded.
+func ExpandEnvVars(s string) string {
+	result := s
+	for {
+		start := -1
+		for i := 0; i < len(result)-1; i++ {
+			if result[i] == '$' && result[i+1] == '{' {
+				start = i
+				break
+			}
+		}
+		if start == -1 {
+			break
+		}
+		end := -1
+		for i := start + 2; i < len(result); i++ {
+			if result[i] == '}' {
+				end = i
+				break
+			}
+		}
+		if end == -1 {
+			break
+		}
+		varName := result[start+2 : end]
+		if val, ok := os.LookupEnv(varName); ok {
+			result = result[:start] + val + result[end+1:]
+		} else {
+			// Skip past this variable reference to avoid infinite loop
+			break
+		}
+	}
+	return result
 }
 
 // ConfigFileNames to search for.

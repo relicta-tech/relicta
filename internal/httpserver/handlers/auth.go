@@ -34,25 +34,25 @@ type refreshRequest struct {
 func Login(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.TokenService == nil {
-		respondError(w, http.StatusInternalServerError, "Session authentication not configured", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeAuthNotConfigured, "Session authentication not configured", nil)
 		return
 	}
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeInvalidJSON, "Invalid request body", nil)
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
-		respondError(w, http.StatusBadRequest, "Username and password are required", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "Username and password are required", nil)
 		return
 	}
 
 	// Find matching user and validate password.
 	user := authenticateUser(req.Username, req.Password, ctx.AuthConfig.Users)
 	if user == nil {
-		respondError(w, http.StatusUnauthorized, "Invalid username or password", "")
+		writeError(w, r, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Invalid username or password", nil)
 		return
 	}
 
@@ -63,7 +63,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	pair, err := ctx.TokenService.Issue(user.Username, roles)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to issue token", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "Failed to issue token", nil)
 		return
 	}
 
@@ -80,24 +80,24 @@ func Login(w http.ResponseWriter, r *http.Request) {
 func Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.TokenService == nil {
-		respondError(w, http.StatusInternalServerError, "Session authentication not configured", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeAuthNotConfigured, "Session authentication not configured", nil)
 		return
 	}
 
 	var req refreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeInvalidJSON, "Invalid request body", nil)
 		return
 	}
 
 	if req.RefreshToken == "" {
-		respondError(w, http.StatusBadRequest, "Refresh token is required", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "Refresh token is required", nil)
 		return
 	}
 
 	pair, err := ctx.TokenService.Refresh(req.RefreshToken)
 	if err != nil {
-		respondError(w, http.StatusUnauthorized, "Invalid or expired refresh token", "")
+		writeError(w, r, http.StatusUnauthorized, ErrCodeTokenInvalid, "Invalid or expired refresh token", nil)
 		return
 	}
 
@@ -114,20 +114,20 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 func Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.TokenService == nil {
-		respondError(w, http.StatusInternalServerError, "Session authentication not configured", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeAuthNotConfigured, "Session authentication not configured", nil)
 		return
 	}
 
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, "Bearer ") {
-		respondError(w, http.StatusBadRequest, "Missing Authorization header", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "Missing Authorization header", nil)
 		return
 	}
 
 	tokenStr := strings.TrimPrefix(auth, "Bearer ")
 
 	if err := ctx.TokenService.RevokeToken(tokenStr); err != nil {
-		respondError(w, http.StatusUnauthorized, "Invalid token", "")
+		writeError(w, r, http.StatusUnauthorized, ErrCodeTokenInvalid, "Invalid token", nil)
 		return
 	}
 

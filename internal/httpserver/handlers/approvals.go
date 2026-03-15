@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"sort"
 
 	"github.com/go-chi/chi/v5"
 
@@ -15,29 +16,29 @@ import (
 )
 
 // ListPendingApprovals returns releases waiting for approval.
+// Supports cursor-based pagination (?limit=N&cursor=<opaque>) and
+// legacy offset pagination (?page=N&page_size=N).
+// Sort: ?sort=risk|-risk|submitted|-submitted (default: -risk)
 func ListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ApprovalDTO]{
-			Data:       []dto.ApprovalDTO{},
-			Total:      0,
-			Page:       1,
-			PageSize:   20,
-			TotalPages: 0,
+		respondJSON(w, http.StatusOK, dto.CursorPaginatedResponse[dto.ApprovalDTO]{
+			Data:  []dto.ApprovalDTO{},
+			Limit: defaultLimit,
 		})
 		return
 	}
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// Find runs in NotesReady state (awaiting approval)
 	runs, err := ctx.ReleaseServices.Repository.FindByState(r.Context(), repoRoot, domain.StateNotesReady)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to find pending approvals", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to find pending approvals", err.Error())
 		return
 	}
 
@@ -62,12 +63,41 @@ func ListPendingApprovals(w http.ResponseWriter, r *http.Request) {
 		approvals = append(approvals, approvalDTO)
 	}
 
-	respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ApprovalDTO]{
-		Data:       approvals,
-		Total:      len(approvals),
-		Page:       1,
-		PageSize:   len(approvals),
-		TotalPages: 1,
+	// Apply sort parameter
+	sortApprovals(approvals, r.URL.Query().Get("sort"))
+
+	params := ParsePagination(r)
+	respondJSON(w, http.StatusOK, Paginate(approvals, params, r, w))
+}
+
+// sortApprovals sorts approvals by the given sort parameter.
+// Supported values: risk, -risk, submitted, -submitted.
+// A leading "-" indicates descending order. Default is "-risk" (highest risk first).
+func sortApprovals(approvals []dto.ApprovalDTO, sortParam string) {
+	if sortParam == "" {
+		sortParam = "-risk"
+	}
+
+	desc := false
+	if sortParam[0] == '-' {
+		desc = true
+		sortParam = sortParam[1:]
+	}
+
+	sort.Slice(approvals, func(i, j int) bool {
+		var less bool
+		switch sortParam {
+		case "risk":
+			less = approvals[i].RiskScore < approvals[j].RiskScore
+		case "submitted":
+			less = approvals[i].SubmittedAt.Before(approvals[j].SubmittedAt)
+		default:
+			less = approvals[i].RiskScore < approvals[j].RiskScore
+		}
+		if desc {
+			return !less
+		}
+		return less
 	})
 }
 
@@ -81,19 +111,19 @@ type ApproveRequest struct {
 func ApproveRelease(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || !user.CanApprove() {
-		respondError(w, http.StatusForbidden, "insufficient permissions to approve releases", "")
+		writeError(w, r, http.StatusForbidden, ErrCodeForbidden, "insufficient permissions to approve releases", nil)
 		return
 	}
 
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil || ctx.ReleaseServices.ApproveRelease == nil {
-		respondError(w, http.StatusServiceUnavailable, "approval service not available", "")
+		writeError(w, r, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "approval service not available", nil)
 		return
 	}
 
 	runID := chi.URLParam(r, "id")
 	if runID == "" {
-		respondError(w, http.StatusBadRequest, "missing release ID", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "missing release ID", nil)
 		return
 	}
 
@@ -106,7 +136,7 @@ func ApproveRelease(w http.ResponseWriter, r *http.Request) {
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
@@ -124,7 +154,7 @@ func ApproveRelease(w http.ResponseWriter, r *http.Request) {
 
 	output, err := ctx.ReleaseServices.ApproveRelease.Execute(r.Context(), input)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "failed to approve release", err.Error())
+		writeError(w, r, http.StatusBadRequest, ErrCodeBadRequest, "failed to approve release", err.Error())
 		return
 	}
 
@@ -146,19 +176,19 @@ type RejectRequest struct {
 func RejectRelease(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || !user.CanApprove() {
-		respondError(w, http.StatusForbidden, "insufficient permissions to reject releases", "")
+		writeError(w, r, http.StatusForbidden, ErrCodeForbidden, "insufficient permissions to reject releases", nil)
 		return
 	}
 
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondError(w, http.StatusServiceUnavailable, "release service not available", "")
+		writeError(w, r, http.StatusServiceUnavailable, ErrCodeServiceUnavailable, "release service not available", nil)
 		return
 	}
 
 	runID := chi.URLParam(r, "id")
 	if runID == "" {
-		respondError(w, http.StatusBadRequest, "missing release ID", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "missing release ID", nil)
 		return
 	}
 
@@ -167,7 +197,7 @@ func RejectRelease(w http.ResponseWriter, r *http.Request) {
 	if r.Body != nil {
 		defer r.Body.Close()
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			respondError(w, http.StatusBadRequest, "invalid request body", err.Error())
+			writeError(w, r, http.StatusBadRequest, ErrCodeInvalidJSON, "invalid request body", err.Error())
 			return
 		}
 	}
@@ -179,19 +209,19 @@ func RejectRelease(w http.ResponseWriter, r *http.Request) {
 	// Load and cancel the run
 	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
 	if err != nil {
-		respondError(w, http.StatusNotFound, "release not found", err.Error())
+		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
 	}
 
 	// Cancel the release
 	if err := run.Cancel(req.Reason, user.Name); err != nil {
-		respondError(w, http.StatusBadRequest, "failed to reject release", err.Error())
+		writeError(w, r, http.StatusBadRequest, ErrCodeBadRequest, "failed to reject release", err.Error())
 		return
 	}
 
 	// Save the updated run
 	if err := ctx.ReleaseServices.Repository.Save(r.Context(), run); err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to save rejection", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to save rejection", err.Error())
 		return
 	}
 

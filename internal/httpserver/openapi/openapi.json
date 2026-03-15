@@ -1,0 +1,1029 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Relicta Dashboard API",
+    "description": "REST API for the Relicta governance dashboard. Provides release management, governance decisions, actor metrics, approval workflows, and audit trails.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Relicta",
+      "url": "https://github.com/relicta-tech/relicta"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "getHealth",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate and obtain JWT tokens",
+        "operationId": "login",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Refresh JWT access token",
+        "operationId": "refreshToken",
+        "tags": ["Auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Invalidate session",
+        "operationId": "logout",
+        "tags": ["Auth"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Logged out successfully"
+          }
+        }
+      }
+    },
+    "/releases": {
+      "get": {
+        "summary": "List releases",
+        "operationId": "listReleases",
+        "tags": ["Releases"],
+        "parameters": [
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" },
+          {
+            "name": "state",
+            "in": "query",
+            "description": "Filter by release state",
+            "schema": {
+              "type": "string",
+              "enum": ["draft", "planned", "versioned", "notes_ready", "approved", "published", "failed", "canceled"]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort field. Prefix with '-' for descending.",
+            "schema": {
+              "type": "string",
+              "enum": ["created", "-created", "risk", "-risk", "version", "-version"],
+              "default": "-created"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of releases",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 pagination links",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedReleases"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/releases/active": {
+      "get": {
+        "summary": "Get the currently active release",
+        "operationId": "getActiveRelease",
+        "tags": ["Releases"],
+        "responses": {
+          "200": {
+            "description": "Active release or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "release": {
+                      "nullable": true,
+                      "allOf": [{ "$ref": "#/components/schemas/Release" }]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/releases/{id}": {
+      "get": {
+        "summary": "Get a specific release",
+        "operationId": "getRelease",
+        "tags": ["Releases"],
+        "parameters": [
+          { "$ref": "#/components/parameters/releaseId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Release" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing release ID",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/releases/{id}/events": {
+      "get": {
+        "summary": "Get events for a specific release",
+        "operationId": "getReleaseEvents",
+        "tags": ["Releases"],
+        "parameters": [
+          { "$ref": "#/components/parameters/releaseId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Release events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/AuditEvent" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/governance/decisions": {
+      "get": {
+        "summary": "List governance decisions",
+        "operationId": "listGovernanceDecisions",
+        "tags": ["Governance"],
+        "parameters": [
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" },
+          {
+            "name": "decision",
+            "in": "query",
+            "description": "Filter by decision type",
+            "schema": {
+              "type": "string",
+              "enum": ["approve", "deny", "require_review", "pending"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of governance decisions",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 pagination links",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedGovernanceDecisions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/governance/risk-trends": {
+      "get": {
+        "summary": "Get risk score trends over time",
+        "operationId": "getRiskTrends",
+        "tags": ["Governance"],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Number of days to include (1-365)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Risk trends",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trends": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/RiskTrend" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/governance/factors": {
+      "get": {
+        "summary": "Get risk factor distribution",
+        "operationId": "getFactorDistribution",
+        "tags": ["Governance"],
+        "responses": {
+          "200": {
+            "description": "Factor distribution",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "factors": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/FactorDistribution" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actors": {
+      "get": {
+        "summary": "List actors with metrics",
+        "operationId": "listActors",
+        "tags": ["Actors"],
+        "parameters": [
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort field. Prefix with '-' for descending.",
+            "schema": {
+              "type": "string",
+              "enum": ["name", "-name", "releases", "-releases", "risk", "-risk", "reliability", "-reliability"],
+              "default": "-releases"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of actors",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 pagination links",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedActors"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actors/{id}": {
+      "get": {
+        "summary": "Get actor details",
+        "operationId": "getActor",
+        "tags": ["Actors"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actor details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Actor" }
+              }
+            }
+          },
+          "404": {
+            "description": "Actor not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/pending": {
+      "get": {
+        "summary": "List pending approvals",
+        "operationId": "listPendingApprovals",
+        "tags": ["Approvals"],
+        "parameters": [
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort field. Prefix with '-' for descending.",
+            "schema": {
+              "type": "string",
+              "enum": ["risk", "-risk", "submitted", "-submitted"],
+              "default": "-risk"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of pending approvals",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 pagination links",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedApprovals"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{id}/approve": {
+      "post": {
+        "summary": "Approve a pending release",
+        "operationId": "approveRelease",
+        "tags": ["Approvals"],
+        "parameters": [
+          { "$ref": "#/components/parameters/releaseId" }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "justification": { "type": "string" },
+                  "force": { "type": "boolean", "default": false }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Release approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": { "type": "boolean" },
+                    "run_id": { "type": "string" },
+                    "plan_hash": { "type": "string" },
+                    "approved_by": { "type": "string" },
+                    "version_next": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/approvals/{id}/reject": {
+      "post": {
+        "summary": "Reject a pending release",
+        "operationId": "rejectRelease",
+        "tags": ["Approvals"],
+        "parameters": [
+          { "$ref": "#/components/parameters/releaseId" }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Release rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rejected": { "type": "boolean" },
+                    "run_id": { "type": "string" },
+                    "reason": { "type": "string" },
+                    "rejected_by": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Release not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audit": {
+      "get": {
+        "summary": "List audit events",
+        "operationId": "listAuditEvents",
+        "tags": ["Audit"],
+        "parameters": [
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/cursor" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" },
+          {
+            "name": "release_id",
+            "in": "query",
+            "description": "Filter by release ID",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "description": "Filter by event type (e.g. PLAN, BUMP, APPROVE)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "actor",
+            "in": "query",
+            "description": "Filter by actor ID",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start of time range (RFC3339)",
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End of time range (RFC3339)",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of audit events",
+            "headers": {
+              "Link": {
+                "description": "RFC 8288 pagination links",
+                "schema": { "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAuditEvents"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI specification",
+        "operationId": "getOpenAPISpec",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0 specification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT access token obtained from /auth/login"
+      }
+    },
+    "parameters": {
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum number of items per page (1-100)",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "cursor": {
+        "name": "cursor",
+        "in": "query",
+        "description": "Opaque cursor for cursor-based pagination",
+        "schema": { "type": "string" }
+      },
+      "page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number for legacy offset pagination",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "pageSize": {
+        "name": "page_size",
+        "in": "query",
+        "description": "Page size for legacy offset pagination (1-100)",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "releaseId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Release run ID",
+        "schema": { "type": "string" }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error", "code"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code",
+            "enum": [
+              "BAD_REQUEST",
+              "INVALID_JSON",
+              "VALIDATION_FAILED",
+              "MISSING_FIELD",
+              "UNAUTHORIZED",
+              "INVALID_CREDENTIALS",
+              "TOKEN_EXPIRED",
+              "TOKEN_INVALID",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "RELEASE_NOT_FOUND",
+              "INTERNAL_ERROR",
+              "SERVICE_UNAVAILABLE",
+              "AUTH_NOT_CONFIGURED"
+            ]
+          },
+          "details": {
+            "description": "Additional error details"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Unique request identifier for tracing"
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "timestamp", "go_version"],
+        "properties": {
+          "status": { "type": "string", "example": "healthy" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "uptime": { "type": "string", "example": "1h30m0s" },
+          "version": { "type": "string", "example": "v1.2.0" },
+          "go_version": { "type": "string", "example": "go1.22.0" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string" },
+          "password": { "type": "string", "format": "password" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string" },
+          "refresh_token": { "type": "string" },
+          "token_type": { "type": "string", "example": "Bearer" },
+          "expires_in": { "type": "integer", "description": "Token TTL in seconds" }
+        }
+      },
+      "Release": {
+        "type": "object",
+        "required": ["id", "state", "base_ref", "head_ref", "created_at", "updated_at", "commit_count"],
+        "properties": {
+          "id": { "type": "string" },
+          "state": {
+            "type": "string",
+            "enum": ["draft", "planned", "versioned", "notes_ready", "approved", "published", "failed", "canceled"]
+          },
+          "base_ref": { "type": "string" },
+          "head_ref": { "type": "string" },
+          "version": { "type": "string" },
+          "next_version": { "type": "string" },
+          "bump_type": { "type": "string", "enum": ["major", "minor", "patch"] },
+          "risk_score": { "type": "number", "format": "double", "minimum": 0, "maximum": 1 },
+          "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "approved_at": { "type": "string", "format": "date-time", "nullable": true },
+          "approved_by": { "type": "string" },
+          "published_at": { "type": "string", "format": "date-time", "nullable": true },
+          "commit_count": { "type": "integer" },
+          "change_types": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "release_notes": { "type": "string" }
+        }
+      },
+      "GovernanceDecision": {
+        "type": "object",
+        "required": ["id", "release_id", "decision", "risk_score", "risk_level", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "release_id": { "type": "string" },
+          "decision": { "type": "string", "enum": ["approve", "deny", "require_review", "pending"] },
+          "risk_score": { "type": "number", "format": "double" },
+          "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+          "factors": { "type": "array", "items": { "type": "string" } },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "actor_id": { "type": "string" },
+          "actor_kind": { "type": "string" },
+          "policy_matched": { "type": "string" },
+          "requires_review": { "type": "boolean" },
+          "review_reason": { "type": "string" }
+        }
+      },
+      "Actor": {
+        "type": "object",
+        "required": ["id", "kind", "release_count", "success_rate", "average_risk_score", "reliability_score", "last_seen", "trust_level"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["human", "ci", "ai_agent"] },
+          "name": { "type": "string" },
+          "release_count": { "type": "integer" },
+          "success_rate": { "type": "number", "format": "double" },
+          "average_risk_score": { "type": "number", "format": "double" },
+          "reliability_score": { "type": "number", "format": "double" },
+          "last_seen": { "type": "string", "format": "date-time" },
+          "trust_level": { "type": "string", "enum": ["trusted", "standard", "probation"] }
+        }
+      },
+      "Approval": {
+        "type": "object",
+        "required": ["release_id", "version", "risk_score", "risk_level", "requires_review", "submitted_at", "commit_count"],
+        "properties": {
+          "release_id": { "type": "string" },
+          "version": { "type": "string" },
+          "risk_score": { "type": "number", "format": "double" },
+          "risk_level": { "type": "string", "enum": ["low", "medium", "high"] },
+          "requires_review": { "type": "boolean" },
+          "review_reason": { "type": "string" },
+          "submitted_at": { "type": "string", "format": "date-time" },
+          "submitted_by": { "type": "string" },
+          "commit_count": { "type": "integer" },
+          "changes": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "AuditEvent": {
+        "type": "object",
+        "required": ["id", "type", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "release_id": { "type": "string" },
+          "actor_id": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "data": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "RiskTrend": {
+        "type": "object",
+        "required": ["date", "risk_score", "releases"],
+        "properties": {
+          "date": { "type": "string", "format": "date-time" },
+          "risk_score": { "type": "number", "format": "double" },
+          "releases": { "type": "integer" }
+        }
+      },
+      "FactorDistribution": {
+        "type": "object",
+        "required": ["factor", "count", "percentage"],
+        "properties": {
+          "factor": { "type": "string" },
+          "count": { "type": "integer" },
+          "percentage": { "type": "number", "format": "double" }
+        }
+      },
+      "CursorPagination": {
+        "type": "object",
+        "required": ["data", "total", "limit", "has_more"],
+        "properties": {
+          "total": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "next_cursor": { "type": "string" },
+          "prev_cursor": { "type": "string" },
+          "has_more": { "type": "boolean" }
+        }
+      },
+      "PaginatedReleases": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Release" }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedGovernanceDecisions": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/GovernanceDecision" }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedActors": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Actor" }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedApprovals": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Approval" }
+              }
+            }
+          }
+        ]
+      },
+      "PaginatedAuditEvents": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/AuditEvent" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

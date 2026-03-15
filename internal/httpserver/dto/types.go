@@ -3,7 +3,7 @@ package dto
 
 import "time"
 
-// PaginatedResponse is a generic paginated response.
+// PaginatedResponse is a generic offset-based paginated response.
 type PaginatedResponse[T any] struct {
 	Data       []T `json:"data"`
 	Total      int `json:"total"`
@@ -12,11 +12,22 @@ type PaginatedResponse[T any] struct {
 	TotalPages int `json:"total_pages"`
 }
 
-// ErrorResponse is an API error response.
+// CursorPaginatedResponse is a generic cursor-based paginated response.
+type CursorPaginatedResponse[T any] struct {
+	Data       []T    `json:"data"`
+	Total      int    `json:"total"`
+	Limit      int    `json:"limit"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	PrevCursor string `json:"prev_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
+}
+
+// ErrorResponse is a structured API error response.
 type ErrorResponse struct {
-	Error   string `json:"error"`
-	Code    string `json:"code,omitempty"`
-	Details any    `json:"details,omitempty"`
+	Error     string `json:"error"`
+	Code      string `json:"code"`
+	Details   any    `json:"details,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // ReleaseDTO is the API representation of a release.

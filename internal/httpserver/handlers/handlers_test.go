@@ -241,14 +241,13 @@ func TestListReleases_NoContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ReleaseDTO]
+	var resp dto.CursorPaginatedResponse[dto.ReleaseDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
 	assert.Empty(t, resp.Data)
 	assert.Equal(t, 0, resp.Total)
-	assert.Equal(t, 1, resp.Page)
-	assert.Equal(t, 20, resp.PageSize)
+	assert.Equal(t, defaultLimit, resp.Limit)
 }
 
 // TestGetActiveRelease_NoContext tests GetActiveRelease with no context.
@@ -396,14 +395,13 @@ func TestListActors_NoContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ActorDTO]
+	var resp dto.CursorPaginatedResponse[dto.ActorDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
 	assert.Empty(t, resp.Data)
 	assert.Equal(t, 0, resp.Total)
-	assert.Equal(t, 1, resp.Page)
-	assert.Equal(t, 20, resp.PageSize)
+	assert.Equal(t, defaultLimit, resp.Limit)
 }
 
 // TestGetActor_NoContext tests GetActor with no context.
@@ -431,12 +429,13 @@ func TestListPendingApprovals_NoContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ApprovalDTO]
+	var resp dto.CursorPaginatedResponse[dto.ApprovalDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
 	assert.Empty(t, resp.Data)
 	assert.Equal(t, 0, resp.Total)
+	assert.Equal(t, defaultLimit, resp.Limit)
 }
 
 // TestApproveRelease_NoAuth tests ApproveRelease without authentication.
@@ -478,7 +477,7 @@ func TestListGovernanceDecisions_NoContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	var resp dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -537,7 +536,7 @@ func TestListAuditEvents_NoContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -545,46 +544,40 @@ func TestListAuditEvents_NoContext(t *testing.T) {
 	assert.Equal(t, 0, resp.Total)
 }
 
-// TestRespondError tests error response helper.
-func TestRespondError(t *testing.T) {
-	tests := []struct {
-		name    string
-		status  int
-		message string
-		details string
-	}{
-		{
-			name:    "with details",
-			status:  http.StatusBadRequest,
-			message: "Bad request",
-			details: "Missing required field",
-		},
-		{
-			name:    "without details",
-			status:  http.StatusInternalServerError,
-			message: "Internal error",
-			details: "",
-		},
-	}
+// TestWriteError tests the structured error response with request ID.
+func TestWriteError(t *testing.T) {
+	t.Run("includes request ID from context", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/releases/abc", nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
+		writeError(rec, req, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", "no such run")
 
-			respondError(rec, tt.status, tt.message, tt.details)
+		assert.Equal(t, http.StatusNotFound, rec.Code)
 
-			assert.Equal(t, tt.status, rec.Code)
+		var resp dto.ErrorResponse
+		err := json.NewDecoder(rec.Body).Decode(&resp)
+		require.NoError(t, err)
 
-			var resp dto.ErrorResponse
-			err := json.NewDecoder(rec.Body).Decode(&resp)
-			require.NoError(t, err)
+		assert.Equal(t, "release not found", resp.Error)
+		assert.Equal(t, ErrCodeReleaseNotFound, resp.Code)
+		assert.Equal(t, "no such run", resp.Details)
+		// RequestID is empty without chi's RequestID middleware
+		assert.Empty(t, resp.RequestID)
+	})
 
-			assert.Equal(t, tt.message, resp.Error)
-			if tt.details != "" {
-				assert.Equal(t, tt.details, resp.Details)
-			}
-		})
-	}
+	t.Run("nil details omitted", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+
+		writeError(rec, req, http.StatusUnauthorized, ErrCodeInvalidCredentials, "Invalid credentials", nil)
+
+		var resp dto.ErrorResponse
+		err := json.NewDecoder(rec.Body).Decode(&resp)
+		require.NoError(t, err)
+
+		assert.Equal(t, ErrCodeInvalidCredentials, resp.Code)
+		assert.Nil(t, resp.Details)
+	})
 }
 
 // =============================================================================
@@ -674,16 +667,15 @@ func TestListReleases_WithContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ReleaseDTO]
+	var resp dto.CursorPaginatedResponse[dto.ReleaseDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
 	assert.Equal(t, 1, resp.Total)
 	assert.Len(t, resp.Data, 1)
 	assert.Equal(t, string(run.ID()), resp.Data[0].ID)
-	assert.Equal(t, 1, resp.Page)
-	assert.Equal(t, 20, resp.PageSize)
-	assert.Equal(t, 1, resp.TotalPages)
+	assert.Equal(t, defaultLimit, resp.Limit)
+	assert.False(t, resp.HasMore)
 }
 
 func TestListReleases_Pagination(t *testing.T) {
@@ -691,18 +683,18 @@ func TestListReleases_Pagination(t *testing.T) {
 	_, cleanup := setupTestContext(run)
 	defer cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/releases?page=1&page_size=5", nil)
+	req := httptest.NewRequest(http.MethodGet, "/releases?limit=5", nil)
 	rec := httptest.NewRecorder()
 
 	ListReleases(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ReleaseDTO]
+	var resp dto.CursorPaginatedResponse[dto.ReleaseDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
-	assert.Equal(t, 5, resp.PageSize)
+	assert.Equal(t, 5, resp.Limit)
 }
 
 func TestListReleases_EmptyRepo(t *testing.T) {
@@ -716,7 +708,7 @@ func TestListReleases_EmptyRepo(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ReleaseDTO]
+	var resp dto.CursorPaginatedResponse[dto.ReleaseDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -877,7 +869,7 @@ func TestListGovernanceDecisions_WithContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	var resp dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -908,7 +900,7 @@ func TestListGovernanceDecisions_ApprovedRun(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	var resp dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -928,7 +920,7 @@ func TestListGovernanceDecisions_CanceledRun(t *testing.T) {
 
 	ListGovernanceDecisions(rec, req)
 
-	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	var resp dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	require.Len(t, resp.Data, 1)
@@ -1002,7 +994,7 @@ func TestListActors_WithContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ActorDTO]
+	var resp dto.CursorPaginatedResponse[dto.ActorDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -1075,7 +1067,7 @@ func TestListPendingApprovals_WithContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ApprovalDTO]
+	var resp dto.CursorPaginatedResponse[dto.ApprovalDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -1101,7 +1093,7 @@ func TestListPendingApprovals_WithPendingRun(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.ApprovalDTO]
+	var resp dto.CursorPaginatedResponse[dto.ApprovalDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -1125,7 +1117,7 @@ func TestListAuditEvents_WithContext(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	err := json.NewDecoder(rec.Body).Decode(&resp)
 	require.NoError(t, err)
 
@@ -1149,7 +1141,7 @@ func TestListAuditEvents_WithFilters(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	assert.Greater(t, resp.Total, 0)
@@ -1167,7 +1159,7 @@ func TestListAuditEvents_FilterByEventType(t *testing.T) {
 
 	ListAuditEvents(rec, req)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	for _, ev := range resp.Data {
@@ -1190,7 +1182,7 @@ func TestListAuditEvents_FilterByTimeRange(t *testing.T) {
 
 	ListAuditEvents(rec, req)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	assert.Greater(t, resp.Total, 0)
@@ -1208,7 +1200,7 @@ func TestListAuditEvents_LimitAndOffset(t *testing.T) {
 
 	ListAuditEvents(rec, req)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	assert.LessOrEqual(t, len(resp.Data), 1)
@@ -1226,7 +1218,7 @@ func TestListAuditEvents_FilterByReleaseID(t *testing.T) {
 
 	ListAuditEvents(rec, req)
 
-	var resp dto.PaginatedResponse[dto.AuditEventDTO]
+	var resp dto.CursorPaginatedResponse[dto.AuditEventDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	assert.Greater(t, resp.Total, 0)
@@ -1249,7 +1241,7 @@ func TestListGovernanceDecisions_RequiresReview(t *testing.T) {
 
 	ListGovernanceDecisions(rec, req)
 
-	var resp dto.PaginatedResponse[dto.GovernanceDecisionDTO]
+	var resp dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	require.Len(t, resp.Data, 1)
@@ -1276,7 +1268,7 @@ func TestListActors_UnknownActor(t *testing.T) {
 
 	ListActors(rec, req)
 
-	var resp dto.PaginatedResponse[dto.ActorDTO]
+	var resp dto.CursorPaginatedResponse[dto.ActorDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	require.Len(t, resp.Data, 1)
@@ -1293,7 +1285,7 @@ func TestListReleases_PaginationBeyondTotal(t *testing.T) {
 
 	ListReleases(rec, req)
 
-	var resp dto.PaginatedResponse[dto.ReleaseDTO]
+	var resp dto.CursorPaginatedResponse[dto.ReleaseDTO]
 	_ = json.NewDecoder(rec.Body).Decode(&resp)
 
 	assert.Equal(t, 1, resp.Total)

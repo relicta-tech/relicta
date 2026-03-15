@@ -11,6 +11,7 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/httpserver/handlers"
 	"github.com/relicta-tech/relicta/internal/httpserver/middleware"
+	"github.com/relicta-tech/relicta/internal/httpserver/openapi"
 )
 
 // setupRouter configures the Chi router with all routes and middleware.
@@ -40,6 +41,9 @@ func (s *Server) setupRouter() chi.Router {
 		// Health check (unauthenticated)
 		r.Get("/health", handlers.Health)
 
+		// OpenAPI specification (unauthenticated)
+		r.Get("/openapi.json", openapi.Handler)
+
 		// Auth endpoints (unauthenticated, rate-limited)
 		r.Route("/auth", func(r chi.Router) {
 			r.Use(middleware.RateLimit(&middleware.RateLimiterConfig{
@@ -50,6 +54,12 @@ func (s *Server) setupRouter() chi.Router {
 			r.Post("/login", handlers.Login)
 			r.Post("/refresh", handlers.Refresh)
 			r.Post("/logout", handlers.Logout)
+
+			// OIDC SSO endpoints
+			if s.oidcHandlers != nil {
+				r.Get("/oidc/login", s.oidcHandlers.LoginRedirect)
+				r.Get("/oidc/callback", s.oidcHandlers.Callback)
+			}
 		})
 
 		// Authenticated API routes
@@ -87,8 +97,21 @@ func (s *Server) setupRouter() chi.Router {
 				r.Post("/{id}/reject", handlers.RejectRelease)
 			})
 
+			// Analytics endpoints
+			r.Route("/analytics", func(r chi.Router) {
+				r.Get("/risk-trends", handlers.GetAnalyticsRiskTrends)
+				r.Get("/decisions", handlers.GetAnalyticsDecisions)
+				r.Get("/team", handlers.GetAnalyticsTeam)
+			})
+
 			// Audit trail endpoint
 			r.Get("/audit", handlers.ListAuditEvents)
+
+			// Webhook delivery endpoints
+			r.Route("/webhooks", func(r chi.Router) {
+				r.Get("/{id}/deliveries", handlers.ListWebhookDeliveries)
+				r.Post("/{id}/deliveries/{deliveryId}/redeliver", handlers.RedeliverWebhook)
+			})
 		})
 	})
 

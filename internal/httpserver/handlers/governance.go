@@ -10,42 +10,34 @@ import (
 	"github.com/relicta-tech/relicta/internal/httpserver/dto"
 )
 
-// ListGovernanceDecisions returns governance decision history.
+// ListGovernanceDecisions returns a paginated list of governance decisions.
+// Supports cursor-based pagination (?limit=N&cursor=<opaque>) and
+// legacy offset pagination (?page=N&page_size=N).
+// Optional filters: ?decision=<approve|deny|require_review|pending>
 func ListGovernanceDecisions(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.GovernanceDecisionDTO]{
-			Data:       []dto.GovernanceDecisionDTO{},
-			Total:      0,
-			Page:       1,
-			PageSize:   20,
-			TotalPages: 0,
+		respondJSON(w, http.StatusOK, dto.CursorPaginatedResponse[dto.GovernanceDecisionDTO]{
+			Data:  []dto.GovernanceDecisionDTO{},
+			Limit: defaultLimit,
 		})
 		return
 	}
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// List all run IDs to extract governance decisions
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
-	// Pagination parameters
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
+	decisionFilter := r.URL.Query().Get("decision")
 
 	// Load runs and extract governance decisions
 	var decisions []dto.GovernanceDecisionDTO
@@ -88,29 +80,15 @@ func ListGovernanceDecisions(w http.ResponseWriter, r *http.Request) {
 			decision.Decision = "pending"
 		}
 
+		if decisionFilter != "" && decision.Decision != decisionFilter {
+			continue
+		}
+
 		decisions = append(decisions, decision)
 	}
 
-	total := len(decisions)
-	totalPages := (total + pageSize - 1) / pageSize
-
-	// Apply pagination
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if start > total {
-		start = total
-	}
-	if end > total {
-		end = total
-	}
-
-	respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.GovernanceDecisionDTO]{
-		Data:       decisions[start:end],
-		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
-		TotalPages: totalPages,
-	})
+	params := ParsePagination(r)
+	respondJSON(w, http.StatusOK, Paginate(decisions, params, r, w))
 }
 
 // GetRiskTrends returns risk score trends over time.
@@ -123,7 +101,7 @@ func GetRiskTrends(w http.ResponseWriter, r *http.Request) {
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
@@ -139,7 +117,7 @@ func GetRiskTrends(w http.ResponseWriter, r *http.Request) {
 	// List all runs
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
@@ -190,14 +168,14 @@ func GetFactorDistribution(w http.ResponseWriter, r *http.Request) {
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// List all runs
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 

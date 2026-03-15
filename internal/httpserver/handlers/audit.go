@@ -10,23 +10,23 @@ import (
 	"github.com/relicta-tech/relicta/internal/httpserver/dto"
 )
 
-// ListAuditEvents returns the audit trail of release events.
+// ListAuditEvents returns a paginated, filterable audit trail of release events.
+// Supports cursor-based pagination (?limit=N&cursor=<opaque>) and
+// legacy offset pagination (?page=N&page_size=N).
+// Filters: ?release_id=X&event_type=X&actor=X&from=RFC3339&to=RFC3339
 func ListAuditEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.AuditEventDTO]{
-			Data:       []dto.AuditEventDTO{},
-			Total:      0,
-			Page:       1,
-			PageSize:   100,
-			TotalPages: 0,
+		respondJSON(w, http.StatusOK, dto.CursorPaginatedResponse[dto.AuditEventDTO]{
+			Data:  []dto.AuditEventDTO{},
+			Limit: defaultLimit,
 		})
 		return
 	}
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
@@ -47,24 +47,10 @@ func ListAuditEvents(w http.ResponseWriter, r *http.Request) {
 	eventTypeFilter := query.Get("event_type")
 	actorFilter := query.Get("actor")
 
-	// Pagination
-	limit := 100
-	if limitStr := query.Get("limit"); limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 1000 {
-			limit = l
-		}
-	}
-	offset := 0
-	if offsetStr := query.Get("offset"); offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
-	}
-
 	// List all runs
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
@@ -125,26 +111,6 @@ func ListAuditEvents(w http.ResponseWriter, r *http.Request) {
 		return allEvents[i].Timestamp.After(allEvents[j].Timestamp)
 	})
 
-	total := len(allEvents)
-	totalPages := (total + limit - 1) / limit
-
-	// Apply pagination
-	start := offset
-	end := offset + limit
-	if start > total {
-		start = total
-	}
-	if end > total {
-		end = total
-	}
-
-	page := (offset / limit) + 1
-
-	respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.AuditEventDTO]{
-		Data:       allEvents[start:end],
-		Total:      total,
-		Page:       page,
-		PageSize:   limit,
-		TotalPages: totalPages,
-	})
+	params := ParsePagination(r)
+	respondJSON(w, http.StatusOK, Paginate(allEvents, params, r, w))
 }

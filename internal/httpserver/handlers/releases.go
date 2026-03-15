@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -12,16 +13,17 @@ import (
 	"github.com/relicta-tech/relicta/internal/httpserver/dto"
 )
 
-// ListReleases returns a list of releases.
+// ListReleases returns a paginated list of releases.
+// Supports cursor-based pagination (?limit=N&cursor=<opaque>) and
+// legacy offset pagination (?page=N&page_size=N).
+// Optional filters: ?state=<state>
+// Sort: ?sort=created|-created|risk|-risk|version|-version (default: -created)
 func ListReleases(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ReleaseDTO]{
-			Data:       []dto.ReleaseDTO{},
-			Total:      0,
-			Page:       1,
-			PageSize:   20,
-			TotalPages: 0,
+		respondJSON(w, http.StatusOK, dto.CursorPaginatedResponse[dto.ReleaseDTO]{
+			Data:  []dto.ReleaseDTO{},
+			Limit: defaultLimit,
 		})
 		return
 	}
@@ -29,56 +31,68 @@ func ListReleases(w http.ResponseWriter, r *http.Request) {
 	// Get repository root from current working directory
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// List all run IDs
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
-	// Pagination parameters
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	total := len(runIDs)
-	totalPages := (total + pageSize - 1) / pageSize
-
-	// Apply pagination
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if start > total {
-		start = total
-	}
-	if end > total {
-		end = total
-	}
-
-	// Load each run and convert to DTO
-	releases := make([]dto.ReleaseDTO, 0, end-start)
-	for _, runID := range runIDs[start:end] {
+	// Load all runs and convert to DTOs (applying optional state filter)
+	stateFilter := r.URL.Query().Get("state")
+	releases := make([]dto.ReleaseDTO, 0, len(runIDs))
+	for _, runID := range runIDs {
 		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
 		if err != nil {
-			continue // Skip runs that can't be loaded
+			continue
+		}
+		if stateFilter != "" && string(run.State()) != stateFilter {
+			continue
 		}
 		releases = append(releases, mapReleaseToDTO(run))
 	}
 
-	respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ReleaseDTO]{
-		Data:       releases,
-		Total:      total,
-		Page:       page,
-		PageSize:   pageSize,
-		TotalPages: totalPages,
+	// Apply sort parameter
+	sortReleases(releases, r.URL.Query().Get("sort"))
+
+	params := ParsePagination(r)
+	respondJSON(w, http.StatusOK, Paginate(releases, params, r, w))
+}
+
+// sortReleases sorts releases by the given sort parameter.
+// Supported values: created, -created, risk, -risk, version, -version.
+// A leading "-" indicates descending order. Default is "-created" (newest first).
+func sortReleases(releases []dto.ReleaseDTO, sortParam string) {
+	if sortParam == "" {
+		sortParam = "-created"
+	}
+
+	desc := false
+	if sortParam[0] == '-' {
+		desc = true
+		sortParam = sortParam[1:]
+	}
+
+	sort.Slice(releases, func(i, j int) bool {
+		var less bool
+		switch sortParam {
+		case "created":
+			less = releases[i].CreatedAt.Before(releases[j].CreatedAt)
+		case "risk":
+			less = releases[i].RiskScore < releases[j].RiskScore
+		case "version":
+			less = releases[i].NextVersion < releases[j].NextVersion
+		default:
+			less = releases[i].CreatedAt.Before(releases[j].CreatedAt)
+		}
+		if desc {
+			return !less
+		}
+		return less
 	})
 }
 
@@ -93,7 +107,7 @@ func GetActiveRelease(w http.ResponseWriter, r *http.Request) {
 	// Get repository root from current working directory
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
@@ -113,19 +127,19 @@ func GetActiveRelease(w http.ResponseWriter, r *http.Request) {
 func GetRelease(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondError(w, http.StatusNotFound, "release not found", "services not initialized")
+		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", "services not initialized")
 		return
 	}
 
 	runID := chi.URLParam(r, "id")
 	if runID == "" {
-		respondError(w, http.StatusBadRequest, "missing release ID", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "missing release ID", nil)
 		return
 	}
 
 	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
 	if err != nil {
-		respondError(w, http.StatusNotFound, "release not found", err.Error())
+		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
 	}
 
@@ -142,13 +156,13 @@ func GetReleaseEvents(w http.ResponseWriter, r *http.Request) {
 
 	runID := chi.URLParam(r, "id")
 	if runID == "" {
-		respondError(w, http.StatusBadRequest, "missing release ID", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "missing release ID", nil)
 		return
 	}
 
 	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
 	if err != nil {
-		respondError(w, http.StatusNotFound, "release not found", err.Error())
+		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
 	}
 
@@ -239,16 +253,4 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
-}
-
-// respondError writes an error response.
-func respondError(w http.ResponseWriter, status int, message, details string) {
-	resp := dto.ErrorResponse{
-		Error:   message,
-		Details: details,
-	}
-	if details != "" {
-		resp.Details = details
-	}
-	respondJSON(w, status, resp)
 }

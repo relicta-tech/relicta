@@ -24,29 +24,29 @@ type actorStats struct {
 }
 
 // ListActors returns actor metrics and performance data.
+// Supports cursor-based pagination (?limit=N&cursor=<opaque>) and
+// legacy offset pagination (?page=N&page_size=N).
+// Sort: ?sort=name|-name|releases|-releases|risk|-risk|reliability|-reliability (default: -releases)
 func ListActors(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ActorDTO]{
-			Data:       []dto.ActorDTO{},
-			Total:      0,
-			Page:       1,
-			PageSize:   20,
-			TotalPages: 0,
+		respondJSON(w, http.StatusOK, dto.CursorPaginatedResponse[dto.ActorDTO]{
+			Data:  []dto.ActorDTO{},
+			Limit: defaultLimit,
 		})
 		return
 	}
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// List all runs to aggregate actor data
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
@@ -121,44 +121,37 @@ func ListActors(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	// Sort by release count descending
-	sort.Slice(actors, func(i, j int) bool {
-		return actors[i].ReleaseCount > actors[j].ReleaseCount
-	})
+	// Apply sort parameter
+	sortActors(actors, r.URL.Query().Get("sort"))
 
-	respondJSON(w, http.StatusOK, dto.PaginatedResponse[dto.ActorDTO]{
-		Data:       actors,
-		Total:      len(actors),
-		Page:       1,
-		PageSize:   len(actors),
-		TotalPages: 1,
-	})
+	params := ParsePagination(r)
+	respondJSON(w, http.StatusOK, Paginate(actors, params, r, w))
 }
 
 // GetActor returns details for a specific actor.
 func GetActor(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.ReleaseServices == nil {
-		respondError(w, http.StatusNotFound, "actor not found", "services not initialized")
+		writeError(w, r, http.StatusNotFound, ErrCodeNotFound, "actor not found", "services not initialized")
 		return
 	}
 
 	actorID := chi.URLParam(r, "id")
 	if actorID == "" {
-		respondError(w, http.StatusBadRequest, "missing actor ID", "")
+		writeError(w, r, http.StatusBadRequest, ErrCodeMissingField, "missing actor ID", nil)
 		return
 	}
 
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to get working directory", "")
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
 		return
 	}
 
 	// List all runs to find actor data
 	runIDs, err := ctx.ReleaseServices.Repository.List(r.Context(), repoRoot)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "failed to list releases", err.Error())
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to list releases", err.Error())
 		return
 	}
 
@@ -199,7 +192,7 @@ func GetActor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !found {
-		respondError(w, http.StatusNotFound, "actor not found", "")
+		writeError(w, r, http.StatusNotFound, ErrCodeNotFound, "actor not found", nil)
 		return
 	}
 
@@ -230,5 +223,40 @@ func GetActor(w http.ResponseWriter, r *http.Request) {
 		ReliabilityScore: reliabilityScore,
 		LastSeen:         stats.LastSeen,
 		TrustLevel:       trustLevel,
+	})
+}
+
+// sortActors sorts actors by the given sort parameter.
+// Supported values: name, -name, releases, -releases, risk, -risk, reliability, -reliability.
+// A leading "-" indicates descending order. Default is "-releases" (descending by release count).
+func sortActors(actors []dto.ActorDTO, sortParam string) {
+	if sortParam == "" {
+		sortParam = "-releases"
+	}
+
+	desc := false
+	if sortParam[0] == '-' {
+		desc = true
+		sortParam = sortParam[1:]
+	}
+
+	sort.Slice(actors, func(i, j int) bool {
+		var less bool
+		switch sortParam {
+		case "name":
+			less = actors[i].Name < actors[j].Name
+		case "releases":
+			less = actors[i].ReleaseCount < actors[j].ReleaseCount
+		case "risk":
+			less = actors[i].AverageRiskScore < actors[j].AverageRiskScore
+		case "reliability":
+			less = actors[i].ReliabilityScore < actors[j].ReliabilityScore
+		default:
+			less = actors[i].ReleaseCount < actors[j].ReleaseCount
+		}
+		if desc {
+			return !less
+		}
+		return less
 	})
 }
