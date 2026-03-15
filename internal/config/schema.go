@@ -37,6 +37,32 @@ type Config struct {
 	Attestation AttestationConfig `mapstructure:"attestation" json:"attestation,omitempty"`
 	// Persistence configures event store persistence backend.
 	Persistence PersistenceConfig `mapstructure:"persistence" json:"persistence,omitempty"`
+	// Channels configures release channel support.
+	Channels ChannelsConfig `mapstructure:"channels" json:"channels,omitempty"`
+	// Communication configures audience-aware release communication.
+	Communication CommunicationConfig `mapstructure:"communication" json:"communication,omitempty"`
+}
+
+// CommunicationConfig configures audience-aware release communication.
+type CommunicationConfig struct {
+	// DefaultAudience is the audience used when none is specified (default: "engineering").
+	DefaultAudience string `mapstructure:"default_audience" json:"default_audience"`
+	// Audiences allows overriding the default audience definitions.
+	Audiences map[string]CommunicationAudienceConfig `mapstructure:"audiences" json:"audiences,omitempty"`
+}
+
+// CommunicationAudienceConfig defines an audience in the configuration file.
+type CommunicationAudienceConfig struct {
+	// Name is the human-readable audience name.
+	Name string `mapstructure:"name" json:"name"`
+	// Tone is the writing tone (technical, business, executive, public).
+	Tone string `mapstructure:"tone" json:"tone"`
+	// DetailLevel controls how much detail to include (full, summary, highlights).
+	DetailLevel string `mapstructure:"detail_level" json:"detail_level"`
+	// Sections lists which sections to include.
+	Sections []string `mapstructure:"sections" json:"sections"`
+	// CustomPrompt allows overriding the AI system prompt for this audience.
+	CustomPrompt string `mapstructure:"custom_prompt" json:"custom_prompt,omitempty"`
 }
 
 // VersioningConfig configures version management.
@@ -366,6 +392,9 @@ type GovernancePolicyConfig struct {
 	Action string `mapstructure:"action" json:"action"` // approve, deny, require_review
 	// Message is an optional message to include with the decision.
 	Message string `mapstructure:"message" json:"message,omitempty"`
+	// Channel restricts this policy to a specific release channel.
+	// If empty, the policy applies to all channels.
+	Channel string `mapstructure:"channel" json:"channel,omitempty"`
 }
 
 // PolicyConditionConfig configures a single policy condition.
@@ -376,6 +405,51 @@ type PolicyConditionConfig struct {
 	Operator string `mapstructure:"operator" json:"operator"`
 	// Value is the value to compare against.
 	Value any `mapstructure:"value" json:"value"`
+}
+
+// ChannelsConfig configures release channel support.
+type ChannelsConfig struct {
+	// Enabled indicates whether release channels are enabled.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// Default is the default channel name (default: "stable").
+	Default string `mapstructure:"default" json:"default,omitempty"`
+	// Definitions configures individual channel definitions.
+	Definitions []ChannelDefinitionConfig `mapstructure:"definitions" json:"definitions,omitempty"`
+}
+
+// ChannelDefinitionConfig defines a single release channel.
+type ChannelDefinitionConfig struct {
+	// Name is the unique channel name (e.g., "stable", "canary", "alpha", "beta", "next").
+	Name string `mapstructure:"name" json:"name"`
+	// Stability is the stability level (higher = more stable). Default levels:
+	// canary=10, alpha=20, beta=30, next=40, stable=100.
+	Stability int `mapstructure:"stability" json:"stability,omitempty"`
+	// TagPattern is the tag pattern for versions on this channel.
+	TagPattern string `mapstructure:"tag_pattern" json:"tag_pattern,omitempty"`
+	// PromotesTo lists channel names this channel can promote to.
+	PromotesTo []string `mapstructure:"promotes_to" json:"promotes_to,omitempty"`
+	// Prerelease is the prerelease identifier used for versions on this channel.
+	Prerelease string `mapstructure:"prerelease" json:"prerelease,omitempty"`
+	// RequireApproval indicates whether releases on this channel require approval.
+	RequireApproval *bool `mapstructure:"require_approval" json:"require_approval,omitempty"`
+	// AutoApprove indicates whether releases on this channel are auto-approved.
+	AutoApprove *bool `mapstructure:"auto_approve" json:"auto_approve,omitempty"`
+}
+
+// NeedsApproval returns whether this channel requires approval (defaults to true).
+func (c *ChannelDefinitionConfig) NeedsApproval() bool {
+	if c.RequireApproval == nil {
+		return true
+	}
+	return *c.RequireApproval
+}
+
+// IsAutoApproved returns whether this channel auto-approves releases (defaults to false).
+func (c *ChannelDefinitionConfig) IsAutoApproved() bool {
+	if c.AutoApprove == nil {
+		return false
+	}
+	return *c.AutoApprove
 }
 
 // IsPolicyEnabled returns whether the policy is enabled.
@@ -485,6 +559,10 @@ func DefaultConfig() *Config {
 			MemoryPath:              ".relicta/governance/memory.json", // Default storage path
 			Policies:                []GovernancePolicyConfig{},
 		},
+		Channels: ChannelsConfig{
+			Enabled: false, // Disabled by default, opt-in for channel support
+			Default: "stable",
+		},
 		Monorepo: MonorepoConfig{
 			Enabled:                false, // Disabled by default, opt-in for monorepo mode
 			Strategy:               MonorepoStrategyIndependent,
@@ -518,6 +596,9 @@ func DefaultConfig() *Config {
 		Attestation: AttestationConfig{
 			Enabled:     false,  // Disabled by default, opt-in
 			SigningMode: "none", // Unsigned by default for safety
+		},
+		Communication: CommunicationConfig{
+			DefaultAudience: "engineering",
 		},
 	}
 }
@@ -911,6 +992,10 @@ type DashboardConfig struct {
 	// Address is the HTTP server address (default: ":8080").
 	// Format: "host:port" or ":port" for all interfaces.
 	Address string `mapstructure:"address" json:"address"`
+	// ServerMode controls how the server operates: "embedded" serves the
+	// built-in frontend alongside the API; "api" exposes only the API
+	// endpoints (useful when running the frontend as a standalone app).
+	ServerMode ServerMode `mapstructure:"server_mode" json:"server_mode,omitempty"`
 	// Auth configures authentication for the dashboard.
 	Auth DashboardAuthConfig `mapstructure:"auth" json:"auth"`
 	// CORSOrigins is a list of allowed CORS origins (default: same-origin only).
@@ -923,6 +1008,17 @@ type DashboardConfig struct {
 	// IdleTimeout is the HTTP idle timeout (default: 60s).
 	IdleTimeout time.Duration `mapstructure:"idle_timeout" json:"idle_timeout,omitempty"`
 }
+
+// ServerMode defines how the dashboard server operates.
+type ServerMode string
+
+const (
+	// ServerModeEmbedded serves the built-in frontend alongside the API (default).
+	ServerModeEmbedded ServerMode = "embedded"
+	// ServerModeAPI exposes only API endpoints without serving a frontend.
+	// This is useful when the frontend is deployed as a standalone application.
+	ServerModeAPI ServerMode = "api"
+)
 
 // DashboardAuthMode defines the authentication mode for the dashboard.
 type DashboardAuthMode string

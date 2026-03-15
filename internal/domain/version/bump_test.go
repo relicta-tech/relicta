@@ -197,11 +197,13 @@ func TestVersionBump_Apply_Prerelease(t *testing.T) {
 		prerelease Prerelease
 		want       string
 	}{
-		{"add alpha to stable", "1.2.3", PrereleaseAlpha, "1.3.0-alpha"},
-		{"add beta to stable", "1.2.3", PrereleaseBeta, "1.3.0-beta"},
-		{"add rc to stable", "1.2.3", PrereleaseRC, "1.3.0-rc"},
-		{"update alpha to beta", "1.3.0-alpha", PrereleaseBeta, "1.3.0-beta"},
-		{"same prerelease", "1.3.0-alpha", PrereleaseAlpha, "1.3.0-alpha"},
+		{"add alpha to stable", "1.2.3", PrereleaseAlpha, "1.3.0-alpha.1"},
+		{"add beta to stable", "1.2.3", PrereleaseBeta, "1.3.0-beta.1"},
+		{"add rc to stable", "1.2.3", PrereleaseRC, "1.3.0-rc.1"},
+		{"update alpha to beta", "1.3.0-alpha", PrereleaseBeta, "1.3.0-beta.1"},
+		{"same prerelease", "1.3.0-alpha", PrereleaseAlpha, "1.3.0-alpha.1"},
+		{"increment alpha counter", "1.3.0-alpha.1", PrereleaseAlpha, "1.3.0-alpha.2"},
+		{"alpha to beta with counter", "1.3.0-alpha.2", PrereleaseBeta, "1.3.0-beta.1"},
 	}
 
 	for _, tt := range tests {

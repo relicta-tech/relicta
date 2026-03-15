@@ -16,4 +16,13 @@ var (
 
 	// ErrCannotDowngrade indicates an attempt to downgrade a version.
 	ErrCannotDowngrade = errors.New("cannot downgrade version")
+
+	// ErrUnknownChannel indicates an unrecognized release channel.
+	ErrUnknownChannel = errors.New("unknown release channel")
+
+	// ErrInvalidPromotion indicates an invalid channel promotion.
+	ErrInvalidPromotion = errors.New("invalid channel promotion")
+
+	// ErrNoChannelVersions indicates no versions were found for a channel.
+	ErrNoChannelVersions = errors.New("no versions found for channel")
 )

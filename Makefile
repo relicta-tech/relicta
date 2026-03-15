@@ -27,7 +27,7 @@ CMD_DIR := cmd/relicta
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
         check-binary-size help release-local release-snapshot check check-ci install-hooks \
-        frontend frontend-deps build-with-frontend clean-frontend \
+        frontend frontend-deps frontend-standalone build-with-frontend clean-frontend \
         test-policy-gate skill-preflight \
         mcp-apps mcp-apps-deps clean-mcp-apps
 
@@ -94,6 +94,12 @@ build-with-frontend: frontend
 	@mkdir -p $(BIN_DIR)
 	$(GOBUILD) $(LDFLAGS) -tags embed_frontend -o $(BIN_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
 	@echo "✓ Built $(BIN_DIR)/$(BINARY_NAME) with embedded frontend"
+
+# Build standalone frontend Docker image
+frontend-standalone: frontend-deps
+	@echo "Building standalone frontend Docker image..."
+	cd $(WEB_DIR) && docker build -f docker/Dockerfile -t relicta-dashboard:latest .
+	@echo "Run with: docker run -p 3000:80 relicta-dashboard:latest"
 
 # Clean frontend artifacts
 clean-frontend:
@@ -408,9 +414,10 @@ help:
 	@echo "  make plugins             Build all plugins"
 	@echo ""
 	@echo "Frontend:"
-	@echo "  make frontend            Build the Vue frontend"
-	@echo "  make frontend-deps       Install frontend dependencies"
-	@echo "  make clean-frontend      Clean frontend artifacts"
+	@echo "  make frontend              Build the Vue frontend"
+	@echo "  make frontend-deps         Install frontend dependencies"
+	@echo "  make frontend-standalone   Build standalone frontend Docker image"
+	@echo "  make clean-frontend        Clean frontend artifacts"
 	@echo ""
 	@echo "Release (via GoReleaser):"
 	@echo "  make release-local     Local snapshot build (no signing, no publish)"

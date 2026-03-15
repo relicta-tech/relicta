@@ -7,6 +7,18 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 )
 
+// Standard event type constants for real-time notifications.
+const (
+	// EventReleaseProgress signals step-by-step release progress updates.
+	EventReleaseProgress = "release.progress"
+	// EventApprovalRequested signals that a new approval is needed.
+	EventApprovalRequested = "approval.requested"
+	// EventApprovalCompleted signals that an approval has been resolved.
+	EventApprovalCompleted = "approval.completed"
+	// EventAnalyticsUpdated signals that dashboard analytics data should be refreshed.
+	EventAnalyticsUpdated = "analytics.updated"
+)
+
 // EventBroadcaster implements EventPublisher and broadcasts domain events
 // to connected WebSocket clients.
 type EventBroadcaster struct {
@@ -35,6 +47,18 @@ func (b *EventBroadcaster) PublishAsync(ctx context.Context, events ...domain.Do
 			b.hub.Broadcast(msg)
 		}
 	}()
+}
+
+// BroadcastEvent sends a custom event to all connected WebSocket clients.
+// This is used for events that are not domain events (e.g., analytics.updated).
+func (b *EventBroadcaster) BroadcastEvent(eventType string, payload map[string]any) {
+	if payload == nil {
+		payload = make(map[string]any)
+	}
+	if _, ok := payload["timestamp"]; !ok {
+		payload["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+	}
+	b.hub.Broadcast(Message{Type: eventType, Payload: payload})
 }
 
 // eventToMessage converts a domain event to a WebSocket message.

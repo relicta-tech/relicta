@@ -6,17 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/felixgeelhaar/mcp-go"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	cgpprotocol "github.com/relicta-tech/relicta/internal/cgp/protocol"
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/release"
 	relictaerrors "github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	cgpsdk "github.com/relicta-tech/relicta/pkg/cgp"
 )
 
 // Server wraps the MCP server for Relicta.
@@ -32,6 +35,9 @@ type Server struct {
 	policyEngine *policy.Engine
 	riskCalc     *risk.Calculator
 	evaluator    *evaluator.Evaluator
+
+	// CGP protocol service for wire format tools
+	cgpService *cgpprotocol.Service
 
 	// Application layer adapter
 	adapter *Adapter
@@ -89,6 +95,13 @@ func WithRiskCalculator(rc *risk.Calculator) ServerOption {
 func WithEvaluator(ev *evaluator.Evaluator) ServerOption {
 	return func(s *Server) {
 		s.evaluator = ev
+	}
+}
+
+// WithCGPService sets the CGP protocol service for wire format tools.
+func WithCGPService(svc *cgpprotocol.Service) ServerOption {
+	return func(s *Server) {
+		s.cgpService = svc
 	}
 }
 
@@ -243,6 +256,33 @@ type ValidateReleaseToolInput struct {
 	Checks          []string `json:"checks,omitempty" jsonschema:"description=Specific checks to run (subset of all checks)"`
 }
 
+// --- CGP Protocol Wire Format Tool Inputs ---
+
+// CGPProposeToolInput represents input for the cgp_propose tool.
+type CGPProposeToolInput struct {
+	ActorKind   string   `json:"actor_kind" jsonschema:"description=Actor type proposing the change.,enum=agent|ci|human|system"`
+	ActorID     string   `json:"actor_id" jsonschema:"description=Unique identifier for the actor (e.g. 'agent:cursor' or 'ci:github-actions')."`
+	ActorName   string   `json:"actor_name,omitempty" jsonschema:"description=Human-readable name for the actor."`
+	Repository  string   `json:"repository" jsonschema:"description=Target repository in owner/repo format."`
+	CommitRange string   `json:"commit_range" jsonschema:"description=Commit range to evaluate in from..to format (e.g. 'v1.0.0..HEAD')."`
+	Summary     string   `json:"summary" jsonschema:"description=Human-readable description of the proposed changes."`
+	Confidence  float64  `json:"confidence" jsonschema:"description=Proposer's confidence in their assessment (0.0-1.0)."`
+	Categories  []string `json:"categories,omitempty" jsonschema:"description=Change categories: feature, bugfix, security, performance, documentation."`
+}
+
+// CGPAuthorizeToolInput represents input for the cgp_authorize tool.
+type CGPAuthorizeToolInput struct {
+	ProposalID string `json:"proposal_id" jsonschema:"description=ID of the proposal to authorize."`
+	DecisionID string `json:"decision_id" jsonschema:"description=ID of the governance decision."`
+	ApproverID string `json:"approver_id" jsonschema:"description=ID of the approver (e.g. 'human:alice@example.com')."`
+	Version    string `json:"version" jsonschema:"description=Version to release (e.g. '1.2.0')."`
+}
+
+// CGPStatusToolInput represents input for the cgp_status tool.
+type CGPStatusToolInput struct {
+	ProposalID string `json:"proposal_id" jsonschema:"description=ID of the proposal to query status for."`
+}
+
 // Prompt argument input types.
 
 // ReleaseSummaryArgs represents arguments for the release-summary prompt.
@@ -309,6 +349,12 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 func (s *Server) ServeStdio() error {
 	s.logger.Info("MCP server started", "version", s.version)
 	return mcp.ServeStdio(context.Background(), s.server)
+}
+
+// ServeHTTP starts the MCP server on HTTP transport.
+func (s *Server) ServeHTTP(ctx context.Context, address string) error {
+	s.logger.Info("MCP server started", "version", s.version, "transport", "http", "address", address)
+	return mcp.ServeHTTP(ctx, s.server, address)
 }
 
 // registerTools registers all tool handlers.
@@ -391,6 +437,23 @@ func (s *Server) registerTools() {
 		Description("Run pre-flight validation checks before release. Validates git state, plugins, and governance requirements.").
 		UIResource("ui://relicta/approval").
 		Handler(s.handleValidateRelease)
+
+	// --- CGP Protocol Wire Format Tools ---
+
+	// CGP Propose tool - Submit a CGP ChangeProposal for governance evaluation
+	s.server.Tool("cgp_propose").
+		Description("Submit a CGP ChangeProposal for governance evaluation. Returns a GovernanceDecision with risk score, rationale, and required actions.").
+		Handler(s.handleCGPPropose)
+
+	// CGP Authorize tool - Record an ExecutionAuthorization for an approved proposal
+	s.server.Tool("cgp_authorize").
+		Description("Record an ExecutionAuthorization for an approved proposal. Requires a prior governance decision.").
+		Handler(s.handleCGPAuthorize)
+
+	// CGP Status tool - Query the current governance state of a proposal
+	s.server.Tool("cgp_status").
+		Description("Query the current governance state (proposed, decided, authorized) for a CGP proposal by ID.").
+		Handler(s.handleCGPStatus)
 }
 
 // registerResources registers all resource handlers.
@@ -2055,4 +2118,119 @@ Provide actionable guidance that enables confident decision-making.`
 			{Role: "user", Content: mcp.TextContent{Type: "text", Text: content}},
 		},
 	}, nil
+}
+
+// =============================================================================
+// CGP Protocol Wire Format Handlers
+// =============================================================================
+
+func (s *Server) ensureCGPService() error {
+	if s.cgpService != nil {
+		return nil
+	}
+
+	// Lazily create a CGP service from the evaluator if available.
+	if s.evaluator != nil {
+		s.cgpService = cgpprotocol.NewService(s.evaluator)
+		return nil
+	}
+
+	return fmt.Errorf("CGP protocol service not configured")
+}
+
+func (s *Server) handleCGPPropose(ctx context.Context, input CGPProposeToolInput) (string, error) {
+	if err := s.ensureCGPService(); err != nil {
+		return "", err
+	}
+
+	proposal := &cgpsdk.ChangeProposal{
+		CGPVersion: cgpsdk.ProtocolVersion,
+		Type:       cgpsdk.TypeChangeProposal,
+		ID:         cgp.GenerateProposalID(),
+		Timestamp:  timeNowUTC(),
+		Actor: cgpsdk.Actor{
+			Kind: input.ActorKind,
+			ID:   input.ActorID,
+			Name: input.ActorName,
+		},
+		Scope: cgpsdk.Scope{
+			Repository:  input.Repository,
+			CommitRange: input.CommitRange,
+		},
+		Intent: cgpsdk.Intent{
+			Summary:    input.Summary,
+			Confidence: input.Confidence,
+			Categories: input.Categories,
+		},
+	}
+
+	decision, err := s.cgpService.EvaluateProposal(ctx, proposal)
+	if err != nil {
+		return "", userError(err)
+	}
+
+	// Marshal the decision using the CGP wire format codec.
+	data, err := cgpsdk.Marshal(decision)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal decision: %w", err)
+	}
+
+	return string(data), nil
+}
+
+func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolInput) (string, error) {
+	if err := s.ensureCGPService(); err != nil {
+		return "", err
+	}
+
+	now := timeNowUTC()
+	auth := &cgpsdk.ExecutionAuthorization{
+		CGPVersion: cgpsdk.ProtocolVersion,
+		Type:       cgpsdk.TypeExecutionAuthorization,
+		ID:         cgp.GenerateAuthorizationID(),
+		ProposalID: input.ProposalID,
+		DecisionID: input.DecisionID,
+		Timestamp:  now,
+		ApprovedBy: cgpsdk.Actor{
+			Kind: "human",
+			ID:   input.ApproverID,
+		},
+		Version:    input.Version,
+		ValidUntil: now.Add(24 * 60 * 60 * 1e9), // 24 hours
+	}
+
+	if err := s.cgpService.RecordAuthorization(ctx, auth); err != nil {
+		return "", userError(err)
+	}
+
+	data, err := cgpsdk.Marshal(auth)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal authorization: %w", err)
+	}
+
+	return string(data), nil
+}
+
+func (s *Server) handleCGPStatus(ctx context.Context, input CGPStatusToolInput) (string, error) {
+	if err := s.ensureCGPService(); err != nil {
+		return "", err
+	}
+
+	status, err := s.cgpService.GetStatus(ctx, input.ProposalID)
+	if err != nil {
+		return "", userError(err)
+	}
+
+	return toJSONString(map[string]any{
+		"proposalId":    status.ProposalID,
+		"state":         status.State,
+		"proposal":      status.Proposal,
+		"decision":      status.Decision,
+		"authorization": status.Authorization,
+	}), nil
+}
+
+// timeNowUTC returns the current time in UTC. Extracted for testability.
+func timeNowUTC() time.Time {
+	return time.Now().UTC()
 }

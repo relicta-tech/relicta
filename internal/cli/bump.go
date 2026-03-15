@@ -23,6 +23,7 @@ var (
 	bumpPrerelease string
 	bumpBuild      string
 	bumpForce      string
+	bumpChannel    string
 )
 
 func init() {
@@ -31,6 +32,7 @@ func init() {
 	bumpCmd.Flags().StringVarP(&bumpBuild, "build", "b", "", "build metadata")
 	bumpCmd.Flags().StringVar(&bumpForce, "force", "", "set a specific version (e.g., 2.0.0), bypasses commit analysis")
 	bumpCmd.Flags().StringVar(&bumpForce, "version", "", "alias for --force: set a specific version")
+	bumpCmd.Flags().StringVar(&bumpChannel, "channel", "", "release channel (stable, canary, alpha, beta, next)")
 	// Note: --tag and --push flags removed - tags are now created during 'relicta publish'
 }
 
@@ -128,6 +130,17 @@ func printBumpNextSteps(nextVersion version.SemanticVersion) {
 // runVersion implements the version/bump command.
 func runVersion(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// If channel is specified and prerelease is not, derive prerelease from channel
+	if bumpChannel != "" && bumpPrerelease == "" {
+		ch, chErr := version.LookupChannel(bumpChannel)
+		if chErr != nil {
+			return fmt.Errorf("invalid channel: %w", chErr)
+		}
+		if !ch.IsStableChannel() {
+			bumpPrerelease = string(ch.PrereleaseID())
+		}
+	}
 
 	// Validate prerelease and build metadata inputs to prevent injection attacks
 	if bumpPrerelease != "" {

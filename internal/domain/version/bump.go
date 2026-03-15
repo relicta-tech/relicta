@@ -101,22 +101,12 @@ func (b VersionBump) Apply(v SemanticVersion) SemanticVersion {
 		}
 
 	case BumpPrerelease:
-		// Prerelease bump logic:
-		// - If no prerelease, increment patch and add prerelease
-		// - If same prerelease type, increment prerelease number
+		// Prerelease bump logic using BumpPreRelease:
+		// - If no prerelease, bump minor and add prerelease with counter .1
+		// - If same prerelease type, increment prerelease counter
 		// - If different prerelease type, use new type with .1
 		if b.prerelease != "" {
-			if v.IsPrerelease() {
-				// Already a prerelease, update the identifier
-				return v.WithPrerelease(b.prerelease)
-			}
-			// Not a prerelease, bump minor and add prerelease
-			return SemanticVersion{
-				major:      v.major,
-				minor:      v.minor + 1,
-				patch:      0,
-				prerelease: b.prerelease,
-			}
+			return v.BumpPreRelease(b.prerelease)
 		}
 		return v
 

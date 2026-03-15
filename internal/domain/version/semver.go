@@ -166,6 +166,83 @@ func (v SemanticVersion) TagString() string {
 	return "v" + v.String()
 }
 
+// PrereleaseType returns the type portion of the prerelease identifier (e.g., "alpha" from "alpha.3").
+// Returns an empty Prerelease if this is not a prerelease version.
+func (v SemanticVersion) PrereleaseType() Prerelease {
+	if v.prerelease == "" {
+		return ""
+	}
+	parts := strings.Split(string(v.prerelease), ".")
+	return Prerelease(parts[0])
+}
+
+// PrereleaseNumber returns the numeric counter from the prerelease identifier (e.g., 3 from "alpha.3").
+// Returns 0 if there is no numeric counter or this is not a prerelease version.
+func (v SemanticVersion) PrereleaseNumber() uint64 {
+	if v.prerelease == "" {
+		return 0
+	}
+	parts := strings.Split(string(v.prerelease), ".")
+	if len(parts) < 2 {
+		return 0
+	}
+	n, err := strconv.ParseUint(parts[len(parts)-1], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// BumpPreRelease increments the pre-release counter for the given pre-release type.
+// If the version has no prerelease or has a different prerelease type, it starts at 1.
+// If the version already has the same prerelease type, it increments the counter.
+// Examples:
+//   - 1.2.3 + alpha -> 1.3.0-alpha.1 (bumps minor, starts at .1)
+//   - 1.3.0-alpha.1 + alpha -> 1.3.0-alpha.2
+//   - 1.3.0-alpha.2 + beta -> 1.3.0-beta.1
+//   - 1.3.0-beta.1 + rc -> 1.3.0-rc.1
+func (v SemanticVersion) BumpPreRelease(preType Prerelease) SemanticVersion {
+	if preType == "" {
+		return v
+	}
+
+	if v.IsPrerelease() {
+		currentType := v.PrereleaseType()
+		if currentType == preType {
+			// Same prerelease type: increment counter
+			nextNum := v.PrereleaseNumber() + 1
+			return SemanticVersion{
+				major:      v.major,
+				minor:      v.minor,
+				patch:      v.patch,
+				prerelease: Prerelease(fmt.Sprintf("%s.%d", preType, nextNum)),
+			}
+		}
+		// Different prerelease type: start at 1 with same major.minor.patch
+		return SemanticVersion{
+			major:      v.major,
+			minor:      v.minor,
+			patch:      v.patch,
+			prerelease: Prerelease(fmt.Sprintf("%s.%d", preType, 1)),
+		}
+	}
+
+	// No prerelease: bump minor and start at .1
+	return SemanticVersion{
+		major:      v.major,
+		minor:      v.minor + 1,
+		patch:      0,
+		prerelease: Prerelease(fmt.Sprintf("%s.%d", preType, 1)),
+	}
+}
+
+// PromoteToRelease strips the pre-release suffix, producing the stable release version.
+// If the version is not a prerelease, it returns the version unchanged.
+// Example: 1.3.0-rc.2 -> 1.3.0
+func (v SemanticVersion) PromoteToRelease() SemanticVersion {
+	return v.WithoutPrerelease()
+}
+
 // WithPrerelease returns a new version with the specified prerelease identifier.
 func (v SemanticVersion) WithPrerelease(pre Prerelease) SemanticVersion {
 	return SemanticVersion{
@@ -211,6 +288,10 @@ func (v SemanticVersion) WithoutMetadata() SemanticVersion {
 // Compare compares two versions.
 // Returns -1 if v < other, 0 if v == other, 1 if v > other.
 // Build metadata is ignored in comparisons per semver spec.
+// Pre-release identifiers are compared per the semver 2.0.0 specification:
+// identifiers are split by dots and compared left-to-right. Numeric identifiers
+// are compared as integers; alphanumeric identifiers are compared lexically.
+// A version without prerelease has higher precedence than one with prerelease.
 func (v SemanticVersion) Compare(other SemanticVersion) int {
 	// Compare major
 	if v.major != other.major {
@@ -244,14 +325,77 @@ func (v SemanticVersion) Compare(other SemanticVersion) int {
 	if v.prerelease != "" && other.prerelease == "" {
 		return -1
 	}
-	if v.prerelease < other.prerelease {
-		return -1
-	}
-	if v.prerelease > other.prerelease {
-		return 1
+
+	return comparePrerelease(v.prerelease, other.prerelease)
+}
+
+// comparePrerelease compares two prerelease identifiers per semver 2.0.0 spec.
+// Identifiers are split by dots and compared left-to-right.
+// Numeric identifiers are compared as integers; alphanumeric identifiers lexically.
+// Numeric identifiers always have lower precedence than alphanumeric identifiers.
+// A shorter set of identifiers has lower precedence than a longer set when all
+// preceding identifiers are equal.
+func comparePrerelease(a, b Prerelease) int {
+	if a == b {
+		return 0
 	}
 
+	partsA := strings.Split(string(a), ".")
+	partsB := strings.Split(string(b), ".")
+
+	minLen := len(partsA)
+	if len(partsB) < minLen {
+		minLen = len(partsB)
+	}
+
+	for i := 0; i < minLen; i++ {
+		cmp := comparePrereleaseIdentifier(partsA[i], partsB[i])
+		if cmp != 0 {
+			return cmp
+		}
+	}
+
+	// All compared identifiers are equal; shorter set has lower precedence
+	if len(partsA) < len(partsB) {
+		return -1
+	}
+	if len(partsA) > len(partsB) {
+		return 1
+	}
 	return 0
+}
+
+// comparePrereleaseIdentifier compares two individual prerelease identifier segments.
+func comparePrereleaseIdentifier(a, b string) int {
+	numA, errA := strconv.ParseUint(a, 10, 64)
+	numB, errB := strconv.ParseUint(b, 10, 64)
+
+	switch {
+	case errA == nil && errB == nil:
+		// Both numeric: compare as integers
+		if numA < numB {
+			return -1
+		}
+		if numA > numB {
+			return 1
+		}
+		return 0
+	case errA == nil:
+		// Only a is numeric: numeric has lower precedence
+		return -1
+	case errB == nil:
+		// Only b is numeric: numeric has lower precedence
+		return 1
+	default:
+		// Both alphanumeric: compare lexically
+		if a < b {
+			return -1
+		}
+		if a > b {
+			return 1
+		}
+		return 0
+	}
 }
 
 // LessThan returns true if v < other.

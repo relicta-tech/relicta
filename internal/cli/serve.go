@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -21,6 +22,11 @@ var (
 	serveAddress string
 	serveAPIKey  string
 	serveNoAuth  bool
+
+	// serverModeOverride and serverOriginsOverride are set by the server
+	// command to pass mode/origin configuration into runServe.
+	serverModeOverride    config.ServerMode
+	serverOriginsOverride []string
 )
 
 var serveCmd = &cobra.Command{
@@ -51,8 +57,8 @@ Examples:
   relicta serve --address localhost:9000
 
 Authentication:
-  By default, API key authentication is required. Configure API keys
-  in your release.config.yaml:
+  Authentication mode is configured in .relicta.yaml.
+  For production, use API key authentication:
 
     dashboard:
       enabled: true
@@ -101,6 +107,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 	dashboardCfg := cfg.Dashboard
 	dashboardCfg.Address = address
 
+	// Apply server mode override (from 'relicta server' command)
+	if serverModeOverride != "" {
+		dashboardCfg.ServerMode = serverModeOverride
+	}
+
+	// Apply allowed origins override (from 'relicta server' command)
+	if len(serverOriginsOverride) > 0 {
+		dashboardCfg.CORSOrigins = serverOriginsOverride
+	}
+
 	// Handle authentication flags
 	if serveAPIKey != "" {
 		// Enable API key auth with the provided key
@@ -119,7 +135,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	// Warn if API key mode with no keys configured
 	if dashboardCfg.Auth.Mode == config.DashboardAuthAPIKey && len(dashboardCfg.Auth.APIKeys) == 0 {
 		slog.Warn("No API keys configured. Dashboard will be inaccessible.",
-			"hint", "Use --api-key flag or configure api_keys in release.config.yaml")
+			"hint", "Use --api-key flag or configure api_keys in .relicta.yaml")
 	}
 
 	// Initialize application container
@@ -132,8 +148,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 		releaseServices = app.ReleaseServices()
 	}
 
-	// Get embedded frontend (nil if not compiled with embed_frontend tag)
-	frontend := embeddedFrontend
+	// Determine frontend: nil in API-only mode or when not compiled with embed tag
+	var frontend fs.FS
+	if dashboardCfg.ServerMode != config.ServerModeAPI {
+		frontend = embeddedFrontend
+	}
 
 	// Create server
 	server := httpserver.NewServer(httpserver.ServerDeps{
@@ -160,14 +179,18 @@ func runServe(cmd *cobra.Command, args []string) error {
 		fmt.Println(styles.Warning.Render("WARNING: Authentication is disabled. Not recommended for production."))
 	}
 
-	if frontend == nil {
+	if dashboardCfg.ServerMode == config.ServerModeAPI {
+		fmt.Println(styles.Info.Render("Running in API-only mode (frontend disabled via --mode api)"))
+	} else if frontend == nil {
 		fmt.Println(styles.Info.Render("Running in API-only mode (no frontend embedded)"))
 	}
 
 	fmt.Printf("\nAPI endpoints:\n")
-	fmt.Printf("  Health:     http://%s/health\n", resolveDisplayAddress(address))
+	fmt.Printf("  Health:     http://%s/healthz\n", resolveDisplayAddress(address))
+	fmt.Printf("  Readiness:  http://%s/readyz\n", resolveDisplayAddress(address))
 	fmt.Printf("  API:        http://%s/api/v1/\n", resolveDisplayAddress(address))
 	fmt.Printf("  WebSocket:  ws://%s/api/v1/ws\n", resolveDisplayAddress(address))
+	fmt.Printf("  SSE:        http://%s/api/v1/events/stream\n", resolveDisplayAddress(address))
 
 	if frontend != nil {
 		fmt.Printf("  Dashboard:  http://%s/\n", resolveDisplayAddress(address))

@@ -22,6 +22,7 @@ var (
 	releaseSkipPush    bool
 	releaseForce       string
 	releaseClean       bool
+	releaseChannel     string
 )
 
 // releaseMode represents the detected release mode.
@@ -79,6 +80,7 @@ func init() {
 	releaseCmd.Flags().BoolVar(&releaseSkipPush, "skip-push", false, "skip pushing to remote")
 	releaseCmd.Flags().StringVarP(&releaseForce, "force", "f", "", "force a specific version (e.g., v2.0.0)")
 	releaseCmd.Flags().BoolVarP(&releaseClean, "clean", "x", false, "clear any active release state before starting")
+	releaseCmd.Flags().StringVar(&releaseChannel, "channel", "", "release channel (stable, canary, alpha, beta, next)")
 }
 
 // runRelease implements the release command - full workflow in one step.

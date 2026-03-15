@@ -34,6 +34,10 @@ func (s *Server) setupRouter() chi.Router {
 	// Health check (unauthenticated, outside API version negotiation)
 	r.Get("/health", handlers.Health)
 
+	// Kubernetes-style probes (unauthenticated)
+	r.Get("/healthz", handlers.Healthz)
+	r.Get("/readyz", handlers.Readyz)
+
 	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(middleware.APIVersion())
@@ -69,6 +73,9 @@ func (s *Server) setupRouter() chi.Router {
 			// WebSocket endpoint
 			r.Get("/ws", s.handleWebSocket)
 
+			// Server-Sent Events endpoint (WebSocket fallback)
+			r.Get("/events/stream", handlers.SSEStreamHandler(s.sseHub))
+
 			// Release endpoints
 			r.Route("/releases", func(r chi.Router) {
 				r.Get("/", handlers.ListReleases)
@@ -102,6 +109,12 @@ func (s *Server) setupRouter() chi.Router {
 				r.Get("/risk-trends", handlers.GetAnalyticsRiskTrends)
 				r.Get("/decisions", handlers.GetAnalyticsDecisions)
 				r.Get("/team", handlers.GetAnalyticsTeam)
+			})
+
+			// Memory/Learning endpoints
+			r.Route("/memory", func(r chi.Router) {
+				r.Get("/insights", handlers.GetMemoryInsights)
+				r.Get("/trends", handlers.GetMemoryTrends)
 			})
 
 			// Audit trail endpoint

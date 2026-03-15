@@ -118,11 +118,31 @@ func (uc *CalculateVersionUseCase) Execute(ctx context.Context, input CalculateV
 	}
 
 	// Calculate next version
-	nextVersion := uc.versionCalc.CalculateNextVersion(currentVersion, bumpType)
-
-	// Apply prerelease if specified
+	var nextVersion version.SemanticVersion
 	if input.Prerelease != "" {
-		nextVersion = nextVersion.WithPrerelease(input.Prerelease)
+		// Determine if this is a simple prerelease type (alpha, beta, rc)
+		// or a full prerelease identifier (alpha.1, rc.3).
+		// Simple types use BumpPreRelease for auto-counter behavior.
+		// Full identifiers are applied directly via the standard bump + WithPrerelease.
+		preStr := string(input.Prerelease)
+		isSimpleType := preStr == string(version.PrereleaseAlpha) ||
+			preStr == string(version.PrereleaseBeta) ||
+			preStr == string(version.PrereleaseRC) ||
+			preStr == "canary"
+
+		if isSimpleType {
+			// Use BumpPreRelease for proper counter handling:
+			// - 1.2.3 + alpha -> 1.3.0-alpha.1
+			// - 1.3.0-alpha.1 + alpha -> 1.3.0-alpha.2
+			// - 1.3.0-alpha.2 + beta -> 1.3.0-beta.1
+			nextVersion = currentVersion.BumpPreRelease(input.Prerelease)
+		} else {
+			// Full prerelease identifier specified - apply directly
+			nextVersion = uc.versionCalc.CalculateNextVersion(currentVersion, bumpType)
+			nextVersion = nextVersion.WithPrerelease(input.Prerelease)
+		}
+	} else {
+		nextVersion = uc.versionCalc.CalculateNextVersion(currentVersion, bumpType)
 	}
 
 	return &CalculateVersionOutput{

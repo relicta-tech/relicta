@@ -38,6 +38,12 @@ type Client struct {
 	send chan []byte
 }
 
+// TokenValidator validates JWT tokens for WebSocket authentication.
+// When non-nil, the Hub requires a valid token on upgrade.
+type TokenValidator interface {
+	Validate(tokenStr string) (name string, roles []string, err error)
+}
+
 // Hub maintains the set of active clients and broadcasts messages.
 type Hub struct {
 	clients        map[*Client]bool
@@ -48,10 +54,12 @@ type Hub struct {
 	closed         bool
 	allowedOrigins []string
 	upgrader       websocket.Upgrader
+	tokenValidator TokenValidator
 }
 
 // NewHub creates a new WebSocket hub with optional allowed origins for CSWSH protection.
 // If allowedOrigins is empty, only same-origin connections are allowed.
+// Use SetTokenValidator to enable JWT authentication on upgrade.
 func NewHub(allowedOrigins []string) *Hub {
 	h := &Hub{
 		clients:        make(map[*Client]bool),
@@ -218,8 +226,31 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
+// SetTokenValidator sets the token validator for WebSocket authentication.
+// When set, clients must provide a valid JWT token via the "token" query parameter.
+func (h *Hub) SetTokenValidator(v TokenValidator) {
+	h.tokenValidator = v
+}
+
 // HandleConnection handles a WebSocket upgrade request.
+// If a TokenValidator is configured, the client must provide a valid JWT
+// via the "token" query parameter on the upgrade request.
 func (h *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
+	// Validate JWT token if a validator is configured
+	if h.tokenValidator != nil {
+		tokenStr := r.URL.Query().Get("token")
+		if tokenStr == "" {
+			http.Error(w, "missing token query parameter", http.StatusUnauthorized)
+			return
+		}
+		_, _, err := h.tokenValidator.Validate(tokenStr)
+		if err != nil {
+			slog.Debug("websocket auth failed", "error", err)
+			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("websocket upgrade failed", "error", err)

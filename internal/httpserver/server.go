@@ -27,6 +27,7 @@ type Server struct {
 	router       chi.Router
 	httpServer   *http.Server
 	wsHub        *httpws.Hub
+	sseHub       *handlers.SSEHub
 	frontend     fs.FS
 	tokenService *token.Service
 	oidcHandlers *oidc.Handlers
@@ -44,6 +45,7 @@ func NewServer(deps ServerDeps) *Server {
 	s := &Server{
 		config:   deps.Config,
 		wsHub:    httpws.NewHub(deps.Config.CORSOrigins),
+		sseHub:   handlers.NewSSEHub(256),
 		frontend: deps.Frontend,
 	}
 
@@ -73,6 +75,11 @@ func NewServer(deps ServerDeps) *Server {
 		} else {
 			s.oidcHandlers = oidc.NewHandlers(oidcSvc, s.tokenService)
 		}
+	}
+
+	// Wire up WebSocket JWT authentication when a token service is available.
+	if s.tokenService != nil {
+		s.wsHub.SetTokenValidator(&tokenServiceAdapter{svc: s.tokenService})
 	}
 
 	// Set handler context for dependency injection
@@ -134,6 +141,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	// Close WebSocket hub
 	s.wsHub.Close()
 
+	// Close SSE hub
+	s.sseHub.Close()
+
 	// Shutdown HTTP server
 	return s.httpServer.Shutdown(shutdownCtx)
 }
@@ -146,6 +156,11 @@ func (s *Server) Address() string {
 // Hub returns the WebSocket hub for broadcasting events.
 func (s *Server) Hub() *httpws.Hub {
 	return s.wsHub
+}
+
+// SSEHub returns the SSE hub for broadcasting events.
+func (s *Server) SSEHub() *handlers.SSEHub {
+	return s.sseHub
 }
 
 // EventBroadcaster returns an EventPublisher that broadcasts domain events to WebSocket clients.
@@ -175,4 +190,17 @@ func (s *Server) getIdleTimeout() time.Duration {
 		return s.config.IdleTimeout
 	}
 	return 60 * time.Second
+}
+
+// tokenServiceAdapter adapts token.Service to the websocket.TokenValidator interface.
+type tokenServiceAdapter struct {
+	svc *token.Service
+}
+
+func (a *tokenServiceAdapter) Validate(tokenStr string) (string, []string, error) {
+	claims, err := a.svc.Validate(tokenStr)
+	if err != nil {
+		return "", nil, err
+	}
+	return claims.Name, claims.Roles, nil
 }
