@@ -103,8 +103,8 @@ type aiResponse struct {
 func buildUserPrompt(commit CommitInfo) string {
 	var b strings.Builder
 	b.WriteString("Classify this commit.\n\n")
-	b.WriteString(fmt.Sprintf("Hash: %s\n", commit.Hash.Short()))
-	b.WriteString(fmt.Sprintf("Subject: %s\n", commit.Subject))
+	fmt.Fprintf(&b, "Hash: %s\n", commit.Hash.Short())
+	fmt.Fprintf(&b, "Subject: %s\n", commit.Subject)
 	if commit.Message != "" && commit.Message != commit.Subject {
 		b.WriteString("Message:\n")
 		b.WriteString(commit.Message)
@@ -121,10 +121,10 @@ func buildUserPrompt(commit CommitInfo) string {
 	}
 
 	if commit.Stats.FilesChanged > 0 {
-		b.WriteString(fmt.Sprintf("Stats: %d files, +%d/-%d lines\n",
+		fmt.Fprintf(&b, "Stats: %d files, +%d/-%d lines\n",
 			commit.Stats.FilesChanged,
 			commit.Stats.Additions,
-			commit.Stats.Deletions))
+			commit.Stats.Deletions)
 	}
 
 	if commit.Diff != "" {

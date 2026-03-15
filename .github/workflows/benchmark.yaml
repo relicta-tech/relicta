@@ -26,7 +26,7 @@ on:
         default: false
 
 env:
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.25'
   GOTOOLCHAIN: local
   # Performance targets
   TARGET_PLAN_MS: 1000        # plan < 1s for 1000 commits

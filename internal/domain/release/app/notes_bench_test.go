@@ -278,7 +278,7 @@ func (m *benchMockNotesGenerator) Generate(ctx context.Context, run *domain.Rele
 
 	// Generate notes based on commit count
 	for i := 0; i < m.commitCount; i++ {
-		sb.WriteString(fmt.Sprintf("- Feature %d: Description of feature %d\n", i, i))
+		fmt.Fprintf(&sb, "- Feature %d: Description of feature %d\n", i, i)
 	}
 
 	return &domain.ReleaseNotes{

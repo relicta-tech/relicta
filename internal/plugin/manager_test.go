@@ -1261,51 +1261,43 @@ func TestIsPathInAllowedDir_LocalPluginDir(t *testing.T) {
 	cfg := &config.Config{}
 	m := NewManager(cfg)
 
+	// Test with local project plugin directory
 	localDir := ".relicta/plugins"
-	if err := os.MkdirAll(localDir, 0o755); err != nil {
-		t.Fatalf("Failed to create local plugin dir: %v", err)
-	}
+	os.MkdirAll(localDir, 0755)
 	defer os.RemoveAll(".relicta")
 
 	testPath := filepath.Join(localDir, "test-plugin")
-	if err := os.WriteFile(testPath, []byte("#!/bin/bash\necho test"), 0o755); err != nil {
-		t.Fatalf("Failed to create test plugin: %v", err)
-	}
-
 	absPath, err := filepath.Abs(testPath)
 	if err != nil {
 		t.Fatalf("Failed to get absolute path: %v", err)
 	}
-	realPath, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		t.Fatalf("Failed to resolve symlink path: %v", err)
-	}
 
-	if !m.isPathInAllowedDir(realPath) {
+	result := m.isPathInAllowedDir(absPath)
+	if !result {
 		t.Error("isPathInAllowedDir() should return true for local plugin directory")
 	}
 }
 
 func TestFindPluginBinary_LocalProjectDir(t *testing.T) {
-	tempDir := t.TempDir()
-	t.Chdir(tempDir)
-	t.Setenv("HOME", tempDir)
-
 	cfg := &config.Config{}
 	m := NewManager(cfg)
 
+	// Create plugin in local project directory
 	localDir := ".relicta/plugins"
-	if err := os.MkdirAll(localDir, 0o755); err != nil {
-		t.Fatalf("Failed to create local plugin dir: %v", err)
-	}
+	os.MkdirAll(localDir, 0755)
+	defer os.RemoveAll(".relicta")
 
 	pluginName := "localtest"
 	pluginPath := filepath.Join(localDir, pluginName)
-	if err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0o755); err != nil {
+	err := os.WriteFile(pluginPath, []byte("#!/bin/bash\necho test"), 0755)
+	if err != nil {
 		t.Fatalf("Failed to create plugin file: %v", err)
 	}
 
-	pluginCfg := &config.PluginConfig{Name: pluginName}
+	pluginCfg := &config.PluginConfig{
+		Name: pluginName,
+	}
+
 	foundPath, err := m.findPluginBinary(pluginCfg)
 	if err != nil {
 		t.Errorf("findPluginBinary() error = %v", err)

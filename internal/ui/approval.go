@@ -442,9 +442,9 @@ func (m ApprovalModel) renderGovernance() string {
 	default:
 		riskStyle = m.styles.success
 	}
-	b.WriteString(fmt.Sprintf("  %s %s",
+	fmt.Fprintf(&b, "  %s %s",
 		m.styles.stat.Render("Risk:"),
-		riskStyle.Render(fmt.Sprintf("%s (%s)", riskPercent, gov.Severity))))
+		riskStyle.Render(fmt.Sprintf("%s (%s)", riskPercent, gov.Severity)))
 	b.WriteString("\n")
 
 	// Decision
@@ -461,9 +461,9 @@ func (m ApprovalModel) renderGovernance() string {
 	default:
 		decisionStyle = m.styles.subtle
 	}
-	b.WriteString(fmt.Sprintf("  %s %s",
+	fmt.Fprintf(&b, "  %s %s",
 		m.styles.stat.Render("Decision:"),
-		decisionStyle.Render(decisionText)))
+		decisionStyle.Render(decisionText))
 	b.WriteString("\n")
 
 	// Auto-approve status
@@ -473,9 +473,9 @@ func (m ApprovalModel) renderGovernance() string {
 		autoApproveText = "yes"
 		autoApproveStyle = m.styles.success
 	}
-	b.WriteString(fmt.Sprintf("  %s %s",
+	fmt.Fprintf(&b, "  %s %s",
 		m.styles.stat.Render("Auto-Approve:"),
-		autoApproveStyle.Render(autoApproveText)))
+		autoApproveStyle.Render(autoApproveText))
 	b.WriteString("\n")
 
 	// Risk factors (if any)
@@ -564,7 +564,7 @@ func (m ApprovalModel) renderPrompt() string {
 	edit := m.styles.info.Render("[e]dit")
 	help := m.styles.subtle.Render("[?]help")
 
-	b.WriteString(fmt.Sprintf("  %s  %s  %s  %s", approve, reject, edit, help))
+	fmt.Fprintf(&b, "  %s  %s  %s  %s", approve, reject, edit, help)
 	b.WriteString("\n")
 
 	return b.String()
@@ -590,9 +590,9 @@ func (m ApprovalModel) renderHelp() string {
 	}
 
 	for _, s := range shortcuts {
-		b.WriteString(fmt.Sprintf("  %s  %s\n",
+		fmt.Fprintf(&b, "  %s  %s\n",
 			m.styles.success.Render(fmt.Sprintf("%-12s", s.key)),
-			m.styles.subtle.Render(s.desc)))
+			m.styles.subtle.Render(s.desc))
 	}
 
 	b.WriteString("\n")

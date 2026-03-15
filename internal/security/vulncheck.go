@@ -340,12 +340,12 @@ func GenerateAdvisory(result *VulncheckResult, version string) *SecurityAdvisory
 
 	// Generate description
 	var desc strings.Builder
-	desc.WriteString(fmt.Sprintf("This release addresses %d known vulnerabilities:\n\n", len(result.Vulnerabilities)))
+	fmt.Fprintf(&desc, "This release addresses %d known vulnerabilities:\n\n", len(result.Vulnerabilities))
 
 	for i, v := range result.Vulnerabilities {
-		desc.WriteString(fmt.Sprintf("%d. **%s**: %s\n", i+1, v.ID, v.Summary))
+		fmt.Fprintf(&desc, "%d. **%s**: %s\n", i+1, v.ID, v.Summary)
 		if v.FixedVersion != "" {
-			desc.WriteString(fmt.Sprintf("   - Fixed in: %s\n", v.FixedVersion))
+			fmt.Fprintf(&desc, "   - Fixed in: %s\n", v.FixedVersion)
 		}
 	}
 

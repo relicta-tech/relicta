@@ -1082,24 +1082,24 @@ func FormatBlastRadius(br *BlastRadius, verbose bool) string {
 	var sb strings.Builder
 
 	// Header
-	sb.WriteString(fmt.Sprintf("Blast Radius Analysis (%s → %s)\n", br.FromRef, br.ToRef))
+	fmt.Fprintf(&sb, "Blast Radius Analysis (%s → %s)\n", br.FromRef, br.ToRef)
 	sb.WriteString(strings.Repeat("=", 50) + "\n\n")
 
 	// Summary
 	s := br.Summary
 	sb.WriteString("Summary\n")
 	sb.WriteString(strings.Repeat("-", 30) + "\n")
-	sb.WriteString(fmt.Sprintf("Total Packages:     %d\n", s.TotalPackages))
-	sb.WriteString(fmt.Sprintf("Directly Affected:  %d\n", s.DirectlyAffected))
-	sb.WriteString(fmt.Sprintf("Transitively Affected: %d\n", s.TransitivelyAffected))
-	sb.WriteString(fmt.Sprintf("Files Changed:      %d (+%d/-%d lines)\n",
-		s.TotalFilesChanged, s.TotalInsertions, s.TotalDeletions))
-	sb.WriteString(fmt.Sprintf("Risk Level:         %s\n", strings.ToUpper(string(s.RiskLevel))))
+	fmt.Fprintf(&sb, "Total Packages:     %d\n", s.TotalPackages)
+	fmt.Fprintf(&sb, "Directly Affected:  %d\n", s.DirectlyAffected)
+	fmt.Fprintf(&sb, "Transitively Affected: %d\n", s.TransitivelyAffected)
+	fmt.Fprintf(&sb, "Files Changed:      %d (+%d/-%d lines)\n",
+		s.TotalFilesChanged, s.TotalInsertions, s.TotalDeletions)
+	fmt.Fprintf(&sb, "Risk Level:         %s\n", strings.ToUpper(string(s.RiskLevel)))
 
 	if len(s.RiskFactors) > 0 {
 		sb.WriteString("\nRisk Factors:\n")
 		for _, factor := range s.RiskFactors {
-			sb.WriteString(fmt.Sprintf("  - %s\n", factor))
+			fmt.Fprintf(&sb, "  - %s\n", factor)
 		}
 	}
 
@@ -1117,34 +1117,34 @@ func FormatBlastRadius(br *BlastRadius, verbose bool) string {
 				levelIcon = "~ "
 			}
 
-			sb.WriteString(fmt.Sprintf("%s%s (%s)\n", levelIcon, impact.Package.Name, impact.Package.Type))
-			sb.WriteString(fmt.Sprintf("   Path: %s\n", impact.Package.Path))
-			sb.WriteString(fmt.Sprintf("   Impact: %s (risk: %d/100)\n", impact.Level, impact.RiskScore))
+			fmt.Fprintf(&sb, "%s%s (%s)\n", levelIcon, impact.Package.Name, impact.Package.Type)
+			fmt.Fprintf(&sb, "   Path: %s\n", impact.Package.Path)
+			fmt.Fprintf(&sb, "   Impact: %s (risk: %d/100)\n", impact.Level, impact.RiskScore)
 
 			if impact.RequiresRelease {
-				sb.WriteString(fmt.Sprintf("   Suggested Release: %s\n", impact.ReleaseType))
+				fmt.Fprintf(&sb, "   Suggested Release: %s\n", impact.ReleaseType)
 			}
 
 			if verbose {
 				if len(impact.DirectChanges) > 0 {
 					sb.WriteString("   Changed Files:\n")
 					for _, change := range impact.DirectChanges {
-						sb.WriteString(fmt.Sprintf("     - %s [%s] (+%d/-%d)\n",
-							change.Path, change.Category, change.Insertions, change.Deletions))
+						fmt.Fprintf(&sb, "     - %s [%s] (+%d/-%d)\n",
+							change.Path, change.Category, change.Insertions, change.Deletions)
 					}
 				}
 
 				if len(impact.AffectedDependencies) > 0 {
 					sb.WriteString("   Affected Dependencies:\n")
 					for _, dep := range impact.AffectedDependencies {
-						sb.WriteString(fmt.Sprintf("     - %s\n", dep))
+						fmt.Fprintf(&sb, "     - %s\n", dep)
 					}
 				}
 
 				if len(impact.SuggestedActions) > 0 {
 					sb.WriteString("   Suggested Actions:\n")
 					for _, action := range impact.SuggestedActions {
-						sb.WriteString(fmt.Sprintf("     - %s\n", action))
+						fmt.Fprintf(&sb, "     - %s\n", action)
 					}
 				}
 			}
