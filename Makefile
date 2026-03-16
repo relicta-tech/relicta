@@ -29,7 +29,8 @@ CMD_DIR := cmd/relicta
         check-binary-size help release-local release-snapshot check check-ci install-hooks \
         frontend frontend-deps frontend-standalone build-with-frontend clean-frontend \
         test-policy-gate skill-preflight \
-        mcp-apps mcp-apps-deps clean-mcp-apps
+        mcp-apps mcp-apps-deps clean-mcp-apps \
+        sbom fuzz
 
 # Default target
 all: lint test build
@@ -293,6 +294,34 @@ bench-ci:
 	@echo "Target: parallelized analysis faster for I/O-bound work"
 	@echo "==========================="
 
+# Run fuzz tests for all parsers (30 seconds each)
+fuzz:
+	@echo "Running fuzz tests for parsers..."
+	@echo "--- Fuzzing semver parser ---"
+	$(GOTEST) -fuzz=FuzzParse -fuzztime=30s ./internal/domain/version/...
+	@echo "--- Fuzzing version bump ---"
+	$(GOTEST) -fuzz=FuzzVersionBump_Apply -fuzztime=30s ./internal/domain/version/...
+	@echo "--- Fuzzing policy DSL parser ---"
+	$(GOTEST) -fuzz=FuzzParsePolicy -fuzztime=30s ./internal/cgp/policy/dsl/...
+	@echo "--- Fuzzing policy DSL lexer ---"
+	$(GOTEST) -fuzz=FuzzLexer -fuzztime=30s ./internal/cgp/policy/dsl/...
+	@echo "--- Fuzzing conventional commit parser ---"
+	$(GOTEST) -fuzz=FuzzParseConventionalCommit -fuzztime=30s ./internal/infrastructure/git/...
+	@echo "--- Fuzzing release type detection ---"
+	$(GOTEST) -fuzz=FuzzDetectReleaseType -fuzztime=30s ./internal/infrastructure/git/...
+	@echo "✓ All fuzz tests completed"
+
+# Generate SBOM (Software Bill of Materials) in CycloneDX format
+sbom: build
+	@echo "Generating SBOM..."
+	@command -v syft >/dev/null 2>&1 || { echo "Error: syft is not installed. Install with: brew install syft"; exit 1; }
+	@mkdir -p $(BIN_DIR)
+	syft dir:. -o cyclonedx-json=$(BIN_DIR)/sbom-source.cdx.json
+	syft file:$(BIN_DIR)/$(BINARY_NAME) -o cyclonedx-json=$(BIN_DIR)/sbom-binary.cdx.json
+	@echo "✓ SBOM generated:"
+	@echo "  Source: $(BIN_DIR)/sbom-source.cdx.json"
+	@echo "  Binary: $(BIN_DIR)/sbom-binary.cdx.json"
+
 # Check binary size (target: < 20MB)
 check-binary-size: build
 	@echo "Checking binary size..."
@@ -440,7 +469,11 @@ help:
 	@echo "  make bench-memory      Run memory-focused benchmarks"
 	@echo "  make bench-profile     Generate CPU/memory profiles"
 	@echo "  make bench-ci          CI-optimized benchmark run"
+	@echo "  make fuzz              Run fuzz tests for all parsers (30s each)"
 	@echo "  make check-binary-size Verify binary < 20MB"
+	@echo ""
+	@echo "Security & Compliance:"
+	@echo "  make sbom              Generate SBOM (CycloneDX format)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint           Run golangci-lint"

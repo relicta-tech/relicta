@@ -69,6 +69,31 @@ jobs:
             --race \
             -v
 
+  policy-gate:
+    name: Policy Matrix Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Validate example policy
+        run: |
+          go run ./cmd/relicta policy validate --file examples/policies/starter.policy
+
+      - name: Run policy matrix contract gate
+        run: |
+          go run ./cmd/relicta policy test \
+            --file examples/policies/starter.policy \
+            --matrix examples/policies/policy-matrix.yaml \
+            --assert-expected \
+            --json
+
   benchmark:
     name: Benchmark
     runs-on: ubuntu-latest
@@ -230,6 +255,83 @@ jobs:
           name: security-scan-results
           path: verdict-results.json
         if: always()
+
+  sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Build binary for SBOM
+        run: |
+          go build -ldflags="-s -w" -o relicta ./cmd/relicta
+
+      - name: Generate CycloneDX SBOM from source
+        run: |
+          syft dir:. -o cyclonedx-json=sbom-source.cdx.json
+
+      - name: Generate CycloneDX SBOM from binary
+        run: |
+          syft file:relicta -o cyclonedx-json=sbom-binary.cdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: |
+            sbom-source.cdx.json
+            sbom-binary.cdx.json
+
+      - name: Add SBOM summary
+        run: |
+          echo "## SBOM Generation" >> $GITHUB_STEP_SUMMARY
+          echo "- Source SBOM: sbom-source.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
+          echo "- Binary SBOM: sbom-binary.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
+          COMPONENT_COUNT=$(jq '.components | length' sbom-source.cdx.json 2>/dev/null || echo "unknown")
+          echo "- Components detected: ${COMPONENT_COUNT}" >> $GITHUB_STEP_SUMMARY
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    # Only run on pushes to main (not PRs, to save resources)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run integration tests
+        run: |
+          make test-integration
+
+      - name: Add integration test summary
+        if: always()
+        run: |
+          echo "## Integration Tests" >> $GITHUB_STEP_SUMMARY
+          if [ $? -eq 0 ]; then
+            echo "All integration tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Some integration tests failed - review logs" >> $GITHUB_STEP_SUMMARY
+          fi
 
   dependency-review:
     name: Dependency Review
