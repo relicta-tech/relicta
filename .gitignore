@@ -83,3 +83,8 @@ temp/
 bin/
 .playwright-mcp/
 .cover/
+
+# Security scan artifacts
+.verdict/
+findings.json
+ai.inventory.json
