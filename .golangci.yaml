@@ -1,0 +1,219 @@
+# golangci-lint configuration for Relicta
+# https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+  # Note: GitLab plugin directory exclusion handled via build tags
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/relicta-tech/relicta
+
+linters:
+  enable:
+    # Default linters
+    - staticcheck  # Includes gosimple and unused in v2
+    - ineffassign
+    - govet
+    - errcheck
+    - gosec
+
+    # Additional recommended linters
+    - bodyclose
+    - contextcheck
+    - errname
+    - errorlint
+    - gocritic
+    - goprintffuncname
+    - misspell
+    - nolintlint
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - wastedassign
+    - whitespace
+
+  disable:
+    - gochecknoglobals  # We use globals for version info
+    - exhaustruct       # Too strict for our use case
+    - varnamelen        # Too strict
+    - ireturn           # Interfaces are fine to return
+    - nonamedreturns    # Named returns are useful in some cases
+    - wsl               # Too opinionated
+
+  exclusions:
+    rules:
+      # Exclude various linting issues in test files
+      - path: _test\.go
+        linters:
+          - errcheck
+          - errorlint  # Tests often check specific error values with ==
+          - govet      # Shadow warnings are common in tests
+          - revive     # Var naming and style in tests is less critical
+      # Exclude gosec file/directory permission and secret-pattern checks in test files
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G306|G301|G117|G703
+      # Exclude var-naming in generated proto types and plugin types
+      - path: pkg/plugin/types\.go
+        linters:
+          - revive
+      # Exclude empty-block in plugins - intentional localhost exceptions
+      - path: plugins/
+        linters:
+          - revive
+        text: empty-block
+      # Exclude var-naming in homebrew plugin - field names match architecture conventions
+      - path: plugins/homebrew/
+        linters:
+          - revive
+        text: var-naming
+      # Exclude var-naming for internal/errors - intentional package naming to extend stdlib errors
+      - path: internal/errors/errors\.go
+        linters:
+          - revive
+        text: var-naming
+      # Exclude contextcheck for collectPluginsForHook - intentionally doesn't use context
+      - path: internal/plugin/manager\.go
+        linters:
+          - contextcheck
+        text: collectPluginsForHook
+
+  settings:
+    errcheck:
+      check-type-assertions: false  # Type assertions are often used with blank identifier intentionally
+      check-blank: false            # Explicit _ = expr is intentional
+      exclude-functions:
+        # Common cleanup functions where errors are typically ignored
+        - (*os.File).Close
+        - (*bytes.Buffer).WriteString
+        - io.Closer.Close
+        - (io.Closer).Close
+        - (*net/http.Response).Body.Close
+        # Formatting functions - errors rarely relevant for stdout/stderr
+        - fmt.Fprintf
+        - fmt.Fprint
+        - fmt.Fprintln
+        - fmt.Printf
+        - fmt.Print
+        - fmt.Println
+        - fmt.Sscanf
+        # Writer operations - often intentionally ignored
+        - (*text/tabwriter.Writer).Flush
+        - (*bufio.Writer).Flush
+        - (net/http.ResponseWriter).Write
+        # Cleanup functions in defer
+        - os.Remove
+        - os.RemoveAll
+        # Viper configuration binding - errors rarely checked
+        - (*github.com/spf13/viper.Viper).BindPFlag
+        - github.com/spf13/viper.BindPFlag
+        # Container/closer patterns
+        - (io.Closer).Close
+        - (*github.com/relicta-tech/relicta/internal/container.App).Close
+        # io.Writer - common to ignore
+        - (io.Writer).Write
+        # JSON marshaling - often intentionally ignored in logging/output
+        - encoding/json.Unmarshal
+        - encoding/json.Marshal
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # Too strict for readability
+        - shadow          # Too strict - many valid Go patterns trigger this
+
+    gosec:
+      severity: medium
+      confidence: medium
+      excludes:
+        - G104  # Audit errors not checked (we handle this with errcheck)
+        - G115  # Integer overflow conversion - values are validated before conversion
+        - G122  # Filesystem walk callback - paths come from controlled walk roots
+        - G204  # Subprocess with variable - git commands are validated
+        - G301  # Directory permissions - plugins and temp dirs need 0755
+        - G302  # File permissions in tests
+        - G304  # Potential file inclusion via variable (needed for config)
+        - G306  # WriteFile permissions - plugins need to be executable
+        - G702  # Command injection taint - editor path validated before use
+        - G117  # Marshaled secret-pattern fields - webhook configs need serialization
+        - G404  # Weak RNG for jitter - cryptographic strength not needed for backoff
+        - G703  # Path traversal taint - paths validated by allowlist checks
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - ifElseChain        # Too noisy for existing code
+        - elseif             # Style preference
+        - singleCaseSwitch   # Sometimes clearer with switch
+        - hugeParam          # Too noisy — many value types are intentionally passed by value
+        - rangeValCopy       # Acceptable in non-hot paths
+        - assignOp           # Style preference
+        - appendCombine      # Separate appends are often clearer
+        - unlambda           # Lambda wrappers sometimes needed for test readability
+        - commentedOutCode   # Comments with code-like content are fine
+        - sprintfQuotedString # %q escapes differently than "%s" in regex replacements
+        - preferStringWriter # Write([]byte) is idiomatic in many contexts
+        - unnecessaryDefer   # Defer for cleanup is clearer even before return
+        - filepathJoin       # Test paths intentionally use forward slashes
+        - deferInLoop        # Test cleanup in loops is acceptable
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 30
+
+    nolintlint:
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
+
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+
+    revive:
+      severity: warning
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10
