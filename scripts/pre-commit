@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Pre-commit hook for Relicta
+# Runs fast, deterministic, non-mutating checks on staged Go files.
+# Install: make install-hooks
+# Skip:    git commit --no-verify
+
+set -euo pipefail
+
+# Only run in the actual Relicta project (not in test-created git repos)
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/go.mod" ]; then
+    exit 0
+fi
+# Verify this is the Relicta module, not a test repo
+if ! grep -q "github.com/relicta-tech/relicta" "$REPO_ROOT/go.mod" 2>/dev/null; then
+    exit 0
+fi
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+PASS="${GREEN}PASS${NC}"
+FAIL="${RED}FAIL${NC}"
+SKIP="${YELLOW}SKIP${NC}"
+
+failed=0
+
+step() {
+    printf "${CYAN}[%d/6]${NC} %s... " "$1" "$2"
+}
+
+# Check if any Go files are staged
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -z "$STAGED_GO" ]; then
+    echo "No Go files staged, skipping pre-commit checks."
+    exit 0
+fi
+
+echo ""
+echo "Running pre-commit checks on staged Go files..."
+echo ""
+
+# 1. Format check (gofmt)
+step 1 "Formatting (gofmt)"
+UNFORMATTED=$(echo "$STAGED_GO" | xargs gofmt -l 2>/dev/null || true)
+if [ -n "$UNFORMATTED" ]; then
+    printf "$FAIL\n"
+    echo "  The following files need formatting:"
+    echo "$UNFORMATTED" | sed 's/^/    /'
+    echo "  Run 'make fmt' to fix."
+    failed=1
+else
+    printf "$PASS\n"
+fi
+
+# 2. Go vet
+step 2 "Static analysis (go vet)"
+if go vet ./... 2>/dev/null; then
+    printf "$PASS\n"
+else
+    printf "$FAIL\n"
+    failed=1
+fi
+
+# 3. Lint (golangci-lint with gocritic)
+step 3 "Lint (golangci-lint + gocritic)"
+if command -v golangci-lint >/dev/null 2>&1; then
+    if golangci-lint run ./... 2>/dev/null; then
+        printf "$PASS\n"
+    else
+        printf "$FAIL\n"
+        echo "  Run 'golangci-lint run ./...' to see details."
+        failed=1
+    fi
+else
+    printf "$SKIP (not installed)\n"
+fi
+
+# 4. Test compile (fast, no execution)
+step 4 "Test compile"
+if go test -run '^$' ./internal/... ./pkg/... >/dev/null 2>&1; then
+    printf "$PASS\n"
+else
+    printf "$FAIL\n"
+    echo "  Tests failed to compile. Run 'go test ./...' to see errors."
+    failed=1
+fi
+
+# 5. Coverage check (coverctl) — skip in pre-commit (too slow), use in check-ci
+step 5 "Coverage thresholds (coverctl)"
+if [ "${RELICTA_CHECK_COVERAGE:-}" = "1" ]; then
+    if go run github.com/felixgeelhaar/coverctl@v1.4.0 check --config .coverctl.yaml 2>/dev/null; then
+        printf "$PASS\n"
+    else
+        printf "$FAIL\n"
+        echo "  Coverage below configured thresholds."
+        echo "  Run 'make coverage' for details."
+        failed=1
+    fi
+else
+    printf "$SKIP (use RELICTA_CHECK_COVERAGE=1 to enable)\n"
+fi
+
+# 6. Security scan (nox)
+step 6 "Security scan (nox)"
+if command -v nox >/dev/null 2>&1; then
+    NOX_OUTPUT=$(nox scan --quiet --severity-threshold critical . 2>&1 || true)
+    CRITICAL_COUNT=$(echo "$NOX_OUTPUT" | grep -c "critical" 2>/dev/null || true)
+    if [ "$CRITICAL_COUNT" -gt 0 ] 2>/dev/null; then
+        printf "$FAIL\n"
+        echo "  Critical security findings detected."
+        echo "  Run 'nox scan .' for details."
+        failed=1
+    else
+        printf "$PASS\n"
+    fi
+else
+    printf "$SKIP (not installed)\n"
+fi
+
+echo ""
+
+if [ $failed -ne 0 ]; then
+    printf "${RED}Pre-commit checks failed.${NC}\n"
+    echo "Fix issues above, then 'git add' and retry."
+    echo "To skip: git commit --no-verify"
+    exit 1
+fi
+
+printf "${GREEN}All pre-commit checks passed.${NC}\n"
