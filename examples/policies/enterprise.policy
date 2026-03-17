@@ -1,0 +1,135 @@
+# Enterprise Policy
+# Comprehensive governance for production systems
+# Suitable for regulated environments and critical infrastructure
+
+# Critical: Block all releases above risk threshold
+rule "critical-risk-block" {
+  priority = 100
+  description = "Block releases with critical risk level"
+
+  when {
+    risk.score > 0.95
+  }
+
+  then {
+    block()
+    add_rationale(message: "Release blocked: Risk score exceeds critical threshold (95%)")
+  }
+}
+
+# High risk requires multiple approvals
+rule "high-risk-multi-approval" {
+  priority = 90
+  description = "High-risk releases require multiple approvers"
+
+  when {
+    risk.score > 0.7
+  }
+
+  then {
+    require_approval(count: 2)
+    add_reviewer(team: "leads")
+    add_rationale(message: "High-risk release requires team lead approval")
+  }
+}
+
+# Breaking changes need careful review
+rule "breaking-change-review" {
+  priority = 85
+  description = "Breaking changes require additional review"
+
+  when {
+    change.breaking == true
+  }
+
+  then {
+    require_approval(count: 2)
+    add_reviewer(team: "architecture")
+    add_rationale(message: "Breaking change requires architecture review")
+  }
+}
+
+# Security-sensitive changes
+rule "security-changes" {
+  priority = 80
+  description = "Security changes require security team review"
+
+  when {
+    change.files contains "security" OR
+    change.files contains "auth" OR
+    change.files contains "crypto"
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "security")
+    add_rationale(message: "Security-related changes detected")
+  }
+}
+
+# API changes need documentation review
+rule "api-changes" {
+  priority = 70
+  description = "API changes require documentation check"
+
+  when {
+    change.files contains "api/" OR change.files contains "openapi"
+  }
+
+  then {
+    require_approval(count: 1)
+    add_rationale(message: "API changes may need documentation updates")
+  }
+}
+
+# Database migrations are high-impact
+rule "database-migrations" {
+  priority = 75
+  description = "Database migrations require DBA review"
+
+  when {
+    change.files contains "migrations/" OR change.files contains "schema"
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "dba")
+    add_rationale(message: "Database migration detected")
+  }
+}
+
+# Major version bumps need stakeholder approval
+rule "major-version-stakeholders" {
+  priority = 65
+  description = "Major versions require stakeholder sign-off"
+
+  when {
+    change.bump_kind == "major"
+  }
+
+  then {
+    require_approval(count: 2)
+    add_reviewer(team: "product")
+    add_rationale(message: "Major version bump requires product approval")
+  }
+}
+
+# Medium risk still needs one approval
+rule "medium-risk-approval" {
+  priority = 40
+  description = "Medium-risk releases need one approval"
+
+  when {
+    risk.score > 0.3 AND risk.score <= 0.7
+  }
+
+  then {
+    require_approval(count: 1)
+  }
+}
+
+# Default: require at least one approval for everything
+defaults {
+  decision = "require_approval"
+  required_approvers = 1
+}

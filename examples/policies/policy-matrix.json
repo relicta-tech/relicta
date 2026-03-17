@@ -1,0 +1,55 @@
+[
+  {
+    "name": "low-risk-patch",
+    "risk_score": 0.18,
+    "bump_type": "patch",
+    "actor_type": "human",
+    "actor_id": "human:dev-1",
+    "features": 0,
+    "fixes": 2,
+    "breaking": 0,
+    "files_changed": 3,
+    "lines_changed": 45,
+    "expect": {
+      "decision": "approved",
+      "blocked": false,
+      "required_approvers": 0
+    }
+  },
+  {
+    "name": "medium-risk-minor",
+    "risk_score": 0.55,
+    "bump_type": "minor",
+    "actor_type": "ci",
+    "actor_id": "ci:github-actions",
+    "features": 3,
+    "fixes": 1,
+    "breaking": 0,
+    "files_changed": 12,
+    "lines_changed": 260,
+    "expect": {
+      "decision": "approval_required",
+      "blocked": false,
+      "required_approvers": 1,
+      "matched_rules": ["high_risk_approval"]
+    }
+  },
+  {
+    "name": "high-risk-major",
+    "risk_score": 0.91,
+    "bump_type": "major",
+    "actor_type": "agent",
+    "actor_id": "agent:release-bot",
+    "features": 2,
+    "fixes": 0,
+    "breaking": 1,
+    "files_changed": 28,
+    "lines_changed": 980,
+    "expect": {
+      "decision": "approval_required",
+      "blocked": false,
+      "required_approvers": 1,
+      "matched_rules": ["high_risk_approval"]
+    }
+  }
+]

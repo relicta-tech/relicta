@@ -1,0 +1,345 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+
+env:
+  GO_VERSION: '1.25'
+  GOTOOLCHAIN: local
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Default permissions - least privilege
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run tests with coverage enforcement
+        run: |
+          go run github.com/felixgeelhaar/coverctl@v1.4.0 check \
+            --config .coverctl.yaml \
+            --race \
+            -v
+
+  policy-gate:
+    name: Policy Matrix Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Validate example policy
+        run: |
+          go run ./cmd/relicta policy validate --file examples/policies/starter.policy
+
+      - name: Run policy matrix contract gate
+        run: |
+          go run ./cmd/relicta policy test \
+            --file examples/policies/starter.policy \
+            --matrix examples/policies/policy-matrix.yaml \
+            --assert-expected \
+            --json
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    # Only run benchmarks on main branch pushes (not PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run benchmarks
+        run: |
+          go test -bench=. -benchmem -run=^$ ./internal/... ./pkg/... | tee bench-results.txt
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v5
+        with:
+          path: ./cache
+          key: ${{ runner.os }}-benchmark
+          restore-keys: |
+            ${{ runner.os }}-benchmark
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'go'
+          output-file-path: bench-results.txt
+          external-data-json-path: ./cache/benchmark-data.json
+          alert-threshold: '150%'
+          fail-on-alert: false
+          comment-on-alert: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, darwin, windows]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
+          # On PRs, only build linux/amd64 to save resources
+          - os: ${{ github.event_name == 'pull_request' && 'darwin' || 'NONE' }}
+            arch: amd64
+          - os: ${{ github.event_name == 'pull_request' && 'darwin' || 'NONE' }}
+            arch: arm64
+          - os: ${{ github.event_name == 'pull_request' && 'windows' || 'NONE' }}
+            arch: amd64
+          - os: ${{ github.event_name == 'pull_request' && 'linux' || 'NONE' }}
+            arch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          go build -ldflags="-s -w" -o relicta-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/relicta
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: relicta-${{ matrix.os }}-${{ matrix.arch }}
+          path: relicta-*
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install security tools
+        run: |
+          go install github.com/felixgeelhaar/verdictsec/cmd/verdict@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        id: govulncheck
+        run: |
+          echo "## Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+          if govulncheck -json ./... > govulncheck-results.json 2>&1; then
+            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "vulns_found=false" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Vulnerabilities detected - review required" >> $GITHUB_STEP_SUMMARY
+            echo "vulns_found=true" >> $GITHUB_OUTPUT
+            # Parse and summarize vulnerabilities
+            if command -v jq &> /dev/null && [ -f govulncheck-results.json ]; then
+              jq -r '.vulnerability // empty | "- **\(.osv.id)**: \(.osv.summary // "No summary")"' govulncheck-results.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+            fi
+          fi
+
+      - name: Upload govulncheck results
+        uses: actions/upload-artifact@v7
+        with:
+          name: govulncheck-results
+          path: govulncheck-results.json
+        if: always()
+
+      - name: Run VerdictSec Security Scan
+        run: |
+          verdict scan --json -o verdict-results.json || true
+
+      - name: Run Gosec for SARIF output
+        run: |
+          # Exclude false positive rules for CLI tools:
+          # G103 - unsafe calls in generated protobuf (Google pattern)
+          # G115 - integer overflow where values are validated
+          # G204 - subprocess with variable (git commands, plugin execution)
+          # G301 - directory permissions (plugins/cache need 0755)
+          # G302 - file permissions (plugins must be executable)
+          # G304 - file path from variable (expected for config/template files)
+          # G306 - write file permissions (configs/changelogs need 0644)
+          gosec -no-fail -fmt=sarif -out=results.sarif \
+            -exclude=G103,G115,G204,G301,G302,G304,G306 \
+            -exclude-dir=internal/plugin/proto \
+            ./... 2>/dev/null || true
+          # Fix SARIF format issues - ensure artifactChanges is always an array
+          if [ -f results.sarif ]; then
+            jq '(.runs[].results // [])[] |= (if .fixes then .fixes = [.fixes[] | .artifactChanges = (if .artifactChanges | type == "array" then .artifactChanges else [.artifactChanges] end)] else . end)' results.sarif > results.fixed.sarif 2>/dev/null && mv results.fixed.sarif results.sarif || true
+          fi
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+        if: always() && hashFiles('results.sarif') != ''
+        continue-on-error: true
+
+      - name: Upload VerdictSec results
+        uses: actions/upload-artifact@v7
+        with:
+          name: security-scan-results
+          path: verdict-results.json
+        if: always()
+
+  sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Build binary for SBOM
+        run: |
+          go build -ldflags="-s -w" -o relicta ./cmd/relicta
+
+      - name: Generate CycloneDX SBOM from source
+        run: |
+          syft dir:. -o cyclonedx-json=sbom-source.cdx.json
+
+      - name: Generate CycloneDX SBOM from binary
+        run: |
+          syft file:relicta -o cyclonedx-json=sbom-binary.cdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: |
+            sbom-source.cdx.json
+            sbom-binary.cdx.json
+
+      - name: Add SBOM summary
+        run: |
+          echo "## SBOM Generation" >> $GITHUB_STEP_SUMMARY
+          echo "- Source SBOM: sbom-source.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
+          echo "- Binary SBOM: sbom-binary.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
+          COMPONENT_COUNT=$(jq '.components | length' sbom-source.cdx.json 2>/dev/null || echo "unknown")
+          echo "- Components detected: ${COMPONENT_COUNT}" >> $GITHUB_STEP_SUMMARY
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    # Only run on pushes to main (not PRs, to save resources)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run integration tests
+        run: |
+          make test-integration
+
+      - name: Add integration test summary
+        if: always()
+        run: |
+          echo "## Integration Tests" >> $GITHUB_STEP_SUMMARY
+          if [ $? -eq 0 ]; then
+            echo "All integration tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Some integration tests failed - review logs" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4

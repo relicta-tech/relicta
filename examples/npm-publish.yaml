@@ -1,0 +1,54 @@
+# NPM Package Publishing Configuration
+#
+# Use case: Publishing TypeScript/JavaScript packages to npm registry
+# Features: Automatic versioning, npm publish, GitHub releases, changelog
+#
+# Setup:
+# 1. Copy to .relicta.yaml
+# 2. Set NPM_TOKEN and GITHUB_TOKEN environment variables
+# 3. Ensure package.json exists with correct name and metadata
+# 4. Run: relicta plan && relicta publish
+
+versioning:
+  strategy: conventional
+  tag_prefix: v
+  git_tag: true
+  git_push: true
+  # Update package.json version automatically
+  update_files:
+    - package.json
+    - package-lock.json
+
+changelog:
+  enabled: true
+  file: CHANGELOG.md
+  format: conventional
+  repository_url: https://github.com/your-org/your-package
+
+ai:
+  enabled: true
+  provider: openai
+  model: gpt-4o-mini
+  tone: professional
+  audience: developers
+
+plugins:
+  - name: npm
+    enabled: true
+    config:
+      registry: https://registry.npmjs.org
+      access: public  # or "restricted" for scoped private packages
+      tag: latest
+      package_dir: .
+
+  - name: github
+    enabled: true
+    config:
+      draft: false
+      prerelease: false
+      generate_release_notes: false
+
+workflow:
+  require_approval: true
+  allowed_branches:
+    - main

@@ -1,0 +1,1350 @@
+version: "1.0"
+updated_at: 2025-12-23T15:30:00Z
+
+plugins:
+  - name: github
+    description: Create GitHub releases and upload assets
+    repository: relicta-tech/plugin-github
+    version: v2.0.3
+    category: vcs
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-github
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 2003ba8575830aff35ed8abb8649f35e5b2cb9171a9b202171ca5956b534de6e
+      darwin_x86_64: c11641e59753d271d12846d55ba0e711b1e8a8f409b3b9e54d583e86203693f4
+      linux_aarch64: 8c64c6485df1deb36a7ba11ec378f10d128cf31fe1da5c305ddc9f7287986617
+      linux_x86_64: 15c6006d999c0c868cb523b7b572bac33e4286ae40cf4eb6e7bdcc8b5ec2d736
+      windows_x86_64: cfdbb252846e1357586b4d755bed2f815106ac2c5e05c1536ec40f5702e21a8c
+    hooks:
+      - post_publish
+      - on_success
+      - on_error
+    config_schema:
+      owner:
+        type: string
+        required: false
+        description: "Repository owner (auto-detected from git remote)"
+      repo:
+        type: string
+        required: false
+        description: "Repository name (auto-detected from git remote)"
+      token:
+        type: string
+        required: false
+        env: GITHUB_TOKEN
+        description: "GitHub personal access token (uses GITHUB_TOKEN env if not provided)"
+      draft:
+        type: boolean
+        required: false
+        default: false
+        description: "Create release as a draft"
+      prerelease:
+        type: boolean
+        required: false
+        default: false
+        description: "Mark release as a prerelease"
+      generate_release_notes:
+        type: boolean
+        required: false
+        default: false
+        description: "Use GitHub's auto-generated release notes"
+      assets:
+        type: array
+        required: false
+        description: "Glob patterns for assets to upload (e.g., dist/*.tar.gz)"
+      discussion_category:
+        type: string
+        required: false
+        description: "Discussion category name to create for the release"
+
+  - name: gitlab
+    description: Create GitLab releases
+    repository: relicta-tech/plugin-gitlab
+    version: v2.0.0
+    category: vcs
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-gitlab
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 6ca8230c57cad65ee46385a514e2b22fc653c6a063ceaa47883e9eb60f72cd42
+      darwin_x86_64: 1cf98dae627b2d8621fb42da8feaebcfb5bd8541bfb90d1c142bd18874d04d85
+      linux_aarch64: 327576fc51881d0ef6f731fc40276f711d2c1be3d3901b5663391b69e77c8032
+      linux_x86_64: aad5c11c65d16bd714a9abb5a61a4d9a8c30577c7bf9ea3364602589c3b98b34
+      windows_x86_64: da294650e9b56eb2646fc10c2a9eb463a0f4fc439f4319a54adbe6a6fa91dd2e
+    hooks:
+      - post_publish
+    config_schema:
+      project_id:
+        type: string
+        required: true
+        description: "GitLab project ID or path (e.g., 'group/project')"
+      token:
+        type: string
+        required: false
+        env: GITLAB_TOKEN
+        description: "GitLab personal access token"
+      url:
+        type: string
+        required: false
+        default: "https://gitlab.com"
+        description: "GitLab instance URL"
+
+  - name: slack
+    description: Send release notifications to Slack
+    repository: relicta-tech/plugin-slack
+    version: v2.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-slack
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 05a45f24b8539d0915e67cd88d0960000f20e65f3f9426e5c40a724a6b71bd70
+      darwin_x86_64: 9f535d9717f76074bd233362e49a283788c3eba32c77aab7e7650fdd7c72f1a0
+      linux_aarch64: 124ba2b0c33ff07d09f4694de7a85b91dcb0979f6f5d72047957ef76122e7d28
+      linux_x86_64: c76e3d24080299ce7b4add9be870051dad2a71072673fd1d8769152224ed96f8
+      windows_x86_64: b7dddf4e2da1014ebb888975b7016a58985740cd6f0f68175769abb329f3d447
+    hooks:
+      - post_publish
+    config_schema:
+      webhook:
+        type: string
+        required: true
+        env: SLACK_WEBHOOK_URL
+        description: "Slack incoming webhook URL"
+      channel:
+        type: string
+        required: false
+        description: "Override default channel (e.g., #releases)"
+      username:
+        type: string
+        required: false
+        default: "Relicta"
+        description: "Bot username"
+      notify_on_success:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on successful release"
+      notify_on_error:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on release failure"
+
+  - name: discord
+    description: Send release notifications to Discord
+    repository: relicta-tech/plugin-discord
+    version: v2.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-discord
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: b188383cb56c28b8ac1c72c27f179f1e4ad0eb5891abcdf397366fe98eeff015
+      darwin_x86_64: d1c85ad781225996f6de6f33d71a8a22e61eb07dd08dfb8cb3b07f18fe47bddb
+      linux_aarch64: 459005dd8fd433160486fc33e7aa542041cc9330ba627b0c2b94fbf87f4a060d
+      linux_x86_64: 7faf52ec5365fe595092639ede0623fc6024eca2c3e36e6ca16592bf080f1599
+      windows_x86_64: 1995b063a5c16546118eca4905ab2663cda43c0a2a67663d648dde1f7099217f
+    hooks:
+      - post_publish
+    config_schema:
+      webhook:
+        type: string
+        required: true
+        env: DISCORD_WEBHOOK_URL
+        description: "Discord webhook URL"
+      username:
+        type: string
+        required: false
+        default: "Relicta"
+        description: "Bot username"
+      avatar_url:
+        type: string
+        required: false
+        description: "Bot avatar URL"
+
+  - name: jira
+    description: Create and link Jira release versions
+    repository: relicta-tech/plugin-jira
+    version: v2.0.0
+    category: project_management
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-jira
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 9c859c85257e51b3a6494d2ff15974d66b0f5eec8392c7ef3bbeb6132e04c6ba
+      darwin_x86_64: 5470577893097c7a8908be5562966b75f125cd3b1855db212b66b78a0836f470
+      linux_aarch64: e9e812bd23d97f855a25b37cf2bb7f6028d642fad2ec432498c79eb7b7b47933
+      linux_x86_64: 3ef49d6ddbddbdc9f3b9fc138c440899357b34810c7eecbe143cc01d5a099b56
+      windows_x86_64: 7f32d2505b76d371fea60836583b2255db292e8326c85f72b17dca3eddfe26f4
+    hooks:
+      - post_publish
+    config_schema:
+      url:
+        type: string
+        required: true
+        description: "Jira instance URL (e.g., https://company.atlassian.net)"
+      username:
+        type: string
+        required: false
+        env: JIRA_USERNAME
+        description: "Jira username or email"
+      token:
+        type: string
+        required: false
+        env: JIRA_TOKEN
+        description: "Jira API token"
+      project:
+        type: string
+        required: true
+        description: "Jira project key (e.g., PROJ)"
+      create_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Create a Jira version for the release"
+      release_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Mark the Jira version as released"
+
+  - name: npm
+    description: Publish packages to npm registry
+    repository: relicta-tech/plugin-npm
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-npm
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 27960be265929454ee767b555ce47dbf2e2d66653b759768f2b4169eebc6673d
+      darwin_x86_64: ca3d0162bfa06e2baa2cef7fee2c93cd6f5bcc51385f7687433495a179f1187d
+      linux_aarch64: 03e31b88f5f3ad2acb7eb4a602c131dcf9b3f56a90d1f07208789abf639a24c1
+      linux_x86_64: b4d91ae715e60f31a7f2ec9f5aeb9f508fe1214b566d56d91008946013e52306
+      windows_x86_64: bae0adc8479cd4a06bce73f0177c54c1bc91e6d797ba9533c4814d43ad816f26
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: false
+        default: "https://registry.npmjs.org"
+        description: "npm registry URL"
+      access:
+        type: string
+        required: false
+        default: "public"
+        options: ["public", "restricted"]
+        description: "Package access level"
+      token:
+        type: string
+        required: false
+        env: NPM_TOKEN
+        description: "npm authentication token"
+      otp:
+        type: string
+        required: false
+        env: NPM_OTP
+        description: "One-time password for 2FA"
+
+  - name: launchnotes
+    description: Create releases in LaunchNotes
+    repository: relicta-tech/plugin-launchnotes
+    version: v2.0.0
+    category: project_management
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-launchnotes
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 5131134b92d79e76c0e9f92e6022fa72cefc87e684d049bcd26f5a5974de9583
+      darwin_x86_64: 7f8b8d63a6d143b498ad79ce622546e1f63297c7acaa0192f07dc7b3648224ea
+      linux_aarch64: 4e764dc7479d11840279258dd773f2ece6e1be3dd85495b91751ee06686e6117
+      linux_x86_64: 811d14402031453d4aa3800a7dcbc47c9007938f632169208531939c38ebf678
+      windows_x86_64: 87610049ceb6b4637c707984fe8e5e4bc759e54d3ef57f9fafc92d67db1274c7
+    hooks:
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: LAUNCHNOTES_API_KEY
+        description: "LaunchNotes API key"
+      project_id:
+        type: string
+        required: true
+        description: "LaunchNotes project ID"
+
+  - name: homebrew
+    description: Update Homebrew formula with new release
+    repository: relicta-tech/plugin-homebrew
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-homebrew
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 16367a1a2dcfbbda35023eaa48d80ab99a61156b6e67659c74f0fec7d78c8c31
+      darwin_x86_64: 9b7d9c8e185bd67203503fd11254904a3de5349dd9cba056f386a0187017f233
+      linux_aarch64: 8896b5af4e6769fc088c9985725104282a7f652908c0574851ee8eaeb47dfadb
+      linux_x86_64: ea8449084a48a9e2a31e05978a167609c28a5a296272a62a59129810daefb9a3
+      windows_x86_64: 4f23852e5eb3d3eefcd7f9ba5d00dd1f3623ae7745d5a9c7b32caaab8eceb1b7
+    hooks:
+      - post_publish
+    config_schema:
+      tap:
+        type: string
+        required: true
+        description: "Homebrew tap repository (e.g., user/homebrew-tap)"
+      formula:
+        type: string
+        required: true
+        description: "Formula name"
+      token:
+        type: string
+        required: false
+        env: HOMEBREW_GITHUB_TOKEN
+        description: "GitHub token for tap repository access"
+      url_template:
+        type: string
+        required: false
+        description: "URL template for download (uses {{.Version}} placeholder)"
+      sha256:
+        type: string
+        required: false
+        description: "SHA256 checksum of the release archive"
+
+  - name: docker
+    description: Build and push Docker images
+    repository: relicta-tech/plugin-docker
+    version: v2.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-docker
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 4dda46ba55686984051f66d893adbb7b27ef6345f4cbafae14c05e0b322355c5
+      darwin_x86_64: 99ec8ec2c3a02bffe0f9473130950aae60de05d6cfbc397ec4778aca5e59f8ad
+      linux_aarch64: f66ca4edaedd515369671f3954b05a9feaa14903625e69ef5c55e962d856041f
+      linux_x86_64: d34053f4ad01f2abe119fe3b37594322013d1a7caac9877dd69fb110beb7d49f
+      windows_x86_64: 5ff61258a51fec0b967c2702eef3b0486e0521393b3792228d914f339a527b1c
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: false
+        default: "docker.io"
+        description: "Container registry URL"
+      image:
+        type: string
+        required: true
+        description: "Image name (e.g., username/image)"
+      dockerfile:
+        type: string
+        required: false
+        default: "Dockerfile"
+        description: "Path to Dockerfile"
+      context:
+        type: string
+        required: false
+        default: "."
+        description: "Build context path"
+      username:
+        type: string
+        required: false
+        env: DOCKER_USERNAME
+        description: "Registry username"
+      password:
+        type: string
+        required: false
+        env: DOCKER_PASSWORD
+        description: "Registry password or token"
+      tags:
+        type: array
+        required: false
+        description: "Additional tags (version tag is automatic)"
+      build_args:
+        type: object
+        required: false
+        description: "Build arguments as key-value pairs"
+      platforms:
+        type: array
+        required: false
+        description: "Target platforms (e.g., linux/amd64, linux/arm64)"
+
+  - name: teams
+    description: Send release notifications to Microsoft Teams
+    repository: relicta-tech/plugin-teams
+    version: v2.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-teams
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 64a636be502cf31f4647bad7c963fabcd8b17eb1d772ada02a568b40a67d345c
+      darwin_x86_64: bf7cc8f73dee81a4b253ecf75450747d1dc7ab6398cfbb4b4f8f4f1938e70f17
+      linux_aarch64: 220587ce5dd02fe3935b41a2e3a755b858a9d9c26c5e46f2d4cc16584a89f0dc
+      linux_x86_64: e31580915119149b203eccd43eb867d72ba03ab68ab7100cf4daeaee5f0ac589
+      windows_x86_64: 5ded3e399897fd1ed41ad0e0cb647e50e3bfef82657aff06f5ea3c157d868ffa
+    hooks:
+      - post_publish
+    config_schema:
+      webhook:
+        type: string
+        required: true
+        env: TEAMS_WEBHOOK_URL
+        description: "Microsoft Teams incoming webhook URL"
+      title:
+        type: string
+        required: false
+        description: "Message title template"
+      theme_color:
+        type: string
+        required: false
+        default: "0076D7"
+        description: "Theme color for the message card (hex without #)"
+      notify_on_success:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on successful release"
+      notify_on_error:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on release failure"
+
+  - name: pypi
+    description: Publish packages to PyPI
+    repository: relicta-tech/plugin-pypi
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-pypi
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 2357ad120647dbd8f1b2b7232cea4816774ccdf6d4addf09a1ff323a935a3572
+      darwin_x86_64: 8f650f2cce5bd3f38c11df4c3ca414710710b10d8cd6a096d1c0a332b680c99c
+      linux_aarch64: 7bf1b724f4c5eb2846acfef35909eacfb1d5dd5cdd0af85b7b228e64283c8f49
+      linux_x86_64: d9137c1f2eadf8c1cb50a927e06ab3309042416a6071cbb7ad59401c99a62757
+      windows_x86_64: ee70876aac03fdf648bb648feca2cb4d890ae1d413b9a0ae8eb561ab390694fd
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      repository:
+        type: string
+        required: false
+        default: "https://upload.pypi.org/legacy/"
+        description: "PyPI repository URL"
+      username:
+        type: string
+        required: false
+        env: PYPI_USERNAME
+        description: "PyPI username (use __token__ for API tokens)"
+      password:
+        type: string
+        required: false
+        env: PYPI_PASSWORD
+        description: "PyPI password or API token"
+      dist_dir:
+        type: string
+        required: false
+        default: "dist"
+        description: "Directory containing distribution files"
+      skip_existing:
+        type: boolean
+        required: false
+        default: false
+        description: "Skip upload if version already exists"
+
+  - name: chocolatey
+    description: Publish packages to Chocolatey
+    repository: relicta-tech/plugin-chocolatey
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-chocolatey
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 350c680b4250b0e34cddc2b2f15eb18b743648eac00ace49b135e8fe37627b10
+      darwin_x86_64: b50242505bb849956c963c260ca02b42ce884346bc647517fd8dcaa7adbcea80
+      linux_aarch64: a2f1fa40c55825226ad84f5a7d1d675f525039509aea16df8d9b865d8ec20a20
+      linux_x86_64: d5faeecc572b078a4e68d2f1a80e96c940c16ae5d35d0e2d914741e9c3509835
+      windows_x86_64: b8a944663ded2888f4b60e25b21557a0be310e340ba50d4ac598a239abc6b830
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: CHOCOLATEY_API_KEY
+        description: "Chocolatey API key"
+      source:
+        type: string
+        required: false
+        default: "https://push.chocolatey.org/"
+        description: "Chocolatey source URL"
+      package_id:
+        type: string
+        required: true
+        description: "Chocolatey package ID"
+      nuspec_path:
+        type: string
+        required: false
+        description: "Path to .nuspec file"
+
+  - name: linuxpkg
+    description: Build Linux packages (deb, rpm, apk)
+    repository: relicta-tech/plugin-linuxpkg
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-linuxpkg
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 8ef12dc1950ed558d36fce174a58f416aea1a222c9f0fb94c9b9a3d80306adc5
+      darwin_x86_64: ea983b80518a7fdb6d93d58cd23b3762ac66dea458df63a2470eda0651f730b8
+      linux_aarch64: 44d557c7382fba68a9da3a9dbe4fcc8442506efd958d34d2ed5c66be2399c270
+      linux_x86_64: 12752b081eb740d31b20767e09508a8618f62cccc5dcc0a07a0dafb85e09a61a
+      windows_x86_64: e9a52b2b8a0f10ab69ac85d7d3ab0324509ac4e0b8cee06740839dc2d6d00214
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      formats:
+        type: array
+        required: false
+        default: ["deb", "rpm"]
+        description: "Package formats to build (deb, rpm, apk)"
+      maintainer:
+        type: string
+        required: true
+        description: "Package maintainer name and email"
+      description:
+        type: string
+        required: true
+        description: "Package description"
+      homepage:
+        type: string
+        required: false
+        description: "Project homepage URL"
+      license:
+        type: string
+        required: false
+        default: "MIT"
+        description: "Package license"
+      binaries:
+        type: array
+        required: true
+        description: "List of binary files to include"
+      output_dir:
+        type: string
+        required: false
+        default: "dist"
+        description: "Output directory for packages"
+
+  - name: crates
+    description: Publish packages to crates.io
+    repository: relicta-tech/plugin-crates
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-crates
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 03a590bcdd1534ed612380cd69582f3023c45315db98ec21e0007919214808e4
+      darwin_x86_64: 624dea3b3dcd5b642eee7710096b14666a7a21f14e6dc6e31ffee24bd1d31b01
+      linux_aarch64: b16aee9d6eb655ad9c2970d3a10310d908126da415dd8dbad28e268e32d8179c
+      linux_x86_64: a3ca41e4204e9046c5b9ada299e3abfa2b6cd39cd73b680da5b5a8b2a87a5e4f
+      windows_x86_64: e3819f73f17ff86fc5c82be4d298bd234d7590025c4581abf6ea3fa09c24bac9
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      token:
+        type: string
+        required: true
+        env: CARGO_REGISTRY_TOKEN
+        description: "crates.io API token"
+      manifest_path:
+        type: string
+        required: false
+        default: "Cargo.toml"
+        description: "Path to Cargo.toml"
+      allow_dirty:
+        type: boolean
+        required: false
+        default: false
+        description: "Allow publishing from dirty working directory"
+      dry_run:
+        type: boolean
+        required: false
+        default: false
+        description: "Perform a dry run without publishing"
+
+  - name: nuget
+    description: Publish packages to NuGet
+    repository: relicta-tech/plugin-nuget
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-nuget
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 53b3bb0193f2265e28d496da9587397141d5c1d1100703299303e9d135d821b5
+      darwin_x86_64: f8c0de3664b19c4fce8aa80a93a39ec4973021ba9923c269979bc8420e0bbf4e
+      linux_aarch64: e58b06ed5cff2a6652ec8a85b6d0fcb07c1e135ebe70ad5a2427d64d8bae033e
+      linux_x86_64: 8991fb2c252280a0b6a52583a9d14cb5e71b26eae4373f306fe20a6ad6526e8c
+      windows_x86_64: a5e8e31878ae358647262e15546be0d6b0f435bc0b0893b7b7c462d4195fefe7
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: NUGET_API_KEY
+        description: "NuGet API key"
+      source:
+        type: string
+        required: false
+        default: "https://api.nuget.org/v3/index.json"
+        description: "NuGet source URL"
+      package_path:
+        type: string
+        required: false
+        description: "Path to .nupkg file (auto-detected if not specified)"
+      skip_duplicate:
+        type: boolean
+        required: false
+        default: false
+        description: "Skip push if package version already exists"
+
+  - name: maven
+    description: Publish packages to Maven Central
+    repository: relicta-tech/plugin-maven
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-maven
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 5e37d17e61b68812a4ef0ad462b258e39cf015aaf5fbaafe710f5a0d45130af0
+      darwin_x86_64: d0fd5843122afc79d07f4a0779751bcd25573a3fdaa98925f9dd6fec2148748f
+      linux_aarch64: a60b6e8567b524ad2e71a1f2dc242836e72f9be4f69afd1b96685f62cded3461
+      linux_x86_64: 4bf4c9fe74ab2edca79e66aeb12882ed1b8f93f12af8b8cb5a1ebea04e53bf3d
+      windows_x86_64: 6616490357f53d935f61c7e0ac28f7b1e518ac69e0b7d45eb919efc93f823ce8
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      repository_url:
+        type: string
+        required: false
+        default: "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+        description: "Maven repository URL"
+      username:
+        type: string
+        required: false
+        env: MAVEN_USERNAME
+        description: "Maven repository username"
+      password:
+        type: string
+        required: false
+        env: MAVEN_PASSWORD
+        description: "Maven repository password"
+      group_id:
+        type: string
+        required: true
+        description: "Maven group ID"
+      artifact_id:
+        type: string
+        required: true
+        description: "Maven artifact ID"
+      pom_path:
+        type: string
+        required: false
+        default: "pom.xml"
+        description: "Path to pom.xml"
+      gpg_key:
+        type: string
+        required: false
+        env: GPG_KEY_ID
+        description: "GPG key ID for signing"
+
+  - name: rubygems
+    description: Publish gems to RubyGems
+    repository: relicta-tech/plugin-rubygems
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-rubygems
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 35d6e509421c389f72b4f345a00aaa57dc863f62ba9fadebb660629483ea4838
+      darwin_x86_64: b5b007022a90442cffa562a2759a8105ca039b51f1987a093e3527e28127ec98
+      linux_aarch64: eed7e08f03c4bcc8a587c1c696631322715b6fc265e7cecc8f67f460928b2d94
+      linux_x86_64: 050b12628ace2ef084c06ecbbb690d8d5992c8d6114efc0e2233f48bbb8f099d
+      windows_x86_64: 309628b43c20c4f689d8dbcd2155d68711642f1d4af750db7cc37adcef70f0c7
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: GEM_HOST_API_KEY
+        description: "RubyGems API key"
+      host:
+        type: string
+        required: false
+        default: "https://rubygems.org"
+        description: "RubyGems host URL"
+      gemspec_path:
+        type: string
+        required: false
+        description: "Path to .gemspec file (auto-detected if not specified)"
+      gem_path:
+        type: string
+        required: false
+        description: "Path to built .gem file"
+
+  - name: hex
+    description: Publish packages to Hex.pm
+    repository: relicta-tech/plugin-hex
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-hex
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 38433d04462ab2e611bf38b8d9b49966d2e0a19efce95c44580af4645bfe6818
+      darwin_x86_64: 906137beebb60e763140068d9f4120edc10a3eee5cccf60eeeefc5c04dbd7d7e
+      linux_aarch64: 410879c55f594872b938918115bc46ccaf6cc64e4af55849c4b35906712f95ae
+      linux_x86_64: ebeb05d442dee322dff2de0596fffa424e6f82b4f35789c02aacc43d57762ed7
+      windows_x86_64: b148462fb511b4939b8fae86a2d69667164f6b91ad3263f3cfae8f0fd84fa732
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: HEX_API_KEY
+        description: "Hex.pm API key"
+      organization:
+        type: string
+        required: false
+        description: "Hex.pm organization (for private packages)"
+      replace:
+        type: boolean
+        required: false
+        default: false
+        description: "Replace existing package version"
+      mix_path:
+        type: string
+        required: false
+        default: "mix.exs"
+        description: "Path to mix.exs file"
+
+  # Tier 1 Plugins - Container Registries
+
+  - name: acr
+    description: Push container images to Azure Container Registry
+    repository: relicta-tech/plugin-acr
+    version: v1.0.6
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-acr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: b2e6fb7b5b423fde40d9578b61a5a746ca16d2954b45f7ec5e22459bf35680ad
+      darwin_x86_64: 0d1906254b96ccbebb1a986639a47603a18b611452a01b75312fdf64aa7f8716
+      linux_aarch64: afb1b08871887acd27dff67947354dc730db5ae305a23dc01cc6afbc0e453355
+      linux_x86_64: f47616c3f41eb8bf33808c8a3b58cfc64ea53225d77868fbf7e4288bc2493255
+      windows_x86_64: c132731a488c3d76eebe04f7bf44f3d83b3c14f1953a0138e31ee5b5ab8d8547
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "ACR registry name (without .azurecr.io suffix)"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      repository:
+        type: string
+        required: false
+        description: "Repository/namespace within ACR"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+      auth_method:
+        type: string
+        required: false
+        default: "azure_cli"
+        options: ["azure_cli", "service_principal", "admin", "managed_identity"]
+        description: "Authentication method"
+      client_id:
+        type: string
+        required: false
+        env: AZURE_CLIENT_ID
+        description: "Azure client ID (for service_principal)"
+      client_secret:
+        type: string
+        required: false
+        env: AZURE_CLIENT_SECRET
+        description: "Azure client secret (for service_principal)"
+      tenant_id:
+        type: string
+        required: false
+        env: AZURE_TENANT_ID
+        description: "Azure tenant ID (for service_principal)"
+
+  - name: ecr
+    description: Push container images to Amazon ECR
+    repository: relicta-tech/plugin-ecr
+    version: v1.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-ecr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 82b23e1c83767b9474aa2a2962769c69e34c3b44f7afadeca1f92973c2a785ef
+      darwin_x86_64: 76fa620b2430b479ec902fd498a2318bc3c061adc4b3c6170d6b2c07d42b288a
+      linux_aarch64: 1debb42dda99374b4183e8169c8597c0e3303685e486f577d608369c1ea0aaf1
+      linux_x86_64: aa5f0ac7b0818d76cf054933edd02fdbe366f455b433a317a6a6603d6ca53c0e
+      windows_x86_64: 5d30ab322abbf5df4701064924d243f6aa4cffc69fda2190f8d0ff44a6893a9e
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "ECR registry URL (account.dkr.ecr.region.amazonaws.com)"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      region:
+        type: string
+        required: false
+        env: AWS_REGION
+        description: "AWS region"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+
+  - name: gcr
+    description: Push container images to Google Artifact Registry
+    repository: relicta-tech/plugin-gcr
+    version: v1.0.0
+    category: container
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-gcr
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 524d93883199b9875891e5443510a590fcf234ad5491c31c740d153ada8272c7
+      darwin_x86_64: 3a59595040e2f97fe0022d4bc2aa5ba62ddc44d71555347eaf5839d128c8b613
+      linux_aarch64: 2db43a7b961eb8f7d639296ea87f87c738d1eb91dbe682fb4e7145498f5b48a7
+      linux_x86_64: 0675dd535dfc57663bbba7aba77c3c43e4c53f1b8381c4610cafd1ecb4078541
+      windows_x86_64: e1776e52e5332314f37a5a4e4a83edf96f25981fbb548d656586a04968ccc508
+    hooks:
+      - post_publish
+    config_schema:
+      registry:
+        type: string
+        required: true
+        description: "GAR/GCR registry URL"
+      project:
+        type: string
+        required: true
+        env: GCP_PROJECT
+        description: "GCP project ID"
+      image:
+        type: string
+        required: true
+        description: "Image name to push"
+      source_image:
+        type: string
+        required: true
+        description: "Source image to tag and push"
+      location:
+        type: string
+        required: false
+        default: "us"
+        description: "Artifact Registry location"
+      tags:
+        type: array
+        required: false
+        description: "Tags to apply (supports templates)"
+
+  # Tier 1 Plugins - Package Managers
+
+  - name: helm
+    description: Package and publish Helm charts
+    repository: relicta-tech/plugin-helm
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-helm
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 3176c039ce2ea6e7637a1b25a00bde1f10524a1a3f68e670c90c7eb09f53a564
+      darwin_x86_64: eca1f0f9df9bb3ada5d0648cd064dda7141734ed53ed79f99b82082bb2ad550d
+      linux_aarch64: 397863b62968c220b175ab42765a44e3c9166ee9b43163f667fbc5d086a9dc3e
+      linux_x86_64: 6344a0d393cc20b87e7e43363090b3c01d174c5aad9b8db662b5f30ee30467f9
+      windows_x86_64: 387126db17f14d2ece22df6f646cde4262db15bc4ed749773b8dca8c3463c0ab
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      chart_path:
+        type: string
+        required: true
+        description: "Path to chart directory"
+      repository_type:
+        type: string
+        required: false
+        default: "oci"
+        options: ["oci", "http", "chartmuseum"]
+        description: "Repository type"
+      repository_url:
+        type: string
+        required: true
+        description: "Repository URL"
+      username:
+        type: string
+        required: false
+        env: HELM_REPO_USERNAME
+        description: "Repository username"
+      password:
+        type: string
+        required: false
+        env: HELM_REPO_PASSWORD
+        description: "Repository password"
+      update_chart_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Update version in Chart.yaml"
+      lint:
+        type: boolean
+        required: false
+        default: true
+        description: "Lint chart before publishing"
+
+  - name: pub
+    description: Publish Dart/Flutter packages to pub.dev
+    repository: relicta-tech/plugin-pub
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-pub
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: d183f449ebe40ced4d02054f69b414153eb96834814a7d7221a2075a96a94ebc
+      darwin_x86_64: 72de12ae48c752cf4866f4ac1edb289fa8973469fc4cdfdf5c072adb172bd284
+      linux_aarch64: 9abfc64de6a46da7ee0055b2db4eb6c7cffd98187c81aa25f5689364b504e6ff
+      linux_x86_64: 85f577ed7da7a19dd1c1da6b551b255bbb996cd5fe1c634038c70dbed3b90d10
+      windows_x86_64: f218cb30ab411eafffa2f150c20686329859acf64a86166147bc4888934278cd
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      pubspec_path:
+        type: string
+        required: false
+        default: "pubspec.yaml"
+        description: "Path to pubspec.yaml"
+      update_version:
+        type: boolean
+        required: false
+        default: true
+        description: "Update version in pubspec.yaml"
+      run_tests:
+        type: boolean
+        required: false
+        default: true
+        description: "Run tests before publishing"
+      dry_run:
+        type: boolean
+        required: false
+        default: false
+        description: "Validate without publishing"
+
+  - name: swift-pm
+    description: Publish Swift packages
+    repository: relicta-tech/plugin-swift-pm
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-swift-pm
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: b1a63ad8ceb387d64e47ef78bd9c7453f8a6b5aa0cbe5a63795a93f9b4d81a84
+      darwin_x86_64: e1acf6d5f4effc54d313f95ace5a43b902a4d7f3c4f5a8d5a871ed02db5b3125
+      linux_aarch64: 8956bbacd5674c6dce1ebf4488ffbff822017aa6a9d8fd2a68befe28695a1797
+      linux_x86_64: 1d266fa4c81f10ccae7015804d56f5c5e159f2210535ec20686374ebaff61ed9
+      windows_x86_64: bed0273895628ba311f67dc0fbf22443ab4e831cf49bf1067f4744c86000f18e
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      package_path:
+        type: string
+        required: false
+        default: "."
+        description: "Path to Package.swift"
+      registry_url:
+        type: string
+        required: false
+        description: "Swift Package Registry URL"
+      build:
+        type: boolean
+        required: false
+        default: true
+        description: "Build package before publishing"
+      test:
+        type: boolean
+        required: false
+        default: true
+        description: "Run tests before publishing"
+
+  - name: winget
+    description: Publish packages to Windows Package Manager
+    repository: relicta-tech/plugin-winget
+    version: v1.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-winget
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 27ff14e414f8ca82dfebe0c436c21dd2bfefe5623d19abc8856991642e299c2c
+      darwin_x86_64: f48b4bf79e8bc9a0944e51ad52538c68121fabf90734904251df38c481f32096
+      linux_aarch64: 37255c8b1e7fadeedfdaf7e76b6380fde818ad1e1c9cd4fc2e2e689e09b166fc
+      linux_x86_64: d3801256c3c56092484c8a3b793275228f89eaf4ab2a5f20deac81e60ad90579
+      windows_x86_64: 37c729bcf3ae7484d48d66c3edcf70d50ae32437f55e79ee59f915b5f62f0b49
+    hooks:
+      - post_publish
+    config_schema:
+      package_id:
+        type: string
+        required: true
+        description: "Package identifier (e.g., Publisher.AppName)"
+      github_token:
+        type: string
+        required: true
+        env: GITHUB_TOKEN
+        description: "GitHub token for PR creation"
+      installer_url:
+        type: string
+        required: true
+        description: "URL template for installer download"
+      installer_type:
+        type: string
+        required: false
+        default: "exe"
+        options: ["exe", "msi", "msix", "zip"]
+        description: "Installer type"
+      create_pr:
+        type: boolean
+        required: false
+        default: true
+        description: "Create PR to winget-pkgs repository"
+
+  # Tier 1 Plugins - Communication & Notifications
+
+  - name: telegram
+    description: Send release notifications to Telegram
+    repository: relicta-tech/plugin-telegram
+    version: v1.0.0
+    category: notification
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-telegram
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: 6c10f51d8d80d3cd38c11d42255f3b4d4ee53306e31251ff2318bb3e48e5b034
+      darwin_x86_64: ca0ae0f8e4f3d8b8a64a559d4071ae9c3b18fe06083bcb8bfea9a4932ff64e41
+      linux_aarch64: 69861a521e05a2b66bb115e2deb100778aa47f799b4709bfc601f108f5cc1ea6
+      linux_x86_64: b3e2affcfc84deb99c11c5a9b32cd1dbc29cece951a18f2cea2b88727a5ff13f
+      windows_x86_64: f0706397039d424cc5bc06a9d5d7ac571cdcb8e55e8d80d30d9206b9f56da6f2
+    hooks:
+      - post_publish
+      - on_success
+      - on_error
+    config_schema:
+      bot_token:
+        type: string
+        required: true
+        env: TELEGRAM_BOT_TOKEN
+        description: "Telegram bot token from @BotFather"
+      chat_id:
+        type: string
+        required: true
+        env: TELEGRAM_CHAT_ID
+        description: "Chat ID or @channel_username"
+      message_thread_id:
+        type: integer
+        required: false
+        description: "Thread ID for topic-based groups"
+      parse_mode:
+        type: string
+        required: false
+        default: "MarkdownV2"
+        options: ["MarkdownV2", "HTML", ""]
+        description: "Message format"
+      disable_web_page_preview:
+        type: boolean
+        required: false
+        default: true
+        description: "Disable link previews"
+      notify_on_success:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on success"
+      notify_on_error:
+        type: boolean
+        required: false
+        default: true
+        description: "Send notification on error"
+      include_changelog:
+        type: boolean
+        required: false
+        default: false
+        description: "Include changelog in message"
+
+  - name: linear
+    description: Track releases and update issues in Linear
+    repository: relicta-tech/plugin-linear
+    version: v1.0.0
+    category: project_management
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-linear
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: c095f1bc746298dfbae87498503b9a36bbe38aa9d8f9207df48e9b327f7ff45f
+      darwin_x86_64: 8e9af943bf92f1a96a4d8509aeddcbc4a97da9def606c8bb7da27180878096fb
+      linux_aarch64: 0992413dcb11fd554d7fbd47b7cb55beecd3a3fdd298735c1157c9751ba44408
+      linux_x86_64: b09a7df1c887cc1239dae5c5f93e6d13f4511e13b6aabc40395c3bfb0e107657
+      windows_x86_64: 7d9f92f9d45c0ac13e4fae559f884014a4fecfc39769eddcc34abd3c67db458c
+    hooks:
+      - post_plan
+      - post_publish
+      - on_error
+    config_schema:
+      api_key:
+        type: string
+        required: true
+        env: LINEAR_API_KEY
+        description: "Linear API key"
+      team_id:
+        type: string
+        required: false
+        description: "Linear team UUID"
+      team_key:
+        type: string
+        required: false
+        description: "Linear team key (e.g., ENG)"
+      project_id:
+        type: string
+        required: false
+        description: "Linear project UUID"
+      issue_prefix:
+        type: string
+        required: false
+        description: "Issue prefix pattern in commits"
+      released_state:
+        type: string
+        required: false
+        default: "Done"
+        description: "State to move issues to after release"
+      create_release_issue:
+        type: boolean
+        required: false
+        default: true
+        description: "Create a release tracking issue"
+      update_linked_issues:
+        type: boolean
+        required: false
+        default: true
+        description: "Update linked issues after release"
+
+  # Tier 1 Plugins - Monitoring & Observability
+
+  - name: sentry
+    description: Track releases and deployments in Sentry
+    repository: relicta-tech/plugin-sentry
+    version: v1.0.0
+    category: monitoring
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-sentry
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: ef5993e23c0d4946d591c490c3018c2bd11f29827f24343e8c7475e53255ab89
+      darwin_x86_64: c112afa525921de466d64098c17d17ebbd96b92990b7de7abfd4370d3a5f4dca
+      linux_aarch64: f97748261c67aa5020d5d78d30973dc65d0c136a1c0d7895b4352e0afae84617
+      linux_x86_64: 31ed4bef0cb3f458b5c4cec9134bb19e7a347cf5eb16d2aa03c0edcc3deeffde
+      windows_x86_64: a6cf3ad48731bd6d325a3a64f4fd899e1f66413dad9391f8e12f0177e94c8477
+    hooks:
+      - post_publish
+      - on_error
+    config_schema:
+      auth_token:
+        type: string
+        required: true
+        env: SENTRY_AUTH_TOKEN
+        description: "Sentry auth token"
+      org:
+        type: string
+        required: true
+        env: SENTRY_ORG
+        description: "Sentry organization slug"
+      project:
+        type: string
+        required: true
+        env: SENTRY_PROJECT
+        description: "Sentry project slug"
+      url:
+        type: string
+        required: false
+        default: "https://sentry.io"
+        description: "Sentry instance URL (for self-hosted)"
+      environment:
+        type: string
+        required: false
+        description: "Deployment environment"
+      finalize:
+        type: boolean
+        required: false
+        default: true
+        description: "Finalize release after creation"
+      set_commits:
+        type: boolean
+        required: false
+        default: true
+        description: "Associate commits with release"
+
+  - name: packagist
+    description: Publish packages to Packagist
+    repository: relicta-tech/plugin-packagist
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-packagist
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: b57559444a54ec2ac467663449e02a217ef47a8c41c0f5cd98f78be1b87997a5
+      darwin_x86_64: 45c16093fba1b50f2a0113a46ed7fa92ab04d3cd6fdc10e31147acb11f4f4888
+      linux_aarch64: 6301dd796adbb1d08c89de64300c83ef96c22da0f5f2ac1756410b70851727bc
+      linux_x86_64: caccef49c426a99ea866c05dc2c46a4a255f73c33aae8b21730282dc4e63c142
+      windows_x86_64: 88bc9ef6640a6517c7f33f863abfc0424d166ed85f45dddeea4cff1d983fef91
+    hooks:
+      - post_publish
+    config_schema:
+      api_token:
+        type: string
+        required: true
+        env: PACKAGIST_API_TOKEN
+        description: "Packagist API token"
+      username:
+        type: string
+        required: true
+        env: PACKAGIST_USERNAME
+        description: "Packagist username"
+      package_name:
+        type: string
+        required: true
+        description: "Package name (vendor/package)"
+      update_url:
+        type: string
+        required: false
+        default: "https://packagist.org/api/update-package"
+        description: "Packagist update API URL"
+
+  - name: gomod
+    description: Publish Go modules
+    repository: relicta-tech/plugin-gomod
+    version: v2.0.0
+    category: package_manager
+    author: Relicta Team
+    homepage: https://github.com/relicta-tech/plugin-gomod
+    license: MIT
+    min_sdk_version: 1
+    checksums:
+      darwin_aarch64: a679eb4a37a83d97b4cde6301633de9404267db34824f3d4123165acb8ebf014
+      darwin_x86_64: 112a89b83cd18960ec27ca486f17b0a312cfcf1f1a865b9958a36f7be7c8432c
+      linux_aarch64: 45011818e713001e027f706562ff90305d17e129b70d7f66a965fe1125f442ef
+      linux_x86_64: b4183e56422c6429fd510597fca3eece4216389b30e99183e9c23de401353333
+      windows_x86_64: 072c961056f2f3727b8dfd21134fd6d93c94fbce57227d9d79ac0102089e01f3
+    hooks:
+      - pre_publish
+      - post_publish
+    config_schema:
+      module_path:
+        type: string
+        required: true
+        description: "Go module path (e.g., github.com/user/repo)"
+      proxy_url:
+        type: string
+        required: false
+        default: "https://proxy.golang.org"
+        description: "Go module proxy URL"
+      private:
+        type: boolean
+        required: false
+        default: false
+        description: "Module is private (skip proxy notification)"
+      sumdb_url:
+        type: string
+        required: false
+        default: "https://sum.golang.org"
+        description: "Go checksum database URL"

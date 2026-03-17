@@ -1,0 +1,15 @@
+{
+  "risk_score": 0.82,
+  "bump_type": "major",
+  "actor_type": "agent",
+  "actor_id": "agent:release-bot",
+  "repository": "acme/service-api",
+  "branch": "main",
+  "breaking": 1,
+  "security": 0,
+  "features": 2,
+  "fixes": 1,
+  "dependencies": 0,
+  "files_changed": 14,
+  "lines_changed": 420
+}

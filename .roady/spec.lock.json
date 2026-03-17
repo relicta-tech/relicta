@@ -1,0 +1,379 @@
+{
+  "id": "relicta-phase-2a",
+  "title": "Phase 2A: Enterprise Foundation",
+  "description": "Harden Relicta for multi-user enterprise deployment. The CLI, governance\nengine, policy system, MCP apps, and AI providers are production-ready.\nPhase 2A closes the remaining gaps: persistent storage for scaling beyond\nsingle-machine file-based state, session-based authentication for the web\ndashboard, OIDC/SSO integration for enterprise identity, a versioned REST\nAPI surface with OpenAPI documentation, and an analytics persistence layer\nso risk trends and team metrics survive restarts.\n",
+  "features": [
+    {
+      "id": "session-authentication",
+      "title": "Session Authentication",
+      "description": "Implement JWT-based session authentication for the web dashboard.\nThe API key auth mode works; session mode returns 501 Not Implemented.\nAdd token issuance, validation, refresh, and revocation. Support\nsecure cookie transport for browser sessions.\n",
+      "requirements": [
+        {
+          "id": "jwt-token-service",
+          "title": "Implement JWT token service",
+          "description": "Create a token service that issues signed JWTs with configurable\nexpiry, refresh tokens, and revocation via a deny list. Use\nHMAC-SHA256 with a server-generated secret or RSA key pair.\n",
+          "priority": "high",
+          "estimate": "3d",
+          "depends_on": []
+        },
+        {
+          "id": "session-auth-middleware",
+          "title": "Wire session auth into middleware",
+          "description": "Replace the TODO stub in auth.go session mode with real JWT\nvalidation. Extract claims, map to roles (Admin, Approver,\nViewer), and populate request context.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [
+            "jwt-token-service"
+          ]
+        },
+        {
+          "id": "login-logout-endpoints",
+          "title": "Add login and logout API endpoints",
+          "description": "POST /api/auth/login (credentials → JWT + refresh token),\nPOST /api/auth/refresh (refresh → new JWT),\nPOST /api/auth/logout (revoke tokens).\nRate-limit login attempts.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [
+            "jwt-token-service"
+          ]
+        },
+        {
+          "id": "session-auth-tests",
+          "title": "Add session auth test coverage",
+          "description": "Unit tests for token service (issue, validate, refresh, revoke).\nIntegration tests for login flow, expired tokens, role mapping,\nand rate limiting. Target 90%+ coverage on auth package.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [
+            "session-auth-middleware",
+            "login-logout-endpoints"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oidc-sso-integration",
+      "title": "OIDC / SSO Integration",
+      "description": "Add OpenID Connect provider support so enterprises can use their\nexisting identity provider (Okta, Azure AD, Google Workspace) for\ndashboard authentication. Map OIDC claims to Relicta roles.\n",
+      "requirements": [
+        {
+          "id": "oidc-provider-config",
+          "title": "Add OIDC provider configuration",
+          "description": "Extend DashboardAuthConfig with OIDC fields: issuer URL,\nclient ID, client secret, redirect URI, scopes, and claim\nmappings. Support discovery via .well-known/openid-configuration.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": []
+        },
+        {
+          "id": "oidc-auth-flow",
+          "title": "Implement OIDC authorization code flow",
+          "description": "Add /api/auth/oidc/login (redirect to IdP), /api/auth/oidc/callback\n(exchange code for tokens, create session). Validate ID tokens,\nextract claims, map groups to roles.\n",
+          "priority": "high",
+          "estimate": "4d",
+          "depends_on": [
+            "oidc-provider-config",
+            "session-auth-middleware"
+          ]
+        },
+        {
+          "id": "oidc-claim-role-mapping",
+          "title": "Map OIDC claims to Relicta roles",
+          "description": "Configurable claim-to-role mapping (e.g., groups claim \"relicta-admins\"\n→ Admin role). Support multiple IdPs with independent mappings.\nFallback to default Viewer role for unmapped users.\n",
+          "priority": "medium",
+          "estimate": "2d",
+          "depends_on": [
+            "oidc-auth-flow"
+          ]
+        },
+        {
+          "id": "oidc-tests-and-docs",
+          "title": "Test OIDC flows and document setup",
+          "description": "Integration tests with a mock OIDC provider. Document IdP setup\nfor Okta, Azure AD, and Google Workspace with example configs.\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": [
+            "oidc-claim-role-mapping"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "database-persistence",
+      "title": "Database Persistence Layer",
+      "description": "Add PostgreSQL as an optional persistence backend alongside the\nexisting file-based event store. Enable horizontal scaling,\nconcurrent access, and queryable release history. Keep file-based\nas the default for single-machine use.\n",
+      "requirements": [
+        {
+          "id": "persistence-port-interface",
+          "title": "Define persistence port interface",
+          "description": "Extract a clean port interface from the file event store adapter.\nBoth file-based and PostgreSQL adapters implement the same interface.\nUse the repository pattern from the existing hexagonal architecture.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": []
+        },
+        {
+          "id": "postgres-adapter",
+          "title": "Implement PostgreSQL adapter",
+          "description": "Implement the persistence port using sqlc for type-safe query\ngeneration with pgx as the driver. Store events in an append-only\nevents table with JSONB payload. Add indexes for release ID,\ntimestamp, and event type. Use connection pooling.\n",
+          "priority": "high",
+          "estimate": "4d",
+          "depends_on": [
+            "persistence-port-interface"
+          ]
+        },
+        {
+          "id": "schema-migrations",
+          "title": "Add database migration framework",
+          "description": "Embed SQL migrations via go:embed. Support up/down migrations\nwith version tracking. Add `relicta db migrate` and\n`relicta db status` CLI commands. Use golang-migrate or similar.\n",
+          "priority": "high",
+          "estimate": "3d",
+          "depends_on": [
+            "postgres-adapter"
+          ]
+        },
+        {
+          "id": "persistence-config",
+          "title": "Add persistence configuration",
+          "description": "Extend config schema with persistence section: backend type\n(file, postgres), connection string (with env var expansion),\npool size, migration mode (auto, manual). Wire adapter selection\nin container setup.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [
+            "postgres-adapter"
+          ]
+        },
+        {
+          "id": "persistence-tests",
+          "title": "Add persistence layer tests",
+          "description": "Unit tests with interface mocks. Integration tests with testcontainers\nfor PostgreSQL. Test migration up/down, concurrent writes, event\nreplay, and failover to file-based when DB is unreachable.\n",
+          "priority": "high",
+          "estimate": "3d",
+          "depends_on": [
+            "schema-migrations",
+            "persistence-config"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "analytics-persistence",
+      "title": "Analytics Persistence",
+      "description": "Persist risk trends, governance decisions, and team metrics so the\ndashboard shows historical data across restarts. Build on the\npersistence port interface from the database feature.\n",
+      "requirements": [
+        {
+          "id": "analytics-event-capture",
+          "title": "Capture analytics events",
+          "description": "Emit structured analytics events for: risk evaluations, policy\ndecisions, approval outcomes, release durations, bump types.\nStore via the persistence port (file or PostgreSQL).\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": [
+            "persistence-port-interface"
+          ]
+        },
+        {
+          "id": "analytics-query-api",
+          "title": "Add analytics query endpoints",
+          "description": "GET /api/analytics/risk-trends (time-series risk scores),\nGET /api/analytics/decisions (policy decision distribution),\nGET /api/analytics/team (approvals per actor, release velocity).\nSupport date range and granularity parameters.\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": [
+            "analytics-event-capture"
+          ]
+        },
+        {
+          "id": "analytics-aggregation",
+          "title": "Implement analytics aggregation",
+          "description": "Pre-aggregate metrics for dashboard performance: daily/weekly/monthly\nrollups for risk scores, decision counts, release frequency.\nFor file backend, aggregate on read. For PostgreSQL, use\nmaterialized views or scheduled aggregation.\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": [
+            "analytics-query-api"
+          ]
+        },
+        {
+          "id": "analytics-tests",
+          "title": "Add analytics test coverage",
+          "description": "Unit tests for event capture and aggregation logic. Integration\ntests for query endpoints with seeded data. Verify both file\nand PostgreSQL backends produce consistent results.\n",
+          "priority": "medium",
+          "estimate": "2d",
+          "depends_on": [
+            "analytics-aggregation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "api-hardening",
+      "title": "REST API Hardening",
+      "description": "Version the REST API, add pagination to list endpoints, generate\nOpenAPI documentation, and add structured error responses. Make\nthe API suitable for third-party integrations.\n",
+      "requirements": [
+        {
+          "id": "api-versioning",
+          "title": "Add API versioning",
+          "description": "Prefix all API routes with /api/v1/. Add version negotiation\nvia Accept header. Document versioning policy (additive changes\nin minor, breaking changes in major).\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": []
+        },
+        {
+          "id": "pagination-filtering",
+          "title": "Add pagination and filtering to list endpoints",
+          "description": "Cursor-based pagination for releases, events, and audit trail\nendpoints. Support limit, cursor, sort, and filter query params.\nReturn Link headers and pagination metadata in response body.\n",
+          "priority": "high",
+          "estimate": "3d",
+          "depends_on": [
+            "api-versioning"
+          ]
+        },
+        {
+          "id": "openapi-spec",
+          "title": "Generate OpenAPI specification",
+          "description": "Annotate handlers with OpenAPI metadata. Generate spec at build\ntime or serve at /api/v1/openapi.json. Include authentication\nschemes, error responses, and example payloads.\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": [
+            "api-versioning",
+            "pagination-filtering"
+          ]
+        },
+        {
+          "id": "structured-errors",
+          "title": "Implement structured error responses",
+          "description": "Standardize error format: {code, message, details, request_id}.\nMap domain errors to HTTP status codes consistently. Add\nrequest ID middleware for correlation.\n",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [
+            "api-versioning"
+          ]
+        },
+        {
+          "id": "api-tests",
+          "title": "Add API contract tests",
+          "description": "Integration tests verifying pagination, error formats, versioning,\nand OpenAPI spec accuracy. Use golden file tests for response\nshapes. Target full endpoint coverage.\n",
+          "priority": "high",
+          "estimate": "3d",
+          "depends_on": [
+            "openapi-spec",
+            "structured-errors"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "webhook-hardening",
+      "title": "Webhook Delivery Hardening",
+      "description": "The webhook config schema exists but the delivery engine needs\nproduction hardening: persistent delivery queue, retry with\nbackoff, delivery logging, and dead-letter handling.\n",
+      "requirements": [
+        {
+          "id": "webhook-delivery-queue",
+          "title": "Add persistent webhook delivery queue",
+          "description": "Queue webhook deliveries for async processing. Persist pending\ndeliveries so they survive restarts. Process in order per\nendpoint with configurable concurrency.\n",
+          "priority": "medium",
+          "estimate": "3d",
+          "depends_on": []
+        },
+        {
+          "id": "webhook-retry-backoff",
+          "title": "Implement retry with exponential backoff",
+          "description": "Retry failed deliveries with exponential backoff and jitter.\nRespect Retry-After headers. Move to dead-letter after max\nretries. Log all delivery attempts with status codes.\n",
+          "priority": "medium",
+          "estimate": "2d",
+          "depends_on": [
+            "webhook-delivery-queue"
+          ]
+        },
+        {
+          "id": "webhook-delivery-log",
+          "title": "Add webhook delivery log",
+          "description": "Log delivery attempts with timestamp, endpoint, status code,\nresponse time, and payload hash. Expose via\nGET /api/v1/webhooks/:id/deliveries. Support manual re-delivery.\n",
+          "priority": "medium",
+          "estimate": "2d",
+          "depends_on": [
+            "webhook-retry-backoff"
+          ]
+        },
+        {
+          "id": "webhook-tests",
+          "title": "Add webhook delivery tests",
+          "description": "Unit tests for queue, retry logic, and backoff calculation.\nIntegration tests with httptest server simulating failures,\nslow responses, and redirects.\n",
+          "priority": "medium",
+          "estimate": "2d",
+          "depends_on": [
+            "webhook-delivery-log"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "monorepo-workspace-orchestration",
+      "title": "Monorepo Workspace Orchestration",
+      "description": "Add first-class monorepo support for governing changes across multiple packages in a single repository. Detect workspace structure (Go modules, npm workspaces, Cargo workspaces), analyze per-package changes independently, support independent versioning per package, and coordinate cross-package releases. This addresses the PRD's \"Monorepo support gaps\" risk (rated High) and is critical for enterprise adoption where monorepos are standard.",
+      "requirements": []
+    },
+    {
+      "id": "cgp-protocol-wire-format",
+      "title": "CGP Protocol Wire Format",
+      "description": "Formalize the Change Governance Protocol (CGP) wire format as described in PRD Section 17. Implement CGP message types (change.proposal, change.decision, change.execution_authorized) as structured JSON with versioning. Add CGP endpoints to the MCP server so AI agents can propose changes via the protocol. Create a CGP SDK package that other tools can import to become CGP-compliant. This positions Relicta as the reference implementation of an open governance standard.",
+      "requirements": []
+    },
+    {
+      "id": "audience-aware-release-communication",
+      "title": "Audience-Aware Release Communication",
+      "description": "Implement the stakeholder communication layer from PRD Section 11. Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation. This moves Relicta from \"output\" (changelogs) to \"outcomes\" (stakeholder communication).",
+      "requirements": []
+    },
+    {
+      "id": "release-memory-and-learning",
+      "title": "Release Memory and Learning",
+      "description": "Build the historical context system from PRD Section 16.4. Track past incidents, rollbacks, and their root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring so future evaluations improve over time. Store release memory in the persistence layer (file or PostgreSQL). Surface insights via the dashboard analytics. This enables Relicta to continuously improve beyond what stateless tools can achieve.",
+      "requirements": []
+    },
+    {
+      "id": "dashboard-frontend-separation",
+      "title": "Dashboard Frontend Separation",
+      "description": "Extract the embedded Vue dashboard into a standalone deployable frontend as described in PRD Section 14.1. Support CDN-friendly deployment (Vercel, CloudFront, S3). Add real-time updates via WebSocket for release progress, approval notifications, and analytics. Build dashboard views for the new analytics data (risk trends, decision distribution, team metrics). The Go backend serves as a standalone API service alongside the CLI.",
+      "requirements": []
+    },
+    {
+      "id": "pre-release-and-release-channel-support",
+      "title": "Pre-release and Release Channel Support",
+      "description": "Add pre-release versioning (alpha, beta, rc) and release channels (stable, canary, next). Support promoting pre-releases through channels with governance gates at each stage. Track channel-specific policies (e.g., canary requires lower approval threshold than stable). This addresses the PRD's \"Missing critical workflows (pre-release)\" gap identified in the product strategy review.",
+      "requirements": []
+    },
+    {
+      "id": "multi-repository-governance",
+      "title": "Multi-Repository Governance",
+      "description": "Coordinate release governance across multiple separate repositories that form a product or platform. Define repository groups with dependency relationships, synchronize version constraints across repos, enforce cross-repo release policies (e.g., \"service-api must release before service-client\"), and provide a unified view of multi-repo release state. Support both centralized governance (one Relicta instance governs all repos) and federated governance (each repo has Relicta, coordinated via CGP messages). Integrate with the existing CGP protocol for cross-repo proposal/decision exchange.",
+      "requirements": []
+    },
+    {
+      "id": "runtime-observability-integration",
+      "title": "Runtime Observability Integration",
+      "description": "Connect post-deployment outcomes back to the release memory system for continuous learning. Integrate with observability platforms (Prometheus, Datadog, PagerDuty, Sentry) to automatically detect incidents, error rate spikes, and rollbacks that correlate with specific releases. Auto-record outcomes in the release memory when deployment metrics cross configured thresholds. Surface deployment health in the dashboard with release-correlated metrics. This closes the feedback loop so Relicta's risk scoring improves with real production data rather than relying solely on code analysis.",
+      "requirements": []
+    }
+  ],
+  "constraints": [
+    {
+      "id": "file-backend-default",
+      "description": "File-based persistence remains the default. PostgreSQL is opt-in via config."
+    },
+    {
+      "id": "zero-downtime-migration",
+      "description": "Existing file-based deployments must continue working without migration."
+    },
+    {
+      "id": "sqlc-for-queries",
+      "description": "Use sqlc for type-safe query generation against PostgreSQL. No ORM dependencies."
+    },
+    {
+      "id": "backward-compatible-api",
+      "description": "Existing API key auth and unversioned endpoints continue working during transition."
+    },
+    {
+      "id": "single-binary",
+      "description": "PostgreSQL driver is included in the binary. No external runtime dependencies beyond the database itself."
+    },
+    {
+      "id": "test-coverage-gate",
+      "description": "All new packages must meet 80%+ test coverage before merge."
+    }
+  ],
+  "version": "0.2.0"
+}

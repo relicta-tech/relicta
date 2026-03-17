@@ -1,0 +1,92 @@
+name: Public Skill Proposal
+description: Propose a new skill (or major update) for public discovery channels.
+title: "[Skill Proposal] "
+labels:
+  - enhancement
+  - skill
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a skill that should be published for broad Codex/GPT usage.
+  - type: input
+    id: skill_name
+    attributes:
+      label: Proposed skill name
+      description: Lowercase, hyphen-case preferred (for example `release-governance-audit`).
+      placeholder: my-skill-name
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What recurring user problem should this skill solve?
+      placeholder: Describe the repeated workflow/pain point.
+    validations:
+      required: true
+  - type: textarea
+    id: triggers
+    attributes:
+      label: Trigger phrases and expected usage
+      description: What should users say that should trigger this skill?
+      placeholder: |
+        - "plan a governed release"
+        - "run policy gates before publishing"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In-scope workflow
+      description: List the exact commands/actions this skill should cover.
+      placeholder: |
+        1. Validate environment
+        2. Run plan/evaluate
+        3. Run policy matrix gates
+        4. Publish with checks
+    validations:
+      required: true
+  - type: textarea
+    id: non_scope
+    attributes:
+      label: Out-of-scope
+      description: What this skill should explicitly not do.
+      placeholder: |
+        - No production deploy execution
+        - No secret management
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Source references
+      description: Docs/examples to anchor behavior.
+      placeholder: |
+        - docs/governance.md
+        - docs/quick-start.md
+        - examples/policies/policy-matrix.yaml
+    validations:
+      required: true
+  - type: checkboxes
+    id: publication
+    attributes:
+      label: Publication readiness
+      options:
+        - label: I reviewed `docs/skill-publishing-checklist.md`.
+          required: true
+        - label: I can provide at least 2 realistic prompts and expected outputs.
+          required: true
+        - label: I can define where this should be published (repo release notes, catalog, GPT package).
+          required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How we know this proposal is done.
+      placeholder: |
+        - Skill exists under `skills/<name>/SKILL.md`
+        - `agents/openai.yaml` aligns with scope
+        - Commands validated locally
+    validations:
+      required: true

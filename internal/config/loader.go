@@ -1,0 +1,561 @@
+// Package config provides configuration management for Relicta.
+package config
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/spf13/viper"
+
+	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/security"
+)
+
+// Pre-compiled regex patterns for environment variable expansion.
+// These are compiled once at package initialization to avoid repeated compilation.
+var (
+	// envVarPattern matches ${VAR} or ${VAR:-default} syntax
+	envVarPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
+	// simpleEnvVarPattern matches $VAR syntax
+	simpleEnvVarPattern = regexp.MustCompile(`\$([A-Za-z_][A-Za-z0-9_]*)`)
+	// gitSSHURLPattern matches git@host:owner/repo.git format
+	gitSSHURLPattern = regexp.MustCompile(`^git@([^:]+):(.+?)(?:\.git)?$`)
+	// gitHTTPURLPattern matches https://host/owner/repo.git format
+	gitHTTPURLPattern = regexp.MustCompile(`^https?://([^/]+)/(.+?)(?:\.git)?$`)
+)
+
+var gitRemoteURLFetcher = fetchGitRemoteURL
+
+// Loader handles configuration loading and merging.
+type Loader struct {
+	v           *viper.Viper
+	configPath  string
+	searchPaths []string
+}
+
+// NewLoader creates a new configuration loader.
+func NewLoader() *Loader {
+	v := viper.New()
+	v.SetEnvPrefix("RELICTA")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	v.AutomaticEnv()
+
+	return &Loader{
+		v:           v,
+		searchPaths: []string{"."},
+	}
+}
+
+// WithConfigPath sets an explicit config file path.
+func (l *Loader) WithConfigPath(path string) *Loader {
+	l.configPath = path
+	return l
+}
+
+// WithSearchPaths adds directories to search for config files.
+func (l *Loader) WithSearchPaths(paths ...string) *Loader {
+	l.searchPaths = append(l.searchPaths, paths...)
+	return l
+}
+
+// Load loads the configuration.
+func (l *Loader) Load() (*Config, error) {
+	const op = "config.Load"
+
+	// Set defaults
+	l.setDefaults()
+
+	// Auto-detect AI provider from environment if no config file exists
+	configFileFound := l.configFileExists()
+	if !configFileFound {
+		l.autoDetectAI()
+	}
+
+	// Load config file
+	if err := l.loadConfigFile(); err != nil {
+		return nil, rperrors.ConfigWrap(err, op, "failed to load config file")
+	}
+
+	// Unmarshal into Config struct
+	cfg := &Config{}
+	if err := l.v.Unmarshal(cfg); err != nil {
+		return nil, rperrors.ConfigWrap(err, op, "failed to unmarshal config")
+	}
+
+	// Expand environment variables in sensitive fields
+	l.expandEnvVars(cfg)
+
+	// Auto-detect repository URL from git remote if not configured
+	l.autoDetectRepositoryURL(cfg)
+
+	return cfg, nil
+}
+
+// setDefaults sets default values using Viper.
+func (l *Loader) setDefaults() {
+	defaults := DefaultConfig()
+
+	// Versioning defaults
+	l.v.SetDefault("versioning.strategy", defaults.Versioning.Strategy)
+	l.v.SetDefault("versioning.tag_prefix", defaults.Versioning.TagPrefix)
+	l.v.SetDefault("versioning.git_tag", defaults.Versioning.GitTag)
+	l.v.SetDefault("versioning.git_push", defaults.Versioning.GitPush)
+	l.v.SetDefault("versioning.git_sign", defaults.Versioning.GitSign)
+	l.v.SetDefault("versioning.bump_from", defaults.Versioning.BumpFrom)
+
+	// Changelog defaults
+	l.v.SetDefault("changelog.file", defaults.Changelog.File)
+	l.v.SetDefault("changelog.format", defaults.Changelog.Format)
+	l.v.SetDefault("changelog.group_by", defaults.Changelog.GroupBy)
+	l.v.SetDefault("changelog.include_commit_hash", defaults.Changelog.IncludeCommitHash)
+	l.v.SetDefault("changelog.include_author", defaults.Changelog.IncludeAuthor)
+	l.v.SetDefault("changelog.include_date", defaults.Changelog.IncludeDate)
+	l.v.SetDefault("changelog.link_commits", defaults.Changelog.LinkCommits)
+	l.v.SetDefault("changelog.link_issues", defaults.Changelog.LinkIssues)
+	l.v.SetDefault("changelog.exclude", defaults.Changelog.Exclude)
+	l.v.SetDefault("changelog.categories", defaults.Changelog.Categories)
+
+	// AI defaults
+	l.v.SetDefault("ai.enabled", defaults.AI.Enabled)
+	l.v.SetDefault("ai.provider", defaults.AI.Provider)
+	l.v.SetDefault("ai.model", defaults.AI.Model)
+	l.v.SetDefault("ai.tone", defaults.AI.Tone)
+	l.v.SetDefault("ai.audience", defaults.AI.Audience)
+	l.v.SetDefault("ai.max_tokens", defaults.AI.MaxTokens)
+	l.v.SetDefault("ai.temperature", defaults.AI.Temperature)
+	l.v.SetDefault("ai.timeout", defaults.AI.Timeout)
+	l.v.SetDefault("ai.retry_attempts", defaults.AI.RetryAttempts)
+
+	// Workflow defaults
+	l.v.SetDefault("workflow.require_approval", defaults.Workflow.RequireApproval)
+	l.v.SetDefault("workflow.allowed_branches", defaults.Workflow.AllowedBranches)
+	l.v.SetDefault("workflow.require_clean_working_tree", defaults.Workflow.RequireCleanWorkingTree)
+	l.v.SetDefault("workflow.require_up_to_date", defaults.Workflow.RequireUpToDate)
+	l.v.SetDefault("workflow.dry_run_by_default", defaults.Workflow.DryRunByDefault)
+	l.v.SetDefault("workflow.auto_commit_changelog", defaults.Workflow.AutoCommitChangelog)
+	l.v.SetDefault("workflow.changelog_commit_message", defaults.Workflow.ChangelogCommitMessage)
+
+	// Output defaults
+	l.v.SetDefault("output.format", defaults.Output.Format)
+	l.v.SetDefault("output.color", defaults.Output.Color)
+	l.v.SetDefault("output.verbose", defaults.Output.Verbose)
+	l.v.SetDefault("output.quiet", defaults.Output.Quiet)
+	l.v.SetDefault("output.log_level", defaults.Output.LogLevel)
+
+	// Governance defaults (CGP)
+	l.v.SetDefault("governance.enabled", defaults.Governance.Enabled)
+	l.v.SetDefault("governance.strict_mode", defaults.Governance.StrictMode)
+	l.v.SetDefault("governance.auto_approve_threshold", defaults.Governance.AutoApproveThreshold)
+	l.v.SetDefault("governance.max_auto_approve_risk", defaults.Governance.MaxAutoApproveRisk)
+	l.v.SetDefault("governance.require_human_for_breaking", defaults.Governance.RequireHumanForBreaking)
+	l.v.SetDefault("governance.require_human_for_security", defaults.Governance.RequireHumanForSecurity)
+	l.v.SetDefault("governance.memory_enabled", defaults.Governance.MemoryEnabled)
+	l.v.SetDefault("governance.memory_path", defaults.Governance.MemoryPath)
+
+	// Dashboard defaults
+	l.v.SetDefault("dashboard.enabled", defaults.Dashboard.Enabled)
+	l.v.SetDefault("dashboard.address", defaults.Dashboard.Address)
+	l.v.SetDefault("dashboard.auth.mode", string(defaults.Dashboard.Auth.Mode))
+	l.v.SetDefault("dashboard.auth.session_max_age", defaults.Dashboard.Auth.SessionMaxAge)
+	l.v.SetDefault("dashboard.read_timeout", defaults.Dashboard.ReadTimeout)
+	l.v.SetDefault("dashboard.write_timeout", defaults.Dashboard.WriteTimeout)
+	l.v.SetDefault("dashboard.idle_timeout", defaults.Dashboard.IdleTimeout)
+}
+
+// configFileExists checks if a config file exists in search paths.
+func (l *Loader) configFileExists() bool {
+	// Check explicit path first
+	if l.configPath != "" {
+		_, err := os.Stat(l.configPath)
+		return err == nil
+	}
+
+	// Search for config file in paths
+	for _, searchPath := range l.searchPaths {
+		for _, name := range ConfigFileNames {
+			for _, ext := range ConfigFileExtensions {
+				configFile := filepath.Join(searchPath, name+"."+ext)
+				if _, err := os.Stat(configFile); err == nil {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// autoDetectAI detects AI provider from environment variables and sets sensible defaults.
+// This enables zero-config AI usage when users have API keys in their environment.
+func (l *Loader) autoDetectAI() {
+	// Detect all available AI providers
+	detectedProviders := []string{}
+
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "openai (OPENAI_API_KEY)")
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "anthropic (ANTHROPIC_API_KEY)")
+	}
+	if os.Getenv("GEMINI_API_KEY") != "" {
+		detectedProviders = append(detectedProviders, "gemini (GEMINI_API_KEY)")
+	}
+	if os.Getenv("AZURE_OPENAI_KEY") != "" && os.Getenv("AZURE_OPENAI_ENDPOINT") != "" {
+		detectedProviders = append(detectedProviders, "azure-openai (AZURE_OPENAI_KEY + AZURE_OPENAI_ENDPOINT)")
+	}
+	if os.Getenv("OLLAMA_HOST") != "" {
+		detectedProviders = append(detectedProviders, "ollama (OLLAMA_HOST)")
+	}
+
+	// No providers detected
+	if len(detectedProviders) == 0 {
+		return
+	}
+
+	// Check for AI provider API keys in order of preference
+	// If an API key is found, auto-enable AI with sensible defaults
+	selectedProvider := ""
+
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "openai")
+		l.v.SetDefault("ai.api_key", "${OPENAI_API_KEY}")
+		// Use fast model by default for quick responses
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "gpt-4o-mini")
+		}
+		selectedProvider = "openai"
+	} else if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "anthropic")
+		l.v.SetDefault("ai.api_key", "${ANTHROPIC_API_KEY}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "claude-sonnet-4")
+		}
+		selectedProvider = "anthropic"
+	} else if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "gemini")
+		l.v.SetDefault("ai.api_key", "${GEMINI_API_KEY}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "gemini-2.0-flash-exp")
+		}
+		selectedProvider = "gemini"
+	} else if apiKey := os.Getenv("AZURE_OPENAI_KEY"); apiKey != "" {
+		baseURL := os.Getenv("AZURE_OPENAI_ENDPOINT")
+		if baseURL != "" {
+			l.v.SetDefault("ai.enabled", true)
+			l.v.SetDefault("ai.provider", "azure-openai")
+			l.v.SetDefault("ai.api_key", "${AZURE_OPENAI_KEY}")
+			l.v.SetDefault("ai.base_url", "${AZURE_OPENAI_ENDPOINT}")
+			if l.v.GetString("ai.model") == "" {
+				// User needs to specify deployment name
+				l.v.SetDefault("ai.model", "gpt-4")
+			}
+			selectedProvider = "azure-openai"
+		}
+	} else if os.Getenv("OLLAMA_HOST") != "" {
+		l.v.SetDefault("ai.enabled", true)
+		l.v.SetDefault("ai.provider", "ollama")
+		l.v.SetDefault("ai.base_url", "${OLLAMA_HOST}")
+		if l.v.GetString("ai.model") == "" {
+			l.v.SetDefault("ai.model", "llama3.2")
+		}
+		selectedProvider = "ollama"
+	}
+
+	// Warn if multiple AI providers detected.
+	// Note: Using stderr directly instead of structured logging is intentional here.
+	// These are user-facing CLI warnings that must be visible regardless of log level.
+	if len(detectedProviders) > 1 && selectedProvider != "" {
+		fmt.Fprintf(os.Stderr, `⚠️  Multiple AI provider API keys detected: %s
+   Auto-selected '%s' based on priority order.
+   To use a different provider, configure ai.provider in your config file.
+`, strings.Join(detectedProviders, ", "), selectedProvider)
+	}
+}
+
+// autoDetectRepositoryURL detects the repository URL from git remote.
+// If repository_url is not configured and we can detect it from git,
+// we set it and enable link_commits automatically.
+func (l *Loader) autoDetectRepositoryURL(cfg *Config) {
+	// Skip if repository_url is already configured
+	if cfg.Changelog.RepositoryURL != "" {
+		return
+	}
+
+	// Try to detect from git remote
+	repoURL := gitRemoteURLFetcher()
+	if repoURL == "" {
+		return
+	}
+
+	// Set the detected repository URL
+	cfg.Changelog.RepositoryURL = repoURL
+
+	// Auto-enable link_commits since we have a valid repository URL
+	// Only if it wasn't explicitly set to false in the config file
+	if !l.v.IsSet("changelog.link_commits") {
+		cfg.Changelog.LinkCommits = true
+	}
+}
+
+var gitCommand = exec.Command
+
+// fetchGitRemoteURL attempts to get the repository URL from git remote.
+// Returns an empty string if not in a git repository or no remote is configured.
+func fetchGitRemoteURL() string {
+	// Run git remote get-url origin
+	cmd := gitCommand("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	remoteURL := strings.TrimSpace(string(output))
+	if remoteURL == "" {
+		return ""
+	}
+
+	// Convert to HTTPS URL for linking
+	return convertToHTTPSURL(remoteURL)
+}
+
+// convertToHTTPSURL converts a git remote URL to an HTTPS URL suitable for linking.
+// Supports both SSH (git@host:owner/repo.git) and HTTPS formats.
+func convertToHTTPSURL(remoteURL string) string {
+	// Check if it's an SSH URL (git@host:owner/repo.git)
+	if matches := gitSSHURLPattern.FindStringSubmatch(remoteURL); len(matches) == 3 {
+		host := matches[1]
+		path := matches[2]
+		return fmt.Sprintf("https://%s/%s", host, path)
+	}
+
+	// Check if it's already an HTTPS URL
+	if matches := gitHTTPURLPattern.FindStringSubmatch(remoteURL); len(matches) == 3 {
+		host := matches[1]
+		path := matches[2]
+		return fmt.Sprintf("https://%s/%s", host, path)
+	}
+
+	// Return as-is if we can't parse it
+	return remoteURL
+}
+
+// loadConfigFile loads the configuration file.
+func (l *Loader) loadConfigFile() error {
+	// If explicit path provided, validate and use it
+	if l.configPath != "" {
+		// Validate path to prevent directory traversal attacks
+		validPath, err := security.ValidateConfigPath(l.configPath)
+		if err != nil {
+			return fmt.Errorf("invalid config path: %w", err)
+		}
+		l.v.SetConfigFile(validPath)
+		if err := l.v.ReadInConfig(); err != nil {
+			return fmt.Errorf("reading config file %s: %w", validPath, err)
+		}
+		return nil
+	}
+
+	// Search for config file in paths
+	for _, searchPath := range l.searchPaths {
+		for _, name := range ConfigFileNames {
+			for _, ext := range ConfigFileExtensions {
+				configFile := filepath.Join(searchPath, name+"."+ext)
+				if _, err := os.Stat(configFile); err == nil {
+					l.v.SetConfigFile(configFile)
+					if err := l.v.ReadInConfig(); err != nil {
+						return fmt.Errorf("reading config file %s: %w", configFile, err)
+					}
+					return nil
+				}
+			}
+		}
+	}
+
+	// No config file found - this is OK, we use defaults
+	return nil
+}
+
+// expandEnvVars expands environment variables in sensitive configuration fields.
+//
+// Security: Environment variable expansion is limited to a whitelist of fields:
+//   - AI credentials (api_key, base_url)
+//   - Plugin configurations (for tokens/credentials)
+//   - Changelog URLs (repository_url, issue_url)
+//   - Output log file path
+//   - Workflow hooks (pre/post release - NOT YET EXECUTED)
+//
+// Expanded values are used for:
+//   - HTTP API calls (safe - no shell interpretation)
+//   - File paths (validated separately)
+//   - Display purposes
+//
+// The workflow hooks (PreReleaseHook, PostReleaseHook) are stored but NOT
+// currently executed. If implemented, they MUST use exec.Command with
+// argument splitting, NOT shell interpretation.
+func (l *Loader) expandEnvVars(cfg *Config) {
+	// Expand AI API key
+	cfg.AI.APIKey = expandEnvVar(cfg.AI.APIKey)
+	cfg.AI.BaseURL = expandEnvVar(cfg.AI.BaseURL)
+
+	// Expand plugin configurations
+	for i := range cfg.Plugins {
+		expandPluginConfig(cfg.Plugins[i].Config)
+	}
+
+	// Expand workflow hooks
+	cfg.Workflow.PreReleaseHook = expandEnvVar(cfg.Workflow.PreReleaseHook)
+	cfg.Workflow.PostReleaseHook = expandEnvVar(cfg.Workflow.PostReleaseHook)
+
+	// Expand changelog URLs
+	cfg.Changelog.RepositoryURL = expandEnvVar(cfg.Changelog.RepositoryURL)
+	cfg.Changelog.IssueURL = expandEnvVar(cfg.Changelog.IssueURL)
+
+	// Expand output log file
+	cfg.Output.LogFile = expandEnvVar(cfg.Output.LogFile)
+}
+
+// expandEnvVar expands environment variables in a string.
+// Supports both ${VAR} and $VAR syntax.
+func expandEnvVar(s string) string {
+	if s == "" {
+		return s
+	}
+
+	// Use pre-compiled pattern for ${VAR} or ${VAR:-default}
+	result := envVarPattern.ReplaceAllStringFunc(s, func(match string) string {
+		submatch := envVarPattern.FindStringSubmatch(match)
+		if len(submatch) < 2 {
+			return match
+		}
+
+		varName := submatch[1]
+		defaultValue := ""
+		if len(submatch) > 2 {
+			defaultValue = submatch[2]
+		}
+
+		if value := os.Getenv(varName); value != "" {
+			return value
+		}
+		return defaultValue
+	})
+
+	// Also expand simple $VAR syntax (but not $$) using pre-compiled pattern
+	result = simpleEnvVarPattern.ReplaceAllStringFunc(result, func(match string) string {
+		varName := match[1:] // Remove leading $
+		if value := os.Getenv(varName); value != "" {
+			return value
+		}
+		return match
+	})
+
+	return result
+}
+
+// expandPluginConfig expands environment variables in plugin configuration.
+func expandPluginConfig(config map[string]any) {
+	if config == nil {
+		return
+	}
+
+	for key, value := range config {
+		switch v := value.(type) {
+		case string:
+			config[key] = expandEnvVar(v)
+		case map[string]any:
+			expandPluginConfig(v)
+		}
+	}
+}
+
+// GetConfigPath returns the path to the loaded config file, if any.
+func (l *Loader) GetConfigPath() string {
+	return l.v.ConfigFileUsed()
+}
+
+// MergeConfig merges additional configuration values.
+func (l *Loader) MergeConfig(values map[string]any) error {
+	for key, value := range values {
+		l.v.Set(key, value)
+	}
+	return nil
+}
+
+// WriteConfig writes the current configuration to a file.
+func WriteConfig(cfg *Config, path string) error {
+	const op = "config.WriteConfig"
+
+	v := viper.New()
+
+	// Set all values from config
+	v.Set("versioning", cfg.Versioning)
+	v.Set("changelog", cfg.Changelog)
+	v.Set("ai", cfg.AI)
+	v.Set("plugins", cfg.Plugins)
+	v.Set("workflow", cfg.Workflow)
+	v.Set("output", cfg.Output)
+
+	// Write to file
+	if err := v.WriteConfigAs(path); err != nil {
+		return rperrors.ConfigWrap(err, op, "failed to write config file")
+	}
+
+	return nil
+}
+
+// WriteDefaultConfig writes the default configuration to a file.
+func WriteDefaultConfig(path string) error {
+	return WriteConfig(DefaultConfig(), path)
+}
+
+// LoadFromFile loads configuration from a specific file.
+func LoadFromFile(path string) (*Config, error) {
+	return NewLoader().WithConfigPath(path).Load()
+}
+
+// LoadFromDirectory loads configuration from a directory.
+func LoadFromDirectory(dir string) (*Config, error) {
+	return NewLoader().WithSearchPaths(dir).Load()
+}
+
+// MustLoad loads configuration and panics on error.
+func MustLoad() *Config {
+	cfg, err := NewLoader().Load()
+	if err != nil {
+		panic(fmt.Sprintf("failed to load config: %v", err))
+	}
+	return cfg
+}
+
+// FindConfigFile searches for a config file and returns its path.
+func FindConfigFile(searchPaths ...string) (string, error) {
+	if len(searchPaths) == 0 {
+		searchPaths = []string{"."}
+	}
+
+	for _, searchPath := range searchPaths {
+		for _, name := range ConfigFileNames {
+			for _, ext := range ConfigFileExtensions {
+				configFile := filepath.Join(searchPath, name+"."+ext)
+				if _, err := os.Stat(configFile); err == nil {
+					return configFile, nil
+				}
+			}
+		}
+	}
+
+	return "", rperrors.NotFound("config.FindConfigFile", "no config file found")
+}
+
+// ConfigExists returns true if a config file exists in the given directory.
+func ConfigExists(dir string) bool {
+	_, err := FindConfigFile(dir)
+	return err == nil
+}

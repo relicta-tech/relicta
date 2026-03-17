@@ -1,0 +1,85 @@
+# Time-Based Policy
+# Implement release windows and freeze periods
+# Requires time context support in CGP evaluator
+
+# Block releases during freeze periods
+rule "freeze-period-block" {
+  priority = 100
+  description = "No releases during code freeze"
+
+  when {
+    time.is_freeze == true
+  }
+
+  then {
+    block()
+    add_rationale(message: "Releases blocked during freeze period")
+  }
+}
+
+# Restrict releases outside business hours
+rule "after-hours-approval" {
+  priority = 80
+  description = "Off-hours releases need manager approval"
+
+  when {
+    time.is_business_hours == false
+  }
+
+  then {
+    require_approval(count: 1)
+    add_reviewer(team: "oncall")
+    add_rationale(message: "Release outside business hours requires on-call approval")
+  }
+}
+
+# Weekend releases need extra scrutiny
+rule "weekend-approval" {
+  priority = 85
+  description = "Weekend releases require senior approval"
+
+  when {
+    time.is_weekend == true
+  }
+
+  then {
+    require_approval(count: 2)
+    add_reviewer(team: "senior-engineers")
+    add_rationale(message: "Weekend release requires senior approval")
+  }
+}
+
+# Holiday releases are blocked by default
+rule "holiday-block" {
+  priority = 95
+  description = "No releases on company holidays"
+
+  when {
+    time.is_holiday == true
+  }
+
+  then {
+    block()
+    add_rationale(message: "Releases not allowed on holidays")
+  }
+}
+
+# Friday afternoon caution
+rule "friday-afternoon-caution" {
+  priority = 60
+  description = "Extra caution for Friday afternoon releases"
+
+  when {
+    time.day_of_week == "friday" AND time.hour >= 15
+  }
+
+  then {
+    require_approval(count: 1)
+    add_rationale(message: "Friday afternoon release - proceed with caution")
+  }
+}
+
+defaults {
+  decision = "approve"
+  required_approvers = 0
+}

@@ -1,0 +1,39 @@
+# Simple GitHub Release Configuration
+#
+# Use case: Basic open-source project with GitHub releases
+# Features: Automatic versioning, changelog generation, GitHub release creation
+#
+# Setup:
+# 1. Copy to .relicta.yaml
+# 2. Set GITHUB_TOKEN environment variable
+# 3. Run: relicta plan && relicta publish
+
+versioning:
+  strategy: conventional
+  tag_prefix: v
+  git_tag: true
+  git_push: true
+
+changelog:
+  enabled: true
+  file: CHANGELOG.md
+  format: conventional
+  repository_url: https://github.com/your-org/your-repo
+
+plugins:
+  - name: github
+    enabled: true
+    config:
+      draft: false
+      prerelease: false
+      generate_release_notes: false
+      assets:
+        - "dist/*.tar.gz"
+        - "dist/*.zip"
+        - "dist/checksums.txt"
+
+workflow:
+  require_approval: true
+  allowed_branches:
+    - main
+    - master

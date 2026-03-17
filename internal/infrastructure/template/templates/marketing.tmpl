@@ -1,0 +1,15 @@
+{{- /* Marketing blurb template for Relicta */ -}}
+🚀 **{{ .ProductName }} {{ formatVersion .Version }} is here!**
+
+{{ if .Summary }}{{ .Summary }}{{ end }}
+
+{{ if .Highlights }}
+✨ **Highlights:**
+{{ range .Highlights }}
+• {{ . }}
+{{- end }}
+{{ end }}
+
+{{ if .ReleaseURL }}
+📦 Get it now: {{ .ReleaseURL }}
+{{ end }}

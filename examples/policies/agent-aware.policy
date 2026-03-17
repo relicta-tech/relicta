@@ -1,0 +1,68 @@
+# Agent-Aware Policy
+# Special governance for AI agent-initiated releases
+# Use when AI agents (Claude, GPT, etc.) contribute to your codebase
+
+# Block high-risk agent releases
+rule "high-risk-agent-block" {
+  priority = 100
+  description = "Block agent releases with very high risk"
+
+  when {
+    risk.score > 0.9 AND actor.kind == "agent"
+  }
+
+  then {
+    block()
+    add_rationale(message: "High-risk agent release blocked pending review")
+  }
+}
+
+# Require security review for agent security changes
+rule "agent-security-review" {
+  priority = 95
+  description = "Agent security changes need security team review"
+
+  when {
+    actor.kind == "agent" AND change.files contains "security"
+  }
+
+  then {
+    require_approval(count: 2)
+    add_reviewer(team: "security")
+    add_rationale(message: "Agent modified security-related code")
+  }
+}
+
+# Additional approval for any agent changes
+rule "agent-requires-human" {
+  priority = 50
+  description = "All agent releases require at least one human approval"
+
+  when {
+    actor.kind in ("agent", "bot", "automation")
+  }
+
+  then {
+    require_approval(count: 1)
+    add_rationale(message: "Agent releases require human oversight")
+  }
+}
+
+# Trust verified human developers
+rule "trusted-human" {
+  priority = 10
+  description = "Auto-approve low-risk human releases"
+
+  when {
+    actor.kind == "human" AND risk.score < 0.3 AND actor.trusted == true
+  }
+
+  then {
+    # No actions needed - allows auto-approve via defaults
+  }
+}
+
+defaults {
+  decision = "approve"
+  required_approvers = 0
+}

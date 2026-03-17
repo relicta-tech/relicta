@@ -1,0 +1,50 @@
+name: Skill Quality
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'skills/**'
+      - 'examples/policies/**'
+      - 'docs/skill-publishing-checklist.md'
+      - '.github/pull_request_template.md'
+      - '.github/workflows/skill-quality.yaml'
+      - 'Makefile'
+  push:
+    branches: [main, develop]
+    paths:
+      - 'skills/**'
+      - 'examples/policies/**'
+      - 'docs/skill-publishing-checklist.md'
+      - '.github/pull_request_template.md'
+      - '.github/workflows/skill-quality.yaml'
+      - 'Makefile'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.25'
+  GOTOOLCHAIN: local
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Skill Preflight
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Validate skill package and policy gates
+        run: make skill-preflight

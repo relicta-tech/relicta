@@ -1,0 +1,365 @@
+{
+  "project_id": "relicta-phase-2a",
+  "version": 148,
+  "task_states": {
+    "task-analytics-aggregation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:39.093979+01:00",
+      "completed_at": "2026-03-15T18:06:45.210813+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-analytics-event-capture": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:05.422702+01:00",
+      "completed_at": "2026-03-15T18:06:16.231539+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-analytics-query-api": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:26.323158+01:00",
+      "completed_at": "2026-03-15T18:06:32.21307+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-analytics-tests": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:51.805467+01:00",
+      "completed_at": "2026-03-15T18:06:58.60264+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-api-tests": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:50.425121+01:00",
+      "completed_at": "2026-03-15T18:05:57.999633+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-api-versioning": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "315a93f — APIVersion() middleware, Accept header negotiation, X-API-Version response header, 20+ tests"
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-audience-aware-release-communication": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:14.724472+01:00",
+      "completed_at": "2026-03-15T18:55:22.648861+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-cgp-protocol-wire-format": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:14.205346+01:00",
+      "completed_at": "2026-03-15T18:55:21.866679+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-dashboard-frontend-separation": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:28.306521+01:00",
+      "completed_at": "2026-03-15T18:55:42.257239+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-jwt-token-service": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Implemented internal/security/token/ package with Service (Issue, Validate, Refresh, Revoke, CleanExpired). HMAC-SHA256 signing, configurable TTL, deny-list revocation. 17 tests pass with race detector. golangci-lint clean."
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-login-logout-endpoints": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Created handlers/auth.go with Login (bcrypt password validation + JWT issuance), Refresh (token rotation), Logout (token revocation). Added DashboardUserConfig to config schema. Rate-limited auth routes in router.go. 14 handler tests pass."
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-monorepo-workspace-orchestration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:12.894821+01:00",
+      "completed_at": "2026-03-15T18:55:20.974525+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-multi-repository-governance": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 800692e"
+      ],
+      "started_at": "2026-03-17T09:27:24.161293+01:00",
+      "completed_at": "2026-03-17T09:27:30.695934+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-oidc-auth-flow": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:27.994404+01:00",
+      "completed_at": "2026-03-15T18:05:44.940519+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-oidc-claim-role-mapping": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:51.888765+01:00",
+      "completed_at": "2026-03-15T18:05:58.89616+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-oidc-provider-config": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "315a93f — OIDCConfig struct, Defaults(), claim mappings, OIDC middleware mode, 5 tests"
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-oidc-tests-and-docs": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:04.124625+01:00",
+      "completed_at": "2026-03-15T18:06:14.872752+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-openapi-spec": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:25.838872+01:00",
+      "completed_at": "2026-03-15T18:05:44.043786+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-pagination-filtering": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672 - cursor pagination on all list endpoints"
+      ],
+      "completed_at": "2026-03-15T18:04:32.915472+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-persistence-config": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:05.016245+01:00",
+      "completed_at": "2026-03-15T18:06:15.711914+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-persistence-port-interface": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Port interface already exists at internal/domain/release/ports/event_store.go with EventStore interface (Append, LoadEvents, LoadEventsSince, LoadAllEvents). FileEventStore implements it."
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-persistence-tests": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:20.248718+01:00",
+      "completed_at": "2026-03-15T18:06:31.353435+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-postgres-adapter": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:30.193231+01:00",
+      "completed_at": "2026-03-15T18:05:45.543936+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-pre-release-and-release-channel-support": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:28.915907+01:00",
+      "completed_at": "2026-03-15T18:55:43.210606+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-release-memory-and-learning": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 45ebe36"
+      ],
+      "started_at": "2026-03-15T18:55:27.576655+01:00",
+      "completed_at": "2026-03-15T18:55:40.627167+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-runtime-observability-integration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 800692e"
+      ],
+      "started_at": "2026-03-17T09:27:24.624203+01:00",
+      "completed_at": "2026-03-17T09:27:31.333264+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-schema-migrations": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:05:52.28017+01:00",
+      "completed_at": "2026-03-15T18:05:59.384628+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-session-auth-middleware": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Wired JWT validation into auth.go session mode. Auth middleware now accepts *token.Service, validates Bearer tokens, extracts claims to AuthenticatedUser. 4 new session auth tests pass."
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-session-auth-tests": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Added 20 unit tests for auth handlers (Login, Refresh, Logout with all error paths) and 8 integration tests (full login/refresh/logout flows, revoked token rejection, role mapping, unauthenticated endpoints). Coverage: auth handlers 91-100%, middleware auth 100%, token service 89.4%, router 100%. All tests pass with race detector, lint clean."
+      ],
+      "elapsed_minutes": 0
+    },
+    "task-structured-errors": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672 - structured error responses with codes and request IDs"
+      ],
+      "completed_at": "2026-03-15T18:04:34.237056+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-webhook-delivery-log": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:52.701218+01:00",
+      "completed_at": "2026-03-15T18:06:59.49103+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-webhook-delivery-queue": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:26.35609+01:00",
+      "completed_at": "2026-03-15T18:06:32.724052+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-webhook-retry-backoff": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:06:39.831232+01:00",
+      "completed_at": "2026-03-15T18:06:46.226249+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-webhook-tests": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f0bf672"
+      ],
+      "started_at": "2026-03-15T18:07:07.454556+01:00",
+      "completed_at": "2026-03-15T18:07:12.664839+01:00",
+      "elapsed_minutes": 0
+    }
+  },
+  "updated_at": "2026-03-17T09:27:31.333264+01:00"
+}

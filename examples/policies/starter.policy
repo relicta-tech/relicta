@@ -1,0 +1,39 @@
+# Starter Policy
+# A simple starting point for release governance
+# Copy to .relicta/policies/ to activate
+
+# Require approval for high-risk releases
+rule "high-risk-approval" {
+  priority = 100
+  description = "Require human approval for high-risk releases"
+
+  when {
+    risk.score > 0.5
+  }
+
+  then {
+    require_approval(count: 1)
+    add_rationale(message: "Release risk score exceeds threshold")
+  }
+}
+
+# Require approval for breaking changes
+rule "breaking-changes" {
+  priority = 90
+  description = "Breaking changes always require approval"
+
+  when {
+    change.breaking == true
+  }
+
+  then {
+    require_approval(count: 1)
+    add_rationale(message: "Breaking change detected")
+  }
+}
+
+# Default: auto-approve low-risk releases
+defaults {
+  decision = "approve"
+  required_approvers = 0
+}
