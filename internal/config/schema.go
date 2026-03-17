@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/relicta-tech/relicta/internal/domain/multirepo"
 )
 
 // Config is the root configuration for Relicta.
@@ -41,6 +43,11 @@ type Config struct {
 	Channels ChannelsConfig `mapstructure:"channels" json:"channels,omitempty"`
 	// Communication configures audience-aware release communication.
 	Communication CommunicationConfig `mapstructure:"communication" json:"communication,omitempty"`
+	// RepositoryGroups configures multi-repository governance groups.
+	RepositoryGroups []multirepo.RepositoryGroup `mapstructure:"repository_groups" json:"repository_groups,omitempty"`
+	// Observability configures runtime observability integration for
+	// deployment health monitoring and incident correlation.
+	Observability ObservabilityConfig `mapstructure:"observability" json:"observability,omitempty"`
 }
 
 // CommunicationConfig configures audience-aware release communication.
@@ -600,6 +607,14 @@ func DefaultConfig() *Config {
 		Communication: CommunicationConfig{
 			DefaultAudience: "engineering",
 		},
+		Observability: ObservabilityConfig{
+			AutoRecord: false,
+			HealthCheck: ObservabilityHealthCheckConfig{
+				Window:             30 * time.Minute,
+				ErrorRateThreshold: 5.0,
+				LatencyThreshold:   50.0,
+			},
+		},
 	}
 }
 
@@ -1148,6 +1163,50 @@ type AttestationConfig struct {
 	RekorURL string `mapstructure:"rekor_url" json:"rekor_url,omitempty"`
 	// FulcioURL is the Fulcio CA URL (for keyless mode).
 	FulcioURL string `mapstructure:"fulcio_url" json:"fulcio_url,omitempty"`
+}
+
+// ObservabilityConfig configures runtime observability integration for
+// deployment health monitoring, incident correlation, and external provider queries.
+type ObservabilityConfig struct {
+	// Providers is a list of external observability provider configurations.
+	Providers []ObservabilityProviderConfig `mapstructure:"providers" json:"providers,omitempty"`
+	// HealthCheck configures deployment health monitoring after releases.
+	HealthCheck ObservabilityHealthCheckConfig `mapstructure:"health_check" json:"health_check,omitempty"`
+	// WebhookSecret is the HMAC secret for validating incoming alert webhooks.
+	WebhookSecret string `mapstructure:"webhook_secret" json:"webhook_secret,omitempty"`
+	// AutoRecord enables automatic outcome recording when health thresholds
+	// are crossed or the monitoring window passes without issues.
+	AutoRecord bool `mapstructure:"auto_record" json:"auto_record"`
+}
+
+// ObservabilityProviderConfig configures a single observability provider.
+type ObservabilityProviderConfig struct {
+	// Name is a unique name for this provider instance.
+	Name string `mapstructure:"name" json:"name"`
+	// Type is the provider type (e.g., "prometheus").
+	Type string `mapstructure:"type" json:"type"`
+	// Endpoint is the base URL for the provider API.
+	Endpoint string `mapstructure:"endpoint" json:"endpoint"`
+	// BasicAuthUser is the username for basic authentication (optional).
+	BasicAuthUser string `mapstructure:"basic_auth_user" json:"basic_auth_user,omitempty"`
+	// BasicAuthPass is the password for basic authentication (optional).
+	BasicAuthPass string `mapstructure:"basic_auth_pass" json:"basic_auth_pass,omitempty"`
+	// BearerToken is a bearer token for authentication (optional).
+	BearerToken string `mapstructure:"bearer_token" json:"bearer_token,omitempty"`
+}
+
+// ObservabilityHealthCheckConfig configures deployment health monitoring.
+type ObservabilityHealthCheckConfig struct {
+	// Window is how long to monitor after a release (default: 30m).
+	Window time.Duration `mapstructure:"window" json:"window"`
+	// ErrorRateThreshold is the error rate percentage increase that triggers
+	// a negative outcome (default: 5.0).
+	ErrorRateThreshold float64 `mapstructure:"error_rate_threshold" json:"error_rate_threshold"`
+	// LatencyThreshold is the latency percentage increase that triggers
+	// a negative outcome (default: 50.0).
+	LatencyThreshold float64 `mapstructure:"latency_threshold" json:"latency_threshold"`
+	// ProviderName references which configured provider to query.
+	ProviderName string `mapstructure:"provider_name" json:"provider_name,omitempty"`
 }
 
 // PersistenceBackend defines the event store backend type.

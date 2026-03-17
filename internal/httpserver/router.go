@@ -125,6 +125,21 @@ func (s *Server) setupRouter() chi.Router {
 				r.Get("/{id}/deliveries", handlers.ListWebhookDeliveries)
 				r.Post("/{id}/deliveries/{deliveryId}/redeliver", handlers.RedeliverWebhook)
 			})
+
+			// Multi-repository governance endpoints
+			r.Route("/groups", func(r chi.Router) {
+				r.Get("/", handlers.ListGroups)
+				r.Get("/{name}/status", handlers.GetGroupStatus)
+				r.Get("/{name}/graph", handlers.GetGroupGraph)
+			})
+
+			// Observability endpoints
+			r.Route("/observability", func(r chi.Router) {
+				r.Get("/health", handlers.GetObservabilityHealth)
+				r.Get("/correlations", handlers.GetObservabilityCorrelations)
+				r.Get("/providers", handlers.GetObservabilityProviders)
+				r.Post("/webhook/{provider}", handlers.ObservabilityWebhook)
+			})
 		})
 	})
 
