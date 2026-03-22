@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/internal/cgp/budget"
+	"github.com/relicta-tech/relicta/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
 	"github.com/relicta-tech/relicta/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/internal/config"
 )
 
 // Evaluator orchestrates CGP evaluation by combining risk assessment
@@ -22,6 +25,9 @@ type Evaluator struct {
 	policyEngine   *policy.Engine
 	logger         *slog.Logger
 	config         Config
+	memoryStore    memory.Store
+	nowFunc        func() time.Time
+	repository     string
 }
 
 // Config configures the evaluator behavior.
@@ -41,6 +47,16 @@ type Config struct {
 
 	// MaxAutoApproveRisk is the maximum risk score for auto-approval.
 	MaxAutoApproveRisk float64
+
+	// StrictMode controls whether budget/freeze violations block releases
+	// (true) or only add warnings (false).
+	StrictMode bool
+
+	// RiskBudget configures cumulative risk budget limits.
+	RiskBudget *config.RiskBudgetConfig
+
+	// FreezePeriods configures recurring freeze windows.
+	FreezePeriods []config.FreezePeriodConfig
 }
 
 // DefaultConfig returns sensible default configuration.
@@ -85,6 +101,27 @@ func WithPolicyEngine(engine *policy.Engine) Option {
 	}
 }
 
+// WithMemoryStore sets the release memory store for budget tracking.
+func WithMemoryStore(store memory.Store) Option {
+	return func(e *Evaluator) {
+		e.memoryStore = store
+	}
+}
+
+// WithRepository sets the repository identifier for memory lookups.
+func WithRepository(repo string) Option {
+	return func(e *Evaluator) {
+		e.repository = repo
+	}
+}
+
+// WithNowFunc sets the time provider (useful for testing).
+func WithNowFunc(fn func() time.Time) Option {
+	return func(e *Evaluator) {
+		e.nowFunc = fn
+	}
+}
+
 // New creates a new Evaluator with the given options.
 func New(opts ...Option) *Evaluator {
 	e := &Evaluator{
@@ -92,6 +129,7 @@ func New(opts ...Option) *Evaluator {
 		policyEngine:   policy.NewEngine([]policy.Policy{}, nil),
 		logger:         slog.Default(),
 		config:         DefaultConfig(),
+		nowFunc:        time.Now,
 	}
 
 	for _, opt := range opts {
@@ -168,10 +206,13 @@ func (e *Evaluator) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, 
 		"required_approvers", policyResult.RequiredApprovers,
 	)
 
-	// Step 3: Build Governance Decision
+	// Step 3: Budget and Freeze Period Checks
+	e.applyBudgetAndFreezeChecks(ctx, policyResult, riskAssessment.Score)
+
+	// Step 4: Build Governance Decision
 	decision := e.buildDecision(proposal, analysis, riskAssessment, policyResult)
 
-	// Step 4: Apply additional governance rules
+	// Step 5: Apply additional governance rules
 	e.applyGovernanceRules(decision, proposal, analysis, riskAssessment)
 
 	duration := time.Since(startTime)
@@ -316,4 +357,65 @@ func (e *Evaluator) GetPolicies() []policy.Policy {
 // AddPolicy adds a policy to the evaluator's policy engine.
 func (e *Evaluator) AddPolicy(p policy.Policy) {
 	e.policyEngine.AddPolicy(p)
+}
+
+// applyBudgetAndFreezeChecks evaluates risk budget and freeze period
+// constraints. Depending on StrictMode, violations either block the
+// release or add warnings to the policy result.
+func (e *Evaluator) applyBudgetAndFreezeChecks(ctx context.Context, policyResult *policy.Result, riskScore float64) {
+	// Check freeze periods.
+	if len(e.config.FreezePeriods) > 0 {
+		now := e.nowFunc()
+		freezeResult := budget.CheckFreeze(now, e.config.FreezePeriods, riskScore)
+		if freezeResult.Frozen && !freezeResult.Allowed {
+			if e.config.StrictMode {
+				policyResult.Decision = cgp.DecisionRejected
+			} else if policyResult.Decision == cgp.DecisionApproved {
+				policyResult.Decision = cgp.DecisionApprovalRequired
+			}
+			policyResult.Rationale = append(policyResult.Rationale, freezeResult.Reason)
+			policyResult.RequiredActions = append(policyResult.RequiredActions, cgp.RequiredAction{
+				Type:        "freeze_period",
+				Description: freezeResult.Reason,
+			})
+			e.logger.Warn("freeze period violation",
+				"freeze", freezeResult.FreezeName,
+				"risk", riskScore,
+				"max_risk", freezeResult.MaxRisk,
+			)
+		} else if freezeResult.Frozen && freezeResult.Allowed {
+			policyResult.Rationale = append(policyResult.Rationale, freezeResult.Reason)
+			e.logger.Info("freeze period active but release permitted",
+				"freeze", freezeResult.FreezeName,
+				"risk", riskScore,
+			)
+		}
+	}
+
+	// Check risk budget.
+	if e.config.RiskBudget != nil && e.memoryStore != nil && e.repository != "" {
+		releases, err := e.memoryStore.GetReleaseHistory(ctx, e.repository, 100)
+		if err != nil {
+			e.logger.Warn("failed to load release history for budget check", "error", err)
+			return
+		}
+		budgetResult := budget.CheckBudget(riskScore, e.config.RiskBudget, releases)
+		if !budgetResult.Allowed {
+			if e.config.StrictMode {
+				policyResult.Decision = cgp.DecisionRejected
+			} else if policyResult.Decision == cgp.DecisionApproved {
+				policyResult.Decision = cgp.DecisionApprovalRequired
+			}
+			policyResult.Rationale = append(policyResult.Rationale, budgetResult.Reason)
+			policyResult.RequiredActions = append(policyResult.RequiredActions, cgp.RequiredAction{
+				Type:        "budget_exceeded",
+				Description: budgetResult.Reason,
+			})
+			e.logger.Warn("risk budget exceeded",
+				"used", budgetResult.UsedBudget,
+				"remaining", budgetResult.RemainingBudget,
+				"risk", riskScore,
+			)
+		}
+	}
 }

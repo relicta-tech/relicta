@@ -381,6 +381,31 @@ type GovernanceConfig struct {
 	PolicyDir string `mapstructure:"policy_dir" json:"policy_dir,omitempty"`
 	// Policies is a list of custom policy rules defined inline in YAML.
 	Policies []GovernancePolicyConfig `mapstructure:"policies" json:"policies,omitempty"`
+	// RiskBudget configures cumulative risk budget limits per period.
+	RiskBudget *RiskBudgetConfig `mapstructure:"risk_budget" yaml:"risk_budget,omitempty" json:"risk_budget,omitempty"`
+	// FreezePeriods configures recurring time windows with restricted releases.
+	FreezePeriods []FreezePeriodConfig `mapstructure:"freeze_periods" yaml:"freeze_periods,omitempty" json:"freeze_periods,omitempty"`
+}
+
+// RiskBudgetConfig configures cumulative risk budget limits.
+type RiskBudgetConfig struct {
+	// WeeklyLimit is the maximum cumulative risk score allowed per week (0.0+).
+	WeeklyLimit float64 `mapstructure:"weekly_limit" yaml:"weekly_limit" json:"weekly_limit"`
+	// ConcurrentLimit is the maximum number of concurrent in-flight releases.
+	ConcurrentLimit int `mapstructure:"concurrent_limit" yaml:"concurrent_limit" json:"concurrent_limit"`
+}
+
+// FreezePeriodConfig configures a recurring time window with restricted releases.
+type FreezePeriodConfig struct {
+	// Name is a human-readable label for this freeze period.
+	Name string `mapstructure:"name" yaml:"name" json:"name"`
+	// Start is the beginning of the freeze window (e.g. "Friday 16:00").
+	Start string `mapstructure:"start" yaml:"start" json:"start"`
+	// End is the end of the freeze window (e.g. "Monday 09:00").
+	End string `mapstructure:"end" yaml:"end" json:"end"`
+	// MaxRisk is the maximum risk score allowed during this freeze period.
+	// Releases with risk above this threshold are blocked.
+	MaxRisk float64 `mapstructure:"max_risk" yaml:"max_risk" json:"max_risk"`
 }
 
 // GovernancePolicyConfig configures a custom governance policy rule.
