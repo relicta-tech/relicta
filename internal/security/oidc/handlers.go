@@ -1,6 +1,8 @@
 package oidc
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/relicta-tech/relicta/internal/security/token"
@@ -62,7 +64,8 @@ func (h *Handlers) Callback(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err := h.oidcService.Exchange(r.Context(), code)
 	if err != nil {
-		http.Error(w, "Token exchange failed: "+err.Error(), http.StatusUnauthorized)
+		slog.Error("OIDC token exchange failed", "error", err)
+		http.Error(w, "Authentication failed", http.StatusUnauthorized)
 		return
 	}
 
@@ -76,8 +79,10 @@ func (h *Handlers) Callback(w http.ResponseWriter, r *http.Request) {
 	// Return the token pair as JSON.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"access_token":"` + pair.AccessToken +
-		`","refresh_token":"` + pair.RefreshToken +
-		`","expires_at":"` + pair.ExpiresAt.Format("2006-01-02T15:04:05Z07:00") +
-		`","token_type":"Bearer"}`))
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  pair.AccessToken,
+		"refresh_token": pair.RefreshToken,
+		"expires_at":    pair.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+		"token_type":    "Bearer",
+	})
 }

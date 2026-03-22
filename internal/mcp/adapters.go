@@ -4,6 +4,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
@@ -26,7 +27,9 @@ type Adapter struct {
 	blastService    blast.Service
 	aiService       ai.Service
 
-	// repoRoot caches the repository root path for use cases
+	// repoRoot caches the repository root path for use cases.
+	// Protected by repoMu since it is set dynamically via ensureRepoPath.
+	repoMu   sync.RWMutex
 	repoRoot string
 }
 
@@ -104,11 +107,15 @@ func WithRepoRoot(path string) AdapterOption {
 
 // SetRepoRoot sets the repository root path dynamically.
 func (a *Adapter) SetRepoRoot(path string) {
+	a.repoMu.Lock()
+	defer a.repoMu.Unlock()
 	a.repoRoot = path
 }
 
 // GetRepoRoot returns the configured repository root path.
 func (a *Adapter) GetRepoRoot() string {
+	a.repoMu.RLock()
+	defer a.repoMu.RUnlock()
 	return a.repoRoot
 }
 
@@ -153,7 +160,7 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 	// Determine repository path
 	repoPath := input.RepositoryPath
 	if repoPath == "" {
-		repoPath = a.repoRoot
+		repoPath = a.GetRepoRoot()
 	}
 
 	// Step 1: Run analysis to get changeset and version info
@@ -270,7 +277,7 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 	// Determine repository path
 	repoPath := input.RepositoryPath
 	if repoPath == "" {
-		repoPath = a.repoRoot
+		repoPath = a.GetRepoRoot()
 	}
 	if repoPath == "" {
 		repoPath = "."
@@ -328,7 +335,7 @@ func (a *Adapter) Notes(ctx context.Context, input NotesInput) (*NotesOutput, er
 	}
 
 	// Determine repository path
-	repoPath := a.repoRoot
+	repoPath := a.GetRepoRoot()
 	if repoPath == "" {
 		repoPath = "."
 	}
@@ -479,7 +486,7 @@ func (a *Adapter) Approve(ctx context.Context, input ApproveInput) (*ApproveOutp
 	}
 
 	// Determine repository path
-	repoPath := a.repoRoot
+	repoPath := a.GetRepoRoot()
 	if repoPath == "" {
 		repoPath = "."
 	}
@@ -556,7 +563,7 @@ func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutp
 	}
 
 	// Determine repository path
-	repoPath := a.repoRoot
+	repoPath := a.GetRepoRoot()
 	if repoPath == "" {
 		repoPath = "."
 	}
@@ -715,7 +722,7 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 	}
 
 	// Determine repository path
-	repoPath := a.repoRoot
+	repoPath := a.GetRepoRoot()
 	if repoPath == "" {
 		repoPath = "."
 	}
