@@ -20,6 +20,8 @@ const (
 	FederationDecision FederationMessageType = "federation.governance_decision"
 	// FederationNotification is a webhook-based notification between instances.
 	FederationNotification FederationMessageType = "federation.notification"
+	// FederationRiskExchange is sent when a repo's risk state changes.
+	FederationRiskExchange FederationMessageType = "federation.risk_update"
 )
 
 // FederationMessage is a CGP message exchanged between Relicta instances
@@ -45,6 +47,22 @@ type FederationMessage struct {
 	Decision *FederatedDecision `json:"decision,omitempty"`
 	// Notification is set when Type is FederationNotification.
 	Notification *FederatedNotification `json:"notification,omitempty"`
+	// RiskUpdate is set when Type is FederationRiskExchange.
+	RiskUpdate *FederationRiskUpdate `json:"risk_update,omitempty"`
+}
+
+// FederationRiskUpdate carries a repo's current risk state to other repos in the group.
+type FederationRiskUpdate struct {
+	// Repository is the name of the repository reporting its risk.
+	Repository string `json:"repository"`
+	// RiskScore is the current risk score (0.0-1.0).
+	RiskScore float64 `json:"risk_score"`
+	// State is the release state (e.g., "planned", "releasing", "released").
+	State string `json:"state"`
+	// Version is the version being released.
+	Version string `json:"version"`
+	// Timestamp is when this risk state was recorded.
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // FederatedProposal represents a change proposal sent between repos.
@@ -307,6 +325,47 @@ func (g *FederatedGovernor) CreateNotification(
 			Details:  details,
 		},
 	}
+}
+
+// CreateRiskUpdate creates a federation message to share a repo's risk state with the group.
+func (g *FederatedGovernor) CreateRiskUpdate(update *FederationRiskUpdate) *FederationMessage {
+	return &FederationMessage{
+		ID:         generateFederationID(),
+		Type:       FederationRiskExchange,
+		SourceRepo: update.Repository,
+		GroupName:  g.group.Name,
+		Timestamp:  time.Now().UTC(),
+		RiskUpdate: update,
+	}
+}
+
+// BroadcastRiskUpdate sends a risk update to all other repos in the group.
+func (g *FederatedGovernor) BroadcastRiskUpdate(ctx context.Context, update *FederationRiskUpdate) error {
+	if g.webhookSender == nil {
+		return nil
+	}
+
+	msg := g.CreateRiskUpdate(update)
+	var errs []string
+	for _, repo := range g.group.Repositories {
+		if repo.Name == update.Repository {
+			continue
+		}
+		url, ok := g.webhookURLs[repo.Name]
+		if !ok {
+			continue
+		}
+		targetMsg := *msg
+		targetMsg.TargetRepo = repo.Name
+		if err := g.webhookSender.Send(ctx, url, &targetMsg); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", repo.Name, err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to broadcast risk update: %s", joinErrors(errs))
+	}
+	return nil
 }
 
 // generateFederationID creates a unique federation message ID.
