@@ -10,6 +10,8 @@
   <p>
     <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
     <a href="https://goreportcard.com/report/github.com/relicta-tech/relicta"><img src="https://goreportcard.com/badge/github.com/relicta-tech/relicta" alt="Go Report Card"></a>
+    <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://img.shields.io/badge/coverage-80.7%25-brightgreen" alt="Coverage"></a>
+    <a href="https://github.com/relicta-tech/relicta/actions/workflows/codeql.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/codeql.yaml/badge.svg" alt="Nox Security"></a>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   </p>
 </div>
