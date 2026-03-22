@@ -178,7 +178,8 @@ func (s *ollamaService) CheckConnection(ctx context.Context) error {
 		return errors.AIWrap(err, "CheckConnection", "failed to create health check request")
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	healthClient := &http.Client{Timeout: 5 * time.Second}
+	resp, err := healthClient.Do(req)
 	if err != nil {
 		return errors.AI("CheckConnection", fmt.Sprintf("Ollama is not running at %s: %v", healthURL, err))
 	}

@@ -282,7 +282,8 @@ func (r *RegistryService) fetchFromRemote(ctx context.Context, url string) (*Reg
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	const maxRegistryResponseSize = 10 << 20 // 10 MB
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRegistryResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}

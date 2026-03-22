@@ -147,11 +147,12 @@ func isRetryableError(err error) bool {
 		return true
 	}
 
-	// Server errors (5xx) are retryable
-	if strings.Contains(errStr, "500") ||
-		strings.Contains(errStr, "502") ||
-		strings.Contains(errStr, "503") ||
-		strings.Contains(errStr, "504") ||
+	// Server errors (5xx) are retryable — use specific patterns to avoid
+	// false matches on port numbers or other numeric content.
+	if strings.Contains(errStr, "status 500") ||
+		strings.Contains(errStr, "status 502") ||
+		strings.Contains(errStr, "status 503") ||
+		strings.Contains(errStr, "status 504") ||
 		strings.Contains(errStr, "internal server error") ||
 		strings.Contains(errStr, "bad gateway") ||
 		strings.Contains(errStr, "service unavailable") ||

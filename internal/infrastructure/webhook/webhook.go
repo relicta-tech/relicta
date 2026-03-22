@@ -68,7 +68,7 @@ type Publisher struct {
 func NewPublisher(webhooks []config.WebhookConfig, next release.EventPublisher) *Publisher {
 	return &Publisher{
 		webhooks: webhooks,
-		client:   &http.Client{},
+		client:   &http.Client{Timeout: 30 * time.Second},
 		next:     next,
 		logger:   slog.Default().With("component", "webhook_publisher"),
 	}

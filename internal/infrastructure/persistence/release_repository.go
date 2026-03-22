@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -457,13 +458,9 @@ func (r *FileReleaseRepository) List(ctx context.Context, repoPath string) ([]re
 	}
 
 	// Sort by UpdatedAt (newest first)
-	for i := 0; i < len(releases)-1; i++ {
-		for j := i + 1; j < len(releases); j++ {
-			if releases[j].UpdatedAt().After(releases[i].UpdatedAt()) {
-				releases[i], releases[j] = releases[j], releases[i]
-			}
-		}
-	}
+	sort.Slice(releases, func(i, j int) bool {
+		return releases[j].UpdatedAt().Before(releases[i].UpdatedAt())
+	})
 
 	// Extract IDs
 	ids := make([]release.RunID, len(releases))

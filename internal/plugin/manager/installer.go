@@ -220,7 +220,8 @@ func (i *Installer) downloadFile(ctx context.Context, url string, dest io.Writer
 		return fmt.Errorf("unexpected status code: %d for URL: %s", resp.StatusCode, url)
 	}
 
-	_, err = io.Copy(dest, resp.Body)
+	const maxDownloadSize = 500 << 20 // 500 MB
+	_, err = io.Copy(dest, io.LimitReader(resp.Body, maxDownloadSize))
 	if err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
