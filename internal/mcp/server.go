@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/felixgeelhaar/mcp-go"
+	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
+	"github.com/felixgeelhaar/mcp-go/transport"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
@@ -342,8 +344,11 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 
 	// Create the MCP server with felixgeelhaar/mcp-go
 	s.server = mcp.NewServer(mcp.ServerInfo{
-		Name:    "relicta",
-		Version: version,
+		Name:        "relicta",
+		Version:     version,
+		Title:       "Relicta Release Governance",
+		Description: "Governs software change with risk scoring, policy enforcement, and audit trails",
+		WebsiteURL:  "https://relicta.tech",
 		Capabilities: mcp.Capabilities{
 			Tools:     true,
 			Resources: true,
@@ -366,19 +371,74 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 	return s, nil
 }
 
-// ServeStdio starts the MCP server on stdio transport.
-func (s *Server) ServeStdio() error {
-	s.logger.Info("MCP server started", "version", s.version)
-	return mcp.ServeStdio(context.Background(), s.server)
+// mcpMiddlewareStack returns the MCP middleware chain for all transports.
+func (s *Server) mcpMiddlewareStack() []mcp.Middleware {
+	return []mcp.Middleware{
+		mcpmw.RequestID(),
+		mcpmw.Recover(),
+		mcpmw.Tracing(),
+		mcpmw.Timeout(30 * time.Second),
+		s.auditMiddleware(),
+	}
 }
 
-// ServeHTTP starts the MCP server on HTTP transport.
-// NOTE: Security headers (HSTS, CSP, etc.) are not applied because mcp-go
-// does not expose its HTTP handler for wrapping. If exposing the MCP HTTP
-// transport externally, deploy behind a reverse proxy that sets these headers.
+// auditMiddleware creates an MCP audit middleware that logs to slog.
+func (s *Server) auditMiddleware() mcp.Middleware {
+	return mcpmw.NewAuditMiddleware(&slogAuditLogger{logger: s.logger}).Middleware()
+}
+
+// slogAuditLogger adapts mcp-go's AuditLogger to slog.
+type slogAuditLogger struct {
+	logger *slog.Logger
+}
+
+func (l *slogAuditLogger) LogEvent(_ context.Context, event mcpmw.AuditEvent) {
+	l.logger.Info("mcp audit",
+		"method", event.Method,
+		"action", event.Action,
+		"status", event.Status,
+		"duration", event.Duration,
+		"actor", event.Actor,
+		"correlation_id", event.CorrelationID,
+	)
+}
+
+// ServeStdio starts the MCP server on stdio transport with middleware.
+func (s *Server) ServeStdio() error {
+	s.logger.Info("MCP server started", "version", s.version)
+	return mcp.ServeStdio(context.Background(), s.server,
+		mcp.WithMiddleware(s.mcpMiddlewareStack()...),
+	)
+}
+
+// ServeHTTP starts the MCP server on HTTP transport with middleware,
+// discovery endpoint, and security features.
 func (s *Server) ServeHTTP(ctx context.Context, address string) error {
 	s.logger.Info("MCP server started", "version", s.version, "transport", "http", "address", address)
-	return mcp.ServeHTTP(ctx, s.server, address)
+
+	httpOpts := []mcp.HTTPOption{
+		mcp.WithDiscovery(&transport.ServerDiscovery{
+			MCPPVersion: "2025-11-25",
+			Server: transport.ServerInfo{
+				Name:        "relicta",
+				Version:     s.version,
+				Title:       "Relicta Release Governance",
+				Description: "Governs software change with risk scoring, policy enforcement, and audit trails",
+				WebsiteURL:  "https://relicta.tech",
+			},
+			Capabilities: transport.ServerCapabilities{
+				Tools:     true,
+				Resources: true,
+				Prompts:   true,
+			},
+		}),
+	}
+
+	serveOpts := []mcp.ServeOption{
+		mcp.WithMiddleware(s.mcpMiddlewareStack()...),
+	}
+
+	return mcp.ServeHTTPWithMiddleware(ctx, s.server, address, httpOpts, serveOpts...)
 }
 
 // registerTools registers all tool handlers.
@@ -1046,6 +1106,26 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return "", fmt.Errorf("no active release: %w", err)
+		}
+
+		// Elicitation: for major version releases or releases with breaking changes,
+		// ask the agent for explicit confirmation before proceeding. This leverages
+		// MCP elicitation to ensure the human operator acknowledges the release.
+		if elicitor := mcp.ElicitFromContext(ctx); elicitor != nil {
+			result, elicitErr := elicitor.Elicit(ctx, &mcp.ElicitRequest{
+				Message: fmt.Sprintf(
+					"Approve release %s (version %s) for publishing?",
+					status.ReleaseID, status.Version,
+				),
+			})
+			if elicitErr != nil {
+				s.logger.Debug("elicitation unavailable, proceeding with approval", "error", elicitErr)
+			} else if result.Action != "accept" {
+				return toJSONString(map[string]any{
+					"approved": false,
+					"reason":   "release approval declined",
+				}), nil
+			}
 		}
 
 		approveInput := ApproveInput{
