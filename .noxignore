@@ -1,0 +1,33 @@
+# Generated/compiled files
+internal/mcp/dist/
+app/
+web/
+
+# Lock files (dependency hashes, not source code)
+go.sum
+
+# Roady project management state
+.roady/
+
+# Documentation (not production code)
+docs/
+
+# Plugin registry (config schema with env var references)
+plugins/
+
+# Test files and fixtures
+test/
+*_test.go
+**/*_test.go
+
+# Nox baseline
+.nox/
+
+# Brand assets
+brand/
+
+# Build artifacts
+bin/
+
+# Git
+.git/

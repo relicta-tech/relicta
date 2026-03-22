@@ -432,6 +432,2246 @@
       "severity": "high",
       "reason": "Documentation template: example workflow, not production CI",
       "created_at": "2026-03-22T21:26:41.112906Z"
+    },
+    {
+      "fingerprint": "0fda52f1bc9f6ad59c83b1019cb9346bd55305f1712bdeb900417e9a2e1c6a70",
+      "rule_id": "AI-008",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: AI-008 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "690d1fc469cd2c146a214aff95833266a36e39eeec66995c25632c6945092827",
+      "rule_id": "AI-008",
+      "file_path": "internal/config/schema.go",
+      "severity": "medium",
+      "reason": "False positive: AI-008 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "808b737bd2640184666dd0221fcc429192d6929890c7de164dd4d38f9ac853e7",
+      "rule_id": "AI-008",
+      "file_path": "internal/infrastructure/ai/service.go",
+      "severity": "medium",
+      "reason": "False positive: AI-008 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9ac27d651b2815843e76f14489936d7cf0fdca9f24da9072156076b285bdc7b5",
+      "rule_id": "AI-026",
+      "file_path": "docs/dashboard.md",
+      "severity": "medium",
+      "reason": "False positive: AI-026 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ba59f27ce3154e60266d92478ca9844eacbd3929becbe5c817581fc1161f52c2",
+      "rule_id": "AI-026",
+      "file_path": "internal/cli/report.go",
+      "severity": "medium",
+      "reason": "False positive: AI-026 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d14dde879780b12c4299e51784c6f22bad788a9c9164cadb57eddfafbc0e842c",
+      "rule_id": "AI-026",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-026 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "91fea5cfaf1faa1836d9e65f47a5d752cedd49130f9ec70150ff0fa622a1cf9d",
+      "rule_id": "AI-036",
+      "file_path": "CHANGELOG.md",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "46be548ba0f6f6edcb27f0c618232710ac9054ce39340cc8febd941bdccd0d04",
+      "rule_id": "AI-036",
+      "file_path": "docs/ai-providers.md",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4d03b3ac7da167c06678f2b0c1cc42de2c1aa3b8d8f7e0d326e5ae5126b530a7",
+      "rule_id": "AI-036",
+      "file_path": "docs/ai-providers.md",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9961be318ebf42b8c4fe239c9f8a45b82adbd3f2aef9fb6b3fa95fd4458af0f0",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a3ac18778926dd383c60d77ef2d01ad6f7632b262997642a9b0ab77a4feae74b",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "10f72afc95d22541272fe343cdcf6f7019280d1c8a0a20804fff23da2c1707ac",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "54438de30a1d970b9ac6e9e8c9e0f173b52fb05085ced21d38c6134422bf3344",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "1c3f7e64ac3a7aa0e6d29bf95ecd7c74fa19f8aaac7e89112bc36f345e05a52d",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "987d85d761020153b273fe2e5a3402d1872a9ac98943bcb9fdd98b52e0b3ea33",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9229b705609e0dafd7affbd44cf9a1bed8e5011482ab565581012ec794817bba",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3540529cd01cdb1073c6efabe5b591c2469fd2a4d2ab4ba5dc84b1c556673379",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f91bd6ae5c8bd950d3b617eb46c6d6575f3689d9f4e871a6e94297c1e2868c85",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c102768627705451cfbbfae00f5d2ad01cba005db3a4680714d2dfaf09696601",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ff57a2aed4db6032e64cf1eaeb123e63259e85c849366ee5769e69880ab51dd7",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "fda80bb535a4c6ba0213294d45b1bf0266acdf39f302040d4fa509e51b41dce7",
+      "rule_id": "AI-036",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: AI-036 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "12e7c5ad4121471ab8a74c08f182ec9a733abf3bb9d8e002235d27e55bab6604",
+      "rule_id": "CONT-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "aaf38e6669d6c5e9570acc803e992edca720eaae9d198ba195d740492551b176",
+      "rule_id": "CONT-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b6154b09d1abe52b80c1080605cf0684f410f207a38b091bf0c43d7d498aed68",
+      "rule_id": "CONT-001",
+      "file_path": "web/docker/Dockerfile",
+      "severity": "medium",
+      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "267f7e2d59cb278b062c68a659157e7038352cfc66922b2f307065949f52cd66",
+      "rule_id": "CONT-001",
+      "file_path": "web/docker/Dockerfile",
+      "severity": "medium",
+      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "955329b40fbec2fae1a9c3ebc2b8a9c8846e99371a929355f2afcb38a82219fa",
+      "rule_id": "DATA-001",
+      "file_path": "SECURITY.md",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "921f53fc771400f3cdadcb1fa122d3d8b64b362701fc59c5fb97ba07763f0b76",
+      "rule_id": "DATA-001",
+      "file_path": "docs/cgp-specification.md",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e4bd2edf9243500eac7c5ed7144444430271866d3a21bbdb9b8c1b523a90e6c6",
+      "rule_id": "DATA-001",
+      "file_path": "docs/cgp-specification.md",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "75fecc53c573651696fca5f880dba9ade82d222e9eb569dfd29ceff32cbb4adf",
+      "rule_id": "DATA-001",
+      "file_path": "docs/technical-design.md",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e2c3a299f40a0694e131e6bc6d3a17cfb2cfcf52f698a43055c1dbf972cfbcf4",
+      "rule_id": "DATA-001",
+      "file_path": "examples/README.md",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "45938fbf65bb638ee1da09288d33aa5eeab6a355ca8d89e3e789bdeef1a9946a",
+      "rule_id": "DATA-001",
+      "file_path": "internal/benchmark/fixtures.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "993956a66f02214a95c23fe4e620031200360e03db2bf0fd6196ca1364e8fcd1",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/actor.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3312b87eda599a5003986cc2b81deb61ea74e25bc2e30df4c0d3e10905f2027c",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d943c77147b7f918e56d5d2b5a507cae1e19b5ad21837098bf66f07b42656fa9",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "397913ec2fa66fe5380627ad71fa40cf542e42ce88ed0b79463459a44fd2fb7b",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "55ac06356e723040a5397e26e16b01418fa5c6642571fa8e36698eb2ccb75b6a",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4f2c8e0beba0fe136147428a8f3a19e06c652fb00c788d4b448e3de2214be2ba",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "259bb90910cbcd7f5ba21ab3eca2caca0734b029c7f70d3ec0d813e754838224",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/history.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "2511045a11f4e58296ac0c2600cee31caca6f42bb01bf0ac30818bdece6d7e10",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7fda3134c0692a3a1f17942d910ecfb7c554bfbc26fb7edb5a25164de843fdf7",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6666bf8e7e86737477ededeca5b5f8ad3883bc9acc5a4072222f7128232b24e5",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f0a8463b87f6eb925460bcb37b4e9aaf2981644cec61da15e9de9c997e8ee076",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/templates/builder.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7d5ca895f0c446647144b0d34b83e6619d354d0473efa9632db9304b2c3b2cdb",
+      "rule_id": "DATA-001",
+      "file_path": "internal/config/schema.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "99dede799abaf0b3006ef77bf062b2431b989eecfd15a7c2850345c00cb9de60",
+      "rule_id": "DATA-001",
+      "file_path": "internal/infrastructure/git/adapter.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ebcae05f48fb7d893087ee16b2b4148b9758cb72f5e8c582b6b51f5c43a7f676",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7769373c365d2f7783b074ecdb9df87e053c54b88a50b227b9365044498f0d12",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5dd19f3a6c02f251819120f2681960fef67927bd0b856cb726bba53d3a47666b",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "fe288a79fd7cee0e1a91014a25d09fc69977eb07cfed900071608fe1b005a321",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "efd5940d7a95b928c83fd6f998d14aea0a29234267db167dfae0ffdd0497862d",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "988b56cfe7d5051f4c84c66bd7440e771d0af7f83d3e6a69858e68026b13c310",
+      "rule_id": "IAC-018",
+      "file_path": ".github/workflows/ci.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-018 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "accc8a41d3b553ddb040c76d6e03108bc2d82e0831768481995d399e3686f8bf",
+      "rule_id": "IAC-306",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "medium",
+      "reason": "False positive: IAC-306 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3877ec12806bfbbd774c47f63a9088ae05f6fdb940a4ea7949487655bd69c932",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0dd9116a4a331f862c716cdf150906b468444626b1dc57cdb615451f9f0b72b0",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/codeql.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f01dc93edfbee5cbe03d6ec7ae89368ed1a97ef74da8d7f9e24b1ebc7f13ef11",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5c34a269b479999161db2ecad247033db17a858bbed943cc4a9db1cac0dbecac",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/skill-quality.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "735f23d55e0cc1f99c771a64a2a31efa24b2dc5024ecc6ace1a46febe1760f04",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/test-action.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b02c21978f7f42378bc309ba30696cad541f683d3d18cb8007e6582a4ad9efe6",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "23692a75ebdfbd7072f86132b2436b39941df9cac02b3c4b4967cfeb9e4de2d8",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/ci.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "191c63e24935bb8602d21e62027d7e99943d1e95ae7327dc740694ac362d31ce",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/codeql.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b49982b7995aa4508ba3768745879206f559df2f0bb8646e93e2dc76b68bd8f7",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f18e5b70b3e50d97727bcf77f2fe6a6de4402205ecc2c02f9cd4c434e35991ff",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/skill-quality.yaml",
+      "severity": "low",
+      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4ebe02d81e225b686385180caaa28f8b03788011e4c3cbb8a3d940389780c9eb",
+      "rule_id": "IAC-310",
+      "file_path": ".github/workflows/ci.yaml",
+      "severity": "medium",
+      "reason": "False positive: IAC-310 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4d28f6aa4af9be8406239a94780ace18e35932949139879edff945cfc4f28470",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "medium",
+      "reason": "False positive: IAC-314 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "02b607e12a23c27bc4e530a581def6218cf5635d0057c68502808bdbf230a3f3",
+      "rule_id": "IAC-315",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "medium",
+      "reason": "False positive: IAC-315 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "673688e1ca71ab8366ac540b43775d06bd7b000c52255076e46a62ff754f9d54",
+      "rule_id": "IAC-315",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "medium",
+      "reason": "False positive: IAC-315 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "741e1891f35bb1d25824d5a095cba6e96cb0d146fb72ebf46876c1faa49522ee",
+      "rule_id": "SEC-080",
+      "file_path": "internal/cli/templates/data/opensource-python.yaml.tmpl",
+      "severity": "medium",
+      "reason": "False positive: SEC-080 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "59e3b3e3a9be46ad02a86e2f93bfe711fda3c0b22876688c209730718d547623",
+      "rule_id": "SEC-161",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f9266078f98a7e9976ed7848befc2e1acd69c4d5d21d303e94f60a871e15f889",
+      "rule_id": "SEC-161",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b607ad34ee2c7a423a2dbf0429c34757b12fa1a4149e5b7ee7cccf8d8066fd5b",
+      "rule_id": "SEC-161",
+      "file_path": "internal/infrastructure/ai/anthropic.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "478f95a94da557998076a70d469a590fc210aa886c0db980f44a67e20da52cb3",
+      "rule_id": "SEC-161",
+      "file_path": "internal/infrastructure/ai/openai.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "2affc2870eb18e5811abaf0b36df2468345910205f0f6d285f6bdefad084645c",
+      "rule_id": "SEC-161",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ea7d18af99ee41c3b21ad40087a590d40772067f510e51869b52f9c870636e59",
+      "rule_id": "SEC-162",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-162 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3e9a95efa24d0d327f5d3b7133a45cdad445ee3c52c4f804d4c4595f1f228c4a",
+      "rule_id": "SEC-163",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d89f0637d569a1392a01179628154b90444ff0766d5bebed0e7e7a5ec674b54b",
+      "rule_id": "SEC-163",
+      "file_path": ".goreleaser.yaml",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "43707232cbb2e8c3f330dc07c73bddb6239f3ce6c965cc6a0c3896364211f177",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "755bae8e6c147f4a35d38cf0f3f984708018acb8676529265da039e941d9abe6",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6b60576d100a938a8df4281fbff164f505d4b5ee35b5e1fc690d9930325765d0",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/notes.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "adecba896a7c9a1f7887fecb4e1f5fb51239bf142a362007fde4b053c3ff618b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/root.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4961b9c16d44f0dd1436e8292fcceb384a3ea6e46de6727dee69bdea398f14a7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a4b51bfb63c95ca71d9319291ff7953b64d69f4236045a256b4f784bfd9c6acb",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8ba29b7e1c7c4fecbd2561d729fa471af5bc4f32f09178403ad8c727f7838eb2",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b84af2acf56c1940007a31f9e87847a8a018e8dbaacc00533c4ba789f4338cb4",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d38155bf87dd6ddaebbfdc5ba9e8f044baa4220150622b94bc25ba0d7e7db86e",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/server.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "bfac3dd7583300c9d92fac89bac68dacb13dc233429179ef52dc5d527e483f8f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/verify.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9282f3d1fdafedce2e866001a2ac90b63d187e5cc594b8095fdfc43bbe7aa8c3",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "160f26451750fe8012f7856e705453d54cee033518280cbdd49f51a38b86cebd",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3b263339a050e158b684e6ab3cdb457cfa97b2fb0fbdf40db3054b1d3aa1b5fd",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f312765291394e6dc6229c06d2089f32c9d9902a567fc12a9e54b21c8db81bfd",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "33b4153397623f1bc406f284fd1d672a8bfd955be6286f8b12feca9b5c727eb7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "208a785ccc0a95ead909610e86ed45c48a8a2705ca7a1f6d557200078b355419",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "92ba61f36b937f155b2633931dc4dbf9d86487878e5c646fdde7fd711f95e65a",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "591cd6fae019a4c5da7e65e4a87602e0e3b0208041588c5d5946f35b7f8e55dd",
+      "rule_id": "SEC-163",
+      "file_path": "internal/container/container.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "308ab2f9154f379366aa0c984b21a79f386178365081bf2189ddf370e407cb15",
+      "rule_id": "SEC-163",
+      "file_path": "internal/httpserver/middleware/auth.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e8e893adbafb5e3f4b913e244d33976e2e99cb17b4a58ffbabbf9319a59bb0d9",
+      "rule_id": "SEC-163",
+      "file_path": "internal/httpserver/middleware/auth.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "42524c53f70c32c92b19ac9a714f9e9c1c217d9cf9e65d646d046a98b10fde90",
+      "rule_id": "SEC-163",
+      "file_path": "internal/httpserver/middleware/auth.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8243d6438f03ea4636721b6384493d5e1d8e2613758a65e0c043b2a5a8ae6cdd",
+      "rule_id": "SEC-163",
+      "file_path": "internal/infrastructure/ai/anthropic.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "201af068373ce0bdd6a6fd6261c020b685b942a91f09e6d87c5e8953161b8b6f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/infrastructure/ai/gemini.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5a46eb2ffdd5e02f33a6022ca909b7ff6c6da9f7dcb942118e96e7c43e06ec5a",
+      "rule_id": "SEC-163",
+      "file_path": "internal/infrastructure/ai/openai.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "801f0804a268e95f2007a7ecf2ac6bd0dafd6fea6f40d99ebc7da944431d7686",
+      "rule_id": "SEC-163",
+      "file_path": "internal/infrastructure/ai/openai.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "99599d865f5e1672cbc4b1e413ca68bfe01205b902dd11dfec49ae7f5dfd5d9d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ef047cf1db6dc3c040cb8b07610c813e45530bdf642a98c6d828b3e06f61e0b1",
+      "rule_id": "SEC-163",
+      "file_path": "internal/mcp/server.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f37610f3ee38c3b1d6c705406bac75ceb64c24ade17dea05adc912de3cb58f7d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "20e1904ecb55b5673d31d2e5080f99525cd5b629a69dcdfb6afb8d895044aa77",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9374ebcb008b14a4a7ef7b249637cc164357d7e75ae19e8cde5f801cc810eee2",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6c09ae2ca4a3b184af63e573ac5238648d0fbf333ebe879a90aa1fcad4b555d6",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "562049b3633e0e934234c1320ef9908e9abb6a7bcfae90a2023ad2ed00af4159",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/verifier.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a3b82dcee61bc756571229ee1e3186970c7c50435f4cbc4bd88b8e1bbcd0df1d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/verifier.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "927c0caa3a8b9f8510f43fa7f9c356d4a38f97d4e419dd85f4f6276e8c03870b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/oidc/handlers.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3802eb60f8ad4e157f595a28fc69e73f571e8cb876068702c553545778fd163b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0f48d9145515734f72cc56dacdf3e11b943fb9c529948461564c21b11ad678cb",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "1ffb18c17e02184370b2d9a3c34bfacdd391f213dbf65b525286e4fb1fed3424",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5f08736c4f97d5e0c1554db6fc65ea14abb101c83a1b1ecf0ee89b6bd840e4b9",
+      "rule_id": "SEC-435",
+      "file_path": ".env.example",
+      "severity": "high",
+      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e12f370c58d08d245f561b1fdb29ee81c55ec8ae54e426708c5e2db1a94b36b1",
+      "rule_id": "SEC-435",
+      "file_path": ".env.example",
+      "severity": "high",
+      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c6e0b59de93bcd750db34fd936b8c7a2059d8ea0187d040e39349b46a10682eb",
+      "rule_id": "SEC-435",
+      "file_path": "docs/PLUGINS.md",
+      "severity": "high",
+      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "cb9fe57071ce6d9a100d27f5b5f0f1b9889cb17fbd67ebbdbaa80323bd6c5d36",
+      "rule_id": "SEC-435",
+      "file_path": "docs/TROUBLESHOOTING.md",
+      "severity": "high",
+      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "52239e5a2f0ebb8c275c1fedfe2fe35e10e2c64a20cc0825f52821967f0ad23b",
+      "rule_id": "SEC-435",
+      "file_path": "examples/README.md",
+      "severity": "high",
+      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b9466e0bc5f260d14ee76bbebba0da4cc630fa77500d5a1d83c40939d3a7f568",
+      "rule_id": "SEC-436",
+      "file_path": "internal/errors/errors.go",
+      "severity": "high",
+      "reason": "False positive: SEC-436 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b0762a5b2f5dbd6c5c277943b22e06e0df8ee5eb20fbe9bb804f7f53239e994e",
+      "rule_id": "SEC-437",
+      "file_path": "internal/errors/errors.go",
+      "severity": "high",
+      "reason": "False positive: SEC-437 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "05aac13237167edac03fff659abd77d3fc9834b2003d457058b4d0a751bd3a71",
+      "rule_id": "SEC-437",
+      "file_path": "internal/errors/errors.go",
+      "severity": "high",
+      "reason": "False positive: SEC-437 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7cce4decfbdb75c4de846cff431f24031f394d822a77bce9193644528d572694",
+      "rule_id": "SEC-437",
+      "file_path": "internal/errors/errors.go",
+      "severity": "high",
+      "reason": "False positive: SEC-437 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e7edbf7776199dbfc4e7d36c4e2bb2e98e7e05cb4055a3be6c998d7ac434af71",
+      "rule_id": "SEC-545",
+      "file_path": "README.md",
+      "severity": "high",
+      "reason": "False positive: SEC-545 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b157176f37068bddcbd95908d1a12da6f2aabf6581681e992f2e04aefcc95ddb",
+      "rule_id": "SEC-545",
+      "file_path": "README.md",
+      "severity": "high",
+      "reason": "False positive: SEC-545 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4e26e9f311ebd6dadf644fa7e7944e5dbae167264d1a2434af861a91165ee2e3",
+      "rule_id": "SEC-545",
+      "file_path": "internal/observability/receiver/webhook.go",
+      "severity": "high",
+      "reason": "False positive: SEC-545 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "43b85e9da1206e35e79a0d174161bcedb0fa8996cfb08b773328765adcf564e4",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e0d2ec6dc357d3eedb241b0b5c06789fe401772be464847471a3596d40ec7679",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d57a7cd3ee1f126355cdd9cb33b71f91f041278d4c8201e74f95c19ac45103df",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "da37574846e06a0ebaf97c3d1ca2f09def8bf204e07b54cf2357840d6cb07405",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7dd4fb7233fdd62176fb67e832dbf653bb972e2352b427b02332e49ea5afbe63",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "cc11ca46a546a5abfd286c63b091990f27cc67d70ded360b80e313af275eeb9a",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "97936f9bbd152f57da45994cf07f9771cf543dc40ecd80deb626aa0e927867ba",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "40ec562178a0debcf97856f2f2e2ee2f22358f1913b5d87dbfa32cd3c5dcc8fb",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e15384ab7e4bf4071402a7daee7778842e3f6abe259a7c79dfae386428786941",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7ea1030209e369071892c85f2882523145d9390ce510ad68b5e86d47f9b3269a",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0c1ccc94349f39fc0e35f7559fb00d18e586a13310ea36159bcca34790c77e65",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7762b81411480769a0e3ffffb524d7a265ee3d2319c9eef946422d3f646d0b48",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4ff78db2713cbd0bead1819bd82e42fda0149aca2b7addae641369506d06cbf4",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5ced579fc5c3be39baa5b256014b0c53e667e2df686d43eeddce3b0a0db01d05",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8bdbe5edb8def699a2f0175e77b23b49bd5016b65931dfdaf553ac0d32f0d259",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0af32712bd4a6b69ce283b8e52a37efa2d5db663ce740951fd30860317459ecc",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d59e9eda52771694ac81bbfbb1d8848e295367529fc8bb0887767f2536326d65",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8903ac69fe1660d26f655e679993a081d3cc1ea1891ed87cdada13603aab2929",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a78f8dd4c949bfb2ce61e8f4bf350e673f553fbe72e10d9b6776ad5fdb76f9fe",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6714efcfd172e1c6cc0676097af516680cf602622cd54022dfaccdac07982ed6",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d01edfd65e2863cf395413980b9832d84de78049471acd03b36ef7975c6c0d64",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "47c3ead91cbe48184c7290711baafec1fe141a64ef5d8e9833d63b1917ef3842",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a78bc4f364982fc9f9f555dd7bfec926bee0da48148d498f9e182e2c1c0a8a03",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0e7d9d787667d3920d8b698fdf39842f409d5b18f95aa4f1dc7cf0c6272c9fb4",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "30e48a81df0fd4d1b44e24b8962a43202b74ae5a200ff019c360bb03032ba617",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "52d104136ea116ac3177ba3c463a885f71a36f31b5b9be7a5571b97c43685fd8",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ac78e342ba9ed333e8dc9cd81ca14cc83960ec22e86648d4b0ef4c9e1f7ff9c8",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "4e61576cd780ebf9cde0935574cf112f24c781b57455a1e1353dcc639ded535a",
+      "rule_id": "SEC-569",
+      "file_path": "internal/container/container.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "645f915f6ee3a0235d00a8e1e96bbe737cd92205feffe15398002ab8abb84e17",
+      "rule_id": "SEC-569",
+      "file_path": "internal/infrastructure/ai/gemini.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e6095da513a20bced78a8d137b51ce0dc5c3fa7355a3773542042a7170b5debf",
+      "rule_id": "SEC-569",
+      "file_path": "internal/infrastructure/ai/service.go",
+      "severity": "high",
+      "reason": "False positive: SEC-569 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d3484bad60fb8c20252cd96de5496cec657029ed7e875cbcb7debdc34a07763e",
+      "rule_id": "SEC-629",
+      "file_path": "internal/cli/policy.go",
+      "severity": "high",
+      "reason": "False positive: SEC-629 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "545619d60f64273f46a18c495218f636d3850d87bef1dc251dff4c209d9ee0ae",
+      "rule_id": "SEC-629",
+      "file_path": "internal/cli/policy.go",
+      "severity": "high",
+      "reason": "False positive: SEC-629 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "062d24017dcdb3f2be755c733aef8cab6b59b513b654348ea786dcff250b6034",
+      "rule_id": "SEC-652",
+      "file_path": "docs/cgp-specification.md",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a695559d79acf54412cce7eb8d5cd8627892dc68d509590e51c1a3f8ad7bfcad",
+      "rule_id": "SEC-652",
+      "file_path": "internal/analysis/heuristics/keywords.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0c4713ae526210ac0bf9b61e6e8dcb70c9bd4304a08d33c1114a8a65d48425a8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/analysis/heuristics/keywords.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "570436785a45af6e08479a68010c9acb1fa84a36131af0513aad50f22235171d",
+      "rule_id": "SEC-652",
+      "file_path": "internal/analysis/heuristics/keywords.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "af1380734bb01fc3f13072bcaecfaea7486bb39ad83c0f15c47a23bfc72516ec",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5bdd4c2cc47f20eef2cea3612f578f93a09ec18190203f43d918f5c30754a1f1",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "60ad9d12c6798b4a388044f683f15920a9d6a2cb5f1fac37b6ad8a147547c1e9",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9d88b1d941cbf4232e30a88a2da411061d31ab4103fd765f429e4f219829784e",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "2aa48720f7b67266653e23bd0c8a8d46051f6ce73226504fe2fd024bba75b7f8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "952b2b6a325706ade727987d5ae6e986995d01343939cf0a0780aad97d6dd073",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6b50de7ff23ef69ec0df27d42790fb2dd70ab8a4c7c3d6d22213d58a49cb2603",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f27f370295012507ed35361941e165d4320968680c1334fe7cebaa635805a127",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "cbd56c0eea183210adc6368a64f7daf208d026a87f13c81c4e71849b795536bd",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "04deb00313669bb203c372aadf2aa29a03e412dea8f84481901dddeb35bcdd13",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "82b98bea000cb2974c5dec644ca518feab4f56ccaaaf679b702d038a68374dc0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a5825a5369b91efe38026209d92b34eee34c18357d41608460d3daa2e94da76a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6fd4ba0cb2c493df3522a80d03c5c8d25700686f17eb87817ad25fb91fc99560",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "071701ce84a1d28bf156323863294392d8053aa789d49dc39a6f79bcda1d0486",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "31c7d8c30ee9a67f97474b364d3d33fee31ed613d8a3deed551e6e8473ead50d",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "bd682e57307734308b55bec3be4e66513ba3590bd7b0ce1219a619acbb207a1c",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0cf578afe1eafa6cc0da2a2163637c6249d094d0fd10ec5b4446bda512af91fe",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3b4a5d54d48de4c9c46115a8e7edb707eb9befe1fd4164e0b522ad35f3e956bd",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "48af0d397ffafbbb773f37875f62e4e450c334d0461e29d9bb586d123f2a4e8e",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "822d67f6b34e681271289c6e90e818288e160d938c868b541c30338f6a08d3e3",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0138071b046b3b665499a405b30cfe064cd4f921f89d7757af89a5c5b5704bae",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "99a86eff4f83795ee83ca78f57c147af06d0ae4c66e7d4b3eb15e83431079eb6",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "fdd48596ea22230d0d7ce9a736284ea3198cd8ca475a0ac9f3f13039e97a86b6",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "58bca56a08dd1a6dc13da2a56209965cbfb22429b764f20780565be7a27d0003",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9d17940a619cf03de0927a19e4c7f6fad0612b2e8a55a54aec5cb694398fa80a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "db5dcd8a66c51adfe5faf09d40256289e915f91e0fde099b2d6b4e1669dbc8a4",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8935865a07255a34671587e3232735e69c9595b95b74ac3011b812e9cc23194f",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d3e9034ac56b9754d0dbe5c556026aa475792ab195e42a0eab2000e489235574",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "be599649302a8686c3567013cf778d448dff294485d5b1f162e4a09c9490897a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f2a9392a2020ca6ef81df6b928e1baa4403dace120734b1ee0e4d2b88335c32b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "caf538687ae1d212f5502f4336a816dd000eea4861c64ffaa2ef431200d41913",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "98ca3ccbcfd4f658d89fe74aa4fb8c847ac64a43d96511a9e22bbe10809725c1",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "feb394cb8f0b30c65a6895ab6aea19361499053f7bc2e6c74b61a0da5c597b69",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b7443ecd49c06927f9dc63ff4a8285eccf0fc1d37eecf80105a92b653bbd4242",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3e9516e011658169e504a831c61c61063a314ccbdc250518cb5ec49bc63dbe9e",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "539584b68563a24b2ccc69a61799fbb4b24a2b9f8a4ef2aaea5bee919ec856c9",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a642f63779674521f6e43ceb472c87695b7c3f1a631a48c217517abe95ee20be",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "b617dc00e30589d899503d021ab97fe3b229ee4e5d10a0f807c90b5fc0b8a98a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "050d57f1d5332d9ea5bc9ea2efb413a54572fe473b9493ea8dd469199357b313",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "0b3f1a6ec2dadc9bb6f8d1a3de11f1b37f140c9cd9009a9c0505cb724e854869",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a0a8704fe364139eadfd8c23a693d608dba19050ffeef8de8bb70434289471e4",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c650f5ad4d7734f90dccf16a39625e4cd1ed423006bb5cad9e7bd047a59f6cf4",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5d3fa3f4d492d82737add968ee38bd218388f85b724e1fe132490650e16cd975",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "77112eaf04d77b9135ef63d2c2f8eb3391db0eb6775c48fb01958db62f735d7a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f41166420e265150ddfb4e5aa8d2acdf06785004c962300f415bf161f042fc1b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e813a9ff97398a7a4d190dac92afe2cf047ef9be9fb198347f490bb21b958027",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "263992043635dd46c5cf8a0c90f707a5aba8f8853dfd898dc89367ba86dfe049",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9f3418b481df18857167f86122c0c112416c262cce0407c9064310f5010a68bf",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "49f4a30ca852ee62ac9179f5d56d55a67510f42e95badc9496093588885f8c54",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a9ec1ced7d39b4aeec959c4a20ebbe0a1dd4b7f31b2bd21db1c1824a48ea638b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "206a543c11d0a86b23a7b03959156608d7ae739c079b2754c7cf028d8a5c5470",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "dad95767127077bf601a301f9c634f908ce1d285a7f8fc0d0e043801c8dda4d0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "49776ef3f3cc1b194ee3c33fd8b716470645a65321a42e8de84ce67f3111c0c2",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "533a1a0ba404b633f439543170ac4989b25d0348ae410ffca4a41b51f9240cbb",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5f8af8e6f921ee8e182b5255b607353fca338f5b013cba7c0601c14e3166157b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "63d7957b2fcee9bf3731fbca75ee291c468a68a482751de354e52df37074f3a0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "edc1f14d44a311ea9350d5931ff8479b83dfa852621e5a7c38ab8b2a28ccc132",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e023d61f8e84150e11631eba879c7841234b141d8d4be46fc2601386d1e4576f",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "bc66c17721f98394d1f91c2a8902f659784a893f19ab0eda4045ec2ab9115fc1",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d84640feb48d31ae8eb6a75a963c147a20caa43b2f9ffae98deee72d6f19bae0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ab909771cbd3e4891102e7656a88f20319fb259bbaa3563c7f8e858b3b66fd2a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "2ac5d36fb81198c26c93a822768f27d0aa81d9e7a60f0c3ab72bbb9f55620252",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7394e6daf86f709bd1cd4bcd30fe93211ef7a43890603ce0ab797d71dce43051",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e10ce8cf45845ccec8735c58f8b0ffd44570b55864394d5b0c81f6c0a2ddfbef",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "da1a5cc2a6830322f6c1cd6b425958b760c5b02445b8a6709e93c6ad97f47b42",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e03e5d7ea03aca090f8d00da6e30a9ffb599e832bf00fe0537e7ee7a4766db61",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "dba912eaad18e4c4d5b59546bb90b425e50f2e8e2e1c7281c43d32619ad60be7",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "dc3b089b3679c888dbf31c2be0b1c35615477ee0a78c09dad60c86ecf6057ff2",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "852ac950c03f41d1c7c0242a8d27ae5fc6ae2df74e81166cf1e49404fca65187",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "13730d5a8584abaa1a75d5bfbddfd9770bb325c5d7188540d9ca76b6ccd14c8c",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "676818a4aee71ce9339d0f38c50d564a952cf263d9571030eb74879aec8e9d43",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "17550b62095fe5c1ceb1033cf88c96c302708413811faafea12f665cba7a91c8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c1bbc24321751b23cb393f57a2515f9792fd7e99dfe4dee2804bfdc3ae103855",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9957139dc72369a3cef139fd08fedc6241222d93bb5ba251244c3f2a3c74558e",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a89ece48ebf4a896d7e834d69ac33e8db718ab18a5ed7f47c3f5c7a475e078fb",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7cb391cd5b0d1311965be4e78f8b8234781a4b0f9f30adab51fa7d8a1c3aa808",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e85ef3c3e6b5a3dd7e46a67b4d1e199e38ea18321e296cc9129fe9f5fb74bc89",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f693a1a39f02f35caef63ae27c70c8ea7084146669af3fee5b58e3db35ef7435",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "be2a58c56f37263acba84f5d03c5e5cbfba3cf1e5144cb2b028d4df7b2670ddf",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c25db93d9aa405d645acc0d8184fbdc79aa91a7b3952f214360086606bc4d8ba",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6468d4ac86d6bce4faae19746885635ecb68ec9595931dfd2ec0bfaf1f6d16d7",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "64fa7e3f72df6fbb21cfc62486d88d5a1d6ce9aa3b5e809eac92c43129a73ce8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f177fa75a984ac782bdb0abfe2112779fef3f941ab3abdc03aecb5d6f449f402",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "914bec4944becef5a7a0fd71fd9e1c2604f043a8b54649af9aef19481f33d81f",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f2e8b4cc1e964097bcb34f960addba44910e8dc44fd1b14c1bafc22766cf1d5a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "227f38c43666c37e47d0e20f1cdcd9ffe9a9341df3537666a174da41ab3beee7",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c901f82d322562ded37d9df23aeb5f7d9d4eb7f96fce1cb9d39de9198541d62d",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "d544ea8ce32267f93d2c7305690998dfe735e592d1a1034b206b9bcffdcd2878",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "eb6b57fd666c4e4259ad8cf7110ad5712bd567509475d5f64e573cfdf70a79f2",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "2cd389120c2ca673d4df0f73e0678784172b2369910046d68aa0872b764b2ed7",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e37091c4cb1ca9e5f20f11807f10a496a76dbf627abb92467e01292fa10d4726",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "83f98d2cdf7cafcbaf05cbb4634ed9afc36bd57bd7bbb458650ca1a5629179c3",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "1fd327b886387c230641f12e3ecc35fd54265be3233889f23b69cbe1334f4409",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "ef99f17d1d59e04e213d6051a7a388ffb283097068a1b48e8f9462b71b9bdb05",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "e1617c22865eec1312da7567a6785d0e7331933a8f93187627a8f138a1955c26",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c02e92baf21a019bf6f1e1b1f84de9a158ca896014686e2f0ee37487404320c8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "787a720532c66fa42293dadd758c21dd9ea5f3174c9796fdb1dacbdb5d99cfa0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9bfa47110f7927187ce1c58a38fb5153fa689c89329b22ec9cf4896c171b4838",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f3edf519b9631611194a5be40b9dbfa247d84ea13230bd9062b3bccd0f92b0fa",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "cb9018cd98e57594b9d9915444219e9d3c987492afac6299f83c5d7bd7f22f83",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a4106e2a31c2403427591ee96acbd3f9ea0e45bdc324de0e1c59772ff627bbd0",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "bf860b2b1b2d9e7946ed9657eb243fd75d5481c01b114c1b1a4aae658c1b526d",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7f871bf242fef1f6f8567064bed4fe34d3e44641a9afc1a7b24fbe87ec3cf7ef",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "8416efa2a2e0024f482e3cd2c73a6d0b0d7207bfc68dcc6f45022f03cf2903cf",
+      "rule_id": "SEC-652",
+      "file_path": "internal/security/masker.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "818a8dde172c5a9597a3af6919d1ef413008c0efee05d4ed1302ac832376f4e8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/security/masker.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "7227ce4637bc7cd3c3a5460c722ef1c4a922293b32c719f032b4a7f94a8045aa",
+      "rule_id": "SEC-652",
+      "file_path": "internal/security/masker.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "68b6ef52fd576a64772791f2bac0e7ee413f46e31d0f580b4119f2a233e76992",
+      "rule_id": "SEC-652",
+      "file_path": "internal/security/masker.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "191719dc1074246c1892cb1f1d531346630218b1678b01b61bca107d212be111",
+      "rule_id": "SEC-652",
+      "file_path": "internal/security/masker.go",
+      "severity": "high",
+      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "f245f28243dbe8a79b4608dabf2eee059e72736f9e11e7ebb53e47db29151a2b",
+      "rule_id": "SEC-659",
+      "file_path": "internal/cli/policy.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "49d40df23afc190a049ba94d886b4ac050ffbd591bf43e0f3bb088db87d9a89f",
+      "rule_id": "SEC-659",
+      "file_path": "internal/cli/policy.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6cd67665bf388be6d6707de44f32354fd58bf6e2f2a45f484cfb63e442ab799b",
+      "rule_id": "SEC-659",
+      "file_path": "internal/domain/version/semver.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "5a45d87a9e1f3274c86b9954fdc1f0dc3343407ffca8fb8b4499ebb740c6c054",
+      "rule_id": "SEC-659",
+      "file_path": "internal/domain/version/semver.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3de442ed8333621ec9910e3237f7119909bf40a8aaf85c05529fae6f0a803f75",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "6bbbe742051bfe866fe5b406c5aca799966519e1b073c2acf67329b143b291bb",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "77488b2da3389d5c2d6b9d8d42e6504fc9db7e54cc879d58a2af95796bcd48ed",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "c46deaf11b16194137009acd33acab2d1d04fb4828f74c0fd22073a12898127f",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/impl.go",
+      "severity": "high",
+      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "3668586a5704ad23b84f096b4e61614d58bff74585d7060a89c0e9bd6e460874",
+      "rule_id": "SEC-664",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "a81ce0647a76cc87444d12c5d36773db86a8590e0777eadbcdc136a7741b083e",
+      "rule_id": "SEC-664",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "fc715201991968ae66bf751111acab0f038877e2e306dcf60c2dfa26aeb5143c",
+      "rule_id": "SEC-664",
+      "file_path": "internal/infrastructure/git/conventional.go",
+      "severity": "high",
+      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "9e5c58af832f713ab3d020c1d07701f4cf8eb7c98000cc57ffdb2fb424fde50b",
+      "rule_id": "SEC-792",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "reason": "False positive: SEC-792 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
+    },
+    {
+      "fingerprint": "aae857469ca8edff240ba7e2b69c5d0b70ce41882eaf9cda319c300c95b57743",
+      "rule_id": "SEC-909",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "high",
+      "reason": "False positive: SEC-909 pattern match on Go source code that handles token/key fields",
+      "created_at": "2026-03-22T21:41:22.594055Z"
     }
   ]
 }
