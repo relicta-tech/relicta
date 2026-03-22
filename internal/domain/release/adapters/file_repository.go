@@ -110,7 +110,7 @@ func statePath(repoRoot string, runID domain.RunID) string {
 // ensureDir creates the runs directory if it doesn't exist.
 func ensureDir(repoRoot string) error {
 	dir := runsPath(repoRoot)
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0700)
 }
 
 // ReleaseRunDTO is the data transfer object for serialization.

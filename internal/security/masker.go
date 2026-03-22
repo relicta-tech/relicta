@@ -21,7 +21,7 @@ type Masker struct {
 
 // globalMasker is the singleton instance used throughout the application.
 var (
-	globalMasker = &Masker{enabled: false}
+	globalMasker = &Masker{enabled: true}
 	globalMu     sync.RWMutex
 )
 

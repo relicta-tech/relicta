@@ -48,7 +48,7 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 // StrictTransportSecurity returns middleware that sets HSTS header.
 // Only enable this for HTTPS connections in production.
 func StrictTransportSecurity(maxAge int) func(http.Handler) http.Handler {
-	hstsHeader := fmt.Sprintf("max-age=%d; includeSubDomains", maxAge)
+	hstsHeader := fmt.Sprintf("max-age=%d; includeSubDomains; preload", maxAge)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Only set HSTS when using HTTPS

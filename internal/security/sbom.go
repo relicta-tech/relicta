@@ -457,7 +457,7 @@ func (g *SBOMGenerator) WriteToFile(ctx context.Context, format SBOMFormat, outp
 		return err
 	}
 
-	return os.WriteFile(outputPath, data, 0644)
+	return os.WriteFile(outputPath, data, 0600)
 }
 
 // SupportedFormats returns the list of supported SBOM formats.

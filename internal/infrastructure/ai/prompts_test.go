@@ -213,7 +213,7 @@ func TestBuildUserPrompt_AdditionalCases(t *testing.T) {
 			template: "Generate changelog for {{CONTENT}}",
 			content:  "commit messages here",
 			opts:     GenerateOptions{},
-			contains: []string{"Generate changelog for commit messages here"},
+			contains: []string{"Generate changelog for", "<commit_data>", "commit messages here", "</commit_data>"},
 		},
 		{
 			name:     "with product name",

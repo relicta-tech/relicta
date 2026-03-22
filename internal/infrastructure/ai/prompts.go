@@ -129,7 +129,10 @@ func getAudienceInstruction(audience Audience) string {
 // buildUserPrompt builds the user prompt with content and options.
 // This is shared across all AI service implementations.
 func buildUserPrompt(template, content string, opts GenerateOptions) string {
-	prompt := strings.ReplaceAll(template, "{{CONTENT}}", content)
+	// Wrap content in structural markers to prevent prompt injection from
+	// untrusted sources (commit messages, PR titles, etc.).
+	wrappedContent := "<commit_data>\n" + content + "\n</commit_data>"
+	prompt := strings.ReplaceAll(template, "{{CONTENT}}", wrappedContent)
 
 	if opts.ProductName != "" {
 		prompt = strings.ReplaceAll(prompt, "{{PRODUCT_NAME}}", opts.ProductName)
@@ -144,11 +147,16 @@ func buildUserPrompt(template, content string, opts GenerateOptions) string {
 	}
 
 	if opts.Context != "" {
+		ctx := opts.Context
+		const maxContextLen = 2000
+		if len(ctx) > maxContextLen {
+			ctx = ctx[:maxContextLen]
+		}
 		var b strings.Builder
-		b.Grow(len(prompt) + len(opts.Context) + 25)
+		b.Grow(len(prompt) + len(ctx) + 25)
 		b.WriteString(prompt)
 		b.WriteString("\n\nAdditional context: ")
-		b.WriteString(opts.Context)
+		b.WriteString(ctx)
 		return b.String()
 	}
 

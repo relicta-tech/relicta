@@ -135,8 +135,9 @@ func validateAPIKey(r *http.Request, keys []config.DashboardAPIKeyConfig) *Authe
 		}
 	}
 
-	// Fall back to query parameter (for WebSocket connections)
-	if apiKey == "" {
+	// Fall back to query parameter (for WebSocket upgrade requests only).
+	// API keys in URLs are logged by proxies and browsers — restrict to upgrades.
+	if apiKey == "" && r.Header.Get("Upgrade") == "websocket" {
 		apiKey = r.URL.Query().Get("api_key")
 	}
 

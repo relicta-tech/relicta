@@ -27,6 +27,7 @@ func (s *Server) setupRouter() chi.Router {
 
 	// Security headers
 	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.StrictTransportSecurity(63072000)) // 2 years
 
 	// CORS configuration
 	r.Use(s.corsMiddleware())

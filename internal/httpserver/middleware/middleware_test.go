@@ -200,8 +200,10 @@ func TestAuth_APIKey(t *testing.T) {
 			expectCode: http.StatusOK,
 		},
 		{
-			name:       "valid query parameter",
+			name:       "valid query parameter (websocket upgrade)",
 			queryKey:   validKey,
+			headerKey:  "Upgrade",
+			headerVal:  "websocket",
 			expectCode: http.StatusOK,
 		},
 		{

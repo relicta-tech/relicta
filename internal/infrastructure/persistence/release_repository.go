@@ -477,7 +477,8 @@ func (r *FileReleaseRepository) List(ctx context.Context, repoPath string) ([]re
 // Helper methods
 
 func (r *FileReleaseRepository) releaseFilePath(id release.RunID) string {
-	return filepath.Join(r.basePath, string(id)+".json")
+	safeID := filepath.Base(string(id))
+	return filepath.Join(r.basePath, safeID+".json")
 }
 
 func (r *FileReleaseRepository) toDTO(rel *release.ReleaseRun) *releaseDTO {
