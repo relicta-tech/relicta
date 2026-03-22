@@ -112,6 +112,9 @@ func (s *Server) setupRouter() chi.Router {
 				r.Get("/risk-trends", handlers.GetAnalyticsRiskTrends)
 				r.Get("/decisions", handlers.GetAnalyticsDecisions)
 				r.Get("/team", handlers.GetAnalyticsTeam)
+				r.Get("/outcomes", handlers.GetAnalyticsOutcomes)
+				r.Get("/risk-factors", handlers.GetAnalyticsRiskFactors)
+				r.Get("/calibration", handlers.GetAnalyticsCalibration)
 			})
 
 			// Memory/Learning endpoints
