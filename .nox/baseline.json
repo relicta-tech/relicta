@@ -216,6 +216,222 @@
       "severity": "critical",
       "reason": "Plugin registry schema: env var reference in config template",
       "created_at": "2026-03-22T10:44:56.960506Z"
+    },
+    {
+      "fingerprint": "678745e4c11253351a112a7592ed49113092ff2edd2ff0679f584db81e3c2c62",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry: env var reference, not hardcoded secret",
+      "created_at": "2026-03-22T21:24:42.527157Z"
+    },
+    {
+      "fingerprint": "b92d7097432e2bc22dea8ebdbc1568dabc5b4b4c6946209f66e8224c22075984",
+      "rule_id": "SEC-073",
+      "file_path": "internal/infrastructure/persistence/postgres/postgres_test.go",
+      "severity": "critical",
+      "reason": "Test file: localhost postgres connection string for integration tests",
+      "created_at": "2026-03-22T21:24:45.185519Z"
+    },
+    {
+      "fingerprint": "93e16af35a62de70121aeed769e6c7f625855fbe57b5446aac5f712ab139451f",
+      "rule_id": "SEC-073",
+      "file_path": "internal/infrastructure/persistence/postgres/postgres_test.go",
+      "severity": "critical",
+      "reason": "Test file: localhost postgres connection string for integration tests",
+      "created_at": "2026-03-22T21:24:47.974901Z"
+    },
+    {
+      "fingerprint": "ee2d768304dab5ac753ab91094c1db11237f38b63bd9cfc4078a30971b4e2fbb",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: zod is a legitimate npm package",
+      "created_at": "2026-03-22T21:24:51.771915Z"
+    },
+    {
+      "fingerprint": "9673285bbf42bf305b7c26b1bb48904b5c3235a37115a40daada521fc7ec4f0d",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: qs is a legitimate npm package",
+      "created_at": "2026-03-22T21:24:53.276879Z"
+    },
+    {
+      "fingerprint": "952a871461479d9524da60e70ac847cf96218d0435ceecbb73624b6d8e85ca10",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: vue is a legitimate npm package",
+      "created_at": "2026-03-22T21:24:56.018011Z"
+    },
+    {
+      "fingerprint": "2cd6ad579589c6b65b49ac60bd8fac8003c6a11d3c2a58ecef8051ac1d7fa218",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: he is a legitimate npm HTML entity encoder",
+      "created_at": "2026-03-22T21:24:58.420815Z"
+    },
+    {
+      "fingerprint": "255636a70fab477b61d637306696f6cb3b9436e61ee4687f1ba9a1782d433cd0",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: send is a legitimate npm package by TJ",
+      "created_at": "2026-03-22T21:25:01.656302Z"
+    },
+    {
+      "fingerprint": "dfc5210a27fe0d7676e64f7faa873102c8bd990bfbd4239bbcd3497bb83808d2",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: jiti is a legitimate npm runtime transformer",
+      "created_at": "2026-03-22T21:25:04.124929Z"
+    },
+    {
+      "fingerprint": "ca53bbc4f16283da200844833d5b1e04b9fd5c8ad30821b6c920f774810bd64b",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: ms is a legitimate npm millisecond converter",
+      "created_at": "2026-03-22T21:25:06.377205Z"
+    },
+    {
+      "fingerprint": "11251ff0610c04155ab46df0c32bc879828c9b08f38e316505787eb0000c0f2a",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: jose is a legitimate npm JWT/JOSE library",
+      "created_at": "2026-03-22T21:25:23.933023Z"
+    },
+    {
+      "fingerprint": "d0cd56d4e01e855d2890f54fda5103a281e2402930fcfae68fecdfe0a6e17f46",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: vary is a legitimate npm HTTP Vary header package",
+      "created_at": "2026-03-22T21:25:27.201413Z"
+    },
+    {
+      "fingerprint": "f16a3e9de5edf75b3879ce83603ee6f41dc1c511e167b91709e5bdb3067a5e04",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: safer-buffer is a legitimate npm buffer safety package",
+      "created_at": "2026-03-22T21:25:29.799744Z"
+    },
+    {
+      "fingerprint": "5b38dbdad34e19ce85eb93f530859cc04d8d126d0a9be2540f1f0aa609d7b85c",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: etag is a legitimate npm HTTP ETag package",
+      "created_at": "2026-03-22T21:25:32.933172Z"
+    },
+    {
+      "fingerprint": "1da8a25edbee657256b5a5ae5270e4425dbced6ba1ef4e10cceb173001faa87a",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: ajv is a legitimate npm JSON schema validator",
+      "created_at": "2026-03-22T21:25:35.636427Z"
+    },
+    {
+      "fingerprint": "3b8be86807bbae50e653229b11be1eabaecf8bc7e210a747615ede6cd1d9bfc9",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: gopd is a legitimate npm Object.getOwnPropertyDescriptor package",
+      "created_at": "2026-03-22T21:25:38.802062Z"
+    },
+    {
+      "fingerprint": "25f5a60071edd114960c2cace34679cc51f5a4cc76292e5f39fd49a3de8393e7",
+      "rule_id": "VULN-002",
+      "file_path": "app/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: hono is a legitimate npm web framework",
+      "created_at": "2026-03-22T21:25:41.529276Z"
+    },
+    {
+      "fingerprint": "37dfdd199fcaedec3e984adde717e48ec786efa76c2d84f18cf80dd8759574a1",
+      "rule_id": "VULN-002",
+      "file_path": "web/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: ajv in web/ lockfile is legitimate",
+      "created_at": "2026-03-22T21:25:44.252575Z"
+    },
+    {
+      "fingerprint": "e630fd7a5d806490623b7554032a6a57d881d14f06d61a32b043233b1209541d",
+      "rule_id": "VULN-002",
+      "file_path": "web/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: ms in web/ lockfile is legitimate",
+      "created_at": "2026-03-22T21:25:46.855528Z"
+    },
+    {
+      "fingerprint": "6a793668b0e4bad1046cc1b04db13fc6182a04fb6bcd401c3b7925f65431b2ff",
+      "rule_id": "VULN-002",
+      "file_path": "web/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: defu is a legitimate npm defaults utility",
+      "created_at": "2026-03-22T21:25:49.610944Z"
+    },
+    {
+      "fingerprint": "9bcd19e6ea27b57dd1f76e920d5ceda57fddadcf27313c9758503408da7e5110",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:06.316014Z"
+    },
+    {
+      "fingerprint": "bad4a00cd6c18bc5640b353764811a1d34688d0c90bd9f8a001dc46d30156428",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:09.073344Z"
+    },
+    {
+      "fingerprint": "78c2df5191b1e93bcd1013beb5924487bffa4637cb44d142b9e0ad1f3ffb53c1",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:12.150879Z"
+    },
+    {
+      "fingerprint": "6ab180161732d56fc7a4ec43639816b9c8fddf15b2fe5dbe395c923abe0e2b87",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:12.96648Z"
+    },
+    {
+      "fingerprint": "80615545fce5ffaed55c1fb02d94514be2dd114c616f23893cbc68a5941f7f46",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:13.719025Z"
+    },
+    {
+      "fingerprint": "64ba34970b5f84a397c79843421123b4893aad7a68fb5ca79b1c9270001e1da5",
+      "rule_id": "VULN-002",
+      "file_path": "web/package-lock.json",
+      "severity": "critical",
+      "reason": "False positive: pify is a legitimate npm promisify utility by sindresorhus",
+      "created_at": "2026-03-22T21:26:39.50969Z"
+    },
+    {
+      "fingerprint": "bbb06075c9f61071a4a4c35359bd44ec6a701120b364967f37d76b6c6372d98a",
+      "rule_id": "IAC-013",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "high",
+      "reason": "Documentation template: example workflow, not production CI",
+      "created_at": "2026-03-22T21:26:41.112906Z"
     }
   ]
 }
