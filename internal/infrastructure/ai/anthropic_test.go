@@ -51,7 +51,7 @@ func TestNewAnthropicService_InvalidAPIKey(t *testing.T) {
 func TestNewAnthropicService_ValidConfig(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -71,7 +71,7 @@ func TestNewAnthropicService_ValidConfig(t *testing.T) {
 func TestNewAnthropicService_DefaultModel(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		Model:         "", // No model specified
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -97,7 +97,7 @@ func TestNewAnthropicService_DefaultModel(t *testing.T) {
 func TestNewAnthropicService_CustomModel(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		Model:         "claude-3-opus-20240229",
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -123,7 +123,7 @@ func TestNewAnthropicService_CustomModel(t *testing.T) {
 func TestNewAnthropicService_CustomPrompts(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -155,7 +155,7 @@ func TestNewAnthropicService_CustomPrompts(t *testing.T) {
 func TestAnthropicService_GenerateChangelog_EmptyChanges(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -179,7 +179,7 @@ func TestAnthropicService_GenerateChangelog_EmptyChanges(t *testing.T) {
 func TestAnthropicService_GenerateReleaseNotes_EmptyChangelog(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -203,7 +203,7 @@ func TestAnthropicService_GenerateReleaseNotes_EmptyChangelog(t *testing.T) {
 func TestAnthropicService_GenerateMarketingBlurb_EmptyNotes(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -227,7 +227,7 @@ func TestAnthropicService_GenerateMarketingBlurb_EmptyNotes(t *testing.T) {
 func TestAnthropicService_SummarizeChanges_EmptyChanges(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -251,7 +251,7 @@ func TestAnthropicService_SummarizeChanges_EmptyChanges(t *testing.T) {
 func TestNewService_AnthropicProvider(t *testing.T) {
 	svc, err := NewService(
 		WithProvider("anthropic"),
-		WithAPIKey("sk-ant-api03-validkeyformat12345678901234567890"),
+		WithAPIKey(testAnthropicKey),
 		WithModel("claude-3-opus-20240229"),
 		WithTimeout(30*time.Second),
 	)
@@ -273,7 +273,7 @@ func TestNewService_AnthropicProvider(t *testing.T) {
 func TestNewService_ClaudeAlias(t *testing.T) {
 	svc, err := NewService(
 		WithProvider("claude"),
-		WithAPIKey("sk-ant-api03-validkeyformat12345678901234567890"),
+		WithAPIKey(testAnthropicKey),
 		WithTimeout(30*time.Second),
 	)
 	if err != nil {
@@ -324,7 +324,7 @@ func TestAnthropicKeyPattern(t *testing.T) {
 		key   string
 		valid bool
 	}{
-		{"valid key", "sk-ant-api03-validkeyformat12345678901234567890", true},
+		{"valid key", testAnthropicKey, true},
 		{"valid key short", "sk-ant-12345678901234567890", true},
 		{"invalid prefix", "sk-invalid-12345678901234567890", false},
 		{"missing prefix", "12345678901234567890", false},
@@ -346,7 +346,7 @@ func TestAnthropicKeyPattern(t *testing.T) {
 func TestNewAnthropicService_BaseURL(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		BaseURL:       "https://custom-anthropic.example.com",
 		MaxTokens:     2048,
 		Temperature:   0.7,

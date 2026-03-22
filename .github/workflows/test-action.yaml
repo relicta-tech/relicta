@@ -17,12 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Test Relicta Action
-        uses: relicta-tech/relicta-action@v2
+        uses: relicta-tech/relicta-action@563f47c666b3ddc28bf8c62bf5735b264f2ba86d # v2
         with:
           version: ${{ github.event.inputs.version }}
           command: plan

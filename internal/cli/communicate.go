@@ -127,9 +127,10 @@ func runCommunicate(cmd *cobra.Command, _ []string) error {
 }
 
 func generateAndOutputNarratives(ctx context.Context, gen *communication.NarrativeGenerator, input communication.NarrativeInput, audiences []communication.Audience) error {
-	// Generate spinner
-	spinner := NewSpinner("Generating audience-specific narratives...")
+	// Generate spinner (only in interactive mode)
+	var spinner *Spinner
 	if !outputJSON {
+		spinner = NewSpinner("Generating audience-specific narratives...")
 		spinner.Start()
 	}
 

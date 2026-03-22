@@ -25,7 +25,7 @@ func TestOpenAICompleteSuccess(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		BaseURL:       server.URL + "/v1",
 		Model:         "gpt-4",
 		MaxTokens:     10,
@@ -80,7 +80,7 @@ func TestAnthropicCompleteSuccess(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-abcdefghijklmnopqrstuvwxyz123456",
+		APIKey:        testAnthropicKey,
 		BaseURL:       server.URL,
 		Model:         "claude-3",
 		MaxTokens:     10,

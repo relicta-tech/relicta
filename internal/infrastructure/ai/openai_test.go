@@ -74,9 +74,9 @@ func TestNewOpenAIService_ValidConfig(t *testing.T) {
 		name   string
 		apiKey string
 	}{
-		{"standard key", "sk-1234567890abcdef1234567890abcdef"},
-		{"project key", "sk-proj-1234567890abcdef1234567890abcdef"},
-		{"long key", "sk-1234567890abcdef1234567890abcdef1234567890abcdef"},
+		{"standard key", testOpenAIKey},
+		{"project key", testOpenAIProjKey},
+		{"long key", testOpenAILongKey},
 	}
 
 	for _, tt := range tests {
@@ -105,7 +105,7 @@ func TestNewOpenAIService_ValidConfig(t *testing.T) {
 func TestNewOpenAIService_CustomBaseURL(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		BaseURL:       "https://custom.openai.com/v1",
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -131,7 +131,7 @@ func TestNewOpenAIService_CustomBaseURL(t *testing.T) {
 func TestNewOpenAIService_CustomPrompts(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -163,7 +163,7 @@ func TestNewOpenAIService_CustomPrompts(t *testing.T) {
 func TestOpenAIService_GenerateChangelog_EmptyChanges(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -187,7 +187,7 @@ func TestOpenAIService_GenerateChangelog_EmptyChanges(t *testing.T) {
 func TestOpenAIService_GenerateReleaseNotes_EmptyChangelog(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -211,7 +211,7 @@ func TestOpenAIService_GenerateReleaseNotes_EmptyChangelog(t *testing.T) {
 func TestOpenAIService_GenerateMarketingBlurb_EmptyNotes(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -235,7 +235,7 @@ func TestOpenAIService_GenerateMarketingBlurb_EmptyNotes(t *testing.T) {
 func TestOpenAIService_SummarizeChanges_EmptyChanges(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -259,7 +259,7 @@ func TestOpenAIService_SummarizeChanges_EmptyChanges(t *testing.T) {
 func TestOpenAIService_ServiceMethods(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       5 * time.Second,
@@ -289,7 +289,7 @@ func TestOpenAIService_ServiceMethods(t *testing.T) {
 func TestNewService_OpenAIProvider(t *testing.T) {
 	svc, err := NewService(
 		WithProvider("openai"),
-		WithAPIKey("sk-1234567890abcdef1234567890abcdef"),
+		WithAPIKey(testOpenAIKey),
 		WithModel("gpt-4"),
 		WithTimeout(30*time.Second),
 	)
@@ -375,8 +375,8 @@ func TestOpenAIKeyPattern(t *testing.T) {
 		key   string
 		valid bool
 	}{
-		{"valid standard key", "sk-1234567890abcdef1234567890abcdef", true},
-		{"valid project key", "sk-proj-1234567890abcdef1234567890abcdef", true},
+		{"valid standard key", testOpenAIKey, true},
+		{"valid project key", testOpenAIProjKey, true},
 		{"valid long key", "sk-abcdefghij1234567890ABCDEFGHIJ1234567890", true}, // pragma: allowlist secret
 		{"valid with dashes", "sk-12345678901234567890-abcdef", true},
 		{"valid with underscores", "sk-12345678901234567890_abcdef", true},

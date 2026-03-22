@@ -97,13 +97,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("  2. Set up required environment variables:")
 	fmt.Println()
 	if cfg.AI.Enabled {
-		printSubtle("     export OPENAI_API_KEY=your-api-key")
+		printSubtle("     export OPENAI_API_KEY=<your-api-key>")
 	}
 	if hasPlugin(cfg, "github") {
-		printSubtle("     export GITHUB_TOKEN=your-token")
+		printSubtle("     export GITHUB_TOKEN=<your-token>")
 	}
 	if hasPlugin(cfg, "slack") {
-		printSubtle("     export SLACK_WEBHOOK_URL=your-webhook-url")
+		printSubtle("     export SLACK_WEBHOOK_URL=<your-webhook-url>")
 	}
 	fmt.Println()
 	fmt.Println("  3. Run 'relicta plan' to analyze your commits")

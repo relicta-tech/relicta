@@ -73,7 +73,7 @@ func TestGenerateAndOutputNarratives_Success(t *testing.T) {
 		},
 	}
 	audiences := []communication.Audience{
-		{Type: communication.AudienceEngineering, Tone: communication.CommToneTechnical, DetailLevel: communication.DetailFull},
+		{Type: communication.AudienceEngineering, Tone: communication.CommToneTechnical, DetailLevel: communication.DetailFull, Sections: []communication.Section{communication.SectionFeatures}},
 	}
 
 	// Save and override outputJSON
@@ -112,7 +112,7 @@ func TestGenerateAndOutputNarratives_NonJSON(t *testing.T) {
 		},
 	}
 	audiences := []communication.Audience{
-		{Type: communication.AudienceProduct, Tone: communication.CommToneBusiness, DetailLevel: communication.DetailSummary},
+		{Type: communication.AudienceProduct, Tone: communication.CommToneBusiness, DetailLevel: communication.DetailSummary, Sections: []communication.Section{communication.SectionFixes}},
 	}
 
 	origJSON := outputJSON
@@ -145,7 +145,7 @@ func TestGenerateAndOutputNarratives_WithOutputDir(t *testing.T) {
 		},
 	}
 	audiences := []communication.Audience{
-		{Type: communication.AudienceExternal, Tone: communication.CommTonePublic, DetailLevel: communication.DetailHighlights},
+		{Type: communication.AudienceExternal, Tone: communication.CommTonePublic, DetailLevel: communication.DetailHighlights, Sections: []communication.Section{communication.SectionFeatures}},
 	}
 
 	tmpDir := t.TempDir()

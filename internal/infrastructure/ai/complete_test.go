@@ -30,7 +30,7 @@ func TestOpenAIComplete_ContextCancellation(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		BaseURL:       server.URL,
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -116,7 +116,7 @@ func TestAnthropicComplete_ContextCancellation(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		BaseURL:       server.URL,
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -148,7 +148,7 @@ func TestAnthropicComplete_ContextCancellation(t *testing.T) {
 func TestOpenAIComplete_RateLimiterError(t *testing.T) {
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,
@@ -233,7 +233,7 @@ func TestOpenAIComplete_EmptyResponse(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "openai",
-		APIKey:        "sk-1234567890abcdef1234567890abcdef",
+		APIKey:        testOpenAIKey,
 		BaseURL:       server.URL,
 		MaxTokens:     2048,
 		Temperature:   0.7,
@@ -271,7 +271,7 @@ func TestAnthropicComplete_EmptyResponse(t *testing.T) {
 
 	cfg := ServiceConfig{
 		Provider:      "anthropic",
-		APIKey:        "sk-ant-api03-validkeyformat12345678901234567890",
+		APIKey:        testAnthropicKey,
 		BaseURL:       server.URL,
 		MaxTokens:     2048,
 		Temperature:   0.7,

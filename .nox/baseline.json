@@ -1,0 +1,221 @@
+{
+  "schema_version": "1.0.0",
+  "entries": [
+    {
+      "fingerprint": "1104b823f4f6501f9b2df6247d2b44e07d1bddfd9701bbad6727620d2e8d0aa3",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.456997Z"
+    },
+    {
+      "fingerprint": "03ea5488e4289eb366932a7c9595d2e43548cf2526e8611ecb74cfb7eb9bfd99",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.476658Z"
+    },
+    {
+      "fingerprint": "8753f743dd4d17dfd580eafc4cd354ffa555fb3183e1d10234a354d8b6179e7e",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.501474Z"
+    },
+    {
+      "fingerprint": "10cd6b3ef8aa6dacaf82091486731bf9876ba3ac88df4082ff5c5aab723fde6a",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.522076Z"
+    },
+    {
+      "fingerprint": "12382606cf62ee86ddb93c42788049fea41b5dd0177bf5d61474514f0ccbbc83",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.5415Z"
+    },
+    {
+      "fingerprint": "94e1d72156a928285104d88b8b427ac5d8587235a4b0d4daa20f86fcf751a752",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.560082Z"
+    },
+    {
+      "fingerprint": "0fa2f81f13ffcf4e6f4265d0353608c63b7e82ece0e0a39c41136889a732590c",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.579477Z"
+    },
+    {
+      "fingerprint": "31603ff20b8c0a9486dac662a99f06d4282f4a9254ff08482f2b072f7c15abaa",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.595558Z"
+    },
+    {
+      "fingerprint": "734e6c9c66d2333801f853da26a3fc4070108fcc4a8815854e1d3b40ed76ccec",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.601432Z"
+    },
+    {
+      "fingerprint": "ada0a90e988c7867b71d4cb7695e9bf47e7709522c220953f2872828f4191d9b",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference pattern, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:39.630134Z"
+    },
+    {
+      "fingerprint": "1a538cb34ae0f49d5c68fe1240b24ebf23094b8d6b0054ad89c6766a9153c400",
+      "rule_id": "IAC-351",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "critical",
+      "reason": "GitHub Actions workflow: uses ${{ secrets.* }} reference, not a hardcoded secret",
+      "created_at": "2026-03-22T10:43:49.18819Z"
+    },
+    {
+      "fingerprint": "ef75a84c119ea355ac4196183ef53d36aac25de45f7d19b7de0fce2482e29a0f",
+      "rule_id": "IAC-351",
+      "file_path": "docs/security/plugin-release-workflow.yaml",
+      "severity": "critical",
+      "reason": "Documentation template: example workflow config, not a real secret",
+      "created_at": "2026-03-22T10:43:52.295919Z"
+    },
+    {
+      "fingerprint": "3a12e6d2015ad14ba5a37fa5e888552094cb5022455c07520c4f17fefbdec4fd",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:43:54.949902Z"
+    },
+    {
+      "fingerprint": "1383c10cac6a979eab77229dfb3d547f26b27b28fc58adfe25e0f1cf3145cef7",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:43:57.691302Z"
+    },
+    {
+      "fingerprint": "f04fb70649c36e7be3b877d11df28102e1401ded6667a5891bac4db48db0cbab",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:00.327133Z"
+    },
+    {
+      "fingerprint": "442bc381b951cdbd83026658d23814613fb7272f669dad855a7c17a4b0cca6f3",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:03.080121Z"
+    },
+    {
+      "fingerprint": "c59d90e618992a4617bfc4de58f622b6e9a85fc8a07faec69c7339311bcaeafc",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:05.747202Z"
+    },
+    {
+      "fingerprint": "6ceb08624935666b4cdf8f65b9e5a0754bf3286f91e017e23c26130bac8c62c7",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:08.803775Z"
+    },
+    {
+      "fingerprint": "0a741d42a3144651c5bb44f1974f3a021ddac4fc175519989b4fa7f9bc2da522",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:11.489494Z"
+    },
+    {
+      "fingerprint": "33d3279410b4081291df33364b5c764294f9d6d558dfdddfe566b3283c9e2e1c",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:14.024286Z"
+    },
+    {
+      "fingerprint": "c7de7385f1526eadd21873af76ec50c2050d23746466b8408f107ba48d8e48c6",
+      "rule_id": "AI-022",
+      "file_path": "internal/config/validate_extra_test.go",
+      "severity": "high",
+      "reason": "Test file: intentionally high temperature to test validation logic",
+      "created_at": "2026-03-22T10:44:21.642871Z"
+    },
+    {
+      "fingerprint": "9ab7a8a4d4f5a78443a7cf05bec21ce39da0a18bcccda8c12597c15985ab3290",
+      "rule_id": "AI-007",
+      "file_path": "internal/cli/init.go",
+      "severity": "high",
+      "reason": "Help text placeholder with angle brackets, not an actual key",
+      "created_at": "2026-03-22T10:44:24.4971Z"
+    },
+    {
+      "fingerprint": "bb53c1a274269db86fac37abd416865cb985497cad8feb7008ed3fe90a4dfba0",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:46.360537Z"
+    },
+    {
+      "fingerprint": "d7c8fbc2be3d62b43d3610956308c7be89402176416e8dead083d3425602850d",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:48.815832Z"
+    },
+    {
+      "fingerprint": "19cea877a4f37ea8c67e77a5a6f1fce51c756dbd04d9330f8a9ea0ab77b2563a",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:51.991257Z"
+    },
+    {
+      "fingerprint": "f0d8953cb7702a566d5fa3b0f52299e180abf41c5f5172144db5b3cd322b0529",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:54.650932Z"
+    },
+    {
+      "fingerprint": "511997589c2b7f548f08a6aa98d9974688837cbd370c042abfe12f5f6a350f7f",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "reason": "Plugin registry schema: env var reference in config template",
+      "created_at": "2026-03-22T10:44:56.960506Z"
+    }
+  ]
+}

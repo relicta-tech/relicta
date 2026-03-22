@@ -49,10 +49,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -61,7 +61,7 @@ jobs:
         run: go install golang.org/x/perf/cmd/benchstat@latest
 
       - name: Download baseline benchmarks
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: bench-cache
         with:
           path: ./bench-baseline.txt
@@ -104,13 +104,13 @@ jobs:
 
       - name: Update baseline cache
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ./bench-baseline.txt
           key: bench-baseline-${{ runner.os }}-${{ hashFiles('go.mod') }}
 
       - name: Upload benchmark results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: benchmark-results
           path: |
@@ -120,7 +120,7 @@ jobs:
 
       - name: Comment on PR with results
         if: github.event_name == 'pull_request' && steps.bench-cache.outputs.cache-hit == 'true'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const fs = require('fs');
@@ -159,10 +159,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -190,7 +190,7 @@ jobs:
 
       - name: Comment binary size on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const size = '${{ steps.size-check.outputs.size_mb }}';
@@ -209,10 +209,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -234,7 +234,7 @@ jobs:
           echo "================================"
 
       - name: Upload memory benchmark results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: memory-benchmark-results
           path: bench-memory.txt
@@ -250,16 +250,16 @@ jobs:
     needs: [benchmark, memory-benchmark]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
       - name: Download benchmark history
-        uses: actions/cache@v5
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         id: history-cache
         with:
           path: ./bench-history.json
@@ -370,13 +370,13 @@ jobs:
           PYTHON
 
       - name: Update history cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: ./bench-history.json
           key: bench-history-v1-${{ runner.os }}
 
       - name: Upload trend data
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: benchmark-trends
           path: |
@@ -389,10 +389,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -429,7 +429,7 @@ jobs:
           fi
 
       - name: Upload parallelization results
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: parallelization-benchmark-results
           path: bench-parallel.txt
