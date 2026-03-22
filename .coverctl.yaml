@@ -6,7 +6,7 @@ policy:
     - name: cmd
       match:
         - ./cmd/...
-      min: null
+      min: 0
     - name: analysis
       match:
         - ./internal/analysis/...
@@ -46,7 +46,7 @@ policy:
     - name: infrastructure
       match:
         - ./internal/infrastructure/...
-      min: null
+      min: 76
     - name: mcp
       match:
         - ./internal/mcp/...

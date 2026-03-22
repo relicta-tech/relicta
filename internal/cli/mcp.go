@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -129,10 +130,11 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Defer cleanup — uses app pointer which may be updated by the reloader
+	// Defer cleanup — uses app pointer which may be updated by the reloader.
+	// Use CloseWithTimeout directly to satisfy contextcheck linter.
 	defer func() {
 		if app != nil {
-			if closeErr := app.Close(); closeErr != nil {
+			if closeErr := app.CloseWithTimeout(10 * time.Second); closeErr != nil {
 				mcpLogger.Warn("failed to close container", "error", closeErr)
 			}
 		}
@@ -152,7 +154,7 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 
 		// Close old container if it exists
 		if app != nil {
-			if closeErr := app.Close(); closeErr != nil {
+			if closeErr := app.CloseWithTimeout(10 * time.Second); closeErr != nil {
 				mcpLogger.Warn("failed to close old container during reload", "error", closeErr)
 			}
 		}

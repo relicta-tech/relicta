@@ -92,6 +92,11 @@ linters:
         linters:
           - contextcheck
         text: collectPluginsForHook
+      # Exclude contextcheck for CloseWithTimeout - takes Duration, not Context
+      - path: internal/cli/mcp\.go
+        linters:
+          - contextcheck
+        text: CloseWithTimeout
 
   settings:
     errcheck:
