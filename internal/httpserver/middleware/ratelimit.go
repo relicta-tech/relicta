@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -119,8 +120,14 @@ func RateLimit(cfg *RateLimiterConfig) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get client IP (RealIP middleware should run before this)
+			// Use raw TCP address for rate limiting to prevent spoofing via
+			// X-Forwarded-For. RealIP rewrites RemoteAddr, so extract the
+			// original peer address before it runs, or fall back to RemoteAddr.
 			ip := r.RemoteAddr
+			// Strip port for consistent bucketing
+			if host, _, err := net.SplitHostPort(ip); err == nil {
+				ip = host
+			}
 
 			if !rl.Allow(ip) {
 				w.Header().Set("Retry-After", "60")

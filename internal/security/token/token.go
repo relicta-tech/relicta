@@ -56,18 +56,23 @@ type Service struct {
 
 	mu      sync.RWMutex
 	revoked map[string]time.Time // jti -> expiry (for cleanup)
+	done    chan struct{}         // closed on Close() to stop cleanup goroutine
 }
 
 // NewService creates a token service with the given config.
+// A background goroutine periodically cleans expired revocation entries.
 func NewService(cfg Config) (*Service, error) {
 	if len(cfg.Secret) < 32 {
 		return nil, errors.New("token: secret must be at least 32 bytes")
 	}
 	cfg.defaults()
-	return &Service{
+	s := &Service{
 		cfg:     cfg,
 		revoked: make(map[string]time.Time),
-	}, nil
+		done:    make(chan struct{}),
+	}
+	go s.cleanupLoop()
+	return s, nil
 }
 
 // Issue creates a new token pair for the given user.
@@ -190,6 +195,30 @@ func (s *Service) CleanExpired() {
 		}
 	}
 	s.mu.Unlock()
+}
+
+// cleanupLoop runs periodic cleanup of expired revocation entries.
+func (s *Service) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.CleanExpired()
+		case <-s.done:
+			return
+		}
+	}
+}
+
+// Close stops the background cleanup goroutine.
+func (s *Service) Close() {
+	select {
+	case <-s.done:
+		// already closed
+	default:
+		close(s.done)
+	}
 }
 
 func (s *Service) isRevoked(jti string) bool {

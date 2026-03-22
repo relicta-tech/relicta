@@ -19,8 +19,9 @@ func (s *Server) setupRouter() chi.Router {
 	r := chi.NewRouter()
 
 	// Core middleware
+	// Note: RealIP runs after rate limiting so that rate limits use the raw
+	// TCP peer address and cannot be bypassed via X-Forwarded-For spoofing.
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
 	r.Use(middleware.Logger())
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
@@ -41,6 +42,7 @@ func (s *Server) setupRouter() chi.Router {
 
 	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(chimw.RealIP) // RealIP inside API group, after global rate limiting
 		r.Use(middleware.APIVersion())
 
 		// Health check (unauthenticated)

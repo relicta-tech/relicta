@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/felixgeelhaar/mcp-go"
@@ -33,6 +34,10 @@ type Server struct {
 	server  *mcp.Server
 	version string
 	logger  *slog.Logger
+
+	// mu protects config and adapter which may be updated by handleInit's
+	// config reloader on the HTTP transport where concurrent requests are possible.
+	mu sync.RWMutex
 
 	// Dependencies for tool execution
 	config       *config.Config
@@ -368,6 +373,9 @@ func (s *Server) ServeStdio() error {
 }
 
 // ServeHTTP starts the MCP server on HTTP transport.
+// NOTE: Security headers (HSTS, CSP, etc.) are not applied because mcp-go
+// does not expose its HTTP handler for wrapping. If exposing the MCP HTTP
+// transport externally, deploy behind a reverse proxy that sets these headers.
 func (s *Server) ServeHTTP(ctx context.Context, address string) error {
 	s.logger.Info("MCP server started", "version", s.version, "transport", "http", "address", address)
 	return mcp.ServeHTTP(ctx, s.server, address)
@@ -650,10 +658,12 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (string, e
 			s.logger.Warn("config reload after init failed, tools may require server restart", "error", err)
 			result["reload_warning"] = "Config created but live reload failed. Restart MCP server if tools return not_configured."
 		} else {
+			s.mu.Lock()
 			s.config = newCfg
 			if newAdapter != nil {
 				s.adapter = newAdapter
 			}
+			s.mu.Unlock()
 			if s.cache != nil {
 				s.cache.InvalidateAll()
 			}

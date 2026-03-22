@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -218,6 +219,7 @@ func (s *ServiceImpl) isCleanFallback(ctx context.Context) (bool, error) {
 
 	cmd := exec.CommandContext(ctx, "git", "status", "--porcelain")
 	cmd.Dir = repoRoot
+	cmd.Env = filteredGitEnv()
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("git status failed: %w", err)
@@ -754,6 +756,7 @@ func (s *ServiceImpl) pushTagFallback(ctx context.Context, name, remote string, 
 
 	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204 -- git command with validated args
 	cmd.Dir = repoRoot
+	cmd.Env = filteredGitEnv()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git push failed: %w\noutput: %s", err, string(output))
@@ -1389,4 +1392,33 @@ func splitMessage(message string) (subject, body string) {
 		body = strings.TrimSpace(lines[1])
 	}
 	return subject, body
+}
+
+// allowedGitEnvPrefixes lists environment variable prefixes that are safe to
+// pass to git subprocesses. Everything else is stripped to prevent hostile
+// env vars (e.g. GIT_EXEC_PATH injected by a plugin) from being inherited.
+var allowedGitEnvPrefixes = []string{
+	"HOME=", "PATH=", "USER=", "LANG=", "LC_",
+	"GIT_AUTHOR_", "GIT_COMMITTER_",
+	"GIT_SSH", "GIT_ASKPASS=",
+	"GITHUB_TOKEN=", "GH_TOKEN=",
+	"GNUPGHOME=", "GPG_AGENT_INFO=",
+	"SSL_CERT", "HTTPS_PROXY=", "HTTP_PROXY=", "NO_PROXY=",
+	"TMPDIR=", "TEMP=", "TMP=",
+}
+
+// filteredGitEnv returns a filtered copy of the current environment containing
+// only variables required for git operations.
+func filteredGitEnv() []string {
+	env := os.Environ()
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		for _, prefix := range allowedGitEnvPrefixes {
+			if strings.HasPrefix(e, prefix) {
+				filtered = append(filtered, e)
+				break
+			}
+		}
+	}
+	return filtered
 }

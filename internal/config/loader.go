@@ -421,6 +421,15 @@ func (l *Loader) expandEnvVars(cfg *Config) {
 	cfg.Output.LogFile = expandEnvVar(cfg.Output.LogFile)
 }
 
+// sensitiveEnvVars are system variables that should not be expanded
+// in config values to prevent accidental information disclosure.
+var sensitiveEnvVars = map[string]bool{
+	"PATH": true, "HOME": true, "USER": true, "SHELL": true,
+	"PWD": true, "HOSTNAME": true, "LOGNAME": true,
+	"SSH_AUTH_SOCK": true, "SSH_AGENT_PID": true,
+	"AWS_SECRET_ACCESS_KEY": true, "AWS_SESSION_TOKEN": true,
+}
+
 // expandEnvVar expands environment variables in a string.
 // Supports both ${VAR} and $VAR syntax.
 func expandEnvVar(s string) string {
@@ -439,6 +448,10 @@ func expandEnvVar(s string) string {
 		defaultValue := ""
 		if len(submatch) > 2 {
 			defaultValue = submatch[2]
+		}
+
+		if sensitiveEnvVars[varName] {
+			return match // leave unexpanded
 		}
 
 		if value := os.Getenv(varName); value != "" {

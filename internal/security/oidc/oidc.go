@@ -35,6 +35,9 @@ type stateEntry struct {
 // stateMaxAge is how long a state parameter remains valid.
 const stateMaxAge = 10 * time.Minute
 
+// maxPendingStates caps the number of concurrent in-flight OIDC login requests.
+const maxPendingStates = 10000
+
 // UserInfo holds the extracted user information from an OIDC ID token.
 type UserInfo struct {
 	// Subject is the unique identifier from the IdP (sub claim).
@@ -101,6 +104,19 @@ func (s *Service) AuthCodeURL() (authURL, state string, err error) {
 	state = base64.URLEncoding.EncodeToString(stateBytes)
 
 	s.mu.Lock()
+	if len(s.states) >= maxPendingStates {
+		// Inline cleanup under lock to make room
+		now := time.Now()
+		for k, v := range s.states {
+			if now.Sub(v.createdAt) >= stateMaxAge {
+				delete(s.states, k)
+			}
+		}
+		if len(s.states) >= maxPendingStates {
+			s.mu.Unlock()
+			return "", "", errors.New("oidc: too many pending login requests")
+		}
+	}
 	s.states[state] = stateEntry{createdAt: time.Now()}
 	s.mu.Unlock()
 
