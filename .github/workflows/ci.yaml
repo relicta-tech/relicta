@@ -192,7 +192,7 @@ jobs:
 
       - name: Install security tools
         run: |
-          go install github.com/felixgeelhaar/nox/cmd/nox@latest
+          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v0.7.0/nox_0.7.0_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
@@ -221,7 +221,7 @@ jobs:
 
       - name: Run Nox Security Scan
         run: |
-          nox scan --json -o nox-results.json . || true
+          nox scan . || true
 
       - name: Run Gosec for SARIF output
         run: |
