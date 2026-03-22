@@ -255,40 +255,40 @@ type LeadTimeForChanges struct {
 
 // MTTRMetrics tracks mean time to recovery.
 type MTTRMetrics struct {
-	AverageHours    float64 `json:"averageHours"`
-	MedianHours     float64 `json:"medianHours"`
-	TotalIncidents  int     `json:"totalIncidents"`
-	ResolvedCount   int     `json:"resolvedCount"`
-	Classification  string  `json:"classification"` // less-than-one-hour, less-than-one-day, one-week, more-than-six-months
+	AverageHours   float64 `json:"averageHours"`
+	MedianHours    float64 `json:"medianHours"`
+	TotalIncidents int     `json:"totalIncidents"`
+	ResolvedCount  int     `json:"resolvedCount"`
+	Classification string  `json:"classification"` // less-than-one-hour, less-than-one-day, one-week, more-than-six-months
 }
 
 // ChangeFailureRate tracks the percentage of changes causing failures.
 type ChangeFailureRate struct {
-	TotalChanges    int     `json:"totalChanges"`
-	FailedChanges   int     `json:"failedChanges"`
-	Rate            float64 `json:"rate"` // 0.0-1.0
-	Classification  string  `json:"classification"` // 0-15%, 16-30%, 31-45%, 46-60%
+	TotalChanges   int     `json:"totalChanges"`
+	FailedChanges  int     `json:"failedChanges"`
+	Rate           float64 `json:"rate"`           // 0.0-1.0
+	Classification string  `json:"classification"` // 0-15%, 16-30%, 31-45%, 46-60%
 }
 
 // SOC2Report contains SOC 2 change management evidence.
 type SOC2Report struct {
-	ChangeLog        []ChangeLogEntry     `json:"changeLog"`
-	ApprovalEvidence []ApprovalEvidence   `json:"approvalEvidence"`
-	RiskAssessments  []RiskAssessment     `json:"riskAssessments"`
-	IncidentResponse []IncidentResponse   `json:"incidentResponse"`
-	PolicyCompliance []PolicyCompliance   `json:"policyCompliance"`
+	ChangeLog        []ChangeLogEntry   `json:"changeLog"`
+	ApprovalEvidence []ApprovalEvidence `json:"approvalEvidence"`
+	RiskAssessments  []RiskAssessment   `json:"riskAssessments"`
+	IncidentResponse []IncidentResponse `json:"incidentResponse"`
+	PolicyCompliance []PolicyCompliance `json:"policyCompliance"`
 }
 
 // ChangeLogEntry is a single change request entry for SOC 2.
 type ChangeLogEntry struct {
-	ID          string    `json:"id"`
-	Version     string    `json:"version"`
-	Date        time.Time `json:"date"`
-	Actor       string    `json:"actor"`
-	ActorKind   string    `json:"actorKind"`
-	RiskScore   float64   `json:"riskScore"`
-	Decision    string    `json:"decision"`
-	Outcome     string    `json:"outcome"`
+	ID        string    `json:"id"`
+	Version   string    `json:"version"`
+	Date      time.Time `json:"date"`
+	Actor     string    `json:"actor"`
+	ActorKind string    `json:"actorKind"`
+	RiskScore float64   `json:"riskScore"`
+	Decision  string    `json:"decision"`
+	Outcome   string    `json:"outcome"`
 }
 
 // ApprovalEvidence records who approved what and when.
@@ -321,33 +321,33 @@ type RiskDetail struct {
 
 // IncidentResponse records incident handling.
 type IncidentResponse struct {
-	IncidentID     string        `json:"incidentId"`
-	ReleaseID      string        `json:"releaseId"`
-	Version        string        `json:"version"`
-	Type           string        `json:"type"`
-	Severity       string        `json:"severity"`
-	DetectedAt     time.Time     `json:"detectedAt"`
-	ResolvedAt     *time.Time    `json:"resolvedAt,omitempty"`
-	TimeToResolve  time.Duration `json:"timeToResolve,omitempty"`
+	IncidentID    string        `json:"incidentId"`
+	ReleaseID     string        `json:"releaseId"`
+	Version       string        `json:"version"`
+	Type          string        `json:"type"`
+	Severity      string        `json:"severity"`
+	DetectedAt    time.Time     `json:"detectedAt"`
+	ResolvedAt    *time.Time    `json:"resolvedAt,omitempty"`
+	TimeToResolve time.Duration `json:"timeToResolve,omitempty"`
 }
 
 // PolicyCompliance records policy evaluation results.
 type PolicyCompliance struct {
-	ReleaseID    string   `json:"releaseId"`
-	Version      string   `json:"version"`
-	Decision     string   `json:"decision"`
-	RiskScore    float64  `json:"riskScore"`
-	Rationale    []string `json:"rationale"`
+	ReleaseID string   `json:"releaseId"`
+	Version   string   `json:"version"`
+	Decision  string   `json:"decision"`
+	RiskScore float64  `json:"riskScore"`
+	Rationale []string `json:"rationale"`
 }
 
 // SummaryReport is a general governance summary.
 type SummaryReport struct {
-	TotalReleases       int                    `json:"totalReleases"`
-	RiskDistribution    RiskDistribution       `json:"riskDistribution"`
-	ApprovalBreakdown   ApprovalBreakdown      `json:"approvalBreakdown"`
-	TopRiskFactors      []RiskFactorSummary    `json:"topRiskFactors"`
-	ActorActivity       []ActorActivitySummary `json:"actorActivity"`
-	IncidentSummary     IncidentSummary        `json:"incidentSummary"`
+	TotalReleases     int                    `json:"totalReleases"`
+	RiskDistribution  RiskDistribution       `json:"riskDistribution"`
+	ApprovalBreakdown ApprovalBreakdown      `json:"approvalBreakdown"`
+	TopRiskFactors    []RiskFactorSummary    `json:"topRiskFactors"`
+	ActorActivity     []ActorActivitySummary `json:"actorActivity"`
+	IncidentSummary   IncidentSummary        `json:"incidentSummary"`
 }
 
 // RiskDistribution categorizes releases by risk level.
@@ -360,16 +360,16 @@ type RiskDistribution struct {
 
 // ApprovalBreakdown shows approval statistics.
 type ApprovalBreakdown struct {
-	AutoApproved   int `json:"autoApproved"`
-	HumanApproved  int `json:"humanApproved"`
-	Rejected       int `json:"rejected"`
+	AutoApproved  int `json:"autoApproved"`
+	HumanApproved int `json:"humanApproved"`
+	Rejected      int `json:"rejected"`
 }
 
 // RiskFactorSummary captures recurring risk factors.
 type RiskFactorSummary struct {
-	Category   string  `json:"category"`
-	Count      int     `json:"count"`
-	AvgScore   float64 `json:"avgScore"`
+	Category string  `json:"category"`
+	Count    int     `json:"count"`
+	AvgScore float64 `json:"avgScore"`
 }
 
 // ActorActivitySummary captures per-actor release activity.
@@ -383,9 +383,9 @@ type ActorActivitySummary struct {
 
 // IncidentSummary provides incident statistics.
 type IncidentSummary struct {
-	TotalIncidents    int     `json:"totalIncidents"`
-	AvgResolutionHrs  float64 `json:"avgResolutionHours"`
-	CorrelationRate   float64 `json:"correlationRate"` // incidents per release
+	TotalIncidents   int     `json:"totalIncidents"`
+	AvgResolutionHrs float64 `json:"avgResolutionHours"`
+	CorrelationRate  float64 `json:"correlationRate"` // incidents per release
 }
 
 // reportData holds fetched data used across report types.

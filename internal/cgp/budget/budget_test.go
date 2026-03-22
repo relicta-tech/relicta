@@ -10,19 +10,19 @@ import (
 
 func TestCheckBudget(t *testing.T) {
 	tests := []struct {
-		name           string
-		currentRisk    float64
-		cfg            *config.RiskBudgetConfig
-		releases       []*memory.ReleaseRecord
-		wantAllowed    bool
-		wantReasonSub  string
+		name          string
+		currentRisk   float64
+		cfg           *config.RiskBudgetConfig
+		releases      []*memory.ReleaseRecord
+		wantAllowed   bool
+		wantReasonSub string
 	}{
 		{
-			name:        "nil config allows all",
-			currentRisk: 0.9,
-			cfg:         nil,
-			releases:    nil,
-			wantAllowed: true,
+			name:          "nil config allows all",
+			currentRisk:   0.9,
+			cfg:           nil,
+			releases:      nil,
+			wantAllowed:   true,
 			wantReasonSub: "no risk budget configured",
 		},
 		{
@@ -475,12 +475,12 @@ func TestWeekStart(t *testing.T) {
 
 func TestIsInFreezePeriod(t *testing.T) {
 	tests := []struct {
-		name      string
-		now       time.Time
-		start     string
-		end       string
-		wantIn    bool
-		wantErr   bool
+		name    string
+		now     time.Time
+		start   string
+		end     string
+		wantIn  bool
+		wantErr bool
 	}{
 		{
 			name:   "non-wrapping - inside",

@@ -305,8 +305,8 @@ func clampFloat(v, minVal, maxVal float64) float64 {
 	return v
 }
 
-// sortRepoRisks sorts entries by repository name for deterministic output.
-func sortRepoRisks(entries []RepoRiskEntry) {
+// SortRepoRisks sorts entries by repository name for deterministic output.
+func SortRepoRisks(entries []RepoRiskEntry) {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Repository < entries[j].Repository
 	})

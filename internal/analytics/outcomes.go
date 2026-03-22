@@ -39,12 +39,12 @@ type RiskFactorAttribution struct {
 
 // CalibrationMetrics exposes prediction accuracy and weight drift.
 type CalibrationMetrics struct {
-	Accuracy         float64                  `json:"accuracy"`
-	SampleSize       int                      `json:"sample_size"`
-	HighRiskAccuracy float64                  `json:"high_risk_accuracy"`
-	LowRiskAccuracy  float64                  `json:"low_risk_accuracy"`
-	CalibratedAt     *time.Time               `json:"calibrated_at"`
-	WeightChanges    map[string]WeightChange  `json:"weight_changes"`
+	Accuracy         float64                 `json:"accuracy"`
+	SampleSize       int                     `json:"sample_size"`
+	HighRiskAccuracy float64                 `json:"high_risk_accuracy"`
+	LowRiskAccuracy  float64                 `json:"low_risk_accuracy"`
+	CalibratedAt     *time.Time              `json:"calibrated_at"`
+	WeightChanges    map[string]WeightChange `json:"weight_changes"`
 }
 
 // WeightChange captures the delta between default and calibrated weights.

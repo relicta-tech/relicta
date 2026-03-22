@@ -16,8 +16,8 @@ const (
 
 // fileStoreData is the on-disk JSON structure.
 type fileStoreData struct {
-	Scores  map[string]*Score   `json:"scores"`
-	History map[string][]Score  `json:"history"`
+	Scores  map[string]*Score  `json:"scores"`
+	History map[string][]Score `json:"history"`
 }
 
 // FileStore implements ReputationStore backed by a JSON file.

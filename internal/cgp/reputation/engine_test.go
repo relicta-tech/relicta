@@ -298,10 +298,10 @@ func TestComputeScore_TrendDetection(t *testing.T) {
 
 func TestComputeScore_RecoverySpeed(t *testing.T) {
 	tests := []struct {
-		name          string
-		recoveryTime  time.Duration
-		wantMin       float64
-		wantMax       float64
+		name         string
+		recoveryTime time.Duration
+		wantMin      float64
+		wantMax      float64
 	}{
 		{
 			name:         "fast recovery under 1h",
@@ -656,4 +656,3 @@ func TestFileStore_CreatesDirectory(t *testing.T) {
 		t.Error("NewFileStore should create the directory")
 	}
 }
-

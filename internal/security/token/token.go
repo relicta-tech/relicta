@@ -56,7 +56,7 @@ type Service struct {
 
 	mu      sync.RWMutex
 	revoked map[string]time.Time // jti -> expiry (for cleanup)
-	done    chan struct{}         // closed on Close() to stop cleanup goroutine
+	done    chan struct{}        // closed on Close() to stop cleanup goroutine
 }
 
 // NewService creates a token service with the given config.

@@ -4,8 +4,8 @@ package ai
 // Centralized here to avoid hardcoded key warnings from security scanners.
 // String concatenation prevents static pattern matching by scanners.
 const (
-	testOpenAIKey      = "sk-test-relicta-" + "0000000000000000"              //nolint:gosec // test credential
-	testOpenAIProjKey  = "sk-proj-test-" + "0000000000000000000000000000"     //nolint:gosec // test credential
-	testOpenAILongKey  = "sk-test-relicta-" + "00000000000000000000000000000" //nolint:gosec // test credential
-	testAnthropicKey   = "sk-ant-test-" + "00000000000000000000000000"        //nolint:gosec // test credential
+	testOpenAIKey     = "sk-test-relicta-" + "0000000000000000"
+	testOpenAIProjKey = "sk-proj-test-" + "0000000000000000000000000000"
+	testOpenAILongKey = "sk-test-relicta-" + "00000000000000000000000000000"
+	testAnthropicKey  = "sk-ant-test-" + "00000000000000000000000000"
 )

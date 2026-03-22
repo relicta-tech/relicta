@@ -122,18 +122,21 @@ func (a *Analyzer) Analyze(changes []DependencyChange) *Analysis {
 		var factorName string
 		var desc string
 
-		switch {
-		case change.HasCVEFix:
+		if change.HasCVEFix {
 			factorName = "cve_fix"
 			desc = fmt.Sprintf("%s: CVE fix (%s)", change.Name, formatCVEs(change.CVEs))
-		default:
-			factorName = string(change.ChangeType)
-			desc = fmt.Sprintf("%s: %s update %s -> %s",
-				change.Name, change.ChangeType, change.OldVersion, change.NewVersion)
-			if change.ChangeType == ChangeNew {
+		} else {
+			switch change.ChangeType {
+			case ChangeNew:
+				factorName = string(change.ChangeType)
 				desc = fmt.Sprintf("%s: new dependency %s", change.Name, change.NewVersion)
-			} else if change.ChangeType == ChangeRemoved {
+			case ChangeRemoved:
+				factorName = string(change.ChangeType)
 				desc = fmt.Sprintf("%s: dependency removed (was %s)", change.Name, change.OldVersion)
+			default:
+				factorName = string(change.ChangeType)
+				desc = fmt.Sprintf("%s: %s update %s -> %s",
+					change.Name, change.ChangeType, change.OldVersion, change.NewVersion)
 			}
 		}
 

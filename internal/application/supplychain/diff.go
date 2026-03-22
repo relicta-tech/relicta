@@ -60,8 +60,6 @@ func parseGoModRequires(content string) map[string]string {
 
 	lines := strings.Split(content, "\n")
 	inRequireBlock := false
-	isIndirect := false
-
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
@@ -72,7 +70,6 @@ func parseGoModRequires(content string) map[string]string {
 		}
 		if inRequireBlock && trimmed == ")" {
 			inRequireBlock = false
-			isIndirect = false
 			continue
 		}
 
@@ -92,8 +89,7 @@ func parseGoModRequires(content string) map[string]string {
 				name := parts[0]
 				version := parts[1]
 				// Check for // indirect marker.
-				isIndirect = strings.Contains(trimmed, "// indirect")
-				_ = isIndirect // tracked but not used for diff parsing
+				_ = strings.Contains(trimmed, "// indirect") // tracked for future use
 				deps[name] = version
 			}
 		}

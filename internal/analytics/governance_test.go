@@ -204,8 +204,8 @@ func TestComputeCalibrationMetrics_AccuracyCalculation(t *testing.T) {
 	// 4 records: high risk + negative = correct, low risk + positive = correct
 	records := []*memory.ReleaseRecord{
 		// Correct predictions
-		makeRecord("1", memory.OutcomeSuccess, 0.2, base, nil),         // low risk, success -> correct
-		makeRecord("2", memory.OutcomeSuccess, 0.3, base.Add(time.Hour), nil), // low risk, success -> correct
+		makeRecord("1", memory.OutcomeSuccess, 0.2, base, nil),                   // low risk, success -> correct
+		makeRecord("2", memory.OutcomeSuccess, 0.3, base.Add(time.Hour), nil),    // low risk, success -> correct
 		makeRecord("3", memory.OutcomeRollback, 0.8, base.Add(2*time.Hour), nil), // high risk, rollback -> correct
 		// Incorrect prediction
 		makeRecord("4", memory.OutcomeSuccess, 0.7, base.Add(3*time.Hour), nil), // high risk, success -> incorrect
@@ -226,11 +226,11 @@ func TestComputeCalibrationMetrics_HighLowRiskSplit(t *testing.T) {
 	records := []*memory.ReleaseRecord{
 		// Low risk records: 2 correct, 1 incorrect
 		makeRecord("1", memory.OutcomeSuccess, 0.2, base, nil),                   // correct
-		makeRecord("2", memory.OutcomeSuccess, 0.3, base.Add(time.Hour), nil),     // correct
-		makeRecord("3", memory.OutcomeRollback, 0.4, base.Add(2*time.Hour), nil),  // incorrect (low risk but negative)
+		makeRecord("2", memory.OutcomeSuccess, 0.3, base.Add(time.Hour), nil),    // correct
+		makeRecord("3", memory.OutcomeRollback, 0.4, base.Add(2*time.Hour), nil), // incorrect (low risk but negative)
 		// High risk records: 1 correct, 1 incorrect
-		makeRecord("4", memory.OutcomeRollback, 0.8, base.Add(3*time.Hour), nil),  // correct
-		makeRecord("5", memory.OutcomeSuccess, 0.6, base.Add(4*time.Hour), nil),   // incorrect (high risk but positive)
+		makeRecord("4", memory.OutcomeRollback, 0.8, base.Add(3*time.Hour), nil), // correct
+		makeRecord("5", memory.OutcomeSuccess, 0.6, base.Add(4*time.Hour), nil),  // incorrect (high risk but positive)
 	}
 
 	metrics := ComputeCalibrationMetrics(records, risk.DefaultWeights())
@@ -265,8 +265,8 @@ func TestComputeCalibrationMetrics_WeightChanges(t *testing.T) {
 	apiChange, ok := metrics.WeightChanges["api_changes"]
 	require.True(t, ok)
 	assert.InDelta(t, 0.25, apiChange.Default, 0.001)    // DefaultWeights().APIChanges
-	assert.InDelta(t, 0.30, apiChange.Calibrated, 0.001)  // customWeights.APIChanges
-	assert.InDelta(t, 0.05, apiChange.Delta, 0.001)        // 0.30 - 0.25
+	assert.InDelta(t, 0.30, apiChange.Calibrated, 0.001) // customWeights.APIChanges
+	assert.InDelta(t, 0.05, apiChange.Delta, 0.001)      // 0.30 - 0.25
 }
 
 func TestComputeCalibrationMetrics_Empty(t *testing.T) {

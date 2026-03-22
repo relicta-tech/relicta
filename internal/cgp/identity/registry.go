@@ -173,19 +173,17 @@ func (r *Registry) Get(ctx context.Context, id string) (*ActorIdentity, error) {
 	}
 
 	// Return a copy to prevent mutation.
-	copy := *actor
-	copy.Capabilities = make([]Capability, len(actor.Capabilities))
-	for i := range actor.Capabilities {
-		copy.Capabilities[i] = actor.Capabilities[i]
-	}
+	clone := *actor
+	clone.Capabilities = make([]Capability, len(actor.Capabilities))
+	copy(clone.Capabilities, actor.Capabilities)
 	if actor.Metadata != nil {
-		copy.Metadata = make(map[string]string, len(actor.Metadata))
+		clone.Metadata = make(map[string]string, len(actor.Metadata))
 		for k, v := range actor.Metadata {
-			copy.Metadata[k] = v
+			clone.Metadata[k] = v
 		}
 	}
 
-	return &copy, nil
+	return &clone, nil
 }
 
 // GetByTeam returns all actor identities belonging to a team.
@@ -196,8 +194,8 @@ func (r *Registry) GetByTeam(ctx context.Context, team string) ([]*ActorIdentity
 	var result []*ActorIdentity
 	for _, actor := range r.actors {
 		if actor.Team == team {
-			copy := *actor
-			result = append(result, &copy)
+			clone := *actor
+			result = append(result, &clone)
 		}
 	}
 
@@ -280,8 +278,8 @@ func (r *Registry) List(ctx context.Context) ([]*ActorIdentity, error) {
 
 	result := make([]*ActorIdentity, 0, len(r.actors))
 	for _, actor := range r.actors {
-		copy := *actor
-		result = append(result, &copy)
+		clone := *actor
+		result = append(result, &clone)
 	}
 
 	return result, nil

@@ -1,5 +1,6 @@
 # Binaries
-relicta
+/relicta
+/bin/relicta
 relicta-*
 !skills/relicta-release-governance/
 !skills/relicta-release-governance/**
