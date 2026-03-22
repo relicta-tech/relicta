@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/container"
 	"github.com/relicta-tech/relicta/internal/mcp"
 )
@@ -93,36 +95,80 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 		opts = append(opts, mcp.WithConfig(cfg))
 	}
 
+	// initContainerAndAdapter initializes the container and creates an MCP adapter.
+	// Used both at startup and for hot-reload after relicta_init (fixes #83).
+	initContainerAndAdapter := func(c *config.Config) (*container.App, *mcp.Adapter, error) {
+		newApp, err := container.NewInitialized(ctx, c)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		repoRoot, err := os.Getwd()
+		if err != nil {
+			mcpLogger.Warn("failed to get working directory for release services", "error", err)
+		} else {
+			if err := newApp.InitReleaseServices(ctx, repoRoot); err != nil {
+				mcpLogger.Warn("failed to initialize release services", "error", err)
+			}
+		}
+
+		adapter := createMCPAdapter(newApp)
+		return newApp, adapter, nil
+	}
+
 	// Initialize container to get use cases
 	var app *container.App
 	if cfg != nil {
+		var adapter *mcp.Adapter
 		var err error
-		app, err = container.NewInitialized(ctx, cfg)
+		app, adapter, err = initContainerAndAdapter(cfg)
 		if err != nil {
 			mcpLogger.Warn("failed to initialize container, tools will return stubs", "error", err)
 		} else {
-			defer func() {
-				if closeErr := app.Close(); closeErr != nil {
-					mcpLogger.Warn("failed to close container", "error", closeErr)
-				}
-			}()
-
-			// Initialize release services with current working directory
-			// This enables the DDD release workflow (plan, bump, notes, approve, publish)
-			repoRoot, err := os.Getwd()
-			if err != nil {
-				mcpLogger.Warn("failed to get working directory for release services", "error", err)
-			} else {
-				if err := app.InitReleaseServices(ctx, repoRoot); err != nil {
-					mcpLogger.Warn("failed to initialize release services", "error", err)
-				}
-			}
-
-			// Create adapter with use cases from container
-			adapter := createMCPAdapter(app)
 			opts = append(opts, mcp.WithAdapter(adapter))
 		}
 	}
+
+	// Defer cleanup — uses app pointer which may be updated by the reloader
+	defer func() {
+		if app != nil {
+			if closeErr := app.Close(); closeErr != nil {
+				mcpLogger.Warn("failed to close container", "error", closeErr)
+			}
+		}
+	}()
+
+	// Config reloader for hot-reload after relicta_init (fixes #83).
+	// When init creates .relicta.yaml mid-session, this reloads config and
+	// reinitializes the container so subsequent commands work immediately.
+	opts = append(opts, mcp.WithConfigReloader(func(reloadCtx context.Context) (*config.Config, *mcp.Adapter, error) {
+		mcpLogger.Info("reloading config after init")
+
+		// Re-load config from disk
+		newCfg, err := config.NewLoader().Load()
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load config: %w", err)
+		}
+
+		// Close old container if it exists
+		if app != nil {
+			if closeErr := app.Close(); closeErr != nil {
+				mcpLogger.Warn("failed to close old container during reload", "error", closeErr)
+			}
+		}
+
+		// Initialize new container and adapter
+		newApp, newAdapter, err := initContainerAndAdapter(newCfg)
+		if err != nil {
+			return newCfg, nil, fmt.Errorf("config loaded but container init failed: %w", err)
+		}
+
+		// Update the outer app reference for cleanup on shutdown
+		app = newApp
+		cfg = newCfg
+
+		return newCfg, newAdapter, nil
+	}))
 
 	// Create and start MCP server
 	server, err := mcp.NewServer(versionInfo.Version, opts...)

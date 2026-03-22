@@ -1982,5 +1982,106 @@ func TestHandleInitBasic(t *testing.T) {
 	_ = err
 }
 
+func TestHandleInitReloadsConfig(t *testing.T) {
+	// Create a temp directory to avoid writing .relicta.yaml in the repo
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	reloaderCalled := false
+	testCfg := config.DefaultConfig()
+	testAdapter := NewAdapter()
+
+	server, err := NewServer("1.0.0",
+		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
+			reloaderCalled = true
+			return testCfg, testAdapter, nil
+		}),
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleInit(ctx, InitToolInput{})
+	require.NoError(t, err)
+
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "created", parsed["status"])
+	assert.Equal(t, true, parsed["reloaded"])
+	assert.True(t, reloaderCalled, "config reloader should have been called after init")
+	assert.Equal(t, testCfg, server.config, "server config should be updated after reload")
+	assert.Equal(t, testAdapter, server.adapter, "server adapter should be updated after reload")
+}
+
+func TestHandleInitReloaderFailureDoesNotBlock(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	server, err := NewServer("1.0.0",
+		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
+			return nil, nil, fmt.Errorf("simulated reload failure")
+		}),
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleInit(ctx, InitToolInput{})
+	require.NoError(t, err)
+
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "created", parsed["status"])
+	assert.Contains(t, parsed["reload_warning"], "Restart MCP server")
+}
+
+func TestHandleInitWithoutReloader(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	// No reloader set — should still succeed without panicking
+	server, err := NewServer("1.0.0")
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	result, err := server.handleInit(ctx, InitToolInput{})
+	require.NoError(t, err)
+
+	parsed := parseJSONResult(t, result)
+	assert.Equal(t, "created", parsed["status"])
+	assert.Nil(t, parsed["reloaded"], "should not have reloaded field without reloader")
+}
+
+func TestHandleInitReloaderInvalidatesCacheCompletely(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	cache := NewResourceCache()
+	// Pre-populate cache with a config entry
+	cache.Set("relicta://config", &ReadResourceResult{})
+	cache.Set("relicta://state", &ReadResourceResult{})
+	assert.NotNil(t, cache.Get("relicta://config"))
+
+	server, err := NewServer("1.0.0",
+		WithCache(cache),
+		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
+			return config.DefaultConfig(), NewAdapter(), nil
+		}),
+	)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	_, err = server.handleInit(ctx, InitToolInput{})
+	require.NoError(t, err)
+
+	// All cache entries should be invalidated after reload
+	assert.Nil(t, cache.Get("relicta://config"), "config cache should be invalidated after reload")
+	assert.Nil(t, cache.Get("relicta://state"), "state cache should be invalidated after reload")
+}
+
 // Suppress unused variable warnings
 var _ = time.Now

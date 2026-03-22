@@ -22,6 +22,12 @@ import (
 	cgpsdk "github.com/relicta-tech/relicta/pkg/cgp"
 )
 
+// ConfigReloader is called after relicta_init creates a config file mid-session.
+// It reloads the config and reinitializes the container/adapter so that
+// subsequent tool calls work without restarting the MCP server.
+// Returns the new config and adapter (adapter may be nil if initialization fails).
+type ConfigReloader func(ctx context.Context) (*config.Config, *Adapter, error)
+
 // Server wraps the MCP server for Relicta.
 type Server struct {
 	server  *mcp.Server
@@ -44,6 +50,9 @@ type Server struct {
 
 	// Resource cache for improved read performance
 	cache *ResourceCache
+
+	// configReloader reinitializes config and adapter after init creates a config file.
+	configReloader ConfigReloader
 }
 
 // ServerOption configures the MCP server.
@@ -116,6 +125,13 @@ func WithAdapter(adapter *Adapter) ServerOption {
 func WithCache(cache *ResourceCache) ServerOption {
 	return func(s *Server) {
 		s.cache = cache
+	}
+}
+
+// WithConfigReloader sets a callback to reload config after init creates a config file.
+func WithConfigReloader(reloader ConfigReloader) ServerOption {
+	return func(s *Server) {
+		s.configReloader = reloader
 	}
 }
 
@@ -624,6 +640,26 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (string, e
 	}
 	if len(cfg.Workflow.AllowedBranches) > 0 {
 		result["detected_branch"] = cfg.Workflow.AllowedBranches[0]
+	}
+
+	// Hot-reload: reinitialize config and adapter so subsequent commands work
+	// without restarting the MCP server (fixes #83).
+	if s.configReloader != nil {
+		newCfg, newAdapter, err := s.configReloader(ctx)
+		if err != nil {
+			s.logger.Warn("config reload after init failed, tools may require server restart", "error", err)
+			result["reload_warning"] = "Config created but live reload failed. Restart MCP server if tools return not_configured."
+		} else {
+			s.config = newCfg
+			if newAdapter != nil {
+				s.adapter = newAdapter
+			}
+			if s.cache != nil {
+				s.cache.InvalidateAll()
+			}
+			s.logger.Info("config reloaded after init, tools are now available")
+			result["reloaded"] = true
+		}
 	}
 
 	jsonBytes, _ := json.Marshal(result)
