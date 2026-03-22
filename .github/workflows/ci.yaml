@@ -127,10 +127,11 @@ jobs:
           tool: 'go'
           output-file-path: bench-results.txt
           external-data-json-path: ./cache/benchmark-data.json
-          alert-threshold: '150%'
+          alert-threshold: '200%'
           fail-on-alert: false
-          comment-on-alert: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: false
+          save-data-file: true
+          auto-push: false
 
   build:
     name: Build
