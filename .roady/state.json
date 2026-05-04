@@ -1,6 +1,6 @@
 {
   "project_id": "relicta-phase-2a",
-  "version": 195,
+  "version": 200,
   "task_states": {
     "task-agent-autonomy-profiles-(per-actor-governance-budgets)": {
       "status": "done",
@@ -240,6 +240,14 @@
       ],
       "elapsed_minutes": 0
     },
+    "task-learning-with-chronos-pattern-detection": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-04T14:00:34.835298+02:00",
+      "completed_at": "2026-05-04T14:03:42.679183+02:00",
+      "elapsed_minutes": 3
+    },
     "task-login-logout-endpoints": {
       "status": "done",
       "path": "",
@@ -442,6 +450,14 @@
       "completed_at": "2026-03-15T18:55:40.627167+01:00",
       "elapsed_minutes": 0
     },
+    "task-release-memory-with-mnemos-integration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-04T14:00:34.833615+02:00",
+      "completed_at": "2026-05-04T14:03:42.677375+02:00",
+      "elapsed_minutes": 3
+    },
     "task-reposition-readme-and-tagline": {
       "status": "done",
       "path": "",
@@ -614,5 +630,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-03T23:00:43.82599+02:00"
+  "updated_at": "2026-05-04T14:03:42.679183+02:00"
 }

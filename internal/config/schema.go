@@ -48,6 +48,42 @@ type Config struct {
 	// Observability configures runtime observability integration for
 	// deployment health monitoring and incident correlation.
 	Observability ObservabilityConfig `mapstructure:"observability" json:"observability,omitempty"`
+	// Mnemos configures Mnemos memory backend (optional).
+	// When enabled, release events are stored in Mnemos for historical tracking.
+	Mnemos MnemosConfig `mapstructure:"mnemos" json:"mnemos,omitempty"`
+	// Chronos configures Chronos pattern detection (optional).
+	// When enabled, time-series patterns are detected in release metrics.
+	Chronos ChronosConfig `mapstructure:"chronos" json:"chronos,omitempty"`
+}
+
+// MnemosConfig configures the Mnemos memory backend integration.
+// Mnemos is a self-hosted memory layer for storing release events as claims.
+// When enabled, Relicta stores governance decisions, approvals, and
+// release events in Mnemos for historical tracking and audit.
+type MnemosConfig struct {
+	// Enabled indicates whether Mnemos integration is active.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// Endpoint is the Mnemos HTTP API URL (default: "http://localhost:7777").
+	Endpoint string `mapstructure:"endpoint" json:"endpoint,omitempty"`
+	// Timeout is the HTTP client timeout for Mnemos API calls.
+	Timeout time.Duration `mapstructure:"timeout" json:"timeout,omitempty"`
+	// Namespace is the Mnemos namespace for this project (default: repo name).
+	Namespace string `mapstructure:"namespace" json:"namespace,omitempty"`
+}
+
+// ChronosConfig configures the Chronos pattern detection integration.
+// Chronos detects time-series patterns (trend, spike, drop, stall,
+// anomaly, seasonality, correlation) in release metrics.
+type ChronosConfig struct {
+	// Enabled indicates whether Chronos integration is active.
+	Enabled bool `mapstructure:"enabled" json:"enabled"`
+	// Endpoint is the Chronos HTTP API URL (default: "http://localhost:7778").
+	Endpoint string `mapstructure:"endpoint" json:"endpoint,omitempty"`
+	// Timeout is the HTTP client timeout for Chronos API calls.
+	Timeout time.Duration `mapstructure:"timeout" json:"timeout,omitempty"`
+	// Metrics is a list of metric names to analyze for patterns.
+	// Defaults to ["risk_score", "release_frequency", "lead_time"].
+	Metrics []string `mapstructure:"metrics" json:"metrics,omitempty"`
 }
 
 // CommunicationConfig configures audience-aware release communication.
@@ -639,6 +675,18 @@ func DefaultConfig() *Config {
 				ErrorRateThreshold: 5.0,
 				LatencyThreshold:   50.0,
 			},
+		},
+		Mnemos: MnemosConfig{
+			Enabled:   false,
+			Endpoint:  "http://localhost:7777",
+			Timeout:   10 * time.Second,
+			Namespace: "relicta",
+		},
+		Chronos: ChronosConfig{
+			Enabled:  false,
+			Endpoint: "http://localhost:7778",
+			Timeout:  10 * time.Second,
+			Metrics:  []string{"risk_score", "release_frequency", "lead_time"},
 		},
 	}
 }

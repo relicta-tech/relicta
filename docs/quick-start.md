@@ -162,6 +162,25 @@ governance:
   policy_dir: .relicta/policies
 ```
 
+Optional cognitive backends:
+
+```yaml
+mnemos:
+  enabled: true
+  endpoint: http://localhost:7777
+  timeout: 10s
+  namespace: relicta
+
+chronos:
+  enabled: true
+  endpoint: http://localhost:7778
+  timeout: 10s
+  metrics:
+    - risk_score
+    - release_frequency
+    - lead_time
+```
+
 ### Create a Policy
 
 Create `.relicta/policies/default.policy`:
@@ -213,6 +232,7 @@ relicta policy test --risk-score 0.85 --bump-type major --actor-type agent
 ```
 
 See the [CGP Guide](governance.md) for full policy DSL documentation.
+For optional Mnemos/Chronos setup, see [Cognitive Backends](cognitive-backends.md).
 
 ## Common Patterns
 
@@ -384,6 +404,7 @@ Shows:
 
 - **[Configuration Reference](README.md#configuration)** - Full config options
 - **[CGP Guide](governance.md)** - Policy DSL, risk scoring, approvals
+- **[Cognitive Backends](cognitive-backends.md)** - Mnemos/Chronos setup and config
 - **[Plugin System](PLUGINS.md)** - GitHub, npm, Slack, and more
 - **[MCP Integration](mcp.md)** - AI agent support
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions

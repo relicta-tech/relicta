@@ -441,6 +441,22 @@ features:
       title: Plugin Sandbox Honesty
       description: '`internal/plugin/sandbox/sandbox_darwin.go:14-28` self-documents that RLIMIT_AS unenforced on Apple Silicon, no `sandbox-exec` profile, CPU limits absent. README markets sandboxing as security boundary. Two paths: (a) ship `sandbox-exec` profile generation on darwin + seccomp-bpf on linux + plugin signature verification (currently missing entirely from `manager.go`), or (b) downgrade marketing — rename to `ResourceAdvisor`, surface "best-effort" loudly at config-load time, require explicit `--allow-untrusted-plugins` flag for non-signed plugins. Pick (a) for enterprise credibility OR (b) for honest minimal viable. Either way: honesty before next major release.'
       requirements: []
+    - id: cgp-protocol-wire-format
+      title: CGP Protocol Wire Format
+      description: Formalize the Change Governance Protocol (CGP) wire format as structured JSON with versioning. Implement CGP message types (change.proposal, change.decision, change.execution_authorized). Add CGP endpoints to the MCP server. Create CGP SDK package (pkg/cgp) for other tools to become CGP-compliant.
+      requirements: []
+    - id: audience-aware-release-communication
+      title: Audience-Aware Release Communication
+      description: Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation.
+      requirements: []
+    - id: release-memory-with-mnemos-integration
+      title: Release Memory with Mnemos Integration
+      description: Build historical context system using Mnemos as optional memory backend. Track past incidents, rollbacks, and root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring. Support file-based (default) and Mnemos HTTP API backends.
+      requirements: []
+    - id: learning-with-chronos-pattern-detection
+      title: Learning with Chronos Pattern Detection
+      description: Integrate Chronos for time-series pattern detection on release metrics. Detect trends, spikes, stalls, anomalies in risk scores, deployment frequency, CFR, MTTR. Feed Chronos signals back into risk scoring for continuous improvement. Support multiple backends (memory, SQLite, PostgreSQL).
+      requirements: []
 constraints:
     - id: file-backend-default
       description: File-based persistence remains the default. PostgreSQL is opt-in via config.

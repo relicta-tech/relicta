@@ -4,6 +4,7 @@ package container
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/application/blast"
 	"github.com/relicta-tech/relicta/internal/application/governance"
 	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	cgpmemory "github.com/relicta-tech/relicta/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/internal/config"
 	"github.com/relicta-tech/relicta/internal/domain/integration"
 	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
@@ -20,7 +21,9 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/version"
 	"github.com/relicta-tech/relicta/internal/errors"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	chronosinfra "github.com/relicta-tech/relicta/internal/infrastructure/chronos"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	memoryinfra "github.com/relicta-tech/relicta/internal/infrastructure/memory"
 	"github.com/relicta-tech/relicta/internal/infrastructure/persistence"
 	"github.com/relicta-tech/relicta/internal/infrastructure/webhook"
 	"github.com/relicta-tech/relicta/internal/plugin"
@@ -59,7 +62,11 @@ type App struct {
 	pluginRegistry     integration.PluginRegistry
 	pluginExecutor     integration.PluginExecutor
 	pluginManager      *plugin.Manager
-	memoryStore        memory.Store
+	memoryStore        cgpmemory.Store
+
+	// Cognitive layer (optional — wired when configured)
+	mnemosStore   cgpmemory.Store            // Mnemos-backed memory store (optional)
+	chronosClient *chronosinfra.ChronosAdapter // Chronos pattern detection client
 
 	// Services (existing infrastructure)
 	gitService   git.Service
@@ -174,13 +181,54 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	// Add outcome tracker if governance memory is enabled
 	if c.config.Governance.MemoryEnabled {
 		memoryPath := ".relicta/memory"
-		c.memoryStore, err = memory.NewFileStore(memoryPath)
+		c.memoryStore, err = cgpmemory.NewFileStore(memoryPath)
 		if err != nil {
 			c.logger.Warn("failed to initialize memory store", "error", err)
 		} else {
-			publisher = memory.NewOutcomeTracker(c.memoryStore, publisher)
+			publisher = cgpmemory.NewOutcomeTracker(c.memoryStore, publisher)
 			c.logger.Debug("outcome tracker initialized", "path", memoryPath)
 		}
+	}
+
+	// Initialize Mnemos memory backend (optional — replaces file store when enabled)
+	if c.config.Mnemos.Enabled {
+		mnemosEndpoint := c.config.Mnemos.Endpoint
+		if mnemosEndpoint == "" {
+			mnemosEndpoint = "http://localhost:7777"
+		}
+		mnemosTimeout := c.config.Mnemos.Timeout
+		if mnemosTimeout == 0 {
+			mnemosTimeout = 10 * time.Second
+		}
+		mnemosNamespace := c.config.Mnemos.Namespace
+		if mnemosNamespace == "" {
+			// Derive from repo name if possible
+			if repoInfo, err := c.gitAdapter.GetInfo(ctx); err == nil {
+				mnemosNamespace = repoInfo.Name
+			}
+		}
+		c.mnemosStore = memoryinfra.NewMnemosStore(
+			mnemosEndpoint,
+			mnemosNamespace,
+			&http.Client{Timeout: mnemosTimeout},
+		)
+		// Make Mnemos the primary governance memory backend when enabled.
+		c.memoryStore = c.mnemosStore
+		c.logger.Info("Mnemos memory backend initialized", "endpoint", mnemosEndpoint, "namespace", mnemosNamespace)
+	}
+
+	// Initialize Chronos pattern detection client (optional)
+	if c.config.Chronos.Enabled {
+		chronosEndpoint := c.config.Chronos.Endpoint
+		if chronosEndpoint == "" {
+			chronosEndpoint = "http://localhost:7778"
+		}
+		chronosTimeout := c.config.Chronos.Timeout
+		if chronosTimeout == 0 {
+			chronosTimeout = 10 * time.Second
+		}
+		c.chronosClient = chronosinfra.NewChronosAdapter(chronosEndpoint, "relicta")
+		c.logger.Info("Chronos pattern detection initialized", "endpoint", chronosEndpoint)
 	}
 
 	c.eventPublisher = publisher
@@ -476,7 +524,7 @@ func (c *App) HasGovernance() bool {
 
 // MemoryStore returns the CGP memory store for release history.
 // Returns nil if memory is not enabled.
-func (c *App) MemoryStore() memory.Store {
+func (c *App) MemoryStore() cgpmemory.Store {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.memoryStore
@@ -487,6 +535,36 @@ func (c *App) HasMemory() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.memoryStore != nil
+}
+
+// MnemosStore returns the Mnemos-backed memory store (optional).
+// Returns nil if Mnemos is not enabled or failed to initialize.
+func (c *App) MnemosStore() cgpmemory.Store {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mnemosStore
+}
+
+// HasMnemos returns true if Mnemos memory backend is enabled and initialized.
+func (c *App) HasMnemos() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.mnemosStore != nil
+}
+
+// ChronosClient returns the Chronos pattern detection client (optional).
+// Returns nil if Chronos is not enabled or failed to initialize.
+func (c *App) ChronosClient() *chronosinfra.ChronosAdapter {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.chronosClient
+}
+
+// HasChronos returns true if Chronos pattern detection is enabled and initialized.
+func (c *App) HasChronos() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.chronosClient != nil
 }
 
 // ReleaseServices returns the release workflow services.

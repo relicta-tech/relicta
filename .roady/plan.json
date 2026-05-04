@@ -561,9 +561,45 @@
       "estimate": "",
       "depends_on": [],
       "feature_id": "plugin-sandbox-honesty"
+    },
+    {
+      "id": "task-cgp-protocol-wire-format",
+      "title": "Implement CGP Protocol Wire Format",
+      "description": "Implement the feature: CGP Protocol Wire Format. Formalize the Change Governance Protocol (CGP) wire format as structured JSON with versioning. Implement CGP message types (change.proposal, change.decision, change.execution_authorized). Add CGP endpoints to the MCP server. Create CGP SDK package (pkg/cgp) for other tools to become CGP-compliant.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "cgp-protocol-wire-format"
+    },
+    {
+      "id": "task-audience-aware-release-communication",
+      "title": "Implement Audience-Aware Release Communication",
+      "description": "Implement the feature: Audience-Aware Release Communication. Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "audience-aware-release-communication"
+    },
+    {
+      "id": "task-release-memory-with-mnemos-integration",
+      "title": "Implement Release Memory with Mnemos Integration",
+      "description": "Implement the feature: Release Memory with Mnemos Integration. Build historical context system using Mnemos as optional memory backend. Track past incidents, rollbacks, and root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring. Support file-based (default) and Mnemos HTTP API backends.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "release-memory-with-mnemos-integration"
+    },
+    {
+      "id": "task-learning-with-chronos-pattern-detection",
+      "title": "Implement Learning with Chronos Pattern Detection",
+      "description": "Implement the feature: Learning with Chronos Pattern Detection. Integrate Chronos for time-series pattern detection on release metrics. Detect trends, spikes, stalls, anomalies in risk scores, deployment frequency, CFR, MTTR. Feed Chronos signals back into risk scoring for continuous improvement. Support multiple backends (memory, SQLite, PostgreSQL).",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "learning-with-chronos-pattern-detection"
     }
   ],
   "approval_status": "approved",
   "created_at": "0001-01-01T00:00:00Z",
-  "updated_at": "2026-05-03T00:28:15.006886+02:00"
+  "updated_at": "2026-05-04T13:56:50.784256+02:00"
 }
