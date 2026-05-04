@@ -60,6 +60,11 @@ type Server struct {
 
 	// configReloader reinitializes config and adapter after init creates a config file.
 	configReloader ConfigReloader
+
+	// actorBudgets enforces per-actor autonomy budgets on privileged MCP tools.
+	// When nil, checkBudget falls back to DefaultRestrictiveAgentBudget — agent
+	// callers fail closed by design.
+	actorBudgets *policy.ActorBudgetSet
 }
 
 // ServerOption configures the MCP server.
@@ -97,6 +102,16 @@ func WithReleaseRepository(repo release.Repository) ServerOption {
 func WithPolicyEngine(pe *policy.Engine) ServerOption {
 	return func(s *Server) {
 		s.policyEngine = pe
+	}
+}
+
+// WithActorBudgets sets the per-actor autonomy budget set used to gate
+// privileged MCP tools (relicta_approve, relicta_publish, relicta_reset,
+// relicta_cancel). When unset, the server falls back to a restrictive default
+// budget for any agent caller.
+func WithActorBudgets(set *policy.ActorBudgetSet) ServerOption {
+	return func(s *Server) {
+		s.actorBudgets = set
 	}
 }
 
@@ -571,6 +586,10 @@ func (s *Server) registerResources() {
 		Description("CGP risk assessment for current release").
 		MimeType("application/json").
 		Handler(s.handleResourceRiskReport)
+
+	// Reverse-MCP governance-as-context resources — coding agents read these
+	// BEFORE proposing changes so they plan with org policy in scope.
+	s.registerGovernanceContextResources()
 }
 
 // registerPrompts registers all prompt handlers.
@@ -1108,6 +1127,15 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 			return "", fmt.Errorf("no active release: %w", err)
 		}
 
+		// Enforce actor autonomy budget before privileged operation.
+		if err := s.checkBudget(ctx, policy.Operation{
+			Tool:        "relicta_approve",
+			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
+			RiskScore:   status.RiskScore,
+		}); err != nil {
+			return "", err
+		}
+
 		// Elicitation: for major version releases or releases with breaking changes,
 		// ask the agent for explicit confirmation before proceeding. This leverages
 		// MCP elicitation to ensure the human operator acknowledges the release.
@@ -1163,6 +1191,15 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
 			return "", fmt.Errorf("no active release: %w", err)
+		}
+
+		// Enforce actor autonomy budget before publish.
+		if err := s.checkBudget(ctx, policy.Operation{
+			Tool:        "relicta_publish",
+			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
+			RiskScore:   status.RiskScore,
+		}); err != nil {
+			return "", err
 		}
 
 		// Report progress
@@ -1253,6 +1290,15 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (strin
 			}), nil
 		}
 
+		// Enforce actor autonomy budget on cancel.
+		if err := s.checkBudget(ctx, policy.Operation{
+			Tool:        "relicta_cancel",
+			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
+			RiskScore:   status.RiskScore,
+		}); err != nil {
+			return "", err
+		}
+
 		reason := input.Reason
 		if reason == "" {
 			reason = "canceled via MCP"
@@ -1312,6 +1358,15 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string,
 				"state":      status.State,
 				"message":    "release is in progress - use cancel first, or force=true to delete",
 			}), nil
+		}
+
+		// Enforce actor autonomy budget on reset (destructive).
+		if err := s.checkBudget(ctx, policy.Operation{
+			Tool:        "relicta_reset",
+			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
+			RiskScore:   status.RiskScore,
+		}); err != nil {
+			return "", err
 		}
 
 		// Reset (delete) the release
@@ -1507,6 +1562,14 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 
 	if len(output.Highlights) > 0 {
 		result["highlights"] = output.Highlights
+	}
+	if len(output.Categories) > 0 {
+		result["categories"] = output.Categories
+	}
+	if output.Signals != nil {
+		result["signals"] = output.Signals
+		// Flag the structured-AI path so agents and CI can branch on it.
+		result["structured"] = true
 	}
 
 	return toJSONString(result), nil

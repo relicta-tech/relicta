@@ -1,0 +1,20 @@
+goldens:
+  - id: release-notes-basic-fix
+    category: release_notes
+    description: simple bug-fix changelog entry
+    user_prompt: |
+      Generate release notes for v1.4.1.
+      Commits since v1.4.0:
+      - fix: handle nil pointer in token refresh handler
+      - fix: prevent race condition in webhook delivery queue
+
+  - id: release-notes-major-bump
+    category: release_notes
+    description: breaking-change major bump notes
+    user_prompt: |
+      Generate release notes for v2.0.0.
+      Commits since v1.9.3:
+      - feat!: rename `Approve` API to `ApproveRelease`
+      - feat!: drop support for Go 1.22; require Go 1.25
+      - feat: add per-actor autonomy budgets
+    tags: [breaking, major]

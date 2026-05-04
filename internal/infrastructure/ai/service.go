@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
@@ -28,6 +29,19 @@ type Service interface {
 
 	// IsAvailable returns true if the AI service is available.
 	IsAvailable() bool
+}
+
+// StructuredOutputService is an opt-in interface implemented by AI services
+// that support provider-native structured output (OpenAI response_format,
+// Anthropic tool-use, Gemini responseJsonSchema).
+//
+// Callers type-assert: `if s, ok := svc.(StructuredOutputService); ok`. This
+// keeps the core Service interface stable while letting structured-output
+// call sites use the cross-provider primitive.
+//
+// Returns the raw JSON bytes — callers unmarshal into the matching Go struct.
+type StructuredOutputService interface {
+	CompleteStructured(ctx context.Context, systemPrompt, userPrompt string, schema schemas.Schema) ([]byte, error)
 }
 
 // Tone represents the tone of generated content.
@@ -131,11 +145,18 @@ type CustomPrompts struct {
 	MarketingUser string
 }
 
+// DefaultOpenAIModel is the default OpenAI model. 2026 default: gpt-5.
+const (
+	DefaultOpenAIModel        = "gpt-5"
+	OpenAIModelHighStakes     = "gpt-5"      // governance-sensitive prose
+	OpenAIModelFast           = "gpt-5-mini" // fast/cheap for diff summaries
+)
+
 // DefaultServiceConfig returns the default service configuration.
 func DefaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
 		Provider:      "openai",
-		Model:         "gpt-4",
+		Model:         DefaultOpenAIModel,
 		MaxTokens:     2048,
 		Temperature:   0.7,
 		Timeout:       30 * time.Second,

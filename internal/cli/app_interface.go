@@ -36,11 +36,19 @@ type cliApp interface {
 }
 
 var newContainerApp = func(ctx context.Context, cfg *config.Config) (cliApp, error) {
-	app, err := container.NewInitialized(ctx, cfg)
+	c, err := container.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &containerAppWrapper{App: app}, nil
+	// Forward the operator's --allow-untrusted-plugins opt-in BEFORE Initialize
+	// so the plugin manager picks it up at construction time (the trust gate
+	// is read inside initPluginSystem).
+	c.SetAllowUntrustedPlugins(allowUntrustedPlugins)
+
+	if err := c.Initialize(ctx); err != nil {
+		return nil, err
+	}
+	return &containerAppWrapper{App: c}, nil
 }
 
 type containerAppWrapper struct {

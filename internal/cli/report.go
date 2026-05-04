@@ -21,9 +21,9 @@ var (
 )
 
 func init() {
-	reportCmd.Flags().StringVar(&reportType, "type", "summary", "report type: dora, soc2, summary")
+	reportCmd.Flags().StringVar(&reportType, "type", "summary", "report type: dora, soc2, summary, eu-ai-act-article-12, eu-ai-act-annex-iv")
 	reportCmd.Flags().StringVar(&reportPeriod, "period", "", "time period (e.g. 2026-Q1 or 2026-03-01:2026-03-31)")
-	reportCmd.Flags().StringVar(&reportFormat, "format", "markdown", "output format: markdown, json")
+	reportCmd.Flags().StringVar(&reportFormat, "format", "markdown", "output format: markdown, json, jsonl, csv (jsonl/csv require --type eu-ai-act-article-12)")
 	reportCmd.Flags().StringVar(&reportRepo, "repo", "", "repository filter (default: current repository)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "write report to file instead of stdout")
 }
@@ -35,18 +35,31 @@ var reportCmd = &cobra.Command{
 
 Supported report types:
 
-  dora     DORA metrics (Deployment Frequency, Lead Time,
-           MTTR, Change Failure Rate)
-  soc2     SOC 2 change management evidence (change log,
-           approval evidence, risk assessments, incidents)
-  summary  General governance summary with risk distribution,
-           approval breakdown, and actor activity
+  dora                    DORA metrics (Deployment Frequency, Lead Time,
+                          MTTR, Change Failure Rate)
+  soc2                    SOC 2 change management evidence (change log,
+                          approval evidence, risk assessments, incidents)
+  summary                 General governance summary with risk distribution,
+                          approval breakdown, and actor activity
+  eu-ai-act-article-12    EU AI Act Article 12 record-keeping log bundle —
+                          one entry per governance decision with use period,
+                          reference data, input data, verifiers, and audit
+                          chain anchors. 6-month retention enforced.
+  eu-ai-act-annex-iv      EU AI Act Annex IV technical documentation —
+                          eight-section system documentation: general
+                          description, detailed elements, monitoring/control,
+                          risk management, lifecycle changes, harmonized
+                          standards, conformity declaration scaffold, and
+                          post-market monitoring. 10-year retention enforced.
 
 Examples:
 
   relicta report --type dora --period 2026-Q1
   relicta report --type soc2 --period "2026-03-01:2026-03-31" --format json
-  relicta report --type summary --period 2026-Q1 -o report.md`,
+  relicta report --type summary --period 2026-Q1 -o report.md
+  relicta report --type eu-ai-act-article-12 --period 2026-Q1 --format jsonl -o art12.jsonl
+  relicta report --type eu-ai-act-article-12 --period 2026-Q1 --format csv -o art12.csv
+  relicta report --type eu-ai-act-annex-iv --period 2026-Q1 -o annex-iv.md`,
 	RunE: runReport,
 }
 
@@ -64,12 +77,12 @@ func runReport(cmd *cobra.Command, args []string) error {
 
 	rt := compliance.ReportType(reportType)
 	if !rt.IsValid() {
-		return fmt.Errorf("invalid report type %q: use dora, soc2, or summary", reportType)
+		return fmt.Errorf("invalid report type %q: use dora, soc2, summary, eu-ai-act-article-12, or eu-ai-act-annex-iv", reportType)
 	}
 
 	rf := compliance.ReportFormat(reportFormat)
 	if !rf.IsValid() {
-		return fmt.Errorf("invalid format %q: use markdown or json", reportFormat)
+		return fmt.Errorf("invalid format %q: use markdown, json, jsonl, or csv", reportFormat)
 	}
 
 	// Override format if --json global flag is set

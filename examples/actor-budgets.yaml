@@ -1,0 +1,50 @@
+# Actor Autonomy Profiles
+#
+# Per-actor governance budgets enforced before privileged operations
+# (publish, approve, rollback). Each budget defines what an actor MAY do —
+# policies decide WHEN they may do it.
+#
+# Match order matters: the first budget whose actor_kind + actor_id match
+# is applied. Place specific entries before wildcards.
+#
+# Save as `.relicta/actor-budgets.yaml` in your repository.
+
+budgets:
+  # Specific named agent: trusted for low-risk autonomous patches.
+  - actor_kind: agent
+    actor_id: "claude-code-prod"
+    max_blast_radius: low
+    max_risk_score: 0.3
+    max_dollar_cost_usd: 25
+    requires_cosign: [publish, approve, rollback]
+    allowed_tools:
+      - relicta_plan
+      - relicta_evaluate
+      - relicta_summarize_diff
+      - relicta_status
+    denied_tools:
+      - relicta_reset
+
+  # All other agents: conservative defaults — refuse high-risk releases.
+  - actor_kind: agent
+    actor_id: "*"
+    max_blast_radius: medium
+    max_risk_score: 0.4
+    requires_cosign: [publish, approve]
+    time_window:
+      days: [mon, tue, wed, thu, fri]
+      start_hour: 9
+      end_hour: 17
+
+  # CI: like agents but trusted with patch releases on weekdays.
+  - actor_kind: ci
+    actor_id: "github-actions:*"
+    max_blast_radius: medium
+    max_risk_score: 0.5
+    time_window:
+      days: [mon, tue, wed, thu]
+
+  # Humans: permissive, but cosign required for production releases.
+  - actor_kind: human
+    actor_id: "*"
+    requires_cosign: [rollback]

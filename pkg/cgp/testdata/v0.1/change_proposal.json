@@ -1,0 +1,27 @@
+{
+  "cgpVersion": "0.1",
+  "type": "change.proposal",
+  "payload": {
+    "cgpVersion": "0.1",
+    "type": "change.proposal",
+    "id": "prop-001",
+    "timestamp": "2026-05-02T10:00:00Z",
+    "actor": {
+      "kind": "agent",
+      "id": "claude-code-1",
+      "name": "Claude Code"
+    },
+    "scope": {
+      "repository": "acme/payments",
+      "branch": "main",
+      "commitRange": "v1.4.0..HEAD",
+      "commits": ["abc123", "def456"],
+      "files": ["src/auth/handler.go", "src/billing/charge.go"]
+    },
+    "intent": {
+      "summary": "Refactor authentication and billing handlers",
+      "confidence": 0.85,
+      "categories": ["refactor", "feature"]
+    }
+  }
+}

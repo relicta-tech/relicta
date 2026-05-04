@@ -5,6 +5,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"regexp"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
@@ -23,7 +25,12 @@ func init() {
 // Default Gemini configuration values.
 const (
 	// DefaultGeminiModel is the default model for Gemini.
-	DefaultGeminiModel = "gemini-2.0-flash-exp"
+	// 2.5 Flash is the 2026 production-stable default; 2.0 Flash Exp was a
+	// preview tag retired by Q1 2026.
+	DefaultGeminiModel = "gemini-2.5-flash"
+
+	// GeminiModelHighStakes is recommended for governance-sensitive prose.
+	GeminiModelHighStakes = "gemini-2.5-pro"
 )
 
 // Pre-compiled regex for API key validation.
@@ -141,6 +148,77 @@ func (s *geminiService) SummarizeChanges(ctx context.Context, changes *git.Categ
 // Complete generates a raw completion from prompts.
 func (s *geminiService) Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	return s.complete(ctx, systemPrompt, userPrompt)
+}
+
+// CompleteStructured forces Gemini to return JSON conforming to the supplied
+// schema using `responseMimeType=application/json` plus `responseJsonSchema`.
+//
+// Cross-provider parity with OpenAI's `response_format: json_schema` and
+// Anthropic's tool-use approach. Returns the raw JSON bytes — callers
+// unmarshal into the matching Go struct.
+func (s *geminiService) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string, schema schemas.Schema) ([]byte, error) {
+	if schema == nil {
+		return nil, errors.AI("CompleteStructured", "schema is required")
+	}
+
+	schemaJSON, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "marshal schema")
+	}
+
+	// Decode into a generic any so the genai SDK can re-marshal as JSON
+	// inside the API payload. responseJsonSchema accepts arbitrary JSON
+	// Schema 2020-12; responseSchema is the older, OpenAPI-3.0-shaped variant.
+	var schemaAny any
+	if err := json.Unmarshal(schemaJSON, &schemaAny); err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "decode schema")
+	}
+
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
+		fullPrompt := systemPrompt + "\n\n" + userPrompt
+		parts := []*genai.Part{{Text: fullPrompt}}
+		temperature := float32(s.config.Temperature)
+
+		resp, err := s.client.Models.GenerateContent(
+			ctx,
+			s.config.Model,
+			[]*genai.Content{{Parts: parts}},
+			&genai.GenerateContentConfig{
+				Temperature:        &temperature,
+				MaxOutputTokens:    int32(s.config.MaxTokens), // #nosec G115 -- bounded by config
+				ResponseMIMEType:   "application/json",
+				ResponseJsonSchema: schemaAny,
+			},
+		)
+		if err != nil {
+			return "", err
+		}
+
+		if len(resp.Candidates) == 0 {
+			return "", errors.AI("CompleteStructured", "no response from Gemini model")
+		}
+		candidate := resp.Candidates[0]
+		if candidate.Content == nil || len(candidate.Content.Parts) == 0 {
+			return "", errors.AI("CompleteStructured", "empty response from Gemini model")
+		}
+
+		var b strings.Builder
+		for _, part := range candidate.Content.Parts {
+			if part.Text != "" {
+				b.WriteString(part.Text)
+			}
+		}
+		out := strings.TrimSpace(b.String())
+		if out == "" {
+			return "", errors.AI("CompleteStructured", "no text in response from Gemini model")
+		}
+		return out, nil
+	})
+
+	if err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "failed to generate structured content")
+	}
+	return []byte(result), nil
 }
 
 // IsAvailable returns true if the Gemini service is available.

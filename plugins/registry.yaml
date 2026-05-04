@@ -1,5 +1,25 @@
 version: "1.0"
-updated_at: 2025-12-23T15:30:00Z
+updated_at: 2026-05-02T00:00:00Z
+
+# ============================================================================
+# REGISTRY AUDIT STATUS NOTICE
+# ============================================================================
+# Each plugin below has an `audit_status` field:
+#   verified  — Plugin repository, CI, and checksums verified by Relicta Team.
+#               Maintained by core team. Safe for production use.
+#   community — Listed by community contribution. Repository existence,
+#               checksum validity, and maintenance status NOT verified by
+#               Relicta Team. Use at your own risk. Run `make plugin-verify`
+#               (planned) before installing.
+#
+# Currently verified plugins: github, gitlab, slack, jira, npm
+# All others are community-listed pending verification.
+#
+# To request promotion from community → verified, open a PR with:
+#   1. Working CI on the plugin repository
+#   2. Reproducible build with checksum verification
+#   3. Test coverage ≥80% on plugin code
+# ============================================================================
 
 plugins:
   - name: github
@@ -10,6 +30,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-github
     license: MIT
+    audit_status: verified
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 2003ba8575830aff35ed8abb8649f35e5b2cb9171a9b202171ca5956b534de6e
@@ -67,6 +88,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-gitlab
     license: MIT
+    audit_status: verified
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 6ca8230c57cad65ee46385a514e2b22fc653c6a063ceaa47883e9eb60f72cd42
@@ -100,6 +122,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-slack
     license: MIT
+    audit_status: verified
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 05a45f24b8539d0915e67cd88d0960000f20e65f3f9426e5c40a724a6b71bd70
@@ -143,6 +166,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-discord
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: b188383cb56c28b8ac1c72c27f179f1e4ad0eb5891abcdf397366fe98eeff015
@@ -176,6 +200,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-jira
     license: MIT
+    audit_status: verified
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 9c859c85257e51b3a6494d2ff15974d66b0f5eec8392c7ef3bbeb6132e04c6ba
@@ -223,6 +248,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-npm
     license: MIT
+    audit_status: verified
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 27960be265929454ee767b555ce47dbf2e2d66653b759768f2b4169eebc6673d
@@ -264,6 +290,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-launchnotes
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 5131134b92d79e76c0e9f92e6022fa72cefc87e684d049bcd26f5a5974de9583
@@ -292,6 +319,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-homebrew
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 16367a1a2dcfbbda35023eaa48d80ab99a61156b6e67659c74f0fec7d78c8c31
@@ -332,6 +360,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-docker
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 4dda46ba55686984051f66d893adbb7b27ef6345f4cbafae14c05e0b322355c5
@@ -393,6 +422,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-teams
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 64a636be502cf31f4647bad7c963fabcd8b17eb1d772ada02a568b40a67d345c
@@ -436,6 +466,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-pypi
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 2357ad120647dbd8f1b2b7232cea4816774ccdf6d4addf09a1ff323a935a3572
@@ -481,6 +512,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-chocolatey
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 350c680b4250b0e34cddc2b2f15eb18b743648eac00ace49b135e8fe37627b10
@@ -519,6 +551,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-linuxpkg
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 8ef12dc1950ed558d36fce174a58f416aea1a222c9f0fb94c9b9a3d80306adc5
@@ -570,6 +603,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-crates
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 03a590bcdd1534ed612380cd69582f3023c45315db98ec21e0007919214808e4
@@ -610,6 +644,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-nuget
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 53b3bb0193f2265e28d496da9587397141d5c1d1100703299303e9d135d821b5
@@ -649,6 +684,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-maven
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 5e37d17e61b68812a4ef0ad462b258e39cf015aaf5fbaafe710f5a0d45130af0
@@ -702,6 +738,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-rubygems
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 35d6e509421c389f72b4f345a00aaa57dc863f62ba9fadebb660629483ea4838
@@ -740,6 +777,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-hex
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 38433d04462ab2e611bf38b8d9b49966d2e0a19efce95c44580af4645bfe6818
@@ -781,6 +819,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-acr
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: b2e6fb7b5b423fde40d9578b61a5a746ca16d2954b45f7ec5e22459bf35680ad
@@ -841,6 +880,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-ecr
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 82b23e1c83767b9474aa2a2962769c69e34c3b44f7afadeca1f92973c2a785ef
@@ -881,6 +921,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-gcr
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 524d93883199b9875891e5443510a590fcf234ad5491c31c740d153ada8272c7
@@ -928,6 +969,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-helm
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 3176c039ce2ea6e7637a1b25a00bde1f10524a1a3f68e670c90c7eb09f53a564
@@ -982,6 +1024,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-pub
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: d183f449ebe40ced4d02054f69b414153eb96834814a7d7221a2075a96a94ebc
@@ -1022,6 +1065,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-swift-pm
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: b1a63ad8ceb387d64e47ef78bd9c7453f8a6b5aa0cbe5a63795a93f9b4d81a84
@@ -1061,6 +1105,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-winget
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 27ff14e414f8ca82dfebe0c436c21dd2bfefe5623d19abc8856991642e299c2c
@@ -1106,6 +1151,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-telegram
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: 6c10f51d8d80d3cd38c11d42255f3b4d4ee53306e31251ff2318bb3e48e5b034
@@ -1167,6 +1213,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-linear
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: c095f1bc746298dfbae87498503b9a36bbe38aa9d8f9207df48e9b327f7ff45f
@@ -1226,6 +1273,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-sentry
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: ef5993e23c0d4946d591c490c3018c2bd11f29827f24343e8c7475e53255ab89
@@ -1280,6 +1328,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-packagist
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: b57559444a54ec2ac467663449e02a217ef47a8c41c0f5cd98f78be1b87997a5
@@ -1318,6 +1367,7 @@ plugins:
     author: Relicta Team
     homepage: https://github.com/relicta-tech/plugin-gomod
     license: MIT
+    audit_status: community
     min_sdk_version: 1
     checksums:
       darwin_aarch64: a679eb4a37a83d97b4cde6301633de9404267db34824f3d4123165acb8ebf014

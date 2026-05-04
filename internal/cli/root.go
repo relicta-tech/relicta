@@ -37,6 +37,12 @@ var (
 	ciMode        bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
 	redactSecrets bool   // --redact flag to mask sensitive data in output
 
+	// allowUntrustedPlugins is the operator opt-in that bypasses the
+	// plugin-sandbox trust gate. Required on best-effort sandbox platforms
+	// (e.g. macOS) until plugin signature verification ships. See
+	// `relicta plugin sandbox-status` for posture details.
+	allowUntrustedPlugins bool
+
 	// Global config
 	cfg *config.Config
 
@@ -133,6 +139,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "CI/CD mode: auto-approve, JSON output, non-interactive")
 	rootCmd.PersistentFlags().BoolVar(&redactSecrets, "redact", false, "redact secrets and API keys from output (auto-enabled in CI mode)")
+	rootCmd.PersistentFlags().BoolVar(&allowUntrustedPlugins, "allow-untrusted-plugins", false, "load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first")
 
 	// Bind flags to viper (errors are non-fatal for flag binding)
 	_ = viper.BindPFlag("output.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
@@ -140,6 +147,45 @@ func init() {
 	_ = viper.BindPFlag("output.log_level", rootCmd.PersistentFlags().Lookup("log-level"))
 
 	// Add subcommands
+	// Cobra command groups — slot commands by user intent so `relicta --help`
+	// reads as a structured menu rather than a 30-item flat list (Hick's Law).
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "lifecycle", Title: "Release Lifecycle:"},
+		&cobra.Group{ID: "inspect", Title: "Inspect & Report:"},
+		&cobra.Group{ID: "governance", Title: "Governance:"},
+		&cobra.Group{ID: "extend", Title: "Extend (MCP, Plugins, Server):"},
+		&cobra.Group{ID: "ops", Title: "Operations:"},
+		&cobra.Group{ID: "integrations", Title: "Integrations (Vanta, Drata):"},
+	)
+
+	// Lifecycle: the canonical release flow.
+	initCmd.GroupID = "lifecycle"
+	planCmd.GroupID = "lifecycle"
+	bumpCmd.GroupID = "lifecycle"
+	notesCmd.GroupID = "lifecycle"
+	approveCmd.GroupID = "lifecycle"
+	publishCmd.GroupID = "lifecycle"
+	releaseCmd.GroupID = "lifecycle"
+	promoteCmd.GroupID = "lifecycle"
+	cancelCmd.GroupID = "lifecycle"
+	resetCmd.GroupID = "lifecycle"
+
+	// Inspect & report: read-only views and compliance bundles.
+	reportCmd.GroupID = "inspect"
+	evalCmd.GroupID = "inspect"
+
+	// Governance: policy authoring, evaluation, audit.
+	policyCmd.GroupID = "governance"
+
+	// Extend: agent integrations and headless servers.
+	mcpCmd.GroupID = "extend"
+
+	// Integrations: third-party GRC + evidence push.
+	integrationsCmd.GroupID = "integrations"
+
+	// Ops: meta commands.
+	versionCmd.GroupID = "ops"
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(planCmd)
@@ -154,6 +200,8 @@ func init() {
 	rootCmd.AddCommand(policyCmd)
 	rootCmd.AddCommand(promoteCmd)
 	rootCmd.AddCommand(reportCmd)
+	rootCmd.AddCommand(integrationsCmd)
+	rootCmd.AddCommand(evalCmd)
 }
 
 // loadAndValidateConfig loads and validates the configuration.

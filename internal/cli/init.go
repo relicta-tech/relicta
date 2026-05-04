@@ -17,12 +17,16 @@ var (
 	initForce       bool
 	initInteractive bool
 	initFormat      string
+	initQuick       bool
+	initGuided      bool
 )
 
 func init() {
 	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "overwrite existing config file")
-	initCmd.Flags().BoolVarP(&initInteractive, "interactive", "i", true, "run interactive setup")
+	initCmd.Flags().BoolVarP(&initInteractive, "interactive", "i", true, "run interactive setup (deprecated alias for --guided)")
 	initCmd.Flags().StringVar(&initFormat, "format", "yaml", "config file format (yaml, json)")
+	initCmd.Flags().BoolVar(&initQuick, "quick", false, "quick mode: detect from git remote + manifests, write defaults, skip wizard")
+	initCmd.Flags().BoolVar(&initGuided, "guided", false, "explicit opt-in to the 8-step interactive wizard (synonym for --interactive)")
 }
 
 // runInit implements the init command.
@@ -35,8 +39,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Interactive wizard mode
-	if initInteractive {
+	// Quick mode: skip the wizard, infer from environment, write defaults.
+	// Goal-Gradient + Doherty Threshold — get to first governed release fast.
+	if initQuick {
+		return runInitQuick()
+	}
+
+	// Interactive wizard mode (--guided is the new name; --interactive kept for back-compat).
+	if initInteractive || initGuided {
 		result, err := wizard.RunWizard(".")
 		if err != nil {
 			return fmt.Errorf("wizard failed: %w", err)
@@ -109,6 +119,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println("  3. Run 'relicta plan' to analyze your commits")
 	fmt.Println()
 
+	return nil
+}
+
+// runInitQuick performs zero-prompt project initialization.
+//
+// Strategy: detect git remote + repo info, write a sensible default config,
+// print the resolved file path. Total interaction: zero prompts.
+//
+// Designed for power users and CI bootstrap. The 8-step `--guided` wizard
+// remains for first-time users who want explanatory prompts.
+func runInitQuick() error {
+	configFile := ".relicta.yaml"
+	if initFormat == "json" {
+		configFile = ".relicta.json"
+	}
+
+	cfg := config.DefaultConfig()
+
+	if err := detectRepoSettings(cfg); err != nil && verbose {
+		printWarning(fmt.Sprintf("Could not detect repository settings: %v", err))
+	}
+
+	if err := config.WriteConfig(cfg, configFile); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	printSuccess(fmt.Sprintf("Created %s (quick mode)", configFile))
+	printInfo("Run 'relicta plan' to start your first release, or 'relicta init --guided' for the full setup wizard.")
 	return nil
 }
 

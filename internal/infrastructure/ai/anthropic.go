@@ -5,6 +5,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"regexp"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/liushuangls/go-anthropic/v2"
 
 	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
@@ -22,9 +24,24 @@ func init() {
 }
 
 // Default Anthropic configuration values.
+//
+// Models reflect the 2026 Claude lineup. Override per-use-case via
+// ServiceConfig.Model or the per-call WithModel option:
+//
+//   - claude-opus-4-7      — highest-quality reasoning, governance-sensitive prose
+//   - claude-sonnet-4-6    — balanced default for changelogs/release notes
+//   - claude-haiku-4-5     — fast/cheap for diff summaries and quick scans
 const (
 	// DefaultAnthropicModel is the default model for Anthropic.
-	DefaultAnthropicModel = "claude-sonnet-4-20250514"
+	DefaultAnthropicModel = "claude-sonnet-4-6"
+
+	// AnthropicModelHighStakes is recommended for governance-sensitive prose
+	// (release narratives, audit explanations) where factuality matters most.
+	AnthropicModelHighStakes = "claude-opus-4-7"
+
+	// AnthropicModelFast is recommended for high-volume / low-stakes work
+	// (per-commit diff summaries, quick triage).
+	AnthropicModelFast = "claude-haiku-4-5"
 )
 
 // Pre-compiled regex for API key validation.
@@ -142,20 +159,123 @@ func (s *anthropicService) Complete(ctx context.Context, systemPrompt, userPromp
 	return s.complete(ctx, systemPrompt, userPrompt)
 }
 
+// CompleteStructured forces Claude to return JSON conforming to the supplied
+// schema by registering it as a tool and setting tool_choice to that tool.
+//
+// This is the Anthropic equivalent of OpenAI's response_format=json_schema:
+// the model emits a tool_use block whose Input field is the requested JSON.
+// Returns the raw JSON bytes — callers unmarshal into the matching Go struct.
+//
+// Why tool-use rather than free-form: Anthropic does not implement OpenAI's
+// response_format. Tool-use is the documented mechanism to coerce structured
+// output and rejects non-conforming outputs at the API level.
+func (s *anthropicService) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string, schema schemas.Schema) ([]byte, error) {
+	if schema == nil {
+		return nil, errors.AI("CompleteStructured", "schema is required")
+	}
+
+	schemaJSON, err := schema.MarshalJSON()
+	if err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "marshal schema")
+	}
+
+	tool := anthropic.ToolDefinition{
+		Name:        schema.Name(),
+		Description: schema.Description(),
+		InputSchema: json.RawMessage(schemaJSON),
+	}
+
+	systemParts := []anthropic.MessageSystemPart{
+		{
+			Type: "text",
+			Text: systemPrompt,
+			CacheControl: &anthropic.MessageCacheControl{
+				Type: anthropic.CacheControlTypeEphemeral,
+			},
+		},
+	}
+
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
+		resp, err := s.client.CreateMessages(
+			ctx,
+			anthropic.MessagesRequest{
+				Model:       anthropic.Model(s.config.Model),
+				MaxTokens:   s.config.MaxTokens,
+				MultiSystem: systemParts,
+				Messages: []anthropic.Message{
+					anthropic.NewUserTextMessage(userPrompt),
+				},
+				Temperature: toFloatPtr(s.config.Temperature),
+				Tools:       []anthropic.ToolDefinition{tool},
+				ToolChoice: &anthropic.ToolChoice{
+					Type: "tool",
+					Name: schema.Name(),
+				},
+			},
+		)
+		if err != nil {
+			return "", err
+		}
+
+		// Locate the tool_use block. Multiple content blocks may be present
+		// (e.g. text + tool_use); we want the one matching our schema.
+		for _, block := range resp.Content {
+			if block.Type != anthropic.MessagesContentTypeToolUse {
+				continue
+			}
+			if block.MessageContentToolUse == nil {
+				continue
+			}
+			if block.MessageContentToolUse.Name != schema.Name() {
+				continue
+			}
+			if len(block.MessageContentToolUse.Input) == 0 {
+				return "", errors.AI("CompleteStructured", "tool_use block has empty input")
+			}
+			return string(block.MessageContentToolUse.Input), nil
+		}
+
+		return "", errors.AI("CompleteStructured", "no tool_use block matching schema in response")
+	})
+	if err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "failed to generate structured content")
+	}
+
+	return []byte(result), nil
+}
+
 // IsAvailable returns true if the Anthropic service is available.
 func (s *anthropicService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""
 }
 
 // complete sends a completion request to Anthropic using Fortify resilience patterns.
+//
+// System prompts are sent via MultiSystem with `cache_control: ephemeral` so
+// the long, stable Relicta governance/changelog/release-notes system prompts
+// hit Anthropic's 5-minute prompt cache on repeat calls. This typically cuts
+// per-call cost by 5-10x and reduces TTFT for batched workloads.
+//
+// Caching only applies to system prompts that exceed Anthropic's minimum
+// cacheable token threshold; below that the cache_control hint is a no-op.
 func (s *anthropicService) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	systemParts := []anthropic.MessageSystemPart{
+		{
+			Type: "text",
+			Text: systemPrompt,
+			CacheControl: &anthropic.MessageCacheControl{
+				Type: anthropic.CacheControlTypeEphemeral,
+			},
+		},
+	}
+
 	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
 		resp, err := s.client.CreateMessages(
 			ctx,
 			anthropic.MessagesRequest{
-				Model:     anthropic.Model(s.config.Model),
-				MaxTokens: s.config.MaxTokens,
-				System:    systemPrompt,
+				Model:       anthropic.Model(s.config.Model),
+				MaxTokens:   s.config.MaxTokens,
+				MultiSystem: systemParts,
 				Messages: []anthropic.Message{
 					anthropic.NewUserTextMessage(userPrompt),
 				},

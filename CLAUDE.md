@@ -33,50 +33,86 @@ make release                  # Full release with goreleaser
 
 | Component | Technology |
 |-----------|------------|
-| Language | Go 1.22+ |
+| Language | Go 1.25+ |
 | CLI Framework | Cobra |
 | Configuration | Viper (YAML, JSON, env vars) |
 | Git Operations | go-git (pure Go) |
 | Plugin System | HashiCorp go-plugin (gRPC) |
 | Terminal UI | Charmbracelet (bubbletea, lipgloss) |
-| AI Clients | go-openai, anthropic-sdk-go, HTTP for Ollama |
+| HTTP Server | chi router |
+| Persistence | File-based (default) or PostgreSQL via pgx/v5 |
+| AI Clients | go-openai, anthropic-sdk-go, HTTP for Gemini and Ollama |
 
 ## Architecture
 
 ```
-cmd/relicta/          # Entry point
+cmd/relicta/                # Entry point
 internal/
-├── cli/                    # Cobra commands (init, plan, version, notes, approve, publish)
-├── service/                # Core business logic
-│   ├── git/               # Git operations, conventional commit parsing
-│   ├── version/           # Semver calculations, changelog generation
-│   ├── ai/                # AI provider abstraction (OpenAI, Anthropic, Ollama)
-│   └── template/          # Go template rendering
-├── plugin/                 # Plugin manager, gRPC protocol
+├── cli/                    # Cobra commands (36 files, ~13K LOC)
+├── domain/                 # Hexagonal core (release aggregate, value objects, ports)
+│   ├── release/            # ReleaseRun aggregate, state machine, events
+│   ├── changes/            # Change classification
+│   ├── communication/      # Audience-aware narratives
+│   ├── monorepo/           # Workspace versioning
+│   ├── multirepo/          # Repo group governance
+│   ├── sourcecontrol/      # Git port
+│   ├── version/            # Semver
+│   └── workspace/          # Workspace detection
+├── application/            # Use-case orchestration (governance, blast, supplychain, monorepo, multirepo, versioning)
+├── infrastructure/         # Adapters (git, ai, persistence, webhook, template, workspace, observability)
+│   ├── ai/                 # OpenAI/Anthropic/Gemini/Ollama provider abstraction (5,914 LOC)
+│   ├── git/                # go-git adapter
+│   ├── persistence/        # File event store + PostgreSQL adapter
+│   ├── webhook/            # Outbound delivery queue + retry
+│   └── observability/      # Prometheus metrics + inbound webhook receiver
+├── cgp/                    # Change Governance Protocol — risk, policy, audit, autoapproval, reputation, memory, attribution, identity, dsl, evaluator
+├── compliance/             # SOC2 + DORA report generation (templates + markdown/JSON output)
+├── httpserver/             # Dashboard REST API (chi router) + WebSocket + middleware (JWT, OIDC, RBAC)
+├── mcp/                    # MCP server for AI agent integration (~9.5K LOC)
+├── security/               # Token (JWT/HS256), OIDC, attestation
+├── observability/          # Prometheus + receiver wiring
+├── plugin/                 # gRPC plugin manager + sandbox (best-effort on darwin)
+├── analytics/              # Risk trends, decision distribution, team metrics
 ├── config/                 # Viper-based config loading
-├── state/                  # Release state persistence
-└── ui/                     # Terminal UI components
-pkg/plugin/                 # Public plugin interface (for plugin authors)
-plugins/                    # Official plugins (github, slack, etc.)
+├── service/                # Release service composition root
+├── ui/                     # Terminal UI components (lipgloss)
+└── container/              # Dependency injection wiring
+
+pkg/cgp/                    # Public CGP SDK — wire format, message types, validation
+plugins/                    # Plugin registry (separate plugin repos referenced via registry.yaml)
+web/                        # Vue 3 + Vite + Tailwind dashboard frontend
 ```
 
 ## Core Commands
 
 | Command | Purpose |
 |---------|---------|
-| `relicta init` | Set up config and default options |
+| `relicta init` | Set up config and default options (8-step wizard) |
 | `relicta plan` | Analyze changes and assess risk since last release |
 | `relicta bump` | Calculate and apply semver version |
 | `relicta notes` | Generate AI-powered release notes |
+| `relicta evaluate` | CGP risk evaluation against policy |
 | `relicta approve` | Governance gate with audit trail |
 | `relicta publish` | Execute release: tag, changelog, notify, publish |
 | `relicta release` | Complete workflow (plan → bump → notes → approve → publish) |
+| `relicta promote` | Promote between channels (alpha/beta/rc/stable) |
+| `relicta communicate` | Audience-aware release narratives |
+| `relicta blast` | Blast radius analysis |
+| `relicta verify` | Verify release attestations and signatures |
+| `relicta rollback` | Roll back to previous version |
+| `relicta group` | Multi-repo group operations |
+| `relicta report` | Generate SOC2 / DORA / summary reports |
+| `relicta mcp serve` | MCP server for AI agent integration |
+| `relicta server` | Standalone dashboard API server |
+| `relicta db migrate` | PostgreSQL migration runner |
+| `relicta plugin` | Plugin management (list/create/dev/registry/search) |
 
 ## Plugin System
 
 - Plugins run as separate processes via HashiCorp go-plugin (gRPC)
 - Hook-based lifecycle: `PreVersion`, `PostNotes`, `PostPublish`, etc.
-- Official plugins: GitHub, GitLab, Slack, Jira
+- Plugin registry at `plugins/registry.yaml` references external plugin repositories (each plugin is its own Go module/repo)
+- Sandbox: best-effort on darwin (RLIMIT_AS unenforced on Apple Silicon — see `internal/plugin/sandbox/sandbox_darwin.go`)
 
 ## Configuration
 

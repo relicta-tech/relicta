@@ -50,6 +50,12 @@ type Manager struct {
 	pendingPlugins map[string]*config.PluginConfig // Registered but not yet loaded
 	loadOnce       map[string]*sync.Once           // Ensures each plugin loads only once
 	loadErrors     map[string]error                // Stores load errors for lazy-loaded plugins
+
+	// allowUntrustedPlugins is the explicit operator opt-in to load plugins
+	// when the runtime cannot offer strict sandbox enforcement (best-effort
+	// platform OR signature verification not implemented). Set via
+	// `Manager.AllowUntrustedPlugins(true)` from CLI flag handling.
+	allowUntrustedPlugins bool
 }
 
 // loadedPlugin represents a loaded and running plugin.
@@ -88,9 +94,64 @@ func NewManager(cfg *config.Config) *Manager {
 	}
 }
 
+// hasEnabledPlugins reports whether any configured plugin would actually load.
+// Used to short-circuit the trust gate so plugin-less commands stay frictionless.
+func (m *Manager) hasEnabledPlugins() bool {
+	for i := range m.cfg.Plugins {
+		if m.cfg.Plugins[i].IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowUntrustedPlugins toggles the operator opt-in that bypasses the
+// sandbox-honesty gate. CLI wires this from the `--allow-untrusted-plugins`
+// flag. Default false means the runtime refuses to load plugins on
+// best-effort sandbox platforms (e.g. macOS) until either signing ships or
+// the operator explicitly accepts the risk.
+func (m *Manager) AllowUntrustedPlugins(allow bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.allowUntrustedPlugins = allow
+}
+
+// trustGateBlocks reports whether plugin loading should be refused given the
+// current sandbox posture and the operator's trust opt-in. When it returns
+// a non-nil error, callers must NOT load any plugin and should surface the
+// error to the operator with the SecurityNotice attached.
+func (m *Manager) trustGateBlocks() error {
+	if !sandbox.RequireExplicitTrust() {
+		return nil
+	}
+	if m.allowUntrustedPlugins {
+		// Operator opted in; log loud warning so the bypass is visible in
+		// CI/audit logs.
+		m.logger.Warn("loading untrusted plugins under operator opt-in",
+			"posture", sandbox.CurrentPosture().Level,
+			"signing_verified", false)
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to load plugins: sandbox enforcement is best-effort on this platform "+
+			"and plugin signatures are not yet verified. Pass --allow-untrusted-plugins to "+
+			"bypass after reviewing the security posture:\n\n%s",
+		sandbox.SecurityNotice())
+}
+
 // LoadPlugins loads all configured plugins.
 func (m *Manager) LoadPlugins(ctx context.Context) error {
 	const op = "plugin.LoadPlugins"
+
+	// Trust gate fires only when there is at least one enabled plugin to load.
+	// Empty configs and all-disabled configs short-circuit so commands that
+	// don't use plugins (e.g. `relicta plan`, `relicta report`) work normally
+	// on best-effort sandbox platforms without requiring the opt-in flag.
+	if m.hasEnabledPlugins() {
+		if err := m.trustGateBlocks(); err != nil {
+			return errors.PluginWrap(err, op, "trust gate refused plugin load")
+		}
+	}
 
 	for _, pluginCfg := range m.cfg.Plugins {
 		if !pluginCfg.IsEnabled() {
@@ -113,6 +174,11 @@ func (m *Manager) LoadPlugins(ctx context.Context) error {
 // RegisterPlugins registers all configured plugins for lazy loading.
 // Plugins are not actually loaded until they are needed (when a hook is executed).
 // This improves startup time for commands that don't use plugins.
+//
+// The trust gate is checked at load time (in ensurePluginLoaded), not here,
+// so registration always succeeds. This keeps the surface area predictable —
+// configured plugins are always *registered*; they may be *blocked from load*
+// based on operator opt-in.
 func (m *Manager) RegisterPlugins() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -153,6 +219,16 @@ func (m *Manager) ensurePluginLoaded(ctx context.Context, name string) (*loadedP
 
 	if !hasCfg || !hasOnce {
 		return nil, fmt.Errorf("plugin not registered: %s", name)
+	}
+
+	// Trust gate: refuse to load on best-effort sandbox platforms unless the
+	// operator explicitly opted in. Cached as a load error so subsequent calls
+	// fail fast instead of re-evaluating.
+	if err := m.trustGateBlocks(); err != nil {
+		m.mu.Lock()
+		m.loadErrors[name] = err
+		m.mu.Unlock()
+		return nil, err
 	}
 
 	// Load the plugin (sync.Once ensures this happens only once)

@@ -8,7 +8,9 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx --fix --ignore-path .gitignore",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test:a11y": "playwright test --config=playwright.config.ts",
+    "test:a11y:install": "playwright install --with-deps"
   },
   "dependencies": {
     "@vueuse/core": "^11.3.0",
@@ -38,6 +40,8 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.7.2",
     "vite": "^6.0.5",
-    "vue-tsc": "^2.2.0"
+    "vue-tsc": "^2.2.0",
+    "@playwright/test": "^1.49.0",
+    "@axe-core/playwright": "^4.10.0"
   }
 }

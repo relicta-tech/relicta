@@ -67,11 +67,9 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 		return nil, fmt.Errorf("AI changelog generation failed: %w", err)
 	}
 
-	// Generate release notes from changelog
-	releaseNotes, err := a.aiService.GenerateReleaseNotes(ctx, changelog, genOpts)
-	if err != nil {
-		return nil, fmt.Errorf("AI release notes generation failed: %w", err)
-	}
+	// Generate release notes. Prefer provider-native structured output when
+	// supported (OpenAI / Anthropic / Gemini); fall back to free-form prose.
+	releaseNotes, structuredUsed := a.generateReleaseNotesStructuredOrFreeForm(ctx, changelog, genOpts)
 
 	// Combine changelog and release notes into Text field
 	combinedText := changelog
@@ -79,14 +77,152 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 		combinedText = releaseNotes + "\n\n## Changelog\n\n" + changelog
 	}
 
+	provider := options.Provider
+	if structuredUsed {
+		// Tag the provider so downstream callers / audit logs can tell which
+		// path produced the notes. Useful for eval harness regression checks.
+		provider = provider + "+structured"
+	}
+
 	return &domain.ReleaseNotes{
 		Text:           combinedText,
 		AudiencePreset: options.AudiencePreset,
 		TonePreset:     options.TonePreset,
-		Provider:       options.Provider,
+		Provider:       provider,
 		Model:          options.Model,
 		GeneratedAt:    time.Now(),
 	}, nil
+}
+
+// generateReleaseNotesStructuredOrFreeForm produces release-notes prose,
+// preferring the structured path when the AI service supports it.
+//
+// Returns (notes, structuredUsed). On structured-path failure (parse error,
+// API error, missing fields) it transparently falls back to the free-form
+// GenerateReleaseNotes call so callers always get something — release notes
+// are cosmetic prose, not load-bearing for governance decisions.
+func (a *NotesGeneratorAdapter) generateReleaseNotesStructuredOrFreeForm(
+	ctx context.Context,
+	changelog string,
+	genOpts ai.GenerateOptions,
+) (string, bool) {
+	if structured, ok := a.aiService.(ai.StructuredOutputService); ok {
+		systemPrompt := "You generate categorized release notes for a software release. " +
+			"Return a structured ReleaseNotes payload with summary, sections by category, " +
+			"and any breaking changes / upgrade notes."
+		userPrompt := "Generate structured release notes from this changelog:\n\n" + changelog
+
+		bytes, err := structured.CompleteStructured(ctx, systemPrompt, userPrompt, releaseNotesSchemaShim{})
+		if err == nil && len(bytes) > 0 {
+			if rendered, parseErr := renderStructuredReleaseNotes(bytes); parseErr == nil && rendered != "" {
+				return rendered, true
+			}
+		}
+	}
+
+	notes, err := a.aiService.GenerateReleaseNotes(ctx, changelog, genOpts)
+	if err != nil || notes == "" {
+		return changelog, false
+	}
+	return notes, false
+}
+
+// releaseNotesSchemaShim mirrors the public ReleaseNotesSchema shape without
+// importing the schemas package (avoids container → infrastructure → schemas
+// import-cycle risk; both sides are infrastructure-tier already but keeping
+// the shim explicit clarifies the contract).
+type releaseNotesSchemaShim struct{}
+
+func (releaseNotesSchemaShim) Name() string        { return "ReleaseNotes" }
+func (releaseNotesSchemaShim) Description() string { return "Structured release notes with categorized sections." }
+func (releaseNotesSchemaShim) Strict() bool        { return false }
+func (releaseNotesSchemaShim) MarshalJSON() ([]byte, error) {
+	return []byte(`{
+		"type": "object",
+		"additionalProperties": false,
+		"required": ["summary", "sections"],
+		"properties": {
+			"summary":  {"type": "string", "description": "Brief release headline (1–3 sentences)."},
+			"sections": {
+				"type":  "array",
+				"items": {
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["category", "items"],
+					"properties": {
+						"category": {"type": "string", "enum": ["features", "fixes", "performance", "security", "deprecations", "breaking", "internal"]},
+						"items":    {"type": "array", "items": {"type": "string"}}
+					}
+				}
+			},
+			"breaking_changes": {"type": "array", "items": {"type": "string"}},
+			"upgrade_notes":   {"type": "string"}
+		}
+	}`), nil
+}
+
+// renderStructuredReleaseNotes converts a ReleaseNotes JSON payload into
+// markdown. Order: summary → categorized sections → breaking changes →
+// upgrade notes. Empty payload yields empty string so caller can fall back.
+func renderStructuredReleaseNotes(b []byte) (string, error) {
+	var payload struct {
+		Summary         string `json:"summary"`
+		Sections        []struct {
+			Category string   `json:"category"`
+			Items    []string `json:"items"`
+		} `json:"sections"`
+		BreakingChanges []string `json:"breaking_changes"`
+		UpgradeNotes    string   `json:"upgrade_notes"`
+	}
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return "", err
+	}
+	if payload.Summary == "" && len(payload.Sections) == 0 {
+		return "", fmt.Errorf("structured release notes payload is empty")
+	}
+
+	var sb stringBuilder
+	if payload.Summary != "" {
+		sb.WriteString(payload.Summary + "\n\n")
+	}
+	for _, sec := range payload.Sections {
+		if len(sec.Items) == 0 {
+			continue
+		}
+		sb.WriteString("## " + capitalizeCategory(sec.Category) + "\n\n")
+		for _, item := range sec.Items {
+			sb.WriteString("- " + item + "\n")
+		}
+		sb.WriteString("\n")
+	}
+	if len(payload.BreakingChanges) > 0 {
+		sb.WriteString("## Breaking Changes\n\n")
+		for _, change := range payload.BreakingChanges {
+			sb.WriteString("- " + change + "\n")
+		}
+		sb.WriteString("\n")
+	}
+	if payload.UpgradeNotes != "" {
+		sb.WriteString("## Upgrade Notes\n\n" + payload.UpgradeNotes + "\n")
+	}
+	return sb.String(), nil
+}
+
+// stringBuilder is a thin alias for strings.Builder to keep the import list
+// stable when this file already pulls in many packages.
+type stringBuilder struct {
+	buf []byte
+}
+
+func (s *stringBuilder) WriteString(x string) { s.buf = append(s.buf, x...) }
+func (s *stringBuilder) String() string       { return string(s.buf) }
+
+// capitalizeCategory turns "features" → "Features" for prettier section titles.
+func capitalizeCategory(s string) string {
+	if s == "" {
+		return s
+	}
+	return string(s[0]&^32) + s[1:]
 }
 
 // ComputeInputsHash computes a hash of the inputs used to generate notes.

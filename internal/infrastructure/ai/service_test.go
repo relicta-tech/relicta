@@ -107,8 +107,8 @@ func TestDefaultServiceConfig(t *testing.T) {
 	if cfg.Provider != "openai" {
 		t.Errorf("Default Provider = %v, want openai", cfg.Provider)
 	}
-	if cfg.Model != "gpt-4" {
-		t.Errorf("Default Model = %v, want gpt-4", cfg.Model)
+	if cfg.Model != DefaultOpenAIModel {
+		t.Errorf("Default Model = %v, want %v", cfg.Model, DefaultOpenAIModel)
 	}
 	if cfg.MaxTokens != 2048 {
 		t.Errorf("Default MaxTokens = %v, want 2048", cfg.MaxTokens)

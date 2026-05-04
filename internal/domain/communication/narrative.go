@@ -2,6 +2,7 @@ package communication
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -50,6 +51,28 @@ type AICompleter interface {
 	Complete(ctx context.Context, systemPrompt, userPrompt string) (string, error)
 	// IsAvailable returns true if the AI service is ready.
 	IsAvailable() bool
+}
+
+// AIStructuredCompleter is an opt-in extension implemented by AI services
+// supporting provider-native structured output. When the wired completer
+// satisfies this interface, the generator gets a typed AudienceNarrative
+// payload (headline + body + optional CTA) instead of free-form prose.
+//
+// schemaProvider is the minimal contract a JSON schema must satisfy; it
+// matches `internal/infrastructure/ai/schemas.Schema` structurally without
+// importing that package (avoids cross-cutting domain → infrastructure deps).
+type AIStructuredCompleter interface {
+	CompleteStructured(ctx context.Context, systemPrompt, userPrompt string, schema schemaProvider) ([]byte, error)
+}
+
+// schemaProvider is the structural contract a JSON Schema must satisfy.
+// Concrete `schemas.Schema` values from the AI infrastructure package
+// satisfy this implicitly.
+type schemaProvider interface {
+	json.Marshaler
+	Name() string
+	Description() string
+	Strict() bool
 }
 
 // NarrativeGenerator generates audience-specific narratives from changes.
@@ -101,9 +124,26 @@ func (g *NarrativeGenerator) GenerateAll(ctx context.Context, input NarrativeInp
 }
 
 // generateWithAI uses the AI provider to create an audience-specific narrative.
+//
+// Prefers provider-native structured output when the configured AI service
+// supports it: returns a typed (headline, body, call_to_action) payload via
+// the AudienceNarrative schema. Falls back to free-form Complete otherwise.
 func (g *NarrativeGenerator) generateWithAI(ctx context.Context, input NarrativeInput, audience Audience, format OutputFormat) (*Narrative, error) {
 	systemPrompt := buildAudienceSystemPrompt(audience, format)
 	userPrompt := buildAudienceUserPrompt(input, audience)
+
+	if structured, ok := g.ai.(AIStructuredCompleter); ok {
+		schema := audienceNarrativeSchema()
+		bytes, err := structured.CompleteStructured(ctx, systemPrompt, userPrompt, schema)
+		if err == nil && len(bytes) > 0 {
+			n, parseErr := buildNarrativeFromStructured(bytes, input, audience, format)
+			if parseErr == nil {
+				return n, nil
+			}
+			// Parse failure → fall through to free-form path so we still
+			// emit *something* rather than blocking the release narrative.
+		}
+	}
 
 	body, err := g.ai.Complete(ctx, systemPrompt, userPrompt)
 	if err != nil {
@@ -119,6 +159,72 @@ func (g *NarrativeGenerator) generateWithAI(ctx context.Context, input Narrative
 		Provider:    "ai",
 	}, nil
 }
+
+// buildNarrativeFromStructured parses an AudienceNarrative JSON payload and
+// renders it into a Narrative. Body composition: headline → body → CTA.
+func buildNarrativeFromStructured(bytes []byte, input NarrativeInput, audience Audience, format OutputFormat) (*Narrative, error) {
+	var payload struct {
+		Audience     string `json:"audience"`
+		Headline     string `json:"headline"`
+		Body         string `json:"body"`
+		CallToAction string `json:"call_to_action,omitempty"`
+	}
+	if err := json.Unmarshal(bytes, &payload); err != nil {
+		return nil, fmt.Errorf("decode AudienceNarrative: %w", err)
+	}
+	if payload.Body == "" {
+		return nil, fmt.Errorf("AudienceNarrative payload has empty body")
+	}
+
+	var sb strings.Builder
+	if payload.Headline != "" && payload.Headline != buildTitle(input, audience) {
+		sb.WriteString(payload.Headline)
+		sb.WriteString("\n\n")
+	}
+	sb.WriteString(payload.Body)
+	if payload.CallToAction != "" {
+		sb.WriteString("\n\n")
+		sb.WriteString(payload.CallToAction)
+	}
+
+	title := payload.Headline
+	if title == "" {
+		title = buildTitle(input, audience)
+	}
+
+	return &Narrative{
+		Audience:    audience.Type,
+		Title:       title,
+		Body:        sb.String(),
+		Format:      format,
+		GeneratedAt: time.Now(),
+		Provider:    "ai-structured",
+	}, nil
+}
+
+// audienceNarrativeSchema is a local schema definition that matches
+// `infrastructure/ai/schemas.AudienceNarrativeSchema()` structurally.
+// Defined inline here to keep the domain layer free of infrastructure imports.
+type narrativeSchema struct{}
+
+func (narrativeSchema) Name() string        { return "AudienceNarrative" }
+func (narrativeSchema) Description() string { return "Audience-tailored release narrative." }
+func (narrativeSchema) Strict() bool        { return false }
+func (narrativeSchema) MarshalJSON() ([]byte, error) {
+	return []byte(`{
+		"type": "object",
+		"additionalProperties": false,
+		"required": ["audience", "headline", "body"],
+		"properties": {
+			"audience": {"type": "string", "enum": ["engineering", "product", "executive", "external"]},
+			"headline": {"type": "string"},
+			"body":     {"type": "string"},
+			"call_to_action": {"type": "string", "description": "Optional next-step CTA."}
+		}
+	}`), nil
+}
+
+func audienceNarrativeSchema() schemaProvider { return narrativeSchema{} }
 
 // generateWithTemplate uses Go templates to create a narrative without AI.
 func (g *NarrativeGenerator) generateWithTemplate(input NarrativeInput, audience Audience, format OutputFormat) (*Narrative, error) {

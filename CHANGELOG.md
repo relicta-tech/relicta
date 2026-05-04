@@ -5,6 +5,119 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Release Notes for Project Version 3.5.0
+
+We are excited to announce the release of version 3.5.0 of our project. In this release, we have worked on implementing significant enhancements, addressing security issues, and providing updated documentation. The highlights of this release include new middleware with mcp-go v1.9.0, phase scaling, Relicta v3 Change Governance Platform, production hardening features, and session authentication with JWT tokens. In addition, we have fixed several issues, updated dependencies, and made improvements to the quality of our codebase.
+
+## 1. New Features and Enhancements
+
+The cornerstone of this release is the new middleware, elicitation, and discovery that comes with mcp-go v1.9.0. We have also added Phase 3, 2, and 1 scaling, each bringing unique features to enable org risk aggregation, actor identity, and risk budgets, respectively. 
+
+The Relicta v3 Change Governance Platform has been introduced in this release. This platform will revolutionize the way you handle changes in your project. 
+
+We have also added some significant production hardening features: rollback, fuzzing, SBOM, and test coverage. These features will help you ensure that your application is robust and reliable.
+
+Additionally, we have introduced OIDC provider config and API version negotiation to the dashboard, session authentication with JWT tokens, and SLSA governance attestation with verify command. 
+
+## 2. Fixed Issues
+
+We have addressed several issues in this release. These include fixing benchmark action permissions and threshold issues in the CI, a Nox installation issue, and CodeQL replacement with nox and benchmark action SHA fix in the CI. 
+
+We have also fixed a hot-reloading configuration issue and stabilized local plugin path validation. Security fixes include addressing OIDC error leakage, JSON injection, adapter data race issues, auditing findings, and patching go-git and MCP SDK security vulnerabilities.
+
+## 3. Changes
+
+In our commitment to excellence, we have made several changes to upgrade our project. We have achieved nox grade A by setting baseline false positives and adding .noxignore. The README has been updated with the nox grade badge SVG. Several brand assets have been restored, and nox and coverctl badges have been added. 
+
+All dependencies have been updated to the latest versions, and Go version has been bumped to 1.25. We have also ignored security scan artifacts and upgraded various dependencies across the project.
+
+## 4. Security
+
+In this release, we have made significant strides in improving the security of our application. We have addressed OIDC error leakage, JSON injection, adapter data race issues, and audit findings across the codebase. Go-git and MCP SDK security vulnerabilities have been patched.
+
+## 5. Documentation
+
+The documentation has been enriched with the addition of the Relicta Hub SaaS PRD, a scaling strategy, and landing page enrichment. The README has been rewritten and augmented with dashboard views and pre-commit hooks. We have also marked all policy engine enhancements as completed in the backlog.
+
+We believe this release brings valuable enhancements that will significantly improve your productivity and efficiency. We look forward to your feedback.
+
+For more details, you can refer to the complete changelog [here](https://github.com/your_project/compare/v3.4.0..v3.5.0).
+
+## Changelog
+
+# Changelog
+
+## [3.5.0] - 2022-04-21
+
+### Added
+
+- New middleware, elicitation, and discovery with mcp-go v1.9.0 (mcp).
+- Phase 3 scaling: org risk aggregation, agent reputation, supply chain governance.
+- Phase 2 scaling: actor identity, compliance reports, governance analytics.
+- Phase 1 scaling: risk budgets, incident correlation, weight calibration.
+- Relicta v3 Change Governance Platform.
+- Initial project setup.
+- Multi-repo governance and runtime observability.
+- Production hardening features: rollback, fuzzing, SBOM, test coverage.
+- Phase 2B Governance Intelligence.
+- Phase 2A Enterprise Foundation.
+- OIDC provider config and API version negotiation to the dashboard.
+- Session authentication with JWT tokens (auth).
+- Phase 2A Enterprise Foundation spec and plan (roady).
+- SLSA governance attestation with verify command (attestation).
+- Fixture scaffolding command and workflows (policy).
+
+### Fixed
+
+- Benchmark action permissions and threshold issues in the CI.
+- Nox installation issue in the CI.
+- CodeQL replacement with nox and benchmark action SHA fix in the CI.
+- Lint and coverage gate failures in the CI.
+- All remaining review findings across the codebase.
+- OIDC error leakage, JSON injection, adapter data race issues (security).
+- Audit findings across the codebase (security).
+- Security findings and a hanging test.
+- Upgraded google.golang.org/grpc to v1.79.3 (deps).
+- Resolved a hot-reloading configuration issue (#83).
+- Patched go-git and MCP SDK security vulnerabilities (deps).
+- Moved gopkg.in/yaml.v3 to third-party import group in policy.go (lint).
+- Stabilized local plugin path validation (#53) (plugin).
+- Replaced dots with underscores in tool names for Claude Desktop (mcp).
+
+### Changed
+
+- Achieved nox grade A by setting baseline false positives and adding .noxignore.
+- Updated README with nox grade badge SVG.
+- Restored brand assets and added nox and coverctl badges.
+- Updated all dependencies to the latest versions (deps).
+- Ignored security scan artifacts.
+- Bumped go-dependencies and Go version to 1.25.
+- Upgraded various dependencies across the project (deps).
+
+### Deprecated
+
+_No deprecated items in this release._
+
+### Removed
+
+_No removed items in this release._
+
+### Security
+
+- Addressed OIDC error leakage, JSON injection, adapter data race issues (security).
+- Addressed audit findings across the codebase (security).
+- Resolved security findings and fixed a hanging test.
+- Patched go-git and MCP SDK security vulnerabilities (deps).
+
+### Documentation
+
+- Added Relicta Hub SaaS PRD.
+- Added scaling strategy and landing page enrichment.
+- Rewrote README and added dashboard views and pre-commit hooks (#80).
+- Marked all policy engine enhancements as completed (backlog).
+
+[3.5.0]: https://github.com/your_project/compare/v3.4.0..v3.5.0
+
 ## [3.4.5] - 2026-02-01
 
 ### Chores

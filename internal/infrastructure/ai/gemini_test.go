@@ -286,8 +286,11 @@ func TestNewService_GeminiProvider(t *testing.T) {
 }
 
 func TestGeminiDefaultConstants(t *testing.T) {
-	if DefaultGeminiModel != "gemini-2.0-flash-exp" {
-		t.Errorf("DefaultGeminiModel = %v, want gemini-2.0-flash-exp", DefaultGeminiModel)
+	if DefaultGeminiModel != "gemini-2.5-flash" {
+		t.Errorf("DefaultGeminiModel = %v, want gemini-2.5-flash", DefaultGeminiModel)
+	}
+	if GeminiModelHighStakes != "gemini-2.5-pro" {
+		t.Errorf("GeminiModelHighStakes = %v, want gemini-2.5-pro", GeminiModelHighStakes)
 	}
 }
 

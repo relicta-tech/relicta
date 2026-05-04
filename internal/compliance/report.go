@@ -25,12 +25,17 @@ type ReportFormat string
 const (
 	FormatMarkdown ReportFormat = "markdown"
 	FormatJSON     ReportFormat = "json"
+	// FormatJSONL emits one JSON object per line. Required for Article 12
+	// log bundles where each entry must be independently readable.
+	FormatJSONL ReportFormat = "jsonl"
+	// FormatCSV emits a flat tabular view for regulator portals.
+	FormatCSV ReportFormat = "csv"
 )
 
 // IsValid returns true if the format is recognized.
 func (f ReportFormat) IsValid() bool {
 	switch f {
-	case FormatMarkdown, FormatJSON:
+	case FormatMarkdown, FormatJSON, FormatJSONL, FormatCSV:
 		return true
 	default:
 		return false
@@ -41,15 +46,17 @@ func (f ReportFormat) IsValid() bool {
 type ReportType string
 
 const (
-	ReportDORA    ReportType = "dora"    // DORA metrics
-	ReportSOC2    ReportType = "soc2"    // SOC 2 change management evidence
-	ReportSummary ReportType = "summary" // General governance summary
+	ReportDORA              ReportType = "dora"                 // DORA metrics
+	ReportSOC2              ReportType = "soc2"                 // SOC 2 change management evidence
+	ReportSummary           ReportType = "summary"              // General governance summary
+	ReportEUAIActArticle12  ReportType = "eu-ai-act-article-12" // EU AI Act Article 12 record-keeping
+	ReportEUAIActAnnexIV    ReportType = "eu-ai-act-annex-iv"   // EU AI Act Annex IV technical documentation
 )
 
 // IsValid returns true if the report type is recognized.
 func (t ReportType) IsValid() bool {
 	switch t {
-	case ReportDORA, ReportSOC2, ReportSummary:
+	case ReportDORA, ReportSOC2, ReportSummary, ReportEUAIActArticle12, ReportEUAIActAnnexIV:
 		return true
 	default:
 		return false
@@ -195,6 +202,10 @@ func (g *Generator) Generate(ctx context.Context, config ReportConfig) (*Report,
 		report.SOC2 = g.buildSOC2(data)
 	case ReportSummary:
 		report.Summary = g.buildSummary(data)
+	case ReportEUAIActArticle12:
+		report.Article12 = g.buildArticle12(data, config.Repository)
+	case ReportEUAIActAnnexIV:
+		report.AnnexIV = g.buildAnnexIV(data, config.Repository)
 	}
 
 	return report, nil
@@ -211,6 +222,16 @@ func (g *Generator) Render(report *Report, format ReportFormat) (string, error) 
 		return string(b), nil
 	case FormatMarkdown:
 		return RenderMarkdown(report), nil
+	case FormatJSONL:
+		if report.Article12 == nil {
+			return "", fmt.Errorf("jsonl format requires an article12 report; use --type eu-ai-act-article-12")
+		}
+		return RenderJSONL(report.Article12)
+	case FormatCSV:
+		if report.Article12 == nil {
+			return "", fmt.Errorf("csv format requires an article12 report; use --type eu-ai-act-article-12")
+		}
+		return RenderCSV(report.Article12)
 	default:
 		return "", fmt.Errorf("unsupported format: %q", format)
 	}
@@ -223,9 +244,11 @@ type Report struct {
 	GeneratedAt time.Time  `json:"generatedAt"`
 	Repository  string     `json:"repository,omitempty"`
 
-	DORA    *DORAReport    `json:"dora,omitempty"`
-	SOC2    *SOC2Report    `json:"soc2,omitempty"`
-	Summary *SummaryReport `json:"summary,omitempty"`
+	DORA      *DORAReport      `json:"dora,omitempty"`
+	SOC2      *SOC2Report      `json:"soc2,omitempty"`
+	Summary   *SummaryReport   `json:"summary,omitempty"`
+	Article12 *Article12Report `json:"article12,omitempty"`
+	AnnexIV   *AnnexIVReport   `json:"annexIV,omitempty"`
 }
 
 // DORAReport contains DORA metrics.

@@ -2,15 +2,36 @@
 
 Relicta supports multiple AI providers for generating changelogs, release notes, and other AI-powered features. This guide covers setup, configuration, and best practices for all supported providers.
 
-## Supported Providers
+## Supported Providers (2026)
 
-| Provider | Models | Best For | Pricing |
-|----------|--------|----------|---------|
-| **OpenAI** | GPT-4o, GPT-4, GPT-3.5 Turbo | General purpose, high quality | $0.01-$0.06/1K tokens |
-| **Azure OpenAI** | GPT-4o, GPT-4, GPT-3.5 Turbo | Enterprise, compliance, private cloud | Enterprise agreements |
-| **Anthropic Claude** | Claude 3.5 Sonnet, Claude 3 Opus | Long context, analysis | $0.015-$0.075/1K tokens |
-| **Google Gemini** | Gemini 2.0 Flash, Gemini 1.5 Pro | Cost-effective, long context | $0.0001-$0.007/1K tokens |
-| **Ollama** | Llama 3.2, Mistral, others | Local, privacy, offline | Free (self-hosted) |
+| Provider | Default Model | High-Stakes | Fast / Low-Cost | Best For |
+|----------|---------------|-------------|-----------------|----------|
+| **OpenAI** | `gpt-5` | `gpt-5` | `gpt-5-mini` | General purpose, balanced quality |
+| **Azure OpenAI** | `gpt-5` | `gpt-5` | `gpt-5-mini` | Enterprise procurement, private cloud |
+| **Anthropic Claude** | `claude-sonnet-4-6` | `claude-opus-4-7` | `claude-haiku-4-5` | Governance prose, long context, **prompt caching enabled** |
+| **Google Gemini** | `gemini-2.5-flash` | `gemini-2.5-pro` | `gemini-2.5-flash` | Cost-effective, long context |
+| **Ollama** | configurable | — | — | Local, privacy, offline (air-gapped enterprise) |
+
+### Per-use-case overrides
+
+Configure `ai.model_overrides` in `.relicta.yaml` to use different models per workflow:
+
+```yaml
+ai:
+  provider: anthropic
+  model: claude-sonnet-4-6              # default
+  model_overrides:
+    risk_narrative: claude-opus-4-7     # governance-sensitive prose
+    summarize_diff: claude-haiku-4-5    # fast/cheap for diff summaries
+    communicate:    claude-opus-4-7     # audience-aware narratives
+    release_notes:  claude-sonnet-4-6   # default is fine
+```
+
+### Anthropic Prompt Caching
+
+Relicta's Anthropic adapter automatically sends system prompts via `MultiSystem` with `cache_control: ephemeral`. On repeated calls with the same governance/changelog/release-notes system prompt, Anthropic's 5-minute prompt cache returns cached tokens, typically reducing per-call cost by 5-10x and improving TTFT for batched workloads.
+
+Caching applies only to system prompts above Anthropic's minimum cacheable token threshold; below that threshold the hint is a no-op (no cost penalty).
 
 ## Quick Start
 

@@ -861,6 +861,9 @@ func TestLoadPlugins_ContinueOnError(t *testing.T) {
 		},
 	}
 	m := NewManager(cfg)
+	// Exercises plugin-error semantics, not trust-gate semantics — opt in
+	// so the test runs identically across enforcement levels.
+	m.AllowUntrustedPlugins(true)
 
 	// Should not fail even though plugins don't exist
 	err := m.LoadPlugins(context.Background())

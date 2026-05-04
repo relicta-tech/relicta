@@ -2,6 +2,12 @@
 import { ref, onMounted, computed } from 'vue'
 import * as api from '@/api/client'
 import type { ApprovalRequest, GovernanceDecision } from '@/types/api'
+import {
+  type ApprovalAction,
+  type ApprovalCard as ApprovalCardModel,
+  approvalRequestToCard,
+} from '@/types/approvalCard'
+import ApprovalCard from '@/components/ApprovalCard.vue'
 
 const pendingApprovals = ref<ApprovalRequest[]>([])
 const recentDecisions = ref<GovernanceDecision[]>([])
@@ -38,6 +44,30 @@ function openApproveModal(approval: ApprovalRequest) {
   selectedApproval.value = approval
   justification.value = ''
   showApproveModal.value = true
+}
+
+/** Canonical-view conversions: pending approvals → ApprovalCard model. */
+const pendingCards = computed<{ approval: ApprovalRequest; card: ApprovalCardModel }[]>(() =>
+  pendingApprovals.value.map(approval => ({
+    approval,
+    card: approvalRequestToCard(approval),
+  }))
+)
+
+/**
+ * Routes a card-emitted action to the existing modal handlers so the
+ * canonical card stays a thin renderer; modal flow remains the source of
+ * truth for justification + reject reason capture.
+ */
+function handleCardAction(approval: ApprovalRequest, action: ApprovalAction) {
+  switch (action.id) {
+    case 'approve':
+      openApproveModal(approval)
+      break
+    case 'reject':
+      openRejectModal(approval)
+      break
+  }
 }
 
 function openRejectModal(approval: ApprovalRequest) {
@@ -136,6 +166,20 @@ function formatRelativeTime(dateString: string): string {
           </svg>
           <p class="mt-2">All caught up! No pending approvals.</p>
         </div>
+        <!--
+          Canonical ApprovalCard view — same shape backend/CLI/MCP all emit.
+          Buttons inside the card route through handleCardAction to the
+          existing modal flow so the user-visible UX is unchanged.
+        -->
+        <div v-if="pendingCards.length > 0 && !loading" class="space-y-4 mb-6">
+          <ApprovalCard
+            v-for="entry in pendingCards"
+            :key="entry.approval.release_id"
+            :card="entry.card"
+            @action="action => handleCardAction(entry.approval, action)"
+          />
+        </div>
+
         <div v-else class="space-y-4">
           <div
             v-for="approval in pendingApprovals"

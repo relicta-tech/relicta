@@ -5,7 +5,7 @@
     <img alt="Relicta" src="brand/relicta-logo-light.svg" width="280">
   </picture>
 
-  <p><strong>The governance layer for software change</strong></p>
+  <p><strong>Cryptographically-attested release governance for AI-native engineering. EU AI Act Annex IV ready.</strong></p>
 
   <p>
     <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
@@ -16,20 +16,51 @@
   </p>
 </div>
 
-As AI agents and CI systems generate more code, deciding what should ship becomes the hardest problem. Relicta governs change — before it reaches production.
+When AI coding agents merge 60% of your PRs, your auditor will ask: *"How do you know which commits the AI authored, and what's your evidence the change-management process governed those decisions?"*
+
+Relicta produces that evidence. Every release proposal flows through a cryptographically hash-chained audit trail with actor-typed governance (`human` / `ci` / `agent`), per-actor autonomy budgets, and exportable evidence bundles for **EU AI Act Article 12 + Annex IV**, **SOC 2 CC6.1/CC7.1/CC7.4/CC8.1**, **ISO/IEC 27001 / 42001**, **HIPAA**, and **PCI-DSS**.
+
+## What Relicta is (and isn't)
+
+| | Relicta | Vanta / Drata | Microsoft AGT | semantic-release |
+|---|---------|---------------|---------------|------------------|
+| Posture scanning of CI/Git data | — | ✅ | — | — |
+| Runtime agent execution control | — | — | ✅ | — |
+| **Release-decision attestation** | ✅ | — | partial (Article 12 mapping only) | — |
+| **EU AI Act Annex IV** technical documentation | ✅ | — | — | — |
+| Hash-chained audit trail | ✅ | — | — | — |
+| Per-actor autonomy budgets | ✅ | — | — | — |
+| Pushes evidence to Vanta / Drata | ✅ | — | — | — |
+| Semantic versioning + conventional commits | ✅ | — | — | ✅ |
+| MIT-licensed CLI | ✅ | — | ✅ | ✅ |
+
+**Position:** Relicta is the **upstream provenance source** Vanta and Drata cannot generate from CI/Git data alone. Microsoft AGT governs what agents *do* in execution; Relicta proves how release *decisions* were governed.
 
 ## Features
+
+### EU AI Act Compliance (NEW — August 2026 ready)
+
+- **Article 12 Record-Keeping**: One log entry per governance decision with use period, reference data (policy + risk-model versions), input data (commits + files + blast), verifiers, and audit chain anchors. JSONL streaming format + CSV regulator export. 6-month retention enforced per Article 26(6).
+- **Annex IV Technical Documentation Generator**: Eight-section system documentation (general description, detailed elements, monitoring, risk management, lifecycle changes, harmonized standards, conformity scaffold, post-market monitoring) generated from existing CGP audit data. Markdown / PDF-ready. 10-year retention per Article 11.
 
 ### Core Governance
 
 - **Change Governance Protocol (CGP)**: Public SDK (`pkg/cgp/`) for risk assessment, actor trust scoring, and security impact analysis
+- **Hash-Chained Audit Trail**: SHA-256 chain over JSON-canonical CGP decisions; integrity verified at report-generation time (99.1% test coverage)
+- **Actor-Typed Governance**: First-class `human` / `ci` / `agent` / `system` actor kinds drive policy decisions
+- **Agent Autonomy Profiles**: Per-actor budgets cap blast radius, risk score, dollar cost, allowed/denied tools, time windows, and require human cosigners for privileged operations
 - **Policy DSL**: Declarative policy rules with what-if comparison and matrix testing
 - **Blast Radius Analysis**: Quantify the scope and impact of changes before they ship
 - **Approval Workflow**: Review and approve releases with full audit trails
 - **Release Attestation & Signing**: Generate and verify cryptographic attestations for releases
-- **Agent Integration**: MCP server enables AI agents (Claude, GPT) to manage releases with human oversight
+- **MCP Server**: Claude / GPT / Cursor / Devin agents drive releases through the same governance gates as humans
 
 See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
+
+### Compliance Integrations (Push, don't replace)
+
+- **Vanta** evidence push: `relicta integrations vanta push --type article12|soc2` maps Relicta artefacts to Vanta custom evidence. Vanta released its remote MCP server and Claude plugin in April 2026 — Relicta complements with upstream cryptographic provenance Vanta cannot generate from Git data alone.
+- **Drata** integration follows the same pattern (planned).
 
 ### Release Automation
 
@@ -38,7 +69,7 @@ See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approv
 - **AI-Powered Release Notes**: Professional changelogs (OpenAI, Anthropic, Gemini, Azure, Ollama)
 - **Communication Narratives**: Audience-specific release communication (engineering, product, executive, external) with AI-powered generation and template fallback
 - **Pre-release Channels**: Alpha, beta, and RC versions with channel promotion workflow (`--channel` flag)
-- **Plugin System**: Extensible via gRPC plugins (GitHub, npm, Slack, Docker, and more)
+- **Plugin System**: Extensible via gRPC plugins (verified: GitHub, GitLab, Slack, Jira, npm; community-listed entries pending audit)
 
 ### Multi-Project Support
 
@@ -288,6 +319,13 @@ workflow:
 | `db status` | Show current migration status |
 | `server` | Start standalone API server (dashboard backend) |
 | `mcp serve` | Start MCP server for AI agent integration |
+| `eval run` | Run AI eval harness against the embedded golden corpus (gates model bumps) |
+| `eval list` | List embedded golden cases |
+| `integrations vanta push` | Push Article 12 / SOC 2 evidence to Vanta as custom evidence |
+| `integrations drata push` | Push Article 12 / SOC 2 evidence to Drata |
+| `plugin sandbox-status` | Show plugin sandbox enforcement posture (memory, CPU, signature verification, platform caveats) |
+| `report --type eu-ai-act-article-12` | EU AI Act Article 12 record-keeping log bundle (jsonl / csv / markdown) |
+| `report --type eu-ai-act-annex-iv` | EU AI Act Annex IV technical documentation (8 sections, 10-year retention) |
 
 ### Global Flags
 
@@ -300,6 +338,7 @@ workflow:
 | `--ci` | | CI/CD mode: auto-approve, JSON output, non-interactive |
 | `--model` | | AI model to use (format: `provider/model`) |
 | `--redact` | | Redact secrets and API keys from output |
+| `--allow-untrusted-plugins` | | Load plugins on best-effort sandbox platforms (e.g. macOS); review `relicta plugin sandbox-status` first |
 | `--no-color` | | Disable colored output |
 | `--channel` | | Target release channel (alpha, beta, rc, stable) |
 

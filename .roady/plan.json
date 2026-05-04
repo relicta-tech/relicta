@@ -354,9 +354,216 @@
       "estimate": "",
       "depends_on": [],
       "feature_id": "runtime-observability-integration"
+    },
+    {
+      "id": "task-eu-ai-act-article-12-evidence-pack",
+      "title": "Implement EU AI Act Article 12 Evidence Pack",
+      "description": "Implement the feature: EU AI Act Article 12 Evidence Pack. Extend `relicta report --type` to emit `eu-ai-act-article-12` log bundle from existing CGP audit chain. Maps governance events to Article 12 logging requirements: start/end timestamps per use, reference databases, input data leading to match, identification of natural persons verifying results. Output formats: JSON Lines (machine), Markdown summary (auditor), CSV (regulator). Retention metadata: 6-month minimum log retention enforced via persistence layer config. Files to extend: `internal/cli/report.go`, `internal/compliance/report.go`, `internal/compliance/article12.go` (new). Source: hash-chained audit at `internal/cgp/audit/`. Forcing function: August 2026 EU AI Act high-risk provisions.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "eu-ai-act-article-12-evidence-pack"
+    },
+    {
+      "id": "task-eu-ai-act-annex-iv-technical-documentation-generator",
+      "title": "Implement EU AI Act Annex IV Technical Documentation Generator",
+      "description": "Implement the feature: EU AI Act Annex IV Technical Documentation Generator. New `relicta report --type ai-act-annex-iv` produces section-by-section Annex IV technical documentation from CGP risk + audit + memory data. Sections: general description, detailed description of system elements, monitoring/functioning/control, risk management system (maps to risk calculator output), data and data governance (maps to actor attribution), accuracy/robustness/cybersecurity (maps to attestation chain), human oversight (maps to approval records). Output: Markdown + PDF. 10-year retention metadata. This is the differentiator Microsoft AGT does not generate. Files: `internal/compliance/annex_iv.go` (new), templates in `internal/compliance/templates/annex_iv/`. Required for €60-80K fintech/healthtech buyer in EU.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "eu-ai-act-annex-iv-technical-documentation-generator"
+    },
+    {
+      "id": "task-agent-autonomy-profiles-(per-actor-governance-budgets)",
+      "title": "Implement Agent Autonomy Profiles (per-actor governance budgets)",
+      "description": "Implement the feature: Agent Autonomy Profiles (per-actor governance budgets). Extend `internal/cgp/policy/` with `actor_budget.go` defining per-actor budgets: max_blast_radius, max_risk_score, max_dollar_cost_usd, requires_cosign list, allowed_tools/denied_tools whitelist, time-window limits. Schema in `.relicta/actor-budgets.yaml` keyed on actor_type + actor_id glob. Enforcement at `internal/mcp/server.go` tool dispatch — pre-flight checks resolve actor from MCP session metadata, reject with structured error if violated. Extend `ActorType` enum at `internal/domain/release/domain/run.go:49` with ActorID string. Audit chain records every budget check. Default profile: refuse `--yes` on agent-actor + risk\u003e=0.4 + no policy file. Killer differentiator over GitHub Required Reviewers (no actor-typed concept) and Microsoft AGT (runtime, not release).",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "agent-autonomy-profiles-(per-actor-governance-budgets)"
+    },
+    {
+      "id": "task-security-gate-hardening",
+      "title": "Implement Security Gate Hardening",
+      "description": "Implement the feature: Security Gate Hardening. Remove `|| true` from `Makefile:520-525` security-scan target. Run `nox baseline_add` against current 280 findings (1 critical, 170 high, 100 medium, 11 low) — triage and either fix or baseline with justification. SEC-435 (.env.example, docs) likely false positive — baseline with rationale. SEC-436/437 in `internal/errors/errors.go:475-477` need real review (error message disclosure?). AI-007 already baselined. Add `make security-scan-strict` to `check-ci` as failing target. CI gate: zero NEW high+ findings on PR. Non-negotiable for any regulated-buyer demo.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "security-gate-hardening"
+    },
+    {
+      "id": "task-claude.md-reality-sync",
+      "title": "Implement CLAUDE.md Reality Sync",
+      "description": "Implement the feature: CLAUDE.md Reality Sync. Fix architecture documentation drift in both repos. CLI: `relicta/CLAUDE.md` claims `internal/state/` (does not exist), claims `internal/service/{git,version,ai,template}` (actually under `internal/infrastructure/`). Update to reflect 23 real internal dirs: analysis, analytics, application, benchmark, cgp, cli, compliance, config, container, domain, errors, fileutil, httpserver, infrastructure, mcp, observability, plugin, security, service, ui, version. Hub: `relicta-hub/CLAUDE.md` claims stdlib `net/http` routing (uses Gin), claims \"Hub imports domain logic from CLI\" (zero CLI imports verified). Replace with honest description of skeleton state + alpha banner. Trust leak in enterprise security review until fixed.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "claude.md-reality-sync"
+    },
+    {
+      "id": "task-vanta-api-integration-(evidence-push)",
+      "title": "Implement Vanta API Integration (Evidence Push)",
+      "description": "Implement the feature: Vanta API Integration (Evidence Push). Push Relicta attestation events to Vanta as evidence artifacts via Vanta REST API. New plugin `plugins/vanta/` (Go, gRPC plugin pattern matching existing plugin architecture). Triggered on PostPublish hook. Maps Relicta events to Vanta evidence types: governance decisions → custom evidence, audit chain entries → control evidence, actor attestations → access reviews. Configurable framework mapping (SOC2 CC6.1/CC7.1/CC7.4 already in `enterprise-soc2` template). Vanta released MCP server April 15 2026 — explicit partnership angle, not competitive. Sarah persona: \"Vanta partnership = non-negotiable.\" Files: `plugins/vanta/main.go`, `plugins/vanta/client.go`, `plugins/vanta/mapping.go`. Drata follows same pattern as P1.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "vanta-api-integration-(evidence-push)"
+    },
+    {
+      "id": "task-plugin-registry-cull",
+      "title": "Implement Plugin Registry Cull",
+      "description": "Implement the feature: Plugin Registry Cull. `plugins/registry.yaml` lists 39 named plugins (github, gitlab, slack, jira, npm, homebrew, docker, etc.) but `plugins/` has zero `.go` files — each entry references separate repo. Most likely don't exist. Security review red flag: every empty plugin = credibility leak. Cull registry to 5-7 plugins actually owned, tested, and shipped (recommended: github, gitlab, slack, jira, npm). Remove other 32+ entries. Add `make plugin-verify` target validating each registry entry resolves to working binary at advertised checksum. Alternative: keep registry but mark unverified entries as `status: community` with disclaimer. Position decision: \"registry of vapor\" vs \"small registry of real\" — pick small/real.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "plugin-registry-cull"
+    },
+    {
+      "id": "task-reposition-readme-and-tagline",
+      "title": "Implement Reposition README and Tagline",
+      "description": "Implement the feature: Reposition README and Tagline. Rewrite README hero from \"The governance layer for software change\" (vague, overlaps Vanta+MS AGT) to \"Cryptographically-attested release governance for AI-native engineering. EU AI Act Annex IV ready.\" Differentiator stack: (1) hash-chained audit chain (CGP) 99.1% test coverage, (2) actor-typed governance Human/CI/Agent, (3) Article 12 + Annex IV from existing audit data (Microsoft AGT does not), (4) pushes evidence to Vanta/Drata (partner not replace). Add comparison matrix vs Vanta (different surface: ex-ante decision attestation vs ex-post posture scan), Microsoft AGT (release-time vs runtime), GitHub Required Reviewers (gate vs prove). Update brand assets reference. Files: `README.md`, `docs/positioning.md` (new).",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "reposition-readme-and-tagline"
+    },
+    {
+      "id": "task-ai-2026-model-migration",
+      "title": "Implement AI 2026 Model Migration",
+      "description": "Implement the feature: AI 2026 Model Migration. Bump default models from 2024-vintage to 2026 across providers. Anthropic at `anthropic.go:27`: `claude-sonnet-4-20250514` → `claude-sonnet-4-6` default, `claude-opus-4-7` for high-stakes release narratives, `claude-haiku-4-5` for diff summaries. OpenAI at `service.go:138`: `gpt-4` → `gpt-5` default, `gpt-5-mini` for narrative. Gemini at `gemini.go:26`: `gemini-2.0-flash-exp` → `gemini-2.5-flash`. Add per-use-case override config: `ai.model_overrides.{release_notes, risk_narrative, communicate, summarize_diff}`. Add `WithModel(string)` option in `service.go`. Update `docs/ai-providers.md` table (currently cites GPT-4o/3.5, Claude 3.5 Sonnet/3 Opus, Gemini 2.0 Flash/1.5 Pro — all pre-2026). Risk: prompts tuned for old models may regress — gate bump on eval harness V0.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "ai-2026-model-migration"
+    },
+    {
+      "id": "task-anthropic-prompt-caching",
+      "title": "Implement Anthropic Prompt Caching",
+      "description": "Implement the feature: Anthropic Prompt Caching. Implement `cache_control: ephemeral` blocks on Anthropic API calls. Currently zero `cache_control` hits in `internal/` and `pkg/`. Prime targets: long stable system prompts in `internal/infrastructure/ai/prompts.go` (281 LOC), repo context blocks (commit list, file globs, codebase summary) re-tokenized every release. Expected impact: 5-10x cost reduction on repeated governance evaluations + release-notes path. Cache key strategy: hash repo context block, invalidate on detected schema change. Files to extend: `internal/infrastructure/ai/anthropic.go`, `internal/infrastructure/ai/prompts.go`. Cost discipline = enterprise procurement requirement.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "anthropic-prompt-caching"
+    },
+    {
+      "id": "task-structured-outputs-and-json-schema-mode",
+      "title": "Implement Structured Outputs and JSON Schema Mode",
+      "description": "Implement the feature: Structured Outputs and JSON Schema Mode. Replace regex-parsing of LLM output with provider-native structured outputs. Currently zero `response_format`/`ResponseFormat` hits across codebase. OpenAI: `response_format: json_schema` with strict mode for `GovernanceDecision`, `RiskNarrative`, `ReleaseNotes`, `AudienceNarrative` types. Anthropic: tool-use with structured output schema. Define schemas in `internal/infrastructure/ai/schemas/`. Eliminates parse failures and \"model returned malformed JSON\" runtime errors that LLM-as-content-generator-for-governance cannot tolerate. Files: `openai.go`, `anthropic.go`, `gemini.go`, new `schemas/` dir. Reliability requirement for governance product.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "structured-outputs-and-json-schema-mode"
+    },
+    {
+      "id": "task-ai-eval-harness-v0",
+      "title": "Implement AI Eval Harness V0",
+      "description": "Implement the feature: AI Eval Harness V0. Build LLM evaluation harness — currently absent. New `internal/infrastructure/ai/evals/`. 150 golden YAML examples across categories: release-notes (60), risk-narrative (40), communicate-cmd (30), diff-summary (20). Each: input, context, rubric (factuality, governance-alignment, terseness, no-hallucination, structured-output-valid), optional reference. Judge model: `claude-opus-4-7` LLM-as-judge with structured output (1-5 per criterion + rationale). Cross-check 10% with `gpt-5` for judge bias. CI gate `make ai-eval`: fail if mean \u003c 4.0 or factuality \u003c 3 or structured-output-valid \u003c 5. Run on AI-touching PRs only via path filter. Cost ~$2/full run. Files: `evals/runner.go`, `evals/judge.go`, `evals/golden/*.yaml`, `.github/workflows/ai-eval.yml`. **Blocks model bump merges.** Non-negotiable for governance-grade AI prose.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "ai-eval-harness-v0"
+    },
+    {
+      "id": "task-postgres-adapter-test-coverage-0%-to-70%",
+      "title": "Implement Postgres Adapter Test Coverage 0% to 70%",
+      "description": "Implement the feature: Postgres Adapter Test Coverage 0% to 70%. `internal/infrastructure/persistence/postgres/` ships at 0.0% test coverage. `store.go` 294, `migrator.go` 308, `pool.go` 32 — all untested. README claims \"PostgreSQL persistence\" — claim becomes true at 70%+ coverage. Add `testcontainers-go` integration suite. Test scenarios: connection pool lifecycle, migration up/down idempotency, concurrent writes (event store), failover to file-based when DB unreachable, transaction isolation, JSONB query correctness. Add migrations 002-005 covering aggregates beyond events (releases, approvals, audit_chain projections, attestations). Single events table with JSONB without projections is event-store-as-database antipattern. Block release until coverage gate.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "postgres-adapter-test-coverage-0%-to-70%"
+    },
+    {
+      "id": "task-reverse-mcp-resources-(governance-as-context)",
+      "title": "Implement Reverse MCP Resources (governance-as-context)",
+      "description": "Implement the feature: Reverse MCP Resources (governance-as-context). MCP server at `internal/mcp/server.go` (2362 LOC) exposes governance tools to AI agents. Add MCP resources (readable context, complement to tools) so coding agents (Claude Code, Cursor, Devin) plan WITH governance context — shift-left from post-facto governance. Resources to expose: `relicta://policy/current` (active CGP policy as JSON), `relicta://risk-budget/{actor_id}` (remaining budget), `relicta://recent-incidents?days=30` (postmortem feed), `relicta://blast-radius/{service}` (dependency/impact graph), `relicta://release-history/{service}?limit=10` (prior runs + outcomes), `relicta://compliance-frameworks` (active frameworks). Verify first whether `resources/list` handler exists in `server.go`; if absent, add. Turns Relicta into context provider for any MCP-aware coding agent. Differentiation moat against Vanta MCP (different scope: compliance posture vs governance context).",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "reverse-mcp-resources-(governance-as-context)"
+    },
+    {
+      "id": "task-drata-api-integration-(evidence-push)",
+      "title": "Implement Drata API Integration (Evidence Push)",
+      "description": "Implement the feature: Drata API Integration (Evidence Push). Mirror Vanta integration for Drata. New plugin `plugins/drata/`. Drata API focused on extracting compliance data and programmatically uploading evidence types. Push Relicta attestations as evidence artifacts. Drata 170+ integrations covers AWS/GitHub/Okta/Workspace — Relicta becomes upstream provenance source for AI-attributed releases that Drata cannot generate from CI/Git data alone. Same gRPC plugin architecture as Vanta plugin. Files: `plugins/drata/main.go`, `plugins/drata/client.go`, `plugins/drata/mapping.go`. Sequencing: ship after Vanta validates pattern.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "drata-api-integration-(evidence-push)"
+    },
+    {
+      "id": "task-cobra-command-groups",
+      "title": "Implement Cobra Command Groups",
+      "description": "Implement the feature: Cobra Command Groups. 30+ flat top-level commands violate Hick's + Miller's 7±2. `relicta --help` is wall of unstructured commands. Use `cobra.Group` (Cobra 1.6+) to organize. Group IDs: `lifecycle` (init/plan/bump/notes/approve/publish/release/promote/rollback/cancel), `inspect` (status/blast/history/evaluate/report), `multi` (group/* multirepo), `extend` (plugin*/mcp/serve/server), `ops` (db/health/metrics/clean/verify). Set `cmd.GroupID` on every `AddCommand` in `internal/cli/root.go`. Zero behavior change, ~40 LOC. XS effort, high UX leverage.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "cobra-command-groups"
+    },
+    {
+      "id": "task-approval-card-shared-schema",
+      "title": "Implement Approval Card Shared Schema",
+      "description": "Implement the feature: Approval Card Shared Schema. Three approval surfaces drift: TUI (`internal/cli/approve.go:469-510` tabwriter plain text), web (`web/src/views/ApprovalWorkflow.vue`), MCP server tool dispatch. Risk score formatted three ways. Define `ApprovalCardSchema` JSON contract in `internal/governance/` (or `pkg/cgp/approval_card.go`). Generate Vue prop types via `openapi-typescript` from the schema. Mirror lipgloss render in TUI from same struct. Single source of truth for: risk score, factors list, diff summary, actor, required actions ordering, rationale display. Jakob's Law banked across surfaces. Files: schema definition, TUI renderer extraction, Vue component refactor.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "approval-card-shared-schema"
+    },
+    {
+      "id": "task-risk-display-lipgloss-visualization",
+      "title": "Implement Risk Display lipgloss Visualization",
+      "description": "Implement the feature: Risk Display lipgloss Visualization. `internal/cli/approve.go:455-511` displays risk as plain `Risk Score: 47.0% (MEDIUM)` text alongside other fields in tabwriter. Highest-leverage decision input given lowest visual weight. Charmbracelet lipgloss already imported. Render risk: bordered lipgloss block, `lipgloss.Color(\"196\"/\"214\"/\"34\")` for HIGH/MEDIUM/LOW, horizontal `progress.Model` bar, top-3 risk factors above release metadata. APCA-compliant pairs with `▲▲▲` glyph for color-blind / `NO_COLOR` env. Same struct exposed via Approval Card Schema for web consumption (see related feature). Files: `internal/cli/approve.go`, new `internal/ui/risk.go` for reusable component.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "risk-display-lipgloss-visualization"
+    },
+    {
+      "id": "task-init-quick-mode",
+      "title": "Implement Init Quick Mode",
+      "description": "Implement the feature: Init Quick Mode. Current `relicta init` 8-step wizard violates Goal-Gradient + Doherty Threshold. New `relicta init --quick` infers from git remote + `package.json`/`go.mod`/`Cargo.toml` → 1-confirm screen with detected defaults. Existing wizard becomes `relicta init --guided`. Show progress `[3/8]` via `progress.Model`. Collapse advanced (channels, OIDC, plugins) behind `--advanced` flag. Init wizard should also write a starter governance policy file by default (sensible: require approval for major, auto-approve patch \u003c0.3 risk, block on security factors) — first governed release achievable without policy authoring. Files: `internal/cli/init.go`, `internal/config/templates/`.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "init-quick-mode"
+    },
+    {
+      "id": "task-policy.go-god-file-split",
+      "title": "Implement policy.go God File Split",
+      "description": "Implement the feature: policy.go God File Split. `internal/cli/policy.go` is 2318 LOC with 57 functions mixing validate/list/scaffold/test/matrix/explain. Highest contributor-friction file in repo. Split by verb into 6 files: `policy_validate.go`, `policy_list.go`, `policy_scaffold.go`, `policy_test.go`, `policy_matrix.go`, `policy_explain.go`. Each delegates to existing `internal/application/policy/` (already exists, underused). Same pattern for `internal/mcp/server.go` (2362 LOC) — split by tool category. Domain layer is clean — don't touch what works. PR review time drops from hours to minutes. Unblocks parallel feature work. Plan/approve/release CLI files (under 1100 LOC each) tolerable for now — defer.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "policy.go-god-file-split"
+    },
+    {
+      "id": "task-architecture-fitness-functions",
+      "title": "Implement Architecture Fitness Functions",
+      "description": "Implement the feature: Architecture Fitness Functions. Zero fitness/architecture tests. `find . -name 'arch_test.go'` empty. Add two as priority. **FF#1 Hexagonal boundary** at `internal/architecture/layering_test.go`: assert packages under `internal/cli/` MUST NOT import `internal/infrastructure/*` except via `internal/application/*`. Tool: `go list -deps -json ./internal/cli/...` filtered. Catches policy.go-style rot at PR time. **FF#2 CGP protocol stability** at `pkg/cgp/compat_test.go`: assert golden JSON envelopes from `testdata/v0.1/*.json` MUST round-trip through current Marshal/Unmarshal byte-identical. `//go:embed testdata`, deep-equal. Protects external CGP consumers from silent breakage — critical because CGP positioned as protocol with public SDK.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "architecture-fitness-functions"
+    },
+    {
+      "id": "task-web-dashboard-accessibility-ci-gate",
+      "title": "Implement Web Dashboard Accessibility CI Gate",
+      "description": "Implement the feature: Web Dashboard Accessibility CI Gate. Web dashboard at `relicta/web/` has 11 Vue views shipped, a11y unverified. Tailwind defaults rarely hit AAA contrast on risk colors (red/amber/green = APCA failure pattern). Risk pages = highest stakes. Compliance/Security Officer persona uses screen readers in regulated industries — literal target buyer. Add `@axe-core/playwright` to existing test setup. CI gate: zero violations on `ApprovalWorkflow.vue`, `ReleaseDetail.vue`, `GovernanceAnalytics.vue`. Replace red/green-only state encoding with APCA-compliant pair + redundant icon (shape+color). Add `aria-live=\"polite\"` on approval state changes. Files: `web/playwright.config.ts`, `web/tests/a11y/*.spec.ts`, audit pass on Vue components.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "web-dashboard-accessibility-ci-gate"
+    },
+    {
+      "id": "task-plugin-sandbox-honesty",
+      "title": "Implement Plugin Sandbox Honesty",
+      "description": "Implement the feature: Plugin Sandbox Honesty. `internal/plugin/sandbox/sandbox_darwin.go:14-28` self-documents that RLIMIT_AS unenforced on Apple Silicon, no `sandbox-exec` profile, CPU limits absent. README markets sandboxing as security boundary. Two paths: (a) ship `sandbox-exec` profile generation on darwin + seccomp-bpf on linux + plugin signature verification (currently missing entirely from `manager.go`), or (b) downgrade marketing — rename to `ResourceAdvisor`, surface \"best-effort\" loudly at config-load time, require explicit `--allow-untrusted-plugins` flag for non-signed plugins. Pick (a) for enterprise credibility OR (b) for honest minimal viable. Either way: honesty before next major release.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "plugin-sandbox-honesty"
     }
   ],
   "approval_status": "approved",
   "created_at": "0001-01-01T00:00:00Z",
-  "updated_at": "2026-03-17T09:11:01.800885+01:00"
+  "updated_at": "2026-05-03T00:28:15.006886+02:00"
 }

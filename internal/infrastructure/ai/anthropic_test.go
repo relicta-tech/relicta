@@ -288,8 +288,14 @@ func TestNewService_ClaudeAlias(t *testing.T) {
 }
 
 func TestAnthropicDefaultConstants(t *testing.T) {
-	if DefaultAnthropicModel != "claude-sonnet-4-20250514" {
-		t.Errorf("DefaultAnthropicModel = %v, want claude-sonnet-4-20250514", DefaultAnthropicModel)
+	if DefaultAnthropicModel != "claude-sonnet-4-6" {
+		t.Errorf("DefaultAnthropicModel = %v, want claude-sonnet-4-6", DefaultAnthropicModel)
+	}
+	if AnthropicModelHighStakes != "claude-opus-4-7" {
+		t.Errorf("AnthropicModelHighStakes = %v, want claude-opus-4-7", AnthropicModelHighStakes)
+	}
+	if AnthropicModelFast != "claude-haiku-4-5" {
+		t.Errorf("AnthropicModelFast = %v, want claude-haiku-4-5", AnthropicModelFast)
 	}
 }
 

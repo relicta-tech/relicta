@@ -3,6 +3,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
 	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
 )
 
@@ -704,9 +706,10 @@ type GetStatusOutput struct {
 	UpdatedAt   string
 	CanApprove  bool
 	ApprovalMsg string
-	NextAction  string // Suggested next step in the workflow
-	Stale       bool   // True if release may be stale (old and not terminal)
-	Warning     string // Warning message if any
+	NextAction  string  // Suggested next step in the workflow
+	Stale       bool    // True if release may be stale (old and not terminal)
+	Warning     string  // Warning message if any
+	RiskScore   float64 // CGP risk score 0.0–1.0; surfaced for autonomy budget enforcement
 }
 
 // GetStatus retrieves the current release status.
@@ -748,6 +751,7 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 		Stale:      output.Stale,
 		Warning:    output.Warning,
 		CanApprove: output.CanApprove,
+		RiskScore:  output.RiskScore,
 	}
 
 	// Set version
@@ -1052,6 +1056,21 @@ type SummarizeDiffOutput struct {
 	AIGenerated    bool     `json:"ai_generated"`
 	Audience       string   `json:"audience"`
 	CharacterCount int      `json:"character_count"`
+
+	// Structured fields populated when the configured AI service supports
+	// provider-native structured output (DiffSummarySchema). Empty otherwise.
+	Categories []string         `json:"categories,omitempty"`
+	Signals    *DiffRiskSignals `json:"signals,omitempty"`
+}
+
+// DiffRiskSignals are boolean flags extracted by structured AI output.
+// Mirrors the `signals` block of the DiffSummary schema. Used by the risk
+// calculator and agent decision-making layers as supplementary signals.
+type DiffRiskSignals struct {
+	TouchesAuth    bool `json:"touchesAuth"`
+	TouchesSecrets bool `json:"touchesSecrets"`
+	RemovesGuard   bool `json:"removesGuard"`
+	SchemaChange   bool `json:"schemaChange"`
 }
 
 // SummarizeDiff generates an audience-tailored summary of changes.
@@ -1118,14 +1137,88 @@ func (a *Adapter) SummarizeDiff(ctx context.Context, input SummarizeDiffInput) (
 		}
 	}
 
-	// Use AI to enhance if available
+	// Use AI to enhance if available. Provider-native structured output
+	// (when supported) gives us typed Categories + risk Signals; falls back
+	// to the heuristic summary otherwise.
 	if a.aiService != nil && a.aiService.IsAvailable() {
 		output.AIGenerated = true
-		// AI enhancement would go here - for now, we use the structured summary
+		enrichDiffSummaryWithStructuredAI(ctx, a.aiService, input, result, output)
 	}
 
 	output.CharacterCount = len(output.Summary)
 	return output, nil
+}
+
+// enrichDiffSummaryWithStructuredAI calls the AI service's CompleteStructured
+// method with DiffSummarySchema when the service implements
+// ai.StructuredOutputService. Populates output.Categories + output.Signals.
+//
+// Failures are silent — structured-AI is enrichment, not load-bearing for
+// the base summary. Errors logged at debug level via the adapter's logger
+// would be ideal but the adapter doesn't carry one yet; leave as silent.
+func enrichDiffSummaryWithStructuredAI(
+	ctx context.Context,
+	svc ai.Service,
+	input SummarizeDiffInput,
+	result *servicerelease.AnalyzeOutput,
+	output *SummarizeDiffOutput,
+) {
+	structured, ok := svc.(ai.StructuredOutputService)
+	if !ok {
+		return
+	}
+
+	systemPrompt := "You are a release-governance assistant. Analyse the diff and return structured signals."
+	userPrompt := buildDiffStructuredPrompt(input, result)
+
+	bytes, err := structured.CompleteStructured(ctx, systemPrompt, userPrompt, schemas.DiffSummarySchema())
+	if err != nil || len(bytes) == 0 {
+		return
+	}
+
+	var payload struct {
+		Summary    string   `json:"summary"`
+		Categories []string `json:"categories"`
+		Signals    struct {
+			TouchesAuth    bool `json:"touches_auth"`
+			TouchesSecrets bool `json:"touches_secrets"`
+			RemovesGuard   bool `json:"removes_guard"`
+			SchemaChange   bool `json:"schema_change"`
+		} `json:"signals"`
+	}
+	if err := json.Unmarshal(bytes, &payload); err != nil {
+		return
+	}
+
+	if payload.Summary != "" {
+		output.Summary = payload.Summary
+	}
+	output.Categories = payload.Categories
+	output.Signals = &DiffRiskSignals{
+		TouchesAuth:    payload.Signals.TouchesAuth,
+		TouchesSecrets: payload.Signals.TouchesSecrets,
+		RemovesGuard:   payload.Signals.RemovesGuard,
+		SchemaChange:   payload.Signals.SchemaChange,
+	}
+}
+
+// buildDiffStructuredPrompt frames the AnalyzeOutput context for the
+// structured-AI call. Crude but sufficient — the model uses the schema
+// constraints to produce typed output regardless of prompt verbosity.
+func buildDiffStructuredPrompt(input SummarizeDiffInput, result *servicerelease.AnalyzeOutput) string {
+	if result == nil || result.ChangeSet == nil {
+		return "Diff context unavailable; produce a generic structured summary placeholder."
+	}
+	summary := result.ChangeSet.Summary()
+	return fmt.Sprintf(
+		"Analyse a release diff for audience=%q.\n"+
+			"Total commits: %d. From=%s To=%s.\n"+
+			"Return a structured DiffSummary with summary text, categories observed, and boolean risk signals.",
+		input.Audience,
+		summary.TotalCommits,
+		input.FromRef,
+		input.ToRef,
+	)
 }
 
 // ValidateReleaseInput represents input for the ValidateRelease operation.

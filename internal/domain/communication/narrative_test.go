@@ -357,3 +357,80 @@ func TestNarrativeGenerator_ExternalAudience(t *testing.T) {
 		t.Error("external narrative should contain upgrade guide")
 	}
 }
+
+// mockStructuredAICompleter implements both AICompleter + AIStructuredCompleter.
+type mockStructuredAICompleter struct {
+	mockAICompleter
+	structuredResponse []byte
+	structuredErr      error
+	structuredCalls    int
+}
+
+func (m *mockStructuredAICompleter) CompleteStructured(_ context.Context, _, _ string, _ schemaProvider) ([]byte, error) {
+	m.structuredCalls++
+	return m.structuredResponse, m.structuredErr
+}
+
+func TestGenerateNarrative_PrefersStructuredAI(t *testing.T) {
+	mock := &mockStructuredAICompleter{
+		mockAICompleter: mockAICompleter{response: "fallback prose", available: true},
+		structuredResponse: []byte(`{
+			"audience": "engineering",
+			"headline": "v1.4.1 stability fixes",
+			"body": "Patches a nil pointer in token refresh and a webhook delivery race.",
+			"call_to_action": "Run 'relicta plan' to draft the next release."
+		}`),
+	}
+	gen := NewNarrativeGenerator(mock)
+
+	input := NarrativeInput{
+		Version: "1.4.1",
+		Format:  OutputMarkdown,
+	}
+	audience := DefaultAudiences()[AudienceEngineering]
+
+	narrative, err := gen.GenerateNarrative(context.Background(), input, audience)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.structuredCalls != 1 {
+		t.Errorf("expected exactly 1 structured call, got %d", mock.structuredCalls)
+	}
+	if mock.calls != 0 {
+		t.Errorf("free-form Complete should not be called when structured succeeds; got %d", mock.calls)
+	}
+	if narrative.Provider != "ai-structured" {
+		t.Errorf("provider should be ai-structured; got %q", narrative.Provider)
+	}
+	if !strings.Contains(narrative.Body, "Patches a nil pointer") {
+		t.Errorf("body missing structured content; got %q", narrative.Body)
+	}
+	if !strings.Contains(narrative.Body, "Run 'relicta plan'") {
+		t.Errorf("CTA should appear in body when present; got %q", narrative.Body)
+	}
+}
+
+func TestGenerateNarrative_StructuredErrorFallsBackToFreeForm(t *testing.T) {
+	mock := &mockStructuredAICompleter{
+		mockAICompleter:    mockAICompleter{response: "fallback prose", available: true},
+		structuredResponse: []byte(`{"this is not the right shape"`), // unparseable
+	}
+	gen := NewNarrativeGenerator(mock)
+
+	input := NarrativeInput{Version: "1.0.0", Format: OutputMarkdown}
+	audience := DefaultAudiences()[AudienceEngineering]
+
+	narrative, err := gen.GenerateNarrative(context.Background(), input, audience)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if mock.structuredCalls != 1 {
+		t.Errorf("expected structured to be tried once, got %d", mock.structuredCalls)
+	}
+	if mock.calls != 1 {
+		t.Errorf("expected free-form fallback after structured parse failure, got %d calls", mock.calls)
+	}
+	if narrative.Provider != "ai" {
+		t.Errorf("provider should be ai (fallback path); got %q", narrative.Provider)
+	}
+}

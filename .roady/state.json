@@ -1,7 +1,40 @@
 {
   "project_id": "relicta-phase-2a",
-  "version": 148,
+  "version": 195,
   "task_states": {
+    "task-agent-autonomy-profiles-(per-actor-governance-budgets)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S2.1+5.20+6.24: actor_budget.go (93.7% cov) + MCP enforcement + risk plumbing"
+      ],
+      "started_at": "2026-05-03T22:52:40.81589+02:00",
+      "completed_at": "2026-05-03T22:52:52.072846+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-ai-2026-model-migration": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S4.13: claude-sonnet-4-6/opus-4-7/haiku-4-5 + gpt-5 + gemini-2.5 defaults; per-use-case overrides; ai-providers.md updated"
+      ],
+      "started_at": "2026-05-03T22:53:09.485994+02:00",
+      "completed_at": "2026-05-03T22:53:20.382143+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-ai-eval-harness-v0": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S7.27+8.28+9.31+13.40: evals pkg (80.3% cov), eval CLI + Makefile target + GitHub Actions workflow + LLMJudge real impl with structured outputs"
+      ],
+      "started_at": "2026-05-03T22:53:31.283844+02:00",
+      "completed_at": "2026-05-03T22:53:45.395929+02:00",
+      "elapsed_minutes": 0
+    },
     "task-analytics-aggregation": {
       "status": "done",
       "path": "",
@@ -46,6 +79,17 @@
       "completed_at": "2026-03-15T18:06:58.60264+01:00",
       "elapsed_minutes": 0
     },
+    "task-anthropic-prompt-caching": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S4.13: anthropic.go MultiSystem + cache_control: ephemeral on system prompts"
+      ],
+      "started_at": "2026-05-03T22:53:28.424463+02:00",
+      "completed_at": "2026-05-03T22:53:40.224263+02:00",
+      "elapsed_minutes": 0
+    },
     "task-api-tests": {
       "status": "done",
       "path": "",
@@ -64,6 +108,28 @@
       "evidence": [
         "315a93f — APIVersion() middleware, Accept header negotiation, X-API-Version response header, 20+ tests"
       ],
+      "elapsed_minutes": 0
+    },
+    "task-approval-card-shared-schema": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S9.33+14.41+26.61+27.62+28.63: pkg/cgp/approval_card.go canonical wire format + Vue ApprovalCard.vue + types/approvalCard.ts + MCP relicta://approval resource + ApprovalWorkflow.vue wired"
+      ],
+      "started_at": "2026-05-03T22:54:25.151293+02:00",
+      "completed_at": "2026-05-03T23:00:16.909809+02:00",
+      "elapsed_minutes": 5
+    },
+    "task-architecture-fitness-functions": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S5.23: internal/architecture/layering_test.go enforces hexagonal import direction; pkg/cgp/compat_test.go locks public wire format"
+      ],
+      "started_at": "2026-05-03T23:00:24.173401+02:00",
+      "completed_at": "2026-05-03T23:00:32.04537+02:00",
       "elapsed_minutes": 0
     },
     "task-audience-aware-release-communication": {
@@ -88,6 +154,28 @@
       "completed_at": "2026-03-15T18:55:21.866679+01:00",
       "elapsed_minutes": 0
     },
+    "task-claude.md-reality-sync": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Sprint 1.2: Both CLAUDE.md files rewritten to match real layout"
+      ],
+      "started_at": "2026-05-03T22:51:41.307497+02:00",
+      "completed_at": "2026-05-03T22:52:30.283746+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-cobra-command-groups": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S6.25: Cobra GroupID grouping in root.go, governance/release/ops/integrations/dev/admin clusters"
+      ],
+      "started_at": "2026-05-03T22:54:23.63149+02:00",
+      "completed_at": "2026-05-03T23:00:13.906885+02:00",
+      "elapsed_minutes": 5
+    },
     "task-dashboard-frontend-separation": {
       "status": "done",
       "path": "",
@@ -97,6 +185,50 @@
       ],
       "started_at": "2026-03-15T18:55:28.306521+01:00",
       "completed_at": "2026-03-15T18:55:42.257239+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-drata-api-integration-(evidence-push)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S6.26: internal/integrations/drata/ (89.6% cov) + relicta integrations drata push CLI mirroring Vanta pattern"
+      ],
+      "started_at": "2026-05-03T22:53:59.853115+02:00",
+      "completed_at": "2026-05-03T22:54:14.338981+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-eu-ai-act-annex-iv-technical-documentation-generator": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S3.8: annex_iv.go 8 sections, 89.7% pkg cov"
+      ],
+      "started_at": "2026-05-03T22:52:43.046942+02:00",
+      "completed_at": "2026-05-03T22:52:55.102912+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-eu-ai-act-article-12-evidence-pack": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S2.2: article12.go shipped, jsonl/csv/markdown formats, 90.1% pkg cov"
+      ],
+      "started_at": "2026-05-03T22:52:41.951422+02:00",
+      "completed_at": "2026-05-03T22:52:53.811776+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-init-quick-mode": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S6.24: relicta init --quick flag; auto-detects repo, picks defaults, skips 8-step wizard"
+      ],
+      "started_at": "2026-05-03T23:00:21.458451+02:00",
+      "completed_at": "2026-05-03T23:00:27.742979+02:00",
       "elapsed_minutes": 0
     },
     "task-jwt-token-service": {
@@ -233,6 +365,39 @@
       "completed_at": "2026-03-15T18:06:31.353435+01:00",
       "elapsed_minutes": 0
     },
+    "task-plugin-registry-cull": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Sprint 1.4: 5 verified, 25 community-marked + disclaimer banner"
+      ],
+      "started_at": "2026-05-03T22:51:42.450208+02:00",
+      "completed_at": "2026-05-03T22:52:32.248539+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-plugin-sandbox-honesty": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S11.36+12.37+12.38: sandbox/security_notice.go SecurityPosture/RequireExplicitTrust + manager.go AllowUntrustedPlugins flag + relicta plugin sandbox-status command"
+      ],
+      "started_at": "2026-05-03T23:00:37.718054+02:00",
+      "completed_at": "2026-05-03T23:00:43.82599+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-policy.go-god-file-split": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S9.32+15.44+17.48+18.51+18.52+19.53+20.54+21.56: policy.go 2318 → 596 LOC (74% reduction); extracted policy_{validate,list,scaffold,test_cmd,matrix,explain,diff,apply}.go"
+      ],
+      "started_at": "2026-05-03T23:00:23.4141+02:00",
+      "completed_at": "2026-05-03T23:00:30.501073+02:00",
+      "elapsed_minutes": 0
+    },
     "task-postgres-adapter": {
       "status": "done",
       "path": "",
@@ -242,6 +407,17 @@
       ],
       "started_at": "2026-03-15T18:05:30.193231+01:00",
       "completed_at": "2026-03-15T18:05:45.543936+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-postgres-adapter-test-coverage-0%-to-70%": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S10.34+11.35+17.49b+21.55+30.65: pkg cov 0% → 84.5%, deserializeEvent 100%, testcontainers-go integration suite covering Pool/Migrator/Store CRUD/event-type round-trips"
+      ],
+      "started_at": "2026-05-03T22:53:57.826001+02:00",
+      "completed_at": "2026-05-03T22:54:09.392119+02:00",
       "elapsed_minutes": 0
     },
     "task-pre-release-and-release-channel-support": {
@@ -266,6 +442,39 @@
       "completed_at": "2026-03-15T18:55:40.627167+01:00",
       "elapsed_minutes": 0
     },
+    "task-reposition-readme-and-tagline": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S4.11: README hero rewritten + competitive comparison matrix"
+      ],
+      "started_at": "2026-05-03T22:53:08.571476+02:00",
+      "completed_at": "2026-05-03T22:53:18.420206+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-reverse-mcp-resources-(governance-as-context)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S5.21+28.63: 6 governance-context resources (policy/current, risk-budget, risk-budget/{actor}, recent-incidents, compliance-frameworks, approval) emitting canonical JSON"
+      ],
+      "started_at": "2026-05-03T22:53:59.005583+02:00",
+      "completed_at": "2026-05-03T22:54:12.046603+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-risk-display-lipgloss-visualization": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S8.30: internal/ui/risk.go RenderRisk lipgloss meter + factor breakdown"
+      ],
+      "started_at": "2026-05-03T22:54:25.871928+02:00",
+      "completed_at": "2026-05-03T23:00:18.264887+02:00",
+      "elapsed_minutes": 5
+    },
     "task-runtime-observability-integration": {
       "status": "done",
       "path": "",
@@ -286,6 +495,17 @@
       ],
       "started_at": "2026-03-15T18:05:52.28017+01:00",
       "completed_at": "2026-03-15T18:05:59.384628+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-security-gate-hardening": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Sprint 1.1: Makefile security-scan removed `\\|\\| true` + security-scan-strict variant. nox baseline 334 entries already covering existing findings."
+      ],
+      "started_at": "2026-05-03T22:51:40.164091+02:00",
+      "completed_at": "2026-05-03T22:52:28.769474+02:00",
       "elapsed_minutes": 0
     },
     "task-session-auth-middleware": {
@@ -314,6 +534,39 @@
         "commit f0bf672 - structured error responses with codes and request IDs"
       ],
       "completed_at": "2026-03-15T18:04:34.237056+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-structured-outputs-and-json-schema-mode": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S5.22+15.43+16.45+22.57+23.58+24.59+25.60: schemas pkg + OpenAI/Anthropic/Gemini CompleteStructured + StructuredOutputService + 4 real call sites (judge, summarize_diff, communicate, release notes)"
+      ],
+      "started_at": "2026-05-03T22:53:29.994266+02:00",
+      "completed_at": "2026-05-03T22:53:43.268741+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-vanta-api-integration-(evidence-push)": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S3.9: internal/integrations/vanta/ (92.1% cov) + relicta integrations vanta push CLI"
+      ],
+      "started_at": "2026-05-03T22:53:07.007698+02:00",
+      "completed_at": "2026-05-03T22:53:16.864219+02:00",
+      "elapsed_minutes": 0
+    },
+    "task-web-dashboard-accessibility-ci-gate": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "S29.64: web/playwright.config.ts + tests/a11y/{approval,dashboard}.spec.ts axe-core; .github/workflows/web-a11y.yaml CI gate"
+      ],
+      "started_at": "2026-05-03T23:00:36.541374+02:00",
+      "completed_at": "2026-05-03T23:00:41.606876+02:00",
       "elapsed_minutes": 0
     },
     "task-webhook-delivery-log": {
@@ -361,5 +614,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-03-17T09:27:31.333264+01:00"
+  "updated_at": "2026-05-03T23:00:43.82599+02:00"
 }

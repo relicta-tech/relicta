@@ -12,6 +12,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 
 	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
 	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
@@ -162,6 +163,59 @@ func (s *openAIService) Complete(ctx context.Context, systemPrompt, userPrompt s
 // IsAvailable returns true if the AI service is available.
 func (s *openAIService) IsAvailable() bool {
 	return s.client != nil && s.config.APIKey != ""
+}
+
+// CompleteStructured sends a completion request that requires the model to
+// return JSON conforming to the supplied schema. Uses OpenAI's
+// `response_format: json_schema` mode (strict when schema.Strict() is true).
+//
+// Eliminates regex-based markdown parsing on governance-sensitive paths and
+// removes the "model returned malformed JSON" runtime error class entirely.
+//
+// On success returns the raw JSON bytes — callers are expected to unmarshal
+// into the matching Go struct.
+func (s *openAIService) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string, schema schemas.Schema) ([]byte, error) {
+	if schema == nil {
+		return nil, errors.AI("CompleteStructured", "schema is required")
+	}
+
+	respFormat := &openai.ChatCompletionResponseFormat{
+		Type: openai.ChatCompletionResponseFormatTypeJSONSchema,
+		JSONSchema: &openai.ChatCompletionResponseFormatJSONSchema{
+			Name:        schema.Name(),
+			Description: schema.Description(),
+			Schema:      schema,
+			Strict:      schema.Strict(),
+		},
+	}
+
+	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
+		resp, err := s.client.CreateChatCompletion(
+			ctx,
+			openai.ChatCompletionRequest{
+				Model: s.config.Model,
+				Messages: []openai.ChatCompletionMessage{
+					{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+					{Role: openai.ChatMessageRoleUser, Content: userPrompt},
+				},
+				MaxTokens:      s.config.MaxTokens,
+				Temperature:    float32(s.config.Temperature),
+				ResponseFormat: respFormat,
+			},
+		)
+		if err != nil {
+			return "", err
+		}
+		if len(resp.Choices) == 0 {
+			return "", errors.AI("CompleteStructured", "no response from AI model")
+		}
+		return strings.TrimSpace(resp.Choices[0].Message.Content), nil
+	})
+	if err != nil {
+		return nil, errors.AIWrapSafe(err, "CompleteStructured", "failed to generate structured content")
+	}
+
+	return []byte(result), nil
 }
 
 // complete sends a completion request to OpenAI using Fortify resilience patterns.

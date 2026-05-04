@@ -1,0 +1,30 @@
+goldens:
+  - id: risk-narrative-auth-touch
+    category: risk_narrative
+    description: explain why a release that touches auth code is medium risk
+    user_prompt: |
+      Explain the risk of a release that:
+      - touches src/auth/handler.go
+      - removes one input validation guard
+      - is proposed by an AI agent (claude-code)
+      - has no human cosigner yet
+      Keep the explanation under 5 sentences.
+
+  - id: risk-narrative-low-risk
+    category: risk_narrative
+    description: explain low risk for a docs-only patch
+    user_prompt: |
+      Explain the risk of a release that:
+      - changes only docs/README.md
+      - is proposed by a human
+      - is a patch version
+      Keep the explanation under 3 sentences.
+    tags: [low-risk, patch]
+
+  - id: communicate-engineering-rollback
+    category: communicate
+    description: notify engineering of a rollback
+    user_prompt: |
+      Write a short notice (under 4 sentences) for the engineering audience
+      explaining that release v1.4.0 was rolled back due to a database
+      migration failure, and v1.3.5 is now the production version.

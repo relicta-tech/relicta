@@ -516,13 +516,35 @@ coverage-check:
 	@echo "Running coverage checks..."
 	@go run github.com/felixgeelhaar/coverctl@v1.4.0 check --config .coverctl.yaml -v
 
-# Run security scan via nox (SAST + SCA)
+# Run security scan via nox (SAST + SCA) — fails on NEW high+ findings (baseline at .nox/baseline.json suppresses pre-existing)
 security-scan:
 	@echo "Running security scan..."
 	@if command -v nox >/dev/null 2>&1; then \
-		nox scan --quiet --severity-threshold high . || true; \
+		nox scan --quiet --severity-threshold high .; \
 	else \
-		echo "  nox not installed, skipping security scan"; \
+		echo "  ERROR: nox not installed — required for CI security gate"; \
+		echo "  Install: https://github.com/nox-hq/nox"; \
+		exit 1; \
+	fi
+
+# AI eval harness — gates safe model bumps against the embedded golden corpus.
+# V0 ships deterministic scoring (no API keys). LLM-as-judge follow-up requires
+# explicit opt-in via build tag.
+ai-eval:
+	@echo "Running AI eval harness..."
+	@go run ./cmd/relicta eval run
+
+ai-eval-fail-fast:
+	@go run ./cmd/relicta eval run --fail-fast
+
+# Strict scan (no baseline suppression) — for periodic full audit
+security-scan-strict:
+	@echo "Running strict security scan (no baseline)..."
+	@if command -v nox >/dev/null 2>&1; then \
+		nox scan --severity-threshold high --no-baseline .; \
+	else \
+		echo "  ERROR: nox not installed"; \
+		exit 1; \
 	fi
 
 # Install git pre-commit hook (comprehensive)

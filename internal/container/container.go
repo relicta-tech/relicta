@@ -43,6 +43,12 @@ type App struct {
 	mu     sync.RWMutex
 	closed bool
 
+	// allowUntrustedPlugins mirrors the CLI's --allow-untrusted-plugins flag.
+	// Default false — plugin manager refuses to load plugins on best-effort
+	// sandbox platforms until signing infrastructure ships. CLI sets this
+	// before initPluginSystem runs.
+	allowUntrustedPlugins bool
+
 	// Infrastructure layer
 	gitAdapter         *git.Adapter
 	releaseRepo        *persistence.FileReleaseRepository
@@ -99,6 +105,15 @@ func (c *App) registerCloseable(closeable Closeable) {
 
 // RegisterCloseable allows external components to register for cleanup during shutdown.
 // Components are closed in reverse order of registration (LIFO).
+// SetAllowUntrustedPlugins records the operator's --allow-untrusted-plugins
+// opt-in. Must be called before Initialize() — once initPluginSystem runs the
+// plugin manager has already been built with the previous setting.
+func (c *App) SetAllowUntrustedPlugins(allow bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.allowUntrustedPlugins = allow
+}
+
 func (c *App) RegisterCloseable(closeable Closeable) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -283,6 +298,11 @@ func (c *App) initPluginSystem(ctx context.Context) error {
 
 	// Create plugin manager for external gRPC plugins
 	c.pluginManager = plugin.NewManager(c.config)
+
+	// Honor operator's --allow-untrusted-plugins opt-in (or equivalent
+	// programmatic toggle on App). Default false — the manager's trust gate
+	// refuses load on best-effort sandbox platforms until signing ships.
+	c.pluginManager.AllowUntrustedPlugins(c.allowUntrustedPlugins)
 
 	// Register plugins for lazy loading (improves startup time)
 	// Plugins will be loaded on-demand when hooks are executed

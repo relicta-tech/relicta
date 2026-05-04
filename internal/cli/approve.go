@@ -20,7 +20,33 @@ import (
 	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/ui"
+	pkgcgp "github.com/relicta-tech/relicta/pkg/cgp"
 )
+
+// emitApprovalCardJSON writes the canonical ApprovalCard JSON to stdout.
+// Used by `relicta approve --json` and any CI script that parses approval
+// results without re-implementing the schema.
+func emitApprovalCardJSON(card pkgcgp.ApprovalCard) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(card); err != nil {
+		return fmt.Errorf("emit approval card: %w", err)
+	}
+	return nil
+}
+
+// approvalCardVersion safely extracts the proposed version string from a
+// release run, returning empty if the next version is the zero value.
+func approvalCardVersion(rel *release.ReleaseRun) string {
+	if rel == nil {
+		return ""
+	}
+	v := rel.VersionNext()
+	if v.IsZero() {
+		return ""
+	}
+	return v.String()
+}
 
 const (
 	// maxNotesPreviewLines is the maximum number of lines to show in release notes preview.
@@ -310,8 +336,22 @@ func runApprove(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("governance evaluation failed: %w", err)
 			}
 		} else {
-			// Display governance results
-			displayGovernanceResult(govResult)
+			// JSON mode: emit the canonical ApprovalCard so downstream
+			// consumers (CI scripts, web dashboard, MCP relay) all see the
+			// same wire shape regardless of which Relicta surface produced it.
+			if outputJSON {
+				card := governance.BuildApprovalCard(governance.ApprovalCardInput{
+					Result:    govResult,
+					ReleaseID: string(rel.ID()),
+					Version:   approvalCardVersion(rel),
+					Actor:     pkgcgp.Actor{Kind: string(rel.ActorType()), ID: rel.ActorID()},
+				})
+				if err := emitApprovalCardJSON(card); err != nil {
+					return err
+				}
+			} else {
+				displayGovernanceResult(govResult)
+			}
 
 			// Check if release is blocked in strict mode
 			if cfg.Governance.StrictMode && govResult.Decision == cgp.DecisionRejected {
@@ -457,28 +497,22 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 	printTitle("Governance Evaluation")
 	fmt.Println()
 
-	// Risk score with color indicator
-	riskPct := result.RiskScore * 100
-	riskLabel := "LOW"
-	if result.RiskScore >= 0.7 {
-		riskLabel = "HIGH"
-	} else if result.RiskScore >= 0.4 {
-		riskLabel = "MEDIUM"
+	// Render the risk score using the shared lipgloss component so it has
+	// proportional visual weight with the decision it drives (Von Restorff).
+	// Falls back to plain text with severity glyphs when NO_COLOR or non-TTY.
+	factors := make([]ui.RiskMeterFactor, 0, len(result.RiskFactors))
+	for _, f := range result.RiskFactors {
+		factors = append(factors, ui.RiskMeterFactor{
+			Category:    f.Category,
+			Description: f.Description,
+			Score:       f.Score,
+		})
 	}
+	fmt.Print(ui.RenderRisk(result.RiskScore, factors))
 
-	fmt.Printf("  Risk Score:     %.1f%% (%s)\n", riskPct, riskLabel)
 	fmt.Printf("  Severity:       %s\n", result.Severity)
 	fmt.Printf("  Decision:       %s\n", result.Decision)
 	fmt.Printf("  Auto-Approve:   %v\n", result.CanAutoApprove)
-
-	// Display risk factors if any
-	if len(result.RiskFactors) > 0 {
-		fmt.Println()
-		fmt.Println("  Risk Factors:")
-		for _, factor := range result.RiskFactors {
-			fmt.Printf("    - [%s] %s (%.1f%%)\n", factor.Category, factor.Description, factor.Score*100)
-		}
-	}
 
 	// Display required actions if any
 	if len(result.RequiredActions) > 0 {

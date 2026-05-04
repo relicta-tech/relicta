@@ -1,0 +1,86 @@
+name: AI Eval Harness
+
+# Gates model/prompt changes against the embedded golden corpus. Without this,
+# prompt drift on a model bump (gpt-5 → gpt-5.1, claude-sonnet-4-6 → 4-7)
+# silently degrades release-notes / risk-narrative / communicate quality
+# between deployments.
+#
+# V0 strategy: deterministic judge runs on every AI-touching PR (no API keys
+# needed). When real LLM-as-judge runs ship, gate ratchets up — keep the
+# deterministic floor as a smoke test.
+
+on:
+  pull_request:
+    paths:
+      - 'internal/infrastructure/ai/**'
+      - 'internal/cgp/policy/library/**'
+      - '.github/workflows/ai-eval.yaml'
+      - 'Makefile'
+  push:
+    branches: [main]
+    paths:
+      - 'internal/infrastructure/ai/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deterministic:
+    name: Deterministic eval (no API keys)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Run AI eval (deterministic judge)
+        run: make ai-eval
+
+      - name: Emit eval summary
+        if: always()
+        run: |
+          echo "::notice title=AI eval::Deterministic-judge run complete on ${{ github.event_name }}"
+
+  llm-judge:
+    name: LLM-as-judge eval (opt-in via repository secret)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Only runs when the secret is present; gracefully no-ops on forks /
+    # missing-secret PRs so external contributors aren't blocked by infra they
+    # cannot access.
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: deterministic
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run AI eval (LLM judge)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        if: env.ANTHROPIC_API_KEY != ''
+        run: |
+          go run ./cmd/relicta eval run --judge llm --json > eval-result.json
+          cat eval-result.json | jq '.summary'
+
+      - name: Upload eval result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-result
+          path: eval-result.json
+          if-no-files-found: ignore
