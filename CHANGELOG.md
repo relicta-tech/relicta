@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Release Notes for Project Version 4.0.0
+
+We are excited to announce the release of version 4.0.0 of Relicta — the “go big” release that adds cognitive backends for release memory and pattern detection.
+
+## 1. New Features and Enhancements
+
+This major release introduces two optional cognitive backends that make Relicta self‑learning:
+
+- **Mnemos integration** — optional memory backend that stores governance decisions, approvals, and release events as claims with evidence, enabling historical queries and contradiction detection
+- **Chronos integration** — optional pattern detection backend that analyzes time‑series signals (trend, spike, drop, stall, anomaly) in release metrics
+- **Post‑v3.5.0 features** — approval cards with visual audit trails, actor budgets and risk caps, architecture tests, autonomy profiles, compliance modules, MCP resources, eval harness, Playwright tests, and web a11y improvements
+
+## 2. Changes
+
+- Add `mnemos` and `chronos` config structs and schema defaults
+- Wire Mnemos and Chronos adapters into the dependency injection container
+- Update `DefaultConfig()` with sensible defaults for both backends
+- Add `MnemosStore()` and `ChronosClient()` accessors in the container
+- Fix CGP field mappings in Mnemos adapter (`Decision`, `ApprovedBy`, `AllowedSteps`)
+- Add dedicated `docs/cognitive-backends.md` setup guide
+- Update `docs/governance.md` and `docs/quick-start.md` with Mnemos/Chronos config snippets
+
+## 3. Documentation
+
+- New `docs/cognitive-backends.md` with run commands for `mnemos serve` and `chronos serve`
+- Updated governance and quick‑start guides with optional backend configuration examples
+
+For more details, you can refer to the complete changelog [here](https://github.com/relicta-tech/relicta/compare/v3.5.0..v4.0.0).
+
 # Release Notes for Project Version 3.5.0
 
 We are excited to announce the release of version 3.5.0 of our project. In this release, we have worked on implementing significant enhancements, addressing security issues, and providing updated documentation. The highlights of this release include new middleware with mcp-go v1.9.0, phase scaling, Relicta v3 Change Governance Platform, production hardening features, and session authentication with JWT tokens. In addition, we have fixed several issues, updated dependencies, and made improvements to the quality of our codebase.
