@@ -6,6 +6,9 @@
 //   - "What incidents followed low-risk releases?"
 //   - "Show me past decisions for actor X"
 //   - Contradiction detection (e.g., "predicted low risk" vs "incident occurred")
+//
+// The adapter fails gracefully — if Mnemos is not running, operations
+// become no-ops with warn-level logging.
 package memory
 
 import (
@@ -19,6 +22,7 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/rs/zerolog/log"
 )
 
 // MnemosAdapter implements memory.Store using Mnemos HTTP API.
@@ -328,6 +332,7 @@ func (a *MnemosAdapter) GetAuditTrail(ctx context.Context, proposalID string) (*
 }
 
 // sendEvents sends events to Mnemos /v1/events endpoint.
+// Fails gracefully — logs warning and continues if Mnemos is unavailable.
 func (a *MnemosAdapter) sendEvents(ctx context.Context, events []MnemosEvent) error {
 	body, err := json.Marshal(map[string]interface{}{
 		"events": events,
@@ -345,19 +350,23 @@ func (a *MnemosAdapter) sendEvents(ctx context.Context, events []MnemosEvent) er
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send events: %w", err)
+		log.Warn().Err(err).Str("url", a.baseURL).Msg("mnemos unavailable, skipping event storage")
+		return nil // Graceful degradation
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("mnemos returned status %d: %s", resp.StatusCode, string(body))
+		log.Warn().Int("status", resp.StatusCode).Str("body", string(body)).
+			Msg("mnemos returned non-OK status, skipping event storage")
+		return nil // Graceful degradation
 	}
 
 	return nil
 }
 
 // queryEvents queries Mnemos /v1/events endpoint.
+// Fails gracefully — returns empty results if Mnemos is unavailable.
 func (a *MnemosAdapter) queryEvents(ctx context.Context, params map[string]string) ([]MnemosEvent, error) {
 	url := fmt.Sprintf("%s/v1/events", a.baseURL)
 	// Build query string from params
@@ -370,13 +379,15 @@ func (a *MnemosAdapter) queryEvents(ctx context.Context, params map[string]strin
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("query events: %w", err)
+		log.Warn().Err(err).Str("url", a.baseURL).Msg("mnemos unavailable, returning empty results")
+		return []MnemosEvent{}, nil // Graceful degradation
 	}
 	defer resp.Body.Close()
 
 	var queryResp MnemosQueryResponse
 	if err := json.NewDecoder(resp.Body).Decode(&queryResp); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		log.Warn().Err(err).Msg("failed to decode mnemos response, returning empty results")
+		return []MnemosEvent{}, nil // Graceful degradation
 	}
 
 	return queryResp.Events, nil
