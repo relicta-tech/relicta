@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+# Release Notes for Project Version 4.0.1
+
+Enhanced cognitive backends with tests, benchmarks, CLI flags, and CI improvements.
+
+## 1. New Features and Enhancements
+
+- Add integration tests for Mnemos and Chronos adapters
+- Add benchmarks for both cognitive backends
+- Add `--skip-cognitive` flag to `relicta plan` command
+- Add `/health/cognitive` endpoint to HTTP server
+- Refactor CI workflow (merge lint+test, remove duplicates)
+- Refactor Homebrew formula to `on_intel`/`on_arm` blocks
+- Add `relicta demo` CLI command with Docker Compose management
+- Add `--log` as alias for `--log-level` with runtime configuration
+- Add `relicta version --cognitive` probe for backend health
+- Add `make changelog` target for automated changelog generation
+- Enforce Nox security scan in CI (removed `|| true`)
+- Add `--chronos-threads` flag with semaphore-based concurrency control
+- Make Mnemos adapter fail-soft with graceful degradation
+
+## 2. Changes
+
+- Update Chronos adapter to support configurable ingest concurrency
+- Wire Chronos thread config through container and CLI flags
+- Add missing dependency: `github.com/rs/zerolog`
+- Fix test compilation issues (actor types, constructor signatures)
+- Update documentation: `docs/cli-new-features.md`
+
 # Release Notes for Project Version 4.0.0
 
 We are excited to announce the release of version 4.0.0 of Relicta — the “go big” release that adds cognitive backends for release memory and pattern detection.
