@@ -1,6 +1,6 @@
 # New CLI Features & Cognitive Backend Enhancements
 
-This document covers the new CLI flags, endpoints, and commands added in the v4.0.0+ enhancement cycle.
+This document covers the new CLI flags, endpoints, and commands added in the v4.0.1+ enhancement cycle.
 
 ## New CLI Flags
 

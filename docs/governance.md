@@ -30,7 +30,7 @@ governance:
 
 ### Mnemos and Chronos Backends (Enabled by Default)
 
-Mnemos (memory) and Chronos (pattern detection) are **enabled by default** in v4.0.0+.
+Mnemos (memory) and Chronos (pattern detection) are **enabled by default** in v4.0.1+.
 Relicta works without external services running - operations gracefully degrade if
 the backends are not available.
 

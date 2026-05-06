@@ -8,7 +8,7 @@ memory and pattern detection for smarter release governance.
 
 ## Quick Start
 
-Both backends are **enabled by default** in v4.0.0+. No configuration needed.
+Both backends are **enabled by default** in v4.0.1+. No configuration needed.
 
 To opt-out, add to your `.relicta.yaml`:
 
