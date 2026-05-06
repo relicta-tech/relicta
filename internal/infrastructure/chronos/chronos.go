@@ -1,9 +1,12 @@
 // Package chronos provides the Chronos adapter for time-series pattern detection.
 //
 // Chronos (https://github.com/felixgeelhaar/chronos) detects patterns in
-// time-series data: recurrence, trend, spike, drop, stall, anomaly, seasonality.
+// time-series data: recurrence, trend, spike, drop, stall, anomaly.
 // This adapter feeds Relicta release metrics into Chronos and queries
 // pattern signals to improve risk scoring over time.
+//
+// The adapter fails gracefully — if Chronos is not running, operations
+// become no-ops or return empty results with warn-level logging.
 package chronos
 
 import (
@@ -17,6 +20,7 @@ import (
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/rs/zerolog/log"
 )
 
 // ChronosAdapter implements memory.Store using Chronos for pattern detection.
@@ -25,6 +29,7 @@ type ChronosAdapter struct {
 	baseURL    string
 	httpClient *http.Client
 	scopeID    string // Scope for this Relicta instance
+	sem        chan struct{}
 }
 
 // ChronosIngestRequest represents an ingest request to Chronos.
@@ -80,13 +85,22 @@ type ChronosSignalsResponse struct {
 // NewChronosAdapter creates a new Chronos adapter.
 // baseURL defaults to http://localhost:7778 if empty.
 func NewChronosAdapter(baseURL, scopeID string) *ChronosAdapter {
+	return NewChronosAdapterWithThreads(baseURL, scopeID, 1)
+}
+
+// NewChronosAdapterWithThreads creates a Chronos adapter with bounded ingest concurrency.
+func NewChronosAdapterWithThreads(baseURL, scopeID string, threads int) *ChronosAdapter {
 	if baseURL == "" {
 		baseURL = "http://localhost:7778"
+	}
+	if threads <= 0 {
+		threads = 1
 	}
 	return &ChronosAdapter{
 		baseURL:    baseURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 		scopeID:    scopeID,
+		sem:        make(chan struct{}, threads),
 	}
 }
 
@@ -261,7 +275,15 @@ func (a *ChronosAdapter) GetAuditTrail(ctx context.Context, proposalID string) (
 }
 
 // sendIngest sends an ingest request to Chronos.
+// Fails gracefully — logs warning and continues if Chronos is unavailable.
 func (a *ChronosAdapter) sendIngest(ctx context.Context, req ChronosIngestRequest) error {
+	select {
+	case a.sem <- struct{}{}:
+		defer func() { <-a.sem }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	body, err := json.Marshal([]ChronosIngestRequest{req})
 	if err != nil {
 		return fmt.Errorf("marshal ingest request: %w", err)
@@ -276,19 +298,23 @@ func (a *ChronosAdapter) sendIngest(ctx context.Context, req ChronosIngestReques
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return fmt.Errorf("send ingest: %w", err)
+		log.Warn().Err(err).Str("url", a.baseURL).Msg("chronos unavailable, skipping pattern analysis")
+		return nil // Graceful degradation
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("chronos returned status %d: %s", resp.StatusCode, string(body))
+		log.Warn().Int("status", resp.StatusCode).Str("body", string(body)).
+			Msg("chronos returned non-OK status, skipping pattern analysis")
+		return nil // Graceful degradation
 	}
 
 	return nil
 }
 
 // querySignals queries Chronos for signals.
+// Fails gracefully — returns empty results if Chronos is unavailable.
 func (a *ChronosAdapter) querySignals(ctx context.Context, params map[string]string) ([]ChronosSignal, error) {
 	url := fmt.Sprintf("%s/v1/signals", a.baseURL)
 	// Build query string from params
@@ -301,13 +327,15 @@ func (a *ChronosAdapter) querySignals(ctx context.Context, params map[string]str
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("query signals: %w", err)
+		log.Warn().Err(err).Str("url", a.baseURL).Msg("chronos unavailable, returning empty signals")
+		return []ChronosSignal{}, nil // Graceful degradation
 	}
 	defer resp.Body.Close()
 
 	var signalsResp ChronosSignalsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&signalsResp); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		log.Warn().Err(err).Msg("failed to decode chronos response, returning empty signals")
+		return []ChronosSignal{}, nil // Graceful degradation
 	}
 
 	return signalsResp.Signals, nil

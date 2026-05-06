@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -33,9 +34,11 @@ var (
 	outputJSON    bool
 	noColor       bool
 	logLevel      string
+	logLevelAlias string
 	modelFlag     string // --model flag for AI provider/model selection
 	ciMode        bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
 	redactSecrets bool   // --redact flag to mask sensitive data in output
+	versionProbeCognitive bool
 
 	// allowUntrustedPlugins is the operator opt-in that bypasses the
 	// plugin-sandbox trust gate. Required on best-effort sandbox platforms
@@ -136,10 +139,12 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&outputJSON, "json", false, "output results as JSON")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().StringVar(&logLevelAlias, "log", "", "alias for --log-level")
 	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "CI/CD mode: auto-approve, JSON output, non-interactive")
 	rootCmd.PersistentFlags().BoolVar(&redactSecrets, "redact", false, "redact secrets and API keys from output (auto-enabled in CI mode)")
 	rootCmd.PersistentFlags().BoolVar(&allowUntrustedPlugins, "allow-untrusted-plugins", false, "load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first")
+	versionCmd.Flags().BoolVar(&versionProbeCognitive, "cognitive", false, "probe Mnemos and Chronos health status")
 
 	// Bind flags to viper (errors are non-fatal for flag binding)
 	_ = viper.BindPFlag("output.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
@@ -241,6 +246,14 @@ func applyGlobalFlags() {
 	}
 }
 
+// applyLogAlias maps --log to --log-level when set.
+func applyLogAlias() {
+	if logLevelAlias != "" {
+		logLevel = logLevelAlias
+		cfg.Output.LogLevel = logLevelAlias
+	}
+}
+
 // applyModelFlag applies the --model flag to the configuration.
 func applyModelFlag() {
 	if modelFlag == "" {
@@ -332,6 +345,7 @@ func initConfig() error {
 
 	// Apply CLI flags to configuration
 	applyGlobalFlags()
+	applyLogAlias()
 	applyModelFlag()
 	applyCIModeFlag()
 	applyRedactSecretsFlag()
@@ -361,6 +375,19 @@ var versionCmd = &cobra.Command{
 		if verbose {
 			fmt.Printf("  commit: %s\n", versionInfo.Commit)
 			fmt.Printf("  built:  %s\n", versionInfo.Date)
+		}
+		if versionProbeCognitive {
+			mnemosBase := os.Getenv("RELICTA_MNEMOS_ENDPOINT")
+			if mnemosBase == "" {
+				mnemosBase = "http://localhost:7777"
+			}
+			chronosBase := os.Getenv("RELICTA_CHRONOS_ENDPOINT")
+			if chronosBase == "" {
+				chronosBase = "http://localhost:7778"
+			}
+
+			fmt.Printf("  mnemos:  %s (%s)\n", probeBackendHealth(mnemosBase), mnemosBase)
+			fmt.Printf("  chronos: %s (%s)\n", probeBackendHealth(chronosBase), chronosBase)
 		}
 	},
 }
@@ -460,6 +487,25 @@ func printTitle(msg string) {
 
 func printSubtle(msg string) {
 	fmt.Println(styles.Subtle.Render(security.Mask(msg)))
+}
+
+func probeBackendHealth(baseURL string) string {
+	client := &http.Client{Timeout: 2 * time.Second}
+	base := strings.TrimRight(baseURL, "/")
+	candidates := []string{base + "/health", base + "/healthz"}
+
+	for _, u := range candidates {
+		resp, err := client.Get(u) // #nosec G107 -- URL is operator-configured local endpoint
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+			return "healthy"
+		}
+	}
+
+	return "unreachable"
 }
 
 // Spinner provides a simple CLI loading indicator.

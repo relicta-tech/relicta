@@ -227,7 +227,11 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 		if chronosTimeout == 0 {
 			chronosTimeout = 10 * time.Second
 		}
-		c.chronosClient = chronosinfra.NewChronosAdapter(chronosEndpoint, "relicta")
+		chronosThreads := c.config.Chronos.Threads
+		if chronosThreads <= 0 {
+			chronosThreads = 4
+		}
+		c.chronosClient = chronosinfra.NewChronosAdapterWithThreads(chronosEndpoint, "relicta", chronosThreads)
 		c.logger.Info("Chronos pattern detection initialized", "endpoint", chronosEndpoint)
 	}
 

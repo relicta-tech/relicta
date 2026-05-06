@@ -50,9 +50,13 @@ type Config struct {
 	Observability ObservabilityConfig `mapstructure:"observability" json:"observability,omitempty"`
 	// Mnemos configures Mnemos memory backend (optional).
 	// When enabled, release events are stored in Mnemos for historical tracking.
+	// Enabled by default — Relicta learns from every release.
+	// Set enabled: false to opt-out.
 	Mnemos MnemosConfig `mapstructure:"mnemos" json:"mnemos,omitempty"`
 	// Chronos configures Chronos pattern detection (optional).
 	// When enabled, time-series patterns are detected in release metrics.
+	// Enabled by default — detect trends, spikes, and improve risk scoring.
+	// Set enabled: false to opt-out.
 	Chronos ChronosConfig `mapstructure:"chronos" json:"chronos,omitempty"`
 }
 
@@ -81,6 +85,8 @@ type ChronosConfig struct {
 	Endpoint string `mapstructure:"endpoint" json:"endpoint,omitempty"`
 	// Timeout is the HTTP client timeout for Chronos API calls.
 	Timeout time.Duration `mapstructure:"timeout" json:"timeout,omitempty"`
+	// Threads controls max concurrent ingest requests to Chronos.
+	Threads int `mapstructure:"threads" json:"threads,omitempty"`
 	// Metrics is a list of metric names to analyze for patterns.
 	// Defaults to ["risk_score", "release_frequency", "lead_time"].
 	Metrics []string `mapstructure:"metrics" json:"metrics,omitempty"`
@@ -677,15 +683,16 @@ func DefaultConfig() *Config {
 			},
 		},
 		Mnemos: MnemosConfig{
-			Enabled:   false,
+			Enabled:   true, // Enabled by default — Relicta learns from every release
 			Endpoint:  "http://localhost:7777",
 			Timeout:   10 * time.Second,
 			Namespace: "relicta",
 		},
 		Chronos: ChronosConfig{
-			Enabled:  false,
+			Enabled:  true, // Enabled by default — detect patterns and improve risk scoring
 			Endpoint: "http://localhost:7778",
 			Timeout:  10 * time.Second,
+			Threads:  4,
 			Metrics:  []string{"risk_score", "release_frequency", "lead_time"},
 		},
 	}

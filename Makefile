@@ -30,7 +30,8 @@ CMD_DIR := cmd/relicta
         frontend frontend-deps frontend-standalone build-with-frontend clean-frontend \
         test-policy-gate skill-preflight \
         mcp-apps mcp-apps-deps clean-mcp-apps \
-        sbom fuzz
+	    sbom fuzz
+	    changelog
 
 # Default target
 all: lint test build
@@ -189,6 +190,24 @@ skill-preflight: test-policy-gate
 test-e2e:
 	@echo "Running e2e tests..."
 	$(GOTEST) -v -tags=e2e ./test/e2e/...
+
+# Generate changelog from commits since latest tag
+changelog:
+	@echo "Generating docs/changelog.md..."
+	@mkdir -p docs
+	@LAST_TAG=$$(git describe --tags --abbrev=0 2>/dev/null || true); \
+	if [ -n "$$LAST_TAG" ]; then RANGE="$$LAST_TAG..HEAD"; else RANGE="HEAD"; fi; \
+	{ \
+		echo "# Changelog"; \
+		echo ""; \
+		echo "Generated on $$(date -u +"%Y-%m-%dT%H:%M:%SZ")"; \
+		echo ""; \
+		if [ -n "$$LAST_TAG" ]; then echo "Changes since $$LAST_TAG:"; else echo "All changes:"; fi; \
+		echo ""; \
+		git log $$RANGE --pretty=format:'- %s (%h)'; \
+		echo ""; \
+	} > docs/changelog.md
+	@echo "✓ Wrote docs/changelog.md"
 
 # Run benchmarks
 bench:

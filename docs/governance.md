@@ -28,30 +28,34 @@ governance:
   memory_enabled: true
 ```
 
-### Optional: Enable Mnemos and Chronos Backends
+### Mnemos and Chronos Backends (Enabled by Default)
 
-Relicta works without external services. If you want memory and pattern detection
-backed by Mnemos and Chronos, add:
+Mnemos (memory) and Chronos (pattern detection) are **enabled by default** in v4.0.0+.
+Relicta works without external services running - operations gracefully degrade if
+the backends are not available.
+
+To opt-out, set `enabled: false` in your config:
 
 ```yaml
 mnemos:
-  enabled: true
-  endpoint: http://localhost:7777
-  timeout: 10s
-  namespace: relicta
+  enabled: false  # Disable Mnemos memory backend
 
 chronos:
-  enabled: true
-  endpoint: http://localhost:7778
-  timeout: 10s
-  metrics:
-    - risk_score
-    - release_frequency
-    - lead_time
+  enabled: false  # Disable Chronos pattern detection
 ```
 
-- `mnemos` stores governance/release memory events.
-- `chronos` analyzes time-series signals (trend/spike/drop/stall/anomaly).
+To use the backends for enhanced features (historical queries, pattern detection),
+run them as separate services:
+
+```bash
+# Install and start Mnemos (memory backend)
+go install github.com/felixgeelhaar/mnemos/cmd/mnemos@latest
+mnemos serve  # defaults to localhost:7777
+
+# Install and start Chronos (pattern detection)
+go install github.com/felixgeelhaar/chronos/cmd/chronos@latest
+chronos serve  # defaults to localhost:7778
+```
 
 For full setup and run instructions, see [Cognitive Backends](cognitive-backends.md).
 

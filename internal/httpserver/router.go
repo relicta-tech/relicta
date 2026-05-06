@@ -39,6 +39,7 @@ func (s *Server) setupRouter() chi.Router {
 	// Kubernetes-style probes (unauthenticated)
 	r.Get("/healthz", handlers.Healthz)
 	r.Get("/readyz", handlers.Readyz)
+	r.Get("/health/cognitive", handlers.CognitiveHealth)
 
 	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {

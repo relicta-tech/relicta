@@ -162,17 +162,17 @@ governance:
   policy_dir: .relicta/policies
 ```
 
-Optional cognitive backends:
+Cognitive backends (enabled by default):
 
 ```yaml
 mnemos:
-  enabled: true
+  enabled: true  # Set false to opt-out
   endpoint: http://localhost:7777
   timeout: 10s
   namespace: relicta
 
 chronos:
-  enabled: true
+  enabled: true  # Set false to opt-out
   endpoint: http://localhost:7778
   timeout: 10s
   metrics:

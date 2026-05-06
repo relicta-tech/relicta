@@ -34,6 +34,8 @@ var (
 	planReview        bool
 	planMinConfidence float64
 	planDisableAI     bool
+	planSkipCognitive bool
+	planChronosThreads int
 )
 
 func init() {
@@ -45,6 +47,8 @@ func init() {
 	planCmd.Flags().BoolVarP(&planReview, "review", "r", false, "review and adjust commit classifications before planning")
 	planCmd.Flags().Float64Var(&planMinConfidence, "min-confidence", 0, "minimum confidence to accept classifications")
 	planCmd.Flags().BoolVar(&planDisableAI, "no-ai", false, "disable AI classification")
+	planCmd.Flags().BoolVar(&planSkipCognitive, "skip-cognitive", false, "skip Mnemos & Chronos cognitive backends")
+	planCmd.Flags().IntVar(&planChronosThreads, "chronos-threads", 0, "max concurrent Chronos ingest requests (overrides config)")
 }
 
 // runPlan implements the plan command.
@@ -64,6 +68,15 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	if dryRun {
 		printDryRunBanner()
+	}
+
+	if planSkipCognitive {
+		cfg.Mnemos.Enabled = false
+		cfg.Chronos.Enabled = false
+	}
+
+	if planChronosThreads > 0 {
+		cfg.Chronos.Threads = planChronosThreads
 	}
 
 	// Initialize container

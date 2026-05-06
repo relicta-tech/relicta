@@ -1,74 +1,123 @@
-# Cognitive Backends (Mnemos + Chronos)
+# Cognitive Backends: Mnemos + Chronos
 
-Relicta runs fully standalone by default. Mnemos and Chronos are optional
-backends you can enable for enhanced release memory and pattern detection.
+> **Enabled by default** — Relicta learns and improves with every release.
+> Set `enabled: false` in config to opt-out.
 
-## What They Do
+Relicta integrates two cognitive backends that work together to provide
+memory and pattern detection for smarter release governance.
 
-- **Mnemos** stores governance and release memory events for historical lookup.
-- **Chronos** detects time-series patterns (trend, spike, drop, stall, anomaly).
+## Quick Start
 
-## Prerequisites
+Both backends are **enabled by default** in v4.0.0+. No configuration needed.
 
-- Relicta CLI installed
-- Optional local services:
-  - Mnemos running on `http://localhost:7777`
-  - Chronos running on `http://localhost:7778`
+To opt-out, add to your `.relicta.yaml`:
 
-## Run Locally
+```yaml
+mnemos:
+  enabled: false  # Disable Mnemos memory backend
 
-If you have both projects installed locally, start them in separate terminals.
+chronos:
+  enabled: false  # Disable Chronos pattern detection
+```
+
+## Mnemos — Release Memory
+
+Mnemos (https://github.com/felixgeelhaar/mnemos) is a self-hosted memory layer
+for AI applications. When enabled, Relicta stores:
+
+- Release events (version, risk score, decision, outcome)
+- Incident records (type, severity, root cause)
+- Governance decisions (decision, approvals, authorized steps)
+- Execution authorizations (who approved, what's allowed)
+
+### Setup (optional — for enhanced features)
+
+If you want to run Mnemos as a separate service for advanced querying:
 
 ```bash
-# Terminal 1
-mnemos serve
+# Install Mnemos
+go install github.com/felixgeelhaar/mnemos/cmd/mnemos@latest
 
-# Terminal 2
+# Start Mnemos server (default: localhost:7777)
+mnemos serve
+```
+
+Relicta will connect to `http://localhost:7777` by default.
+If Mnemos is not running, operations gracefully degrade (warn-level logging).
+
+## Chronos — Pattern Detection
+
+Chronos (https://github.com/felixgeelhaar/chronos) detects patterns in
+time-series data: recurrence, trend, spike, drop, stall, anomaly.
+
+When enabled, Relicta sends release metrics (risk score, deployment frequency,
+outcome) to Chronos and queries for patterns to improve risk scoring.
+
+### Setup (optional — for pattern detection)
+
+If you want to run Chronos as a separate service for advanced analytics:
+
+```bash
+# Install Chronos
+go install github.com/felixgeelhaar/chronos/cmd/chronos@latest
+
+# Start Chronos server (default: localhost:7778)
 chronos serve
 ```
 
-## Relicta Configuration
+Relicta will connect to `http://localhost:7778` by default.
+If Chronos is not running, operations gracefully degrade (warn-level logging).
 
-Add this to `.relicta.yaml`:
+## Configuration
+
+Both backends are configured in `.relicta.yaml`:
 
 ```yaml
-governance:
-  enabled: true
-  memory_enabled: true
-
+# Mnemos memory backend (enabled by default)
 mnemos:
-  enabled: true
-  endpoint: http://localhost:7777
+  enabled: true          # Set false to opt-out
+  endpoint: "http://localhost:7777"
   timeout: 10s
-  namespace: relicta
+  namespace: "relicta"  # Used as Mnemos run_id
+
+# Chronos pattern detection (enabled by default)
+chronos:
+  enabled: true          # Set false to opt-out
+  endpoint: "http://localhost:7778"
+  timeout: 10s
+  metrics:               # Metrics to analyze for patterns
+    - "risk_score"
+    - "release_frequency"
+    - "lead_time"
+```
+
+## Graceful Degradation
+
+Both adapters fail gracefully:
+- If the backend is not running, operations become no-ops
+- Warn-level logs are emitted (not errors)
+- Relicta continues to function normally
+- Features that require the backend will return empty results
+
+This means you can use Relicta without running Mnemos/Chronos,
+and enable them later when you want enhanced memory and pattern detection.
+
+## Default Behavior (v4.0.0+)
+
+✅ **Mnemos enabled by default** — learns from every release
+✅ **Chronos enabled by default** — detects patterns and trends
+✅ **Graceful degradation** — no separate `serve` commands needed
+✅ **Explicit opt-out** — set `enabled: false` to disable
+
+## Migration from v3.x
+
+If upgrading from v3.x, update your config:
+
+```yaml
+# Add to your .relicta.yaml (or rely on defaults)
+mnemos:
+  enabled: true  # Now enabled by default
 
 chronos:
-  enabled: true
-  endpoint: http://localhost:7778
-  timeout: 10s
-  metrics:
-    - risk_score
-    - release_frequency
-    - lead_time
+  enabled: true  # Now enabled by default
 ```
-
-Notes:
-- `mnemos.enabled: true` makes Mnemos the active governance memory backend.
-- `chronos.enabled: true` enables Chronos client initialization for pattern analysis.
-
-## Verify Setup
-
-```bash
-relicta plan --analyze
-relicta evaluate
-```
-
-If a backend is unreachable, Relicta logs a warning and continues where possible.
-
-## Troubleshooting
-
-- Confirm endpoints are reachable:
-  - `curl http://localhost:7777/health`
-  - `curl http://localhost:7778/health`
-- Check your `.relicta.yaml` for typos in `mnemos` and `chronos` sections.
-- Re-run `relicta init` and compare generated config defaults.

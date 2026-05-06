@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  mnemos:
+    image: felixgeelhaar/mnemos:latest
+    ports:
+      - "7777:7777"
+    volumes:
+      - mnemos_data:/data
+    environment:
+      - MNEMOS_STORAGE_PATH=/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chronos:
+    image: felixgeelhaar/chronos:latest
+    ports:
+      - "7778:7778"
+    volumes:
+      - chronos_data:/data
+    environment:
+      - CHRONOS_STORAGE_PATH=/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7778/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mnemos_data:
+  chronos_data:
