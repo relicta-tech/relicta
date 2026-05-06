@@ -121,3 +121,33 @@ mnemos:
 chronos:
   enabled: true  # Now enabled by default
 ```
+## CLI Flags for Cognitive Backends
+
+### `relicta plan --skip-cognitive`
+Skip Mnemos & Chronos backends for this plan run. Sets `config.Mnemos.Enabled = false` and `config.Chronos.Enabled = false`.
+
+### `relicta plan --chronos-threads N`
+Override the Chronos ingest concurrency (default: 4). Controls the semaphore size for parallel ingest requests.
+
+### `relicta --log debug` (alias for `--log-level debug`)
+Set the logging level for the entire CLI session. The alias `--log` maps to `--log-level` at runtime.
+
+### `relicta version --cognitive`
+Probe the health of Mnemos and Chronos backends. Prints reachability status.
+
+### `relicta demo`
+Manage the local Docker Compose demo environment.
+- `relicta demo` — bring up Mnemos + Chronos containers
+- `relicta demo --reset` — tear down and recreate
+- `relicta demo --down` — stop and remove containers
+
+## Configuration Changes
+
+### ChronosConfig新增 `threads` field
+```yaml
+chronos:
+  enabled: true
+  threads: 4  # NEW: max concurrent ingest requests
+```
+
+Default is 4. Override via `relicta plan --chronos-threads N`.
