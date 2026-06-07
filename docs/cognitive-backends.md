@@ -22,7 +22,7 @@ chronos:
 
 ## Mnemos — Release Memory
 
-Mnemos (https://github.com/felixgeelhaar/mnemos) is a self-hosted memory layer
+Mnemos (https://github.com/klarlabs-studio/mnemos) is a self-hosted memory layer
 for AI applications. When enabled, Relicta stores:
 
 - Release events (version, risk score, decision, outcome)
@@ -36,7 +36,7 @@ If you want to run Mnemos as a separate service for advanced querying:
 
 ```bash
 # Install Mnemos
-go install github.com/felixgeelhaar/mnemos/cmd/mnemos@latest
+go install go.klarlabs.de/mnemos/cmd/mnemos@latest
 
 # Start Mnemos server (default: localhost:7777)
 mnemos serve

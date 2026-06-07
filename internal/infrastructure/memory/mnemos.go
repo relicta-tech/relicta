@@ -1,6 +1,6 @@
 // Package memory provides the Mnemos adapter for release memory storage.
 //
-// Mnemos (https://github.com/felixgeelhaar/mnemos) is a self-hosted
+// Mnemos (https://github.com/klarlabs-studio/mnemos) is a self-hosted
 // memory layer for AI apps. This adapter stores release events as Mnemos
 // claims with evidence backing, enabling:
 //   - "What incidents followed low-risk releases?"
@@ -35,18 +35,18 @@ type MnemosAdapter struct {
 
 // MnemosEvent represents an event sent to Mnemos.
 type MnemosEvent struct {
-	ID         string                 `json:"id"`
-	RunID      string                 `json:"run_id"`
-	SourceID   string                 `json:"source_input_id"`
-	Content    string                 `json:"content"`
-	Timestamp  string                 `json:"timestamp"`
-	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	ID        string                 `json:"id"`
+	RunID     string                 `json:"run_id"`
+	SourceID  string                 `json:"source_input_id"`
+	Content   string                 `json:"content"`
+	Timestamp string                 `json:"timestamp"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // MnemosQueryResponse represents a query response from Mnemos.
 type MnemosQueryResponse struct {
 	Events []MnemosEvent `json:"events"`
-	Total  int          `json:"total"`
+	Total  int           `json:"total"`
 }
 
 // NewMnemosStore creates a new Mnemos-backed memory store.
@@ -79,18 +79,18 @@ func (a *MnemosAdapter) RecordRelease(ctx context.Context, record *memory.Releas
 		RunID:     a.runID,
 		SourceID:  fmt.Sprintf("release-%s", record.ID),
 		Content:   content,
-		Timestamp:  record.ReleasedAt.Format(time.RFC3339),
+		Timestamp: record.ReleasedAt.Format(time.RFC3339),
 		Metadata: map[string]interface{}{
-			"type":            "release",
-			"repository":      record.Repository,
-			"version":         record.Version,
-			"actor_id":       record.Actor.ID,
-			"actor_kind":      string(record.Actor.Kind),
-			"risk_score":      record.RiskScore,
-			"decision":       string(record.Decision),
-			"outcome":         string(record.Outcome),
+			"type":             "release",
+			"repository":       record.Repository,
+			"version":          record.Version,
+			"actor_id":         record.Actor.ID,
+			"actor_kind":       string(record.Actor.Kind),
+			"risk_score":       record.RiskScore,
+			"decision":         string(record.Decision),
+			"outcome":          string(record.Outcome),
 			"breaking_changes": record.BreakingChanges,
-			"files_changed":   record.FilesChanged,
+			"files_changed":    record.FilesChanged,
 			"lines_changed":    record.LinesChanged,
 		},
 	}
@@ -110,16 +110,16 @@ func (a *MnemosAdapter) RecordIncident(ctx context.Context, incident *memory.Inc
 		RunID:     a.runID,
 		SourceID:  fmt.Sprintf("incident-%s", incident.ID),
 		Content:   content,
-		Timestamp:  incident.DetectedAt.Format(time.RFC3339),
+		Timestamp: incident.DetectedAt.Format(time.RFC3339),
 		Metadata: map[string]interface{}{
-			"type":         "incident",
-			"repository":   incident.Repository,
-			"release_id":   incident.ReleaseID,
-			"version":      incident.Version,
+			"type":          "incident",
+			"repository":    incident.Repository,
+			"release_id":    incident.ReleaseID,
+			"version":       incident.Version,
 			"incident_type": string(incident.Type),
-			"severity":     string(incident.Severity),
-			"root_cause":   incident.RootCause,
-			"actor_id":     incident.ActorID,
+			"severity":      string(incident.Severity),
+			"root_cause":    incident.RootCause,
+			"actor_id":      incident.ActorID,
 		},
 	}
 
@@ -139,15 +139,15 @@ func (a *MnemosAdapter) RecordDecision(ctx context.Context, decision *cgp.Govern
 		RunID:     a.runID,
 		SourceID:  fmt.Sprintf("decision-%s", decision.ID),
 		Content:   content,
-		Timestamp:  decision.Timestamp.Format(time.RFC3339),
+		Timestamp: decision.Timestamp.Format(time.RFC3339),
 		Metadata: map[string]interface{}{
-			"type":               "decision",
+			"type":                "decision",
 			"decision_id":         decision.ID,
 			"proposal_id":         decision.ProposalID,
 			"decision":            string(decision.Decision),
-			"risk_score":           decision.RiskScore,
-			"approved":             decision.Decision == cgp.DecisionApproved,
-			"approval_required":    decision.Decision == cgp.DecisionApprovalRequired,
+			"risk_score":          decision.RiskScore,
+			"approved":            decision.Decision == cgp.DecisionApproved,
+			"approval_required":   decision.Decision == cgp.DecisionApprovalRequired,
 			"recommended_version": decision.RecommendedVersion,
 		},
 	}
@@ -168,16 +168,16 @@ func (a *MnemosAdapter) RecordAuthorization(ctx context.Context, auth *cgp.Execu
 		RunID:     a.runID,
 		SourceID:  fmt.Sprintf("auth-%s", auth.ID),
 		Content:   content,
-		Timestamp:  auth.Timestamp.Format(time.RFC3339),
+		Timestamp: auth.Timestamp.Format(time.RFC3339),
 		Metadata: map[string]interface{}{
 			"type":          "authorization",
-			"auth_id":      auth.ID,
-			"decision_id":  auth.DecisionID,
-			"approved":     approved,
-			"approved_by":  auth.ApprovedBy.ID,
+			"auth_id":       auth.ID,
+			"decision_id":   auth.DecisionID,
+			"approved":      approved,
+			"approved_by":   auth.ApprovedBy.ID,
 			"allowed_steps": len(auth.AllowedSteps),
-			"version":      auth.Version,
-			"tag":          auth.Tag,
+			"version":       auth.Version,
+			"tag":           auth.Tag,
 		},
 	}
 
@@ -187,9 +187,9 @@ func (a *MnemosAdapter) RecordAuthorization(ctx context.Context, auth *cgp.Execu
 // GetReleaseHistory queries Mnemos for release events.
 func (a *MnemosAdapter) GetReleaseHistory(ctx context.Context, repository string, limit int) ([]*memory.ReleaseRecord, error) {
 	events, err := a.queryEvents(ctx, map[string]string{
-		"run_id":     a.runID,
-		"source_id":  fmt.Sprintf("release-%%"),
-		"limit":      fmt.Sprintf("%d", limit),
+		"run_id":    a.runID,
+		"source_id": fmt.Sprintf("release-%%"),
+		"limit":     fmt.Sprintf("%d", limit),
 	})
 	if err != nil {
 		return nil, err
@@ -263,8 +263,8 @@ func (a *MnemosAdapter) GetAuthorizationsByDecision(ctx context.Context, decisio
 func (a *MnemosAdapter) GetActorMetrics(ctx context.Context, actorID string) (*memory.ActorMetrics, error) {
 	// Query all release events for this actor
 	events, err := a.queryEvents(ctx, map[string]string{
-		"run_id":    a.runID,
-		"limit":     "1000",
+		"run_id": a.runID,
+		"limit":  "1000",
 	})
 	if err != nil {
 		return nil, err
@@ -312,15 +312,15 @@ func (a *MnemosAdapter) GetRiskPatterns(ctx context.Context, repository string) 
 func (a *MnemosAdapter) UpdateActorMetrics(ctx context.Context, actorID string, outcome memory.ReleaseOutcome) error {
 	// Mnemos is append-only - just record a new event
 	event := MnemosEvent{
-		ID:       generateID(),
-		RunID:    a.runID,
-		SourceID: fmt.Sprintf("outcome-update-%s-%d", actorID, time.Now().Unix()),
-		Content:  fmt.Sprintf("Actor %s had outcome: %s", actorID, outcome),
+		ID:        generateID(),
+		RunID:     a.runID,
+		SourceID:  fmt.Sprintf("outcome-update-%s-%d", actorID, time.Now().Unix()),
+		Content:   fmt.Sprintf("Actor %s had outcome: %s", actorID, outcome),
 		Timestamp: time.Now().Format(time.RFC3339),
 		Metadata: map[string]interface{}{
-			"type":       "outcome_update",
-			"actor_id":  actorID,
-			"outcome":   string(outcome),
+			"type":     "outcome_update",
+			"actor_id": actorID,
+			"outcome":  string(outcome),
 		},
 	}
 	return a.sendEvents(ctx, []MnemosEvent{event})
@@ -371,7 +371,7 @@ func (a *MnemosAdapter) queryEvents(ctx context.Context, params map[string]strin
 	url := fmt.Sprintf("%s/v1/events", a.baseURL)
 	// Build query string from params
 	// (Simplified - actual implementation would use url.Values)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)

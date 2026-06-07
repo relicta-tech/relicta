@@ -1,4 +1,4 @@
-// Package mcp provides MCP server implementation for Relicta using felixgeelhaar/mcp-go.
+// Package mcp provides MCP server implementation for Relicta using go.klarlabs.de/mcp.
 package mcp
 
 import (
@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/felixgeelhaar/mcp-go"
-	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
-	"github.com/felixgeelhaar/mcp-go/transport"
+	"go.klarlabs.de/mcp"
+	mcpmw "go.klarlabs.de/mcp/middleware"
+	"go.klarlabs.de/mcp/transport"
 
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
@@ -357,7 +357,7 @@ func NewServer(version string, opts ...ServerOption) (*Server, error) {
 		opt(s)
 	}
 
-	// Create the MCP server with felixgeelhaar/mcp-go
+	// Create the MCP server with go.klarlabs.de/mcp
 	s.server = mcp.NewServer(mcp.ServerInfo{
 		Name:        "relicta",
 		Version:     version,
