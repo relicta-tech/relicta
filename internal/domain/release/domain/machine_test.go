@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/felixgeelhaar/statekit"
+	"go.klarlabs.de/statekit"
 
 	"github.com/relicta-tech/relicta/internal/domain/version"
 )

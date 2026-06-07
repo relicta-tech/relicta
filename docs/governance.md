@@ -49,7 +49,7 @@ run them as separate services:
 
 ```bash
 # Install and start Mnemos (memory backend)
-go install github.com/felixgeelhaar/mnemos/cmd/mnemos@latest
+go install go.klarlabs.de/mnemos/cmd/mnemos@latest
 mnemos serve  # defaults to localhost:7777
 
 # Install and start Chronos (pattern detection)

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/felixgeelhaar/statekit"
+	"go.klarlabs.de/statekit"
 )
 
 // RunContext is the context passed to the state machine.

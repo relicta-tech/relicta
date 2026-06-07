@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	mcplib "github.com/felixgeelhaar/mcp-go"
+	mcplib "go.klarlabs.de/mcp"
 
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
 	"github.com/relicta-tech/relicta/internal/domain/release"
@@ -109,8 +109,8 @@ func (s *Server) handleResourceRiskBudgetAll(_ context.Context, uri string, _ ma
 			"status":   "no_explicit_budgets",
 			"fallback": "DefaultRestrictiveAgentBudget applies to all agents",
 			"defaults": map[string]any{
-				"agent":  policy.DefaultRestrictiveAgentBudget(),
-				"human":  policy.DefaultPermissiveHumanBudget(),
+				"agent": policy.DefaultRestrictiveAgentBudget(),
+				"human": policy.DefaultPermissiveHumanBudget(),
 			},
 		})
 	}

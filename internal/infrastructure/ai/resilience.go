@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/felixgeelhaar/fortify/circuitbreaker"
-	"github.com/felixgeelhaar/fortify/ratelimit"
-	"github.com/felixgeelhaar/fortify/retry"
+	"go.klarlabs.de/fortify/circuitbreaker"
+	"go.klarlabs.de/fortify/ratelimit"
+	"go.klarlabs.de/fortify/retry"
 )
 
 // ResilienceConfig configures resilience patterns for AI services.
@@ -58,7 +58,7 @@ func NewResilience(cfg ResilienceConfig) *Resilience {
 
 	// Configure rate limiter if enabled
 	if cfg.RateLimitRPM > 0 {
-		r.rateLimiter = ratelimit.New(&ratelimit.Config{
+		r.rateLimiter = ratelimit.New(ratelimit.Config{
 			Rate:     cfg.RateLimitRPM,
 			Burst:    cfg.RateLimitRPM * 2, // Allow burst up to 2x rate
 			Interval: time.Minute,
@@ -122,7 +122,7 @@ func (r *Resilience) Execute(ctx context.Context, operation func(context.Context
 // executeWithRetry runs the operation with retry logic.
 func (r *Resilience) executeWithRetry(ctx context.Context, operation func(context.Context) (string, error)) (string, error) {
 	if r.retrier != nil {
-		return r.retrier.Do(ctx, operation)
+		return r.retrier.Execute(ctx, operation)
 	}
 	return operation(ctx)
 }

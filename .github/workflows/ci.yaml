@@ -51,7 +51,7 @@ jobs:
 
       - name: Run tests with coverage enforcement
         run: |
-          go run github.com/felixgeelhaar/coverctl@v1.4.0 check \
+          go run go.klarlabs.de/coverctl@v1.17.0 check \
             --config .coverctl.yaml \
             --race \
             -v
