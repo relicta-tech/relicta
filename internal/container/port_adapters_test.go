@@ -11,6 +11,8 @@ import (
 	"github.com/relicta-tech/relicta/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/internal/infrastructure/git"
 )
 
 // mockTagCreator implements ports.TagCreator for testing.
@@ -397,6 +399,61 @@ func TestNotesGeneratorAdapter_Generate_NoAIService(t *testing.T) {
 	}
 	if notes.Provider != "basic" {
 		t.Errorf("expected basic provider, got: %s", notes.Provider)
+	}
+}
+
+// panickyAIService fails the test if any generation method is invoked.
+// Used to prove UseAI=false performs zero AI calls (issue #127).
+type panickyAIService struct {
+	t *testing.T
+}
+
+func (s *panickyAIService) GenerateChangelog(context.Context, *git.CategorizedChanges, ai.GenerateOptions) (string, error) {
+	s.t.Fatal("GenerateChangelog must not be called when UseAI=false")
+	return "", nil
+}
+
+func (s *panickyAIService) GenerateReleaseNotes(context.Context, string, ai.GenerateOptions) (string, error) {
+	s.t.Fatal("GenerateReleaseNotes must not be called when UseAI=false")
+	return "", nil
+}
+
+func (s *panickyAIService) GenerateMarketingBlurb(context.Context, string, ai.GenerateOptions) (string, error) {
+	s.t.Fatal("GenerateMarketingBlurb must not be called when UseAI=false")
+	return "", nil
+}
+
+func (s *panickyAIService) SummarizeChanges(context.Context, *git.CategorizedChanges, ai.GenerateOptions) (string, error) {
+	s.t.Fatal("SummarizeChanges must not be called when UseAI=false")
+	return "", nil
+}
+
+func (s *panickyAIService) Complete(context.Context, string, string) (string, error) {
+	s.t.Fatal("Complete must not be called when UseAI=false")
+	return "", nil
+}
+
+func (s *panickyAIService) IsAvailable() bool { return true }
+
+func TestNotesGeneratorAdapter_Generate_UseAIFalse_SkipsAvailableService(t *testing.T) {
+	adapter := NewNotesGeneratorAdapter(&panickyAIService{t: t}, nil)
+
+	run := createTestReleaseRunWithChangeset(t)
+	options := ports.NotesOptions{
+		AudiencePreset: "developers",
+		TonePreset:     "professional",
+		UseAI:          false,
+	}
+
+	notes, err := adapter.Generate(context.Background(), run, options)
+	if err != nil {
+		t.Fatalf("Generate should not return error: %v", err)
+	}
+	if notes == nil {
+		t.Fatal("notes should not be nil")
+	}
+	if notes.Provider != "basic" {
+		t.Errorf("expected basic provider when UseAI=false, got: %s", notes.Provider)
 	}
 }
 

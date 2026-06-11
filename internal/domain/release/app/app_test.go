@@ -374,6 +374,15 @@ func TestPlanReleaseUseCase_Execute_ForceOverride(t *testing.T) {
 	if output.RunID == "" {
 		t.Error("Execute() with Force returned empty RunID")
 	}
+
+	// Forced re-plan must supersede the stale run, not leave it active
+	// forever alongside the new one (issue #128).
+	if !activeRun.State().IsFinal() {
+		t.Errorf("superseded run still active in state %s, want canceled", activeRun.State())
+	}
+	if newRun, ok := repo.runs[output.RunID]; !ok || newRun.State().IsFinal() {
+		t.Error("re-planned run should exist and be active")
+	}
 }
 
 func TestPlanReleaseUseCase_Execute_HeadSHAError(t *testing.T) {
@@ -1134,6 +1143,7 @@ type mockPublisher struct {
 	checkIdempotency map[string]bool
 	executeErr       error
 	checkErr         error
+	executedSteps    []string
 }
 
 func newMockPublisher() *mockPublisher {
@@ -1144,6 +1154,7 @@ func newMockPublisher() *mockPublisher {
 }
 
 func (m *mockPublisher) ExecuteStep(_ context.Context, _ *domain.ReleaseRun, step *domain.StepPlan) (*ports.StepResult, error) {
+	m.executedSteps = append(m.executedSteps, step.Name)
 	if m.executeErr != nil {
 		return nil, m.executeErr
 	}
@@ -1417,6 +1428,95 @@ func TestPublishReleaseUseCase_Execute_DryRun(t *testing.T) {
 		if !result.Skipped {
 			t.Errorf("Step %s Skipped = false in dry run, want true", result.StepName)
 		}
+	}
+	if len(output.StepResults) != 2 {
+		t.Errorf("expected 2 simulated steps, got %d", len(output.StepResults))
+	}
+
+	// Dry run must not mutate the run: state stays Approved, steps stay
+	// pending, nothing is reported published (issue #126: the old dry run
+	// marked steps skipped, persisted, and advanced state to published, so
+	// the real publish that followed was an idempotent no-op).
+	if output.Published {
+		t.Error("dry run must not report Published=true")
+	}
+	if run.State() != domain.StateApproved {
+		t.Errorf("dry run mutated state to %s, want %s", run.State(), domain.StateApproved)
+	}
+	if step := run.NextPendingStep(); step == nil {
+		t.Error("dry run consumed pending steps")
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_RealPublishAfterDryRun(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "create-tag", Type: domain.StepTypePlugin},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+	actor := ports.ActorInfo{Type: domain.ActorHuman, ID: "publisher@example.com"}
+
+	// Dry run first — the exact sequence from issue #126.
+	if _, err := uc.Execute(ctx, PublishReleaseInput{RepoRoot: "/path/to/repo", DryRun: true, Actor: actor}); err != nil {
+		t.Fatalf("dry run error = %v", err)
+	}
+
+	// Real publish must actually execute every step.
+	output, err := uc.Execute(ctx, PublishReleaseInput{RepoRoot: "/path/to/repo", Actor: actor})
+	if err != nil {
+		t.Fatalf("real publish error = %v", err)
+	}
+	if !output.Published {
+		t.Error("real publish should report Published=true")
+	}
+	if len(output.StepResults) != 2 {
+		t.Fatalf("expected 2 executed steps, got %d: %+v", len(output.StepResults), output.StepResults)
+	}
+	for _, result := range output.StepResults {
+		if result.Skipped {
+			t.Errorf("step %s was skipped on real publish after dry run", result.StepName)
+		}
+		if !result.Success {
+			t.Errorf("step %s did not succeed", result.StepName)
+		}
+	}
+	if len(publisher.executedSteps) != 2 {
+		t.Errorf("publisher executed %d steps, want 2", len(publisher.executedSteps))
+	}
+}
+
+func TestPublishReleaseUseCase_Execute_EmptyPlanFailsLoudly(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	_, err := uc.Execute(ctx, PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		Actor:    ports.ActorInfo{Type: domain.ActorHuman, ID: "publisher@example.com"},
+	})
+	if err == nil {
+		t.Fatal("publish with an empty execution plan must fail instead of reporting success")
+	}
+	if run.State() == domain.StatePublished {
+		t.Error("run must not advance to published with zero steps executed")
 	}
 }
 

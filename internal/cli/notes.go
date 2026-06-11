@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -28,7 +29,7 @@ func init() {
 	notesCmd.Flags().StringVarP(&notesAudience, "audience", "a", "", "target audience (developers, users, public, stakeholders)")
 	notesCmd.Flags().BoolVar(&notesIncludeEmoji, "emoji", false, "include emojis in output")
 	notesCmd.Flags().StringVarP(&notesLanguage, "language", "l", "English", "output language")
-	notesCmd.Flags().BoolVar(&notesUseAI, "ai", false, "use AI to generate notes (requires OPENAI_API_KEY)")
+	notesCmd.Flags().BoolVar(&notesUseAI, "ai", false, "use AI to generate notes (requires an AI provider key: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or OLLAMA_HOST)")
 }
 
 // buildNotesInputForServices creates the input for the GenerateNotes use case.
@@ -104,6 +105,14 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 
 	// Build input
 	input := buildNotesInputForServices(repoPath, app.HasAI())
+
+	// Tell the user which auto-detected provider will serve this request —
+	// only now that AI is actually being used (issue #127: this notice used
+	// to print eagerly on every command).
+	if input.Options.UseAI && cfg != nil && cfg.AI.AutoSelected != "" && len(cfg.AI.DetectedProviders) > 1 {
+		printWarning(fmt.Sprintf("Multiple AI provider API keys detected: %s", strings.Join(cfg.AI.DetectedProviders, ", ")))
+		printSubtle(fmt.Sprintf("   Auto-selected '%s' based on priority order. Configure ai.provider to override.", cfg.AI.AutoSelected))
+	}
 
 	// Show spinner (unless JSON output)
 	var spinner *Spinner

@@ -35,6 +35,14 @@ type Loader struct {
 	v           *viper.Viper
 	configPath  string
 	searchPaths []string
+
+	// detectedProviders / autoSelectedProvider record the outcome of
+	// zero-config AI provider auto-detection. They are surfaced on the
+	// loaded Config so callers can tell the user which provider was
+	// picked at the moment AI is actually used — not eagerly at startup
+	// (issue #127).
+	detectedProviders    []string
+	autoSelectedProvider string
 }
 
 // NewLoader creates a new configuration loader.
@@ -91,6 +99,10 @@ func (l *Loader) Load() (*Config, error) {
 
 	// Auto-detect repository URL from git remote if not configured
 	l.autoDetectRepositoryURL(cfg)
+
+	// Surface AI auto-detection outcome for callers that use AI.
+	cfg.AI.AutoSelected = l.autoSelectedProvider
+	cfg.AI.DetectedProviders = l.detectedProviders
 
 	return cfg, nil
 }
@@ -268,15 +280,12 @@ func (l *Loader) autoDetectAI() {
 		selectedProvider = "ollama"
 	}
 
-	// Warn if multiple AI providers detected.
-	// Note: Using stderr directly instead of structured logging is intentional here.
-	// These are user-facing CLI warnings that must be visible regardless of log level.
-	if len(detectedProviders) > 1 && selectedProvider != "" {
-		fmt.Fprintf(os.Stderr, `⚠️  Multiple AI provider API keys detected: %s
-   Auto-selected '%s' based on priority order.
-   To use a different provider, configure ai.provider in your config file.
-`, strings.Join(detectedProviders, ", "), selectedProvider)
-	}
+	// Record the outcome instead of warning eagerly: provider detection
+	// runs for every command, including ones that never touch AI. The
+	// notice is printed by callers at the moment AI is actually requested
+	// (see Config.AI.AutoSelected / DetectedProviders).
+	l.detectedProviders = detectedProviders
+	l.autoSelectedProvider = selectedProvider
 }
 
 // autoDetectRepositoryURL detects the repository URL from git remote.
