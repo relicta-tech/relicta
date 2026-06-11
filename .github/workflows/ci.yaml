@@ -292,7 +292,7 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [lint-and-test]
     # Only run on pushes to main (not PRs, to save resources)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
