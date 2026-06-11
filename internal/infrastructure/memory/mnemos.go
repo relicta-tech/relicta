@@ -20,9 +20,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
-	"github.com/rs/zerolog/log"
 )
 
 // MnemosAdapter implements memory.Store using Mnemos HTTP API.

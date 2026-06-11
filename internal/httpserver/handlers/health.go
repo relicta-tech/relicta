@@ -34,7 +34,7 @@ func Health(w http.ResponseWriter, r *http.Request) {
 
 // CognitiveHealthResponse is the response for the cognitive health endpoint.
 type CognitiveHealthResponse struct {
-	MnemosStatus string `json:"mnemos"`
+	MnemosStatus  string `json:"mnemos"`
 	ChronosStatus string `json:"chronos"`
 }
 
@@ -44,7 +44,7 @@ func CognitiveHealth(w http.ResponseWriter, r *http.Request) {
 	// Simplified: assume both are enabled (config default true).
 	// In a real implementation, we would ping the adapters or read status from the server.
 	resp := CognitiveHealthResponse{
-		MnemosStatus: "enabled",
+		MnemosStatus:  "enabled",
 		ChronosStatus: "enabled",
 	}
 	w.Header().Set("Content-Type", "application/json")

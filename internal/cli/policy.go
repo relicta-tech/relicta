@@ -383,7 +383,6 @@ func parsePolicyTestBumpType(value string) (cgp.BumpType, error) {
 	}
 }
 
-
 func toFloat64(v any) (float64, bool) {
 	switch n := v.(type) {
 	case float64:
@@ -593,4 +592,3 @@ func equalConditionSets(a, b []cgp.Condition) bool {
 func conditionKey(cond cgp.Condition) string {
 	return cond.Type + "|" + cond.Value
 }
-

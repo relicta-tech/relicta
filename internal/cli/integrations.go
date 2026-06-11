@@ -110,7 +110,7 @@ func runVantaPush(cmd *cobra.Command, args []string) error {
 		token = os.Getenv("VANTA_API_TOKEN")
 	}
 	if token == "" && !vantaDryRun {
-		return errors.New("Vanta API token required: pass --token or set VANTA_API_TOKEN")
+		return errors.New("missing Vanta API token: pass --token or set VANTA_API_TOKEN")
 	}
 
 	repo := vantaRepo
@@ -224,7 +224,7 @@ func runDrataPush(cmd *cobra.Command, args []string) error {
 		token = os.Getenv("DRATA_API_TOKEN")
 	}
 	if token == "" && !drataDryRun {
-		return errors.New("Drata API token required: pass --token or set DRATA_API_TOKEN")
+		return errors.New("missing Drata API token: pass --token or set DRATA_API_TOKEN")
 	}
 
 	workspaceID := drataWorkspaceID

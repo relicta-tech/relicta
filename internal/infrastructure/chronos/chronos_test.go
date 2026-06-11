@@ -50,7 +50,7 @@ func TestChronosAdapter_RecordRelease(t *testing.T) {
 		ID:         "rel-1",
 		Repository: "github.com/example/repo",
 		Version:    "v1.0.0",
-		Actor:       cgp.Actor{ID: "alice", Kind: cgp.ActorKindHuman},
+		Actor:      cgp.Actor{ID: "alice", Kind: cgp.ActorKindHuman},
 		RiskScore:  0.25,
 		Decision:   cgp.DecisionApproved,
 		Outcome:    memory.OutcomeSuccess,

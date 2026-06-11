@@ -75,7 +75,7 @@ func TestApprovalCard_RoundTripJSON(t *testing.T) {
 				{Category: "auth", Description: "touches authentication", Score: 0.6, Severity: "high"},
 			},
 		},
-		Actor: Actor{Kind: "agent", ID: "claude-code-1"},
+		Actor:            Actor{Kind: "agent", ID: "claude-code-1"},
 		Decision:         "approval_required",
 		Rationale:        []string{"breaking change requires manual review"},
 		AvailableActions: CanonicalActions(),
@@ -106,14 +106,14 @@ func TestApprovalCard_RoundTripJSON(t *testing.T) {
 
 func TestApprovalCard_OmitemptyFieldsWhenAbsent(t *testing.T) {
 	minimal := ApprovalCard{
-		CGPVersion: "0.1",
-		CardID:     "x",
-		ReleaseID:  "y",
-		Risk:       RiskBlock{Score: 0.1, Tier: "low", Severity: "LOW"},
-		Actor:      Actor{Kind: "human", ID: "alice@example.com"},
-		Decision:   "approved",
+		CGPVersion:       "0.1",
+		CardID:           "x",
+		ReleaseID:        "y",
+		Risk:             RiskBlock{Score: 0.1, Tier: "low", Severity: "LOW"},
+		Actor:            Actor{Kind: "human", ID: "alice@example.com"},
+		Decision:         "approved",
 		AvailableActions: CanonicalActions(),
-		CreatedAt:  time.Now().UTC(),
+		CreatedAt:        time.Now().UTC(),
 	}
 	b, _ := json.Marshal(&minimal)
 	body := string(b)

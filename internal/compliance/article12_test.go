@@ -260,9 +260,9 @@ func TestRenderCSV_NilReport(t *testing.T) {
 func TestGenerator_Render_JSONLRequiresArticle12(t *testing.T) {
 	gen := NewGenerator(memory.NewInMemoryStore(), nil)
 	report := &Report{
-		Type:    ReportSOC2,
-		Period:  Period{Start: time.Now(), End: time.Now().Add(time.Hour), Label: "x"},
-		SOC2:    &SOC2Report{},
+		Type:   ReportSOC2,
+		Period: Period{Start: time.Now(), End: time.Now().Add(time.Hour), Label: "x"},
+		SOC2:   &SOC2Report{},
 	}
 	if _, err := gen.Render(report, FormatJSONL); err == nil {
 		t.Error("expected error: jsonl format requires article12 report")

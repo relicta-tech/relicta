@@ -26,15 +26,15 @@ import (
 )
 
 var (
-	planFromRef       string
-	planToRef         string
-	planShowAll       bool
-	planMinimal       bool
-	planAnalyze       bool
-	planReview        bool
-	planMinConfidence float64
-	planDisableAI     bool
-	planSkipCognitive bool
+	planFromRef        string
+	planToRef          string
+	planShowAll        bool
+	planMinimal        bool
+	planAnalyze        bool
+	planReview         bool
+	planMinConfidence  float64
+	planDisableAI      bool
+	planSkipCognitive  bool
 	planChronosThreads int
 )
 

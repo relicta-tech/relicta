@@ -199,10 +199,10 @@ func TestRenderMarkdown_AnnexIVAllSections(t *testing.T) {
 				UserInterfaces:       []string{"CLI"},
 			},
 			DetailedDescription: DetailedDescription{
-				DevelopmentMethods: []string{"DDD"},
-				SystemArchitecture: "hexagonal",
+				DevelopmentMethods:     []string{"DDD"},
+				SystemArchitecture:     "hexagonal",
 				HumanOversightMeasures: []string{"approval gate"},
-				CGPProtocolVersion: "0.1",
+				CGPProtocolVersion:     "0.1",
 			},
 			MonitoringControl: MonitoringControl{
 				MonitoringMechanisms: []string{"Prometheus"},
@@ -232,8 +232,8 @@ func TestRenderMarkdown_AnnexIVAllSections(t *testing.T) {
 				DateOfDeclaration: "2026-05-02",
 			},
 			PostMarketMonitoring: PostMarketMonitoring{
-				MonitoringPlan:  "continuous",
-				TotalIncidents:  1,
+				MonitoringPlan:    "continuous",
+				TotalIncidents:    1,
 				ChangeFailureRate: 0.05,
 				IncidentRecords: []IncidentSummary8{
 					{IncidentID: "inc-1", ReleaseID: "rel-1", Version: "1.0.0", Type: "regression", Severity: "high", DetectedAt: now, ResolvedAt: &resolved, TimeToResolve: "2h"},

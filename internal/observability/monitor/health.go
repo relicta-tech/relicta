@@ -103,7 +103,7 @@ func (hm *HealthMonitor) StartWatch(ctx context.Context, releaseID string) error
 		return fmt.Errorf("watch already active for release: %s", releaseID)
 	}
 
-	watchCtx, cancel := context.WithCancel(ctx) //nolint:gosec // cancel is stored in watch.cancel and called by StopWatch
+	watchCtx, cancel := context.WithCancel(ctx) // cancel is stored in watch.cancel and called by StopWatch
 	now := time.Now()
 
 	watch := &releaseWatch{

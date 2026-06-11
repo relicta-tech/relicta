@@ -43,7 +43,11 @@ func (s *Server) setupRouter() chi.Router {
 
 	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(chimw.RealIP) // RealIP inside API group, after global rate limiting
+		// chimw.RealIP was removed: it trusts X-Forwarded-For / X-Real-IP
+		// unconditionally (GHSA-3fxj-6jh8-hvhx), letting clients spoof their
+		// IP for rate limiting and audit logs. Direct peer address is the
+		// secure default; deployments behind a trusted proxy should resolve
+		// client IPs at the proxy layer.
 		r.Use(middleware.APIVersion())
 
 		// Health check (unauthenticated)

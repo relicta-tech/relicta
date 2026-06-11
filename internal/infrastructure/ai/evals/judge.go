@@ -26,6 +26,16 @@ type Judge interface {
 	Score(ctx context.Context, golden Golden, output string) ([]Score, error)
 }
 
+// PassThresholder lets a judge declare pass gates matched to its own scoring
+// ceiling. Rubric defaults (mean >= 4.0) are written for LLM-grade judges;
+// a heuristic judge whose criteria are capped below 4 (e.g. DeterministicJudge
+// scores structured_output_valid at a fixed 3) could never pass them, turning
+// the gate into a permanent red light instead of a regression floor.
+// Thresholds declared here only fill gates the golden/rubric left unset.
+type PassThresholder interface {
+	PassThresholds() (minPass int, meanPass float64)
+}
+
 // DeterministicJudge is a heuristic, deterministic Judge that scores output
 // without external API calls. It applies a small set of rules:
 //
@@ -42,6 +52,12 @@ type DeterministicJudge struct{}
 
 // Name returns the judge identifier.
 func (DeterministicJudge) Name() string { return "deterministic" }
+
+// PassThresholds declares gates matched to this judge's heuristic ceiling:
+// healthy output scores ~3.8–4.0 (structured_output_valid is a fixed 3), so
+// the smoke floor is min >= 3 and mean >= 3.5. Empty output (all 1s), length
+// blow-ups, and topic drift (2s) still fail via the min gate.
+func (DeterministicJudge) PassThresholds() (int, float64) { return 3, 3.5 }
 
 // Score evaluates output via heuristic rules.
 func (DeterministicJudge) Score(_ context.Context, g Golden, output string) ([]Score, error) {
@@ -214,12 +230,12 @@ func finalize(v *Verdict, judgeName string) {
 }
 
 // aggregate computes weighted mean + minimum across a score list.
-func aggregate(scores []Score) (mean float64, min int) {
+func aggregate(scores []Score) (mean float64, lowest int) {
 	if len(scores) == 0 {
 		return 0, 0
 	}
 	var sum, totalWeight float64
-	min = 5
+	lowest = 5
 	for _, s := range scores {
 		w := float64(s.Weight)
 		if w == 0 {
@@ -227,14 +243,14 @@ func aggregate(scores []Score) (mean float64, min int) {
 		}
 		sum += float64(s.Value) * w
 		totalWeight += w
-		if s.Value < min {
-			min = s.Value
+		if s.Value < lowest {
+			lowest = s.Value
 		}
 	}
 	if totalWeight == 0 {
-		return 0, min
+		return 0, lowest
 	}
-	return sum / totalWeight, min
+	return sum / totalWeight, lowest
 }
 
 func weightOrOne(w int) int {

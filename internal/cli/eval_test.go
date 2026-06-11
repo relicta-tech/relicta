@@ -53,8 +53,8 @@ func TestEvalNoopService_NonEmpty(t *testing.T) {
 
 func TestTruncate(t *testing.T) {
 	cases := map[string]string{
-		"short":             "short",
-		"   spaced   ":      "spaced",
+		"short":        "short",
+		"   spaced   ": "spaced",
 	}
 	for in, want := range cases {
 		if got := truncate(in, 100); got != want {

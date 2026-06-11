@@ -65,7 +65,7 @@ type App struct {
 	memoryStore        cgpmemory.Store
 
 	// Cognitive layer (optional — wired when configured)
-	mnemosStore   cgpmemory.Store            // Mnemos-backed memory store (optional)
+	mnemosStore   cgpmemory.Store              // Mnemos-backed memory store (optional)
 	chronosClient *chronosinfra.ChronosAdapter // Chronos pattern detection client
 
 	// Services (existing infrastructure)
@@ -231,7 +231,7 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 		if chronosThreads <= 0 {
 			chronosThreads = 4
 		}
-		c.chronosClient = chronosinfra.NewChronosAdapterWithThreads(chronosEndpoint, "relicta", chronosThreads)
+		c.chronosClient = chronosinfra.NewChronosAdapterWithConfig(chronosEndpoint, "relicta", chronosThreads, chronosTimeout)
 		c.logger.Info("Chronos pattern detection initialized", "endpoint", chronosEndpoint)
 	}
 

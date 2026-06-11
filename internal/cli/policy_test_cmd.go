@@ -21,6 +21,7 @@ import (
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/policy"
 )
+
 func runPolicyTest(cmd *cobra.Command, args []string) error {
 	if policyTestInput != "" && policyTestMatrix != "" {
 		return fmt.Errorf("--input and --matrix cannot be used together")
@@ -106,8 +107,6 @@ func runPolicyTest(cmd *cobra.Command, args []string) error {
 	}
 	return nil
 }
-
-
 
 // matrixScenarioName + matrixScenarioShard implemented in policy_matrix.go.
 
@@ -320,4 +319,3 @@ func resolvePolicyTestInput(cmd *cobra.Command) (*policyTestInputData, error) {
 	applied := applyPolicyTestDefaults(merged)
 	return &applied, nil
 }
-

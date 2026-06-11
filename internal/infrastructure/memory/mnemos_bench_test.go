@@ -19,13 +19,13 @@ func BenchmarkMnemosRecordRelease(b *testing.B) {
 
 	rec := &memory.ReleaseRecord{
 		ID:         "bench-rel",
-		Version:     "v0.0.1",
-		Repository:  "bench/repo",
-		Actor:       cgp.Actor{ID: "bench", Kind: cgp.ActorKindHuman},
-		RiskScore:   0.5,
-		Decision:    cgp.DecisionApproved,
-		Outcome:     memory.OutcomeSuccess,
-		ReleasedAt:  time.Now().UTC(),
+		Version:    "v0.0.1",
+		Repository: "bench/repo",
+		Actor:      cgp.Actor{ID: "bench", Kind: cgp.ActorKindHuman},
+		RiskScore:  0.5,
+		Decision:   cgp.DecisionApproved,
+		Outcome:    memory.OutcomeSuccess,
+		ReleasedAt: time.Now().UTC(),
 	}
 
 	b.ResetTimer()

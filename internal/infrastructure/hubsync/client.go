@@ -133,8 +133,8 @@ func (c *Client) attempt(ctx context.Context, url string, payload []byte) (*Sync
 
 	body, _ := io.ReadAll(resp.Body)
 
-	switch {
-	case resp.StatusCode == http.StatusAccepted, resp.StatusCode == http.StatusMultiStatus:
+	switch resp.StatusCode {
+	case http.StatusAccepted, http.StatusMultiStatus:
 		// 202 (all accepted) and 207 (partial) both decode the same body.
 		var parsed SyncResponse
 		if err := json.Unmarshal(body, &parsed); err != nil {
@@ -145,12 +145,12 @@ func (c *Client) attempt(ctx context.Context, url string, payload []byte) (*Sync
 		}
 		return &parsed, nil
 
-	case resp.StatusCode == http.StatusPreconditionFailed:
+	case http.StatusPreconditionFailed:
 		// Schema version mismatch — terminal: a CLI upgrade is the fix,
 		// not a retry.
 		return nil, &VersionMismatchError{Body: string(body)}
 
-	case resp.StatusCode == http.StatusServiceUnavailable:
+	case http.StatusServiceUnavailable:
 		// Hub draining — operator pulled the instance from rotation. The
 		// caller's queue should kick in and try again later.
 		retryAfter := resp.Header.Get("Retry-After")
