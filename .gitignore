@@ -89,3 +89,5 @@ bin/
 .verdict/
 findings.json
 ai.inventory.json
+results.sarif
+ai.inventory.json
