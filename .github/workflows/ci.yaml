@@ -172,41 +172,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Install security tools
+      - name: Install nox
         run: |
           curl -sSfL "https://github.com/nox-hq/nox/releases/download/v1.1.2/nox_1.1.2_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          nox version
 
-      - name: Run govulncheck
-        id: govulncheck
-        run: |
-          echo "## Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
-          if govulncheck -json ./... > govulncheck-results.json 2>&1; then
-            echo "✅ No known vulnerabilities found" >> $GITHUB_STEP_SUMMARY
-            echo "vulns_found=false" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Vulnerabilities detected - review required" >> $GITHUB_STEP_SUMMARY
-            echo "vulns_found=true" >> $GITHUB_OUTPUT
-            # Parse and summarize vulnerabilities
-            if command -v jq &> /dev/null && [ -f govulncheck-results.json ]; then
-              jq -r '.vulnerability // empty | "- **\(.osv.id)**: \(.osv.summary // "No summary")"' govulncheck-results.json >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-            fi
-          fi
-
-      - name: Upload govulncheck results
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: govulncheck-results
-          path: govulncheck-results.json
-        if: always()
-
+      # nox is the single security scanner: secrets, IaC/workflow hygiene,
+      # privacy/PII, AI-security rules, and dependency vulnerabilities via
+      # OSV.dev (replaces govulncheck + gosec).
       - name: Run Nox Security Scan
         env:
           # v2 fingerprints are line-independent; with the default v1
@@ -214,28 +187,11 @@ jobs:
           # baseline entries and re-reports them as new findings.
           NOX_FINGERPRINT_VERSION: "2"
         run: |
-          nox scan .
+          nox scan . -format json,sarif
+          echo "## Nox Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "Scan passed against the reviewed baseline (.nox/baseline.json)." >> $GITHUB_STEP_SUMMARY
 
-      - name: Run Gosec for SARIF output
-        run: |
-          # Exclude false positive rules for CLI tools:
-          # G103 - unsafe calls in generated protobuf (Google pattern)
-          # G115 - integer overflow where values are validated
-          # G204 - subprocess with variable (git commands, plugin execution)
-          # G301 - directory permissions (plugins/cache need 0755)
-          # G302 - file permissions (plugins must be executable)
-          # G304 - file path from variable (expected for config/template files)
-          # G306 - write file permissions (configs/changelogs need 0644)
-          gosec -no-fail -fmt=sarif -out=results.sarif \
-            -exclude=G103,G115,G204,G301,G302,G304,G306 \
-            -exclude-dir=internal/plugin/proto \
-            ./... 2>/dev/null || true
-          # Fix SARIF format issues - ensure artifactChanges is always an array
-          if [ -f results.sarif ]; then
-            jq '(.runs[].results // [])[] |= (if .fixes then .fixes = [.fixes[] | .artifactChanges = (if .artifactChanges | type == "array" then .artifactChanges else [.artifactChanges] end)] else . end)' results.sarif > results.fixed.sarif 2>/dev/null && mv results.fixed.sarif results.sarif || true
-          fi
-
-      - name: Upload SARIF file
+      - name: Upload SARIF to GitHub code scanning
         uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
           sarif_file: results.sarif

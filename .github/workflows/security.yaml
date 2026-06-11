@@ -1,0 +1,73 @@
+name: Security Analysis
+
+# Nox is the single security scanner for this repository: secrets,
+# IaC/workflow hygiene, privacy/PII, AI-security rules, and dependency
+# vulnerabilities via OSV.dev. This workflow is the scheduled deep scan;
+# ci.yaml runs the same scan on every push/PR.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+# Cancel in-progress runs when a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+env:
+  NOX_VERSION: '1.1.2'
+
+jobs:
+  nox-scan:
+    name: Nox Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install nox
+        run: |
+          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
+          nox version
+
+      - name: Run nox scan
+        env:
+          # v2 fingerprints are line-independent so baseline entries
+          # survive code movement between scans.
+          NOX_FINGERPRINT_VERSION: "2"
+        run: |
+          nox scan . -format json,sarif
+          echo "## Nox Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "Scan passed against the reviewed baseline (.nox/baseline.json)." >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload SARIF to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
+        with:
+          sarif_file: results.sarif
+        if: always() && hashFiles('results.sarif') != ''
+        continue-on-error: true
+
+      - name: Upload findings artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: nox-weekly-findings
+          path: findings.json
+        if: always()

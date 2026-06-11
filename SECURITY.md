@@ -33,8 +33,7 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 ### Code Security
 
-- **Static Analysis**: All code is scanned with [gosec](https://github.com/securego/gosec) for security vulnerabilities
-- **CodeQL**: GitHub CodeQL analysis runs on every push and PR
+- **Security Scanning**: All code is scanned with [nox](https://github.com/nox-hq/nox) on every push and PR — secrets, IaC/workflow hygiene, privacy/PII, AI-security rules, and dependency vulnerabilities via OSV.dev
 - **Dependency Scanning**: Dependabot monitors and updates vulnerable dependencies
 - **SARIF Integration**: Security findings are uploaded to GitHub Security tab
 
