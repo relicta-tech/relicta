@@ -240,13 +240,6 @@
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "51c62f334d2c0e8dee1a25109376e8fd82ba6bf856cbe945865fa9c480ff28c3",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/codeql.yaml",
-      "severity": "low",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
       "fingerprint": "b1a7fe533ffe90aea88c4ab6991d02806e7d095bd73d1efadf95ca340356ab03",
       "rule_id": "IAC-308",
       "file_path": ".github/workflows/release.yaml",
@@ -285,13 +278,6 @@
       "fingerprint": "327f9db47e1d2ce929fd5e94ff738919c6d509086bd3b77f57d0836971937b97",
       "rule_id": "IAC-309",
       "file_path": ".github/workflows/ci.yaml",
-      "severity": "low",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
-      "fingerprint": "607d962d91d8b5ab9d8aa1293f36939fd01ec4e0ed7d685e2d9bba64bb6f509a",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/codeql.yaml",
       "severity": "low",
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
@@ -1304,11 +1290,32 @@
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b6ea2752ef925af071361404fc905d4630d7501e19c45018555514143f8e2379",
-      "rule_id": "SEC-909",
-      "file_path": ".github/workflows/docker.yaml",
-      "severity": "high",
-      "created_at": "2026-06-11T10:34:53.402889Z"
+      "fingerprint": "0c45d28c1f5d6631cdf80b927e239333636a029e0fadb452c6c0acb90442c0b7",
+      "rule_id": "IAC-018",
+      "file_path": ".github/workflows/security.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T12:03:53.874152Z"
+    },
+    {
+      "fingerprint": "6bfecb7123a347ec5f28b38f2cc9e633d0e6ec3b661e093aeaa5e7173f0272a5",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/security.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T12:03:53.874152Z"
+    },
+    {
+      "fingerprint": "3e45c739092477d8e1d2d326e6a6a5efba45339e4e725ec7a1662308b34fc300",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/security.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T12:03:53.874152Z"
+    },
+    {
+      "fingerprint": "946706a535c19c6e49b7059877640628f16b5b74e27310d5186c261f81db82bd",
+      "rule_id": "IAC-310",
+      "file_path": ".github/workflows/security.yaml",
+      "severity": "medium",
+      "created_at": "2026-06-11T12:03:53.874152Z"
     }
   ]
 }
