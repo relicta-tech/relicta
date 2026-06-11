@@ -4,7 +4,7 @@ package domain
 import (
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // DomainEvent is the interface for all domain events.

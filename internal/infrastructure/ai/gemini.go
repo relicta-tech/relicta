@@ -12,9 +12,9 @@ import (
 
 	"google.golang.org/genai"
 
-	"github.com/relicta-tech/relicta/internal/errors"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/errors"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 func init() {

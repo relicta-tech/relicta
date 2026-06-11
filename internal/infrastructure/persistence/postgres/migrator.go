@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/persistence/postgres/migrations"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres/migrations"
 )
 
 // MigrationDirection indicates whether a migration is being applied or rolled back.

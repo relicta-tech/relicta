@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/internal/observability/providers"
-	"github.com/relicta-tech/relicta/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
 )
 
 // mockObservabilityService implements ObservabilityService for testing.

@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/internal/cgp/policy/dsl"
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
 )
 
 func TestCGP_EndToEnd_LowRiskPatch(t *testing.T) {

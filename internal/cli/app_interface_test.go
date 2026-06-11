@@ -4,7 +4,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/relicta-tech/relicta/internal/container"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 )
 
 func TestContainerAppWrapperAccessors(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 type stubAIService struct {

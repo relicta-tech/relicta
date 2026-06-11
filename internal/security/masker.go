@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/relicta-tech/relicta/internal/errors"
+	"github.com/relicta-tech/relicta/v4/internal/errors"
 )
 
 // Masker provides secret masking functionality for CLI output.

@@ -13,7 +13,7 @@ import (
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
-	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
 // Service handles OIDC provider discovery, authorization code flow, and claim-to-role mapping.

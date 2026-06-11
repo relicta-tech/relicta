@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
 )
 
 const (

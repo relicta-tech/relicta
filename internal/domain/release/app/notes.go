@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 )
 
 // GenerateNotesInput contains the input for generating release notes.

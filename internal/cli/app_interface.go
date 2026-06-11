@@ -4,14 +4,14 @@ package cli
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/container"
-	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/container"
+	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 type calculateVersionUseCase interface {

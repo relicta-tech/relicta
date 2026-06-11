@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
 
 func TestGetNextSteps(t *testing.T) {

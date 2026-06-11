@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 )
 
 // MCPActorID is the synthetic actor ID used for MCP-driven operations when the

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/audit"
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
 
 // Generator builds attestations from release runs and audit chains.

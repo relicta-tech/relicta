@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/workspace"
+	"github.com/relicta-tech/relicta/v4/internal/domain/workspace"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // mockService is a mock implementation of the Service interface for testing.

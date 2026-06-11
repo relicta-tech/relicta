@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 // OutcomeTracker implements release.EventPublisher and records release outcomes

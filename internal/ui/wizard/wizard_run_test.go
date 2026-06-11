@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/relicta-tech/relicta/internal/cli/templates"
+	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
 )
 
 type stubProgram struct {

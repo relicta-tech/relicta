@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/relicta-tech/relicta/internal/security/token"
+	"github.com/relicta-tech/relicta/v4/internal/security/token"
 )
 
 // Handlers provides HTTP handlers for the OIDC authorization code flow.

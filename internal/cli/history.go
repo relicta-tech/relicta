@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 var (

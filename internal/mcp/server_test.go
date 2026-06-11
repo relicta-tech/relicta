@@ -13,10 +13,10 @@ import (
 
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // parseJSONResult parses a JSON string result into a map for test assertions

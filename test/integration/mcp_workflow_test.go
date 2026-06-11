@@ -11,15 +11,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
-	"github.com/relicta-tech/relicta/internal/mcp"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/mcp"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 // mockNotesGenerator is a simple mock for testing.

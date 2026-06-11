@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // Helper to create a RunCreatedEvent for testing

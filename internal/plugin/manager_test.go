@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 func TestNewManager(t *testing.T) {

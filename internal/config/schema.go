@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
 )
 
 // Config is the root configuration for Relicta.

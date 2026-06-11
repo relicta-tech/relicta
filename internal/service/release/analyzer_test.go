@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // mockGitRepo implements sourcecontrol.GitRepository for testing.

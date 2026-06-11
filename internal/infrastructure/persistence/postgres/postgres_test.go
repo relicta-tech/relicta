@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/infrastructure/persistence/postgres/migrations"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres/migrations"
 )
 
 // mockEventStore is an in-memory implementation of ports.EventStore for testing.

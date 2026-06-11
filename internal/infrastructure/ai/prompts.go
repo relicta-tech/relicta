@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 // promptTemplates holds prompt templates for different generation tasks.

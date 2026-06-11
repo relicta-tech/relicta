@@ -10,7 +10,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 // Reputation thresholds for governance decisions.

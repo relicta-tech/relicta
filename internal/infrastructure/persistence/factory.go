@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
 )
 
 // NewEventStore creates an EventStore based on the given persistence configuration.

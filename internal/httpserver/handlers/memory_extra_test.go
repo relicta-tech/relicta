@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 func TestGetMemoryInsights_WithService(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 func TestBuildSystemPrompt_AdditionalCases(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
 )
 
 // LLMService is the surface the LLM judge needs from an AI provider.

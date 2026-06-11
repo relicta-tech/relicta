@@ -104,6 +104,16 @@ For more details, you can refer to the complete changelog [here](https://github.
 
 # Changelog
 
+- ci: consolidate all security scanning on nox (#133)
+- ci: bump the github-actions group across 1 directory with 18 updates (#121)
+- fix: MCP governance bugs — dry-run state poisoning, ai=false ignored, replan path, no-op fallbacks (#132)
+- ci: fix dangling job reference breaking workflow parse (#129)
+- chore(deps): sync web lockfile and consolidate npm dependabot bumps (#131)
+- deps: bump the go-dependencies group across 1 directory with 14 updates (#125)
+- build: migrate Klarlabs library deps to go.klarlabs.de vanity paths (#123)
+- docs: update version references to v4.0.1
+
+
 ## [3.5.0] - 2022-04-21
 
 ### Added

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	domain "github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	domain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
 
 func TestFormatRiskScoreDisplayStyles(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 type stubReleaseRepo struct {

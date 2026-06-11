@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/analytics"
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 )
 
 // setupAnalyticsAggregator creates a CachedAggregator with seeded data for testing.

@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/container"
-	"github.com/relicta-tech/relicta/internal/mcp"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/container"
+	"github.com/relicta-tech/relicta/v4/internal/mcp"
 )
 
 var mcpCmd = &cobra.Command{

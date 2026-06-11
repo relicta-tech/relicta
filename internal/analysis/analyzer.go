@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // CommitAnalyzer orchestrates heuristic, AST, and AI classification.

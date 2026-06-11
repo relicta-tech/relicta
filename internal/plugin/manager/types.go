@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 // CurrentSDKVersion is the protocol version supported by this host.

@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
-	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 func TestWithRepoRoot(t *testing.T) {

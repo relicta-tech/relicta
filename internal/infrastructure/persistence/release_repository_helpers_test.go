@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 func newTestRepository(t *testing.T) *FileReleaseRepository {

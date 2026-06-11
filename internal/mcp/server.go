@@ -13,16 +13,16 @@ import (
 	mcpmw "go.klarlabs.de/mcp/middleware"
 	"go.klarlabs.de/mcp/transport"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
-	cgpprotocol "github.com/relicta-tech/relicta/internal/cgp/protocol"
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	relictaerrors "github.com/relicta-tech/relicta/internal/errors"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
-	cgpsdk "github.com/relicta-tech/relicta/pkg/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	cgpprotocol "github.com/relicta-tech/relicta/v4/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	relictaerrors "github.com/relicta-tech/relicta/v4/internal/errors"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
 
 // ConfigReloader is called after relicta_init creates a config file mid-session.

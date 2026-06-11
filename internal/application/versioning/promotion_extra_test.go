@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // mockGitRepo is a minimal GitRepository implementation for testing.

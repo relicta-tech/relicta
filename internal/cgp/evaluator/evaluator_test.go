@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
 )
 
 func TestNew(t *testing.T) {

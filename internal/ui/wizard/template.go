@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/relicta-tech/relicta/internal/cli/templates"
+	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
 )
 
 // templateItem implements list.Item for template selection.

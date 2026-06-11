@@ -19,7 +19,7 @@ formatters:
       simplify: true
     goimports:
       local-prefixes:
-        - github.com/relicta-tech/relicta
+        - github.com/relicta-tech/relicta/v4
 
 linters:
   enable:
@@ -129,7 +129,7 @@ linters:
         - github.com/spf13/viper.BindPFlag
         # Container/closer patterns
         - (io.Closer).Close
-        - (*github.com/relicta-tech/relicta/internal/container.App).Close
+        - (*github.com/relicta-tech/relicta/v4/internal/container.App).Close
         # io.Writer - common to ignore
         - (io.Writer).Write
         # JSON marshaling - often intentionally ignored in logging/output

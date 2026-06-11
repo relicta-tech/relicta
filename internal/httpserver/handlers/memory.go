@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 // memoryInsightsService is the global insights service used by memory handlers.

@@ -4,10 +4,10 @@ package factory
 import (
 	"log/slog"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	"github.com/relicta-tech/relicta/internal/analysis/ast"
-	"github.com/relicta-tech/relicta/internal/analysis/heuristics"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	"github.com/relicta-tech/relicta/v4/internal/analysis/ast"
+	"github.com/relicta-tech/relicta/v4/internal/analysis/heuristics"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
 )
 
 // Factory builds commit analyzers with shared dependencies.

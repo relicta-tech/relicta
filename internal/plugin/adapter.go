@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/integration"
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 // ExecutorAdapter adapts the Manager to the integration.PluginExecutor interface.

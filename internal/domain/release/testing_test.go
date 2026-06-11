@@ -3,7 +3,7 @@ package release
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
 
 func TestNewReleaseRunForTest(t *testing.T) {

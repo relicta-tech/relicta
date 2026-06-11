@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"testing"
 
-	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/internal/service/release"
+	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 // ProfileConfig contains configuration for profiling tests.

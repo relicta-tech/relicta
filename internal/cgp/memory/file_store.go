@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/fileutil"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/fileutil"
 )
 
 // MaxMemoryFileSize is the maximum allowed size for memory files (5MB).

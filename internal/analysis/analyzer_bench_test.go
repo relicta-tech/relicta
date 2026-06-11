@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // BenchmarkAnalyzeAll_Parallel benchmarks parallel vs sequential commit analysis.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/monorepo"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 func TestNPMVersionWriter(t *testing.T) {

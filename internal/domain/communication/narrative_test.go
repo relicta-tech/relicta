@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 )
 
 // mockAICompleter implements AICompleter for testing.

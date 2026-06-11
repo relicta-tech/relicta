@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/relicta-tech/relicta/internal/cli/templates"
+	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
 )
 
 // DetectionModel is the Bubble Tea model for the detection screen.

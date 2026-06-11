@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 )
 
 // BundleType categorizes a bundle of related changes.

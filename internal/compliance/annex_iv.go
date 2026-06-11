@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 // AnnexIVReport is the EU AI Act Annex IV technical documentation bundle.

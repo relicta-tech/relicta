@@ -3,8 +3,8 @@ package cli
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
 )
 
 func TestFindGroup(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 func TestNewOpenAIService_NoAPIKey(t *testing.T) {
