@@ -315,66 +315,54 @@ func TestHandlePlan(t *testing.T) {
 func TestHandleBump(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns status without adapter", func(t *testing.T) {
+	// Lifecycle tools must error when release services are missing instead
+	// of returning a success-shaped no-op (issue #128).
+	t.Run("errors without adapter", func(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "minor", result["bump_type"])
-	})
-
-	t.Run("defaults to auto bump type", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handleBump(ctx, BumpToolInput{})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "auto", result["bump_type"])
+		_, err = server.handleBump(ctx, BumpToolInput{Level: "minor"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_bump is unavailable")
 	})
 }
 
 func TestHandleNotes(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns status without adapter", func(t *testing.T) {
+	t.Run("errors without adapter", func(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, true, result["use_ai"])
+		_, err = server.handleNotes(ctx, NotesToolInput{AI: true})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_notes is unavailable")
 	})
 }
 
 func TestHandleApprove(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns status without adapter", func(t *testing.T) {
+	t.Run("errors without adapter", func(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: "test notes"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "test notes", result["notes"])
+		_, err = server.handleApprove(ctx, ApproveToolInput{Notes: "test notes"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_approve is unavailable")
 	})
 }
 
 func TestHandlePublish(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns status without adapter", func(t *testing.T) {
+	t.Run("errors without adapter", func(t *testing.T) {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, true, result["dry_run"])
+		_, err = server.handlePublish(ctx, PublishToolInput{DryRun: true})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_publish is unavailable")
 	})
 }
 
@@ -692,70 +680,56 @@ func TestConfigResourceWithEmptyProductName(t *testing.T) {
 func TestHandleBumpWithAdapter(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns not_configured with adapter but no calculate use case", func(t *testing.T) {
+	t.Run("errors with adapter but no calculate use case", func(t *testing.T) {
 		adapter := NewAdapter()
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "minor", result["bump_type"])
-	})
-
-	t.Run("includes version in result", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handleBump(ctx, BumpToolInput{Version: "2.0.0"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "2.0.0", result["version"])
+		_, err = server.handleBump(ctx, BumpToolInput{Level: "minor"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_bump is unavailable")
 	})
 }
 
 func TestHandleNotesWithAdapter(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns not_configured with adapter but no notes use case", func(t *testing.T) {
+	t.Run("errors with adapter but no notes use case", func(t *testing.T) {
 		adapter := NewAdapter()
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: false})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, false, result["use_ai"])
+		_, err = server.handleNotes(ctx, NotesToolInput{AI: false})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_notes is unavailable")
 	})
 }
 
 func TestHandleApproveWithAdapter(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns not_configured with adapter but no approve use case", func(t *testing.T) {
+	t.Run("errors with adapter but no approve use case", func(t *testing.T) {
 		adapter := NewAdapter()
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "", result["notes"])
+		_, err = server.handleApprove(ctx, ApproveToolInput{Notes: ""})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_approve is unavailable")
 	})
 }
 
 func TestHandlePublishWithAdapter(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns not_configured with adapter but no publish use case", func(t *testing.T) {
+	t.Run("errors with adapter but no publish use case", func(t *testing.T) {
 		adapter := NewAdapter()
 		server, err := NewServer("1.0.0", WithAdapter(adapter))
 		require.NoError(t, err)
 
-		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, false, result["dry_run"])
+		_, err = server.handlePublish(ctx, PublishToolInput{DryRun: false})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_publish is unavailable")
 	})
 }
 
@@ -1124,87 +1098,46 @@ func TestHandleStatusWithRepositoryAndVersion(t *testing.T) {
 func TestHandleBumpWithDifferentInputs(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("handles major bump type", func(t *testing.T) {
+	// Without release services every variant must fail the same way —
+	// the input echo the old no-op returned was mistaken for success.
+	for _, input := range []BumpToolInput{
+		{Level: "major"},
+		{Level: "patch"},
+		{Level: "minor", Version: "1.2.0-beta.1"},
+	} {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "major"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "major", result["bump_type"])
-	})
-
-	t.Run("handles patch bump type", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "patch"})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "patch", result["bump_type"])
-	})
-
-	t.Run("handles prerelease version", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handleBump(ctx, BumpToolInput{
-			Level:   "minor",
-			Version: "1.2.0-beta.1",
-		})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "minor", result["bump_type"])
-		assert.Equal(t, "1.2.0-beta.1", result["version"])
-	})
+		_, err = server.handleBump(ctx, input)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_bump is unavailable")
+	}
 }
 
 func TestHandleNotesWithDifferentInputs(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("handles AI disabled", func(t *testing.T) {
+	for _, ai := range []bool{false, true} {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: false})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, false, result["use_ai"])
-	})
-
-	t.Run("handles AI enabled", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, true, result["use_ai"])
-	})
+		_, err = server.handleNotes(ctx, NotesToolInput{AI: ai})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_notes is unavailable")
+	}
 }
 
 func TestHandlePublishWithDifferentInputs(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("handles dry run true", func(t *testing.T) {
+	for _, dryRun := range []bool{true, false} {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, true, result["dry_run"])
-	})
-
-	t.Run("handles dry run false", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: false})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, false, result["dry_run"])
-	})
+		_, err = server.handlePublish(ctx, PublishToolInput{DryRun: dryRun})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_publish is unavailable")
+	}
 }
 
 func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
@@ -1238,26 +1171,14 @@ func TestHandleEvaluateWithDifferentInputs(t *testing.T) {
 func TestHandleApproveWithDifferentInputs(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("handles empty notes", func(t *testing.T) {
+	for _, notes := range []string{"", "This is a very long note that contains detailed release information."} {
 		server, err := NewServer("1.0.0")
 		require.NoError(t, err)
 
-		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: ""})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, "", result["notes"])
-	})
-
-	t.Run("handles long notes", func(t *testing.T) {
-		server, err := NewServer("1.0.0")
-		require.NoError(t, err)
-
-		longNotes := "This is a very long note that contains detailed release information."
-		resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: longNotes})
-		require.NoError(t, err)
-		result := parseJSONResult(t, resultStr)
-		assert.Equal(t, longNotes, result["notes"])
-	})
+		_, err = server.handleApprove(ctx, ApproveToolInput{Notes: notes})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "relicta_approve is unavailable")
+	}
 }
 
 func TestResourceConfigWithDifferentSettings(t *testing.T) {
@@ -1732,18 +1653,17 @@ func TestAllPromptHandlersComprehensive(t *testing.T) {
 	})
 }
 
-// Test more handler scenarios with adapter
+// Lifecycle handlers must surface missing wiring as errors, never as a
+// success-shaped echo of the input (issue #128).
 func TestHandleBumpWithAdapterWithoutUseCase(t *testing.T) {
 	ctx := context.Background()
 	adapter := NewAdapter()
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	resultStr, err := server.handleBump(ctx, BumpToolInput{Level: "minor"})
-	require.NoError(t, err)
-	result := parseJSONResult(t, resultStr)
-	// Falls through to stub response
-	assert.Equal(t, "minor", result["bump_type"])
+	_, err = server.handleBump(ctx, BumpToolInput{Level: "minor"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_bump is unavailable")
 }
 
 func TestHandleNotesWithAdapterWithoutUseCase(t *testing.T) {
@@ -1752,10 +1672,9 @@ func TestHandleNotesWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	resultStr, err := server.handleNotes(ctx, NotesToolInput{AI: true})
-	require.NoError(t, err)
-	result := parseJSONResult(t, resultStr)
-	assert.Equal(t, true, result["use_ai"])
+	_, err = server.handleNotes(ctx, NotesToolInput{AI: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_notes is unavailable")
 }
 
 func TestHandleApproveWithAdapterWithoutUseCase(t *testing.T) {
@@ -1764,10 +1683,9 @@ func TestHandleApproveWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	resultStr, err := server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
-	require.NoError(t, err)
-	result := parseJSONResult(t, resultStr)
-	assert.Equal(t, "approval notes", result["notes"])
+	_, err = server.handleApprove(ctx, ApproveToolInput{Notes: "approval notes"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_approve is unavailable")
 }
 
 func TestHandlePublishWithAdapterWithoutUseCase(t *testing.T) {
@@ -1776,10 +1694,9 @@ func TestHandlePublishWithAdapterWithoutUseCase(t *testing.T) {
 	server, err := NewServer("1.0.0", WithAdapter(adapter))
 	require.NoError(t, err)
 
-	resultStr, err := server.handlePublish(ctx, PublishToolInput{DryRun: true})
-	require.NoError(t, err)
-	result := parseJSONResult(t, resultStr)
-	assert.Equal(t, true, result["dry_run"])
+	_, err = server.handlePublish(ctx, PublishToolInput{DryRun: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_publish is unavailable")
 }
 
 func TestHandleEvaluateWithAdapterAndGovernance(t *testing.T) {
@@ -1910,10 +1827,9 @@ func TestHandleCancelWithoutAdapter(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	result, err := server.handleCancel(ctx, CancelToolInput{})
-	require.NoError(t, err)
-	parsed := parseJSONResult(t, result)
-	assert.Equal(t, "run 'relicta mcp serve' with configured dependencies", parsed["status"])
+	_, err = server.handleCancel(ctx, CancelToolInput{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_cancel is unavailable")
 }
 
 func TestHandleResetWithoutAdapter(t *testing.T) {
@@ -1921,10 +1837,9 @@ func TestHandleResetWithoutAdapter(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	result, err := server.handleReset(ctx, ResetToolInput{})
-	require.NoError(t, err)
-	parsed := parseJSONResult(t, result)
-	assert.Equal(t, "run 'relicta mcp serve' with configured dependencies", parsed["status"])
+	_, err = server.handleReset(ctx, ResetToolInput{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "relicta_reset is unavailable")
 }
 
 func TestHandleBlastRadiusWithoutAdapter(t *testing.T) {

@@ -182,6 +182,15 @@ func toJSONString(m map[string]any) string {
 	return string(b)
 }
 
+// errNotConfigured reports a tool invocation that cannot run because the
+// server is missing its release-service wiring. This must be an error, not
+// a success-shaped payload: returning {"status": "run 'relicta mcp serve'
+// ..."} made agents treat a no-op as a completed operation (issue #128 —
+// reset reported a confusing hint while resetting nothing).
+func errNotConfigured(tool string) error {
+	return fmt.Errorf("%s is unavailable: release services are not configured on this MCP server — start it with 'relicta mcp serve' from an initialized repository ('relicta init')", tool)
+}
+
 // Tool input types with JSON Schema generation via struct tags.
 
 // StatusInput represents input for the status tool.
@@ -969,11 +978,7 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (string, e
 		return toJSONString(result), nil
 	}
 
-	return toJSONString(map[string]any{
-		"bump_type": bumpType,
-		"version":   input.Version,
-		"status":    "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_bump")
 }
 
 func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string, error) {
@@ -1028,10 +1033,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string,
 		return toJSONString(result), nil
 	}
 
-	return toJSONString(map[string]any{
-		"use_ai": input.AI,
-		"status": "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_notes")
 }
 
 func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (string, error) {
@@ -1176,10 +1178,7 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 		}), nil
 	}
 
-	return toJSONString(map[string]any{
-		"notes":  input.Notes,
-		"status": "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_approve")
 }
 
 func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (string, error) {
@@ -1258,10 +1257,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 		return toJSONString(result), nil
 	}
 
-	return toJSONString(map[string]any{
-		"dry_run": input.DryRun,
-		"status":  "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_publish")
 }
 
 func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (string, error) {
@@ -1325,9 +1321,7 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (strin
 		}), nil
 	}
 
-	return toJSONString(map[string]any{
-		"status": "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_cancel")
 }
 
 func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string, error) {
@@ -1388,9 +1382,7 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string,
 		}), nil
 	}
 
-	return toJSONString(map[string]any{
-		"status": "run 'relicta mcp serve' with configured dependencies",
-	}), nil
+	return "", errNotConfigured("relicta_reset")
 }
 
 // --- Specialized AI Agent Tool Handlers ---

@@ -233,6 +233,14 @@ type AIConfig struct {
 	BaseURL string `mapstructure:"base_url" json:"base_url,omitempty"`
 	// APIVersion is the API version (required for Azure OpenAI, e.g., "2024-02-15-preview").
 	APIVersion string `mapstructure:"api_version" json:"api_version,omitempty"`
+	// AutoSelected names the provider chosen by zero-config env-var
+	// auto-detection (empty when the provider came from explicit config).
+	// Populated by the loader, never read from config files.
+	AutoSelected string `mapstructure:"-" json:"-"`
+	// DetectedProviders lists every provider whose credentials were found
+	// in the environment during auto-detection. Lets AI-using commands
+	// tell the user which key won when more than one is set.
+	DetectedProviders []string `mapstructure:"-" json:"-"`
 	// Tone is the tone for generated content (technical, friendly, professional, excited).
 	Tone string `mapstructure:"tone" json:"tone"`
 	// Audience is the target audience (developers, users, public, marketing).

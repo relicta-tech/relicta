@@ -108,6 +108,40 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 		return nil, fmt.Errorf("approval validation failed: %w", err)
 	}
 
+	// An empty execution plan means approve never planned any steps —
+	// publishing would be a no-op that still reports success. Fail loudly
+	// instead of marking a release published with zero side effects.
+	if len(run.Steps()) == 0 {
+		return nil, fmt.Errorf("no execution steps planned for run %s: re-run 'relicta approve' to build the execution plan", run.ID())
+	}
+
+	// Dry run: report what would execute without mutating the run. The
+	// previous implementation marked every pending step as skipped and
+	// persisted the run, so the dry run itself advanced the release to
+	// published and the real publish that followed became an idempotent
+	// no-op — no tag, no plugins, state=published (issue #126).
+	if input.DryRun {
+		var stepResults []StepResult
+		for _, step := range run.Steps() {
+			status := run.StepStatus(step.Name)
+			if status != nil && status.State != domain.StepPending && status.State != domain.StepFailed {
+				continue // already executed in a previous (real) attempt
+			}
+			stepResults = append(stepResults, StepResult{
+				StepName: step.Name,
+				Success:  true,
+				Skipped:  true,
+				Output:   "Dry run: would execute " + step.Name,
+			})
+		}
+		return &PublishReleaseOutput{
+			RunID:       run.ID(),
+			Published:   false,
+			StepResults: stepResults,
+			VersionNext: run.VersionNext().String(),
+		}, nil
+	}
+
 	// Transition to Publishing if not already
 	if run.State() == domain.StateApproved {
 		if err := run.StartPublishing(input.Actor.ID); err != nil {
@@ -126,7 +160,7 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 			break // All steps done
 		}
 
-		result, err := uc.executeStep(ctx, run, step, input.DryRun)
+		result, err := uc.executeStep(ctx, run, step)
 		stepResults = append(stepResults, *result)
 
 		if err != nil || !result.Success {
@@ -167,7 +201,7 @@ func (uc *PublishReleaseUseCase) Execute(ctx context.Context, input PublishRelea
 }
 
 // executeStep executes a single step with idempotency checks.
-func (uc *PublishReleaseUseCase) executeStep(ctx context.Context, run *domain.ReleaseRun, step *domain.StepPlan, dryRun bool) (*StepResult, error) {
+func (uc *PublishReleaseUseCase) executeStep(ctx context.Context, run *domain.ReleaseRun, step *domain.StepPlan) (*StepResult, error) {
 	result := &StepResult{
 		StepName: step.Name,
 	}
@@ -190,17 +224,6 @@ func (uc *PublishReleaseUseCase) executeStep(ctx context.Context, run *domain.Re
 	// Mark step as started
 	if err := run.MarkStepStarted(step.Name); err != nil {
 		return result, err
-	}
-
-	// Dry run mode - don't actually execute
-	if dryRun {
-		if err := run.MarkStepSkipped(step.Name, "Dry run mode"); err != nil {
-			return result, err
-		}
-		result.Success = true
-		result.Skipped = true
-		result.Output = "Dry run: would execute " + step.Name
-		return result, nil
 	}
 
 	// Execute the step

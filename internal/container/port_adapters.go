@@ -39,7 +39,10 @@ func NewNotesGeneratorAdapter(aiService ai.Service, gitAdapter *git.Adapter) *No
 
 // Generate creates release notes for the given run.
 func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.ReleaseRun, options ports.NotesOptions) (*domain.ReleaseNotes, error) {
-	if a.aiService == nil || !a.aiService.IsAvailable() {
+	// UseAI=false must mean zero AI calls: a release pipeline must never be
+	// blocked by a provider's billing or rate-limit state the user never
+	// opted into (issue #127).
+	if !options.UseAI || a.aiService == nil || !a.aiService.IsAvailable() {
 		// Fallback to basic changelog without AI enhancement
 		return a.generateBasicNotes(ctx, run, options)
 	}

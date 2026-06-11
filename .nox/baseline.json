@@ -2,2141 +2,1313 @@
   "schema_version": "1.0.0",
   "entries": [
     {
-      "fingerprint": "1a538cb34ae0f49d5c68fe1240b24ebf23094b8d6b0054ad89c6766a9153c400",
-      "rule_id": "IAC-351",
-      "file_path": ".github/workflows/release.yaml",
-      "severity": "critical",
-      "reason": "GitHub Actions workflow: uses ${{ secrets.* }} reference, not a hardcoded secret",
-      "created_at": "2026-03-22T10:43:49.18819Z"
-    },
-    {
-      "fingerprint": "0fda52f1bc9f6ad59c83b1019cb9346bd55305f1712bdeb900417e9a2e1c6a70",
-      "rule_id": "AI-008",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: AI-008 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "12e7c5ad4121471ab8a74c08f182ec9a733abf3bb9d8e002235d27e55bab6604",
-      "rule_id": "CONT-001",
-      "file_path": "Dockerfile",
-      "severity": "medium",
-      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "aaf38e6669d6c5e9570acc803e992edca720eaae9d198ba195d740492551b176",
-      "rule_id": "CONT-001",
-      "file_path": "Dockerfile",
-      "severity": "medium",
-      "reason": "False positive: CONT-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "955329b40fbec2fae1a9c3ebc2b8a9c8846e99371a929355f2afcb38a82219fa",
-      "rule_id": "DATA-001",
-      "file_path": "SECURITY.md",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "e2c3a299f40a0694e131e6bc6d3a17cfb2cfcf52f698a43055c1dbf972cfbcf4",
-      "rule_id": "DATA-001",
-      "file_path": "examples/README.md",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "45938fbf65bb638ee1da09288d33aa5eeab6a355ca8d89e3e789bdeef1a9946a",
-      "rule_id": "DATA-001",
-      "file_path": "internal/benchmark/fixtures.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "993956a66f02214a95c23fe4e620031200360e03db2bf0fd6196ca1364e8fcd1",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/actor.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3312b87eda599a5003986cc2b81deb61ea74e25bc2e30df4c0d3e10905f2027c",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "d943c77147b7f918e56d5d2b5a507cae1e19b5ad21837098bf66f07b42656fa9",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "397913ec2fa66fe5380627ad71fa40cf542e42ce88ed0b79463459a44fd2fb7b",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "55ac06356e723040a5397e26e16b01418fa5c6642571fa8e36698eb2ccb75b6a",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "4f2c8e0beba0fe136147428a8f3a19e06c652fb00c788d4b448e3de2214be2ba",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "259bb90910cbcd7f5ba21ab3eca2caca0734b029c7f70d3ec0d813e754838224",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/history.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f0a8463b87f6eb925460bcb37b4e9aaf2981644cec61da15e9de9c997e8ee076",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/templates/builder.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "99dede799abaf0b3006ef77bf062b2431b989eecfd15a7c2850345c00cb9de60",
-      "rule_id": "DATA-001",
-      "file_path": "internal/infrastructure/git/adapter.go",
-      "severity": "medium",
-      "reason": "False positive: DATA-001 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "accc8a41d3b553ddb040c76d6e03108bc2d82e0831768481995d399e3686f8bf",
-      "rule_id": "IAC-306",
-      "file_path": ".github/workflows/release.yaml",
-      "severity": "medium",
-      "reason": "False positive: IAC-306 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3877ec12806bfbbd774c47f63a9088ae05f6fdb940a4ea7949487655bd69c932",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/benchmark.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0dd9116a4a331f862c716cdf150906b468444626b1dc57cdb615451f9f0b72b0",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/codeql.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f01dc93edfbee5cbe03d6ec7ae89368ed1a97ef74da8d7f9e24b1ebc7f13ef11",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/release.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "5c34a269b479999161db2ecad247033db17a858bbed943cc4a9db1cac0dbecac",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/skill-quality.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "735f23d55e0cc1f99c771a64a2a31efa24b2dc5024ecc6ace1a46febe1760f04",
-      "rule_id": "IAC-308",
-      "file_path": ".github/workflows/test-action.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-308 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b02c21978f7f42378bc309ba30696cad541f683d3d18cb8007e6582a4ad9efe6",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/benchmark.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "23692a75ebdfbd7072f86132b2436b39941df9cac02b3c4b4967cfeb9e4de2d8",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/ci.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "191c63e24935bb8602d21e62027d7e99943d1e95ae7327dc740694ac362d31ce",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/codeql.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b49982b7995aa4508ba3768745879206f559df2f0bb8646e93e2dc76b68bd8f7",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/docker.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f18e5b70b3e50d97727bcf77f2fe6a6de4402205ecc2c02f9cd4c434e35991ff",
-      "rule_id": "IAC-309",
-      "file_path": ".github/workflows/skill-quality.yaml",
-      "severity": "low",
-      "reason": "False positive: IAC-309 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "4d28f6aa4af9be8406239a94780ace18e35932949139879edff945cfc4f28470",
-      "rule_id": "IAC-314",
-      "file_path": ".github/workflows/release.yaml",
-      "severity": "medium",
-      "reason": "False positive: IAC-314 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "02b607e12a23c27bc4e530a581def6218cf5635d0057c68502808bdbf230a3f3",
-      "rule_id": "IAC-315",
-      "file_path": ".github/workflows/docker.yaml",
-      "severity": "medium",
-      "reason": "False positive: IAC-315 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "673688e1ca71ab8366ac540b43775d06bd7b000c52255076e46a62ff754f9d54",
-      "rule_id": "IAC-315",
-      "file_path": ".github/workflows/release.yaml",
-      "severity": "medium",
-      "reason": "False positive: IAC-315 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "741e1891f35bb1d25824d5a095cba6e96cb0d146fb72ebf46876c1faa49522ee",
-      "rule_id": "SEC-080",
-      "file_path": "internal/cli/templates/data/opensource-python.yaml.tmpl",
-      "severity": "medium",
-      "reason": "False positive: SEC-080 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "59e3b3e3a9be46ad02a86e2f93bfe711fda3c0b22876688c209730718d547623",
-      "rule_id": "SEC-161",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f9266078f98a7e9976ed7848befc2e1acd69c4d5d21d303e94f60a871e15f889",
-      "rule_id": "SEC-161",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-161 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3e9a95efa24d0d327f5d3b7133a45cdad445ee3c52c4f804d4c4595f1f228c4a",
-      "rule_id": "SEC-163",
-      "file_path": ".github/workflows/benchmark.yaml",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6b60576d100a938a8df4281fbff164f505d4b5ee35b5e1fc690d9930325765d0",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/notes.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "4961b9c16d44f0dd1436e8292fcceb384a3ea6e46de6727dee69bdea398f14a7",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/serve.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a4b51bfb63c95ca71d9319291ff7953b64d69f4236045a256b4f784bfd9c6acb",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/serve.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "8ba29b7e1c7c4fecbd2561d729fa471af5bc4f32f09178403ad8c727f7838eb2",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/serve.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b84af2acf56c1940007a31f9e87847a8a018e8dbaacc00533c4ba789f4338cb4",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/serve.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "d38155bf87dd6ddaebbfdc5ba9e8f044baa4220150622b94bc25ba0d7e7db86e",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/server.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "bfac3dd7583300c9d92fac89bac68dacb13dc233429179ef52dc5d527e483f8f",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/verify.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "9282f3d1fdafedce2e866001a2ac90b63d187e5cc594b8095fdfc43bbe7aa8c3",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "160f26451750fe8012f7856e705453d54cee033518280cbdd49f51a38b86cebd",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3b263339a050e158b684e6ab3cdb457cfa97b2fb0fbdf40db3054b1d3aa1b5fd",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f312765291394e6dc6229c06d2089f32c9d9902a567fc12a9e54b21c8db81bfd",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/loader.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "33b4153397623f1bc406f284fd1d672a8bfd955be6286f8b12feca9b5c727eb7",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/validate.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "208a785ccc0a95ead909610e86ed45c48a8a2705ca7a1f6d557200078b355419",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/validate.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "92ba61f36b937f155b2633931dc4dbf9d86487878e5c646fdde7fd711f95e65a",
-      "rule_id": "SEC-163",
-      "file_path": "internal/config/validate.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "308ab2f9154f379366aa0c984b21a79f386178365081bf2189ddf370e407cb15",
-      "rule_id": "SEC-163",
-      "file_path": "internal/httpserver/middleware/auth.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "e8e893adbafb5e3f4b913e244d33976e2e99cb17b4a58ffbabbf9319a59bb0d9",
-      "rule_id": "SEC-163",
-      "file_path": "internal/httpserver/middleware/auth.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "42524c53f70c32c92b19ac9a714f9e9c1c217d9cf9e65d646d046a98b10fde90",
-      "rule_id": "SEC-163",
-      "file_path": "internal/httpserver/middleware/auth.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f37610f3ee38c3b1d6c705406bac75ceb64c24ade17dea05adc912de3cb58f7d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/signer.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "20e1904ecb55b5673d31d2e5080f99525cd5b629a69dcdfb6afb8d895044aa77",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/signer.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "9374ebcb008b14a4a7ef7b249637cc164357d7e75ae19e8cde5f801cc810eee2",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/signer.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6c09ae2ca4a3b184af63e573ac5238648d0fbf333ebe879a90aa1fcad4b555d6",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/signer.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "562049b3633e0e934234c1320ef9908e9abb6a7bcfae90a2023ad2ed00af4159",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/verifier.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a3b82dcee61bc756571229ee1e3186970c7c50435f4cbc4bd88b8e1bbcd0df1d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/attestation/verifier.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "927c0caa3a8b9f8510f43fa7f9c356d4a38f97d4e419dd85f4f6276e8c03870b",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/oidc/handlers.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3802eb60f8ad4e157f595a28fc69e73f571e8cb876068702c553545778fd163b",
-      "rule_id": "SEC-163",
-      "file_path": "internal/ui/wizard/success.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0f48d9145515734f72cc56dacdf3e11b943fb9c529948461564c21b11ad678cb",
-      "rule_id": "SEC-163",
-      "file_path": "internal/ui/wizard/success.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "1ffb18c17e02184370b2d9a3c34bfacdd391f213dbf65b525286e4fb1fed3424",
-      "rule_id": "SEC-163",
-      "file_path": "internal/ui/wizard/success.go",
-      "severity": "medium",
-      "reason": "False positive: SEC-163 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "5f08736c4f97d5e0c1554db6fc65ea14abb101c83a1b1ecf0ee89b6bd840e4b9",
-      "rule_id": "SEC-435",
-      "file_path": ".env.example",
-      "severity": "high",
-      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "e12f370c58d08d245f561b1fdb29ee81c55ec8ae54e426708c5e2db1a94b36b1",
-      "rule_id": "SEC-435",
-      "file_path": ".env.example",
-      "severity": "high",
-      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "52239e5a2f0ebb8c275c1fedfe2fe35e10e2c64a20cc0825f52821967f0ad23b",
-      "rule_id": "SEC-435",
-      "file_path": "examples/README.md",
-      "severity": "high",
-      "reason": "False positive: SEC-435 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b9466e0bc5f260d14ee76bbebba0da4cc630fa77500d5a1d83c40939d3a7f568",
-      "rule_id": "SEC-436",
-      "file_path": "internal/errors/errors.go",
-      "severity": "high",
-      "reason": "False positive: SEC-436 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a695559d79acf54412cce7eb8d5cd8627892dc68d509590e51c1a3f8ad7bfcad",
-      "rule_id": "SEC-652",
-      "file_path": "internal/analysis/heuristics/keywords.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0c4713ae526210ac0bf9b61e6e8dcb70c9bd4304a08d33c1114a8a65d48425a8",
-      "rule_id": "SEC-652",
-      "file_path": "internal/analysis/heuristics/keywords.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "570436785a45af6e08479a68010c9acb1fa84a36131af0513aad50f22235171d",
-      "rule_id": "SEC-652",
-      "file_path": "internal/analysis/heuristics/keywords.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "af1380734bb01fc3f13072bcaecfaea7486bb39ad83c0f15c47a23bfc72516ec",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "5bdd4c2cc47f20eef2cea3612f578f93a09ec18190203f43d918f5c30754a1f1",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "60ad9d12c6798b4a388044f683f15920a9d6a2cb5f1fac37b6ad8a147547c1e9",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "9d88b1d941cbf4232e30a88a2da411061d31ab4103fd765f429e4f219829784e",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "2aa48720f7b67266653e23bd0c8a8d46051f6ce73226504fe2fd024bba75b7f8",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "952b2b6a325706ade727987d5ae6e986995d01343939cf0a0780aad97d6dd073",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6b50de7ff23ef69ec0df27d42790fb2dd70ab8a4c7c3d6d22213d58a49cb2603",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f27f370295012507ed35361941e165d4320968680c1334fe7cebaa635805a127",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "cbd56c0eea183210adc6368a64f7daf208d026a87f13c81c4e71849b795536bd",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "04deb00313669bb203c372aadf2aa29a03e412dea8f84481901dddeb35bcdd13",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "82b98bea000cb2974c5dec644ca518feab4f56ccaaaf679b702d038a68374dc0",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a5825a5369b91efe38026209d92b34eee34c18357d41608460d3daa2e94da76a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6fd4ba0cb2c493df3522a80d03c5c8d25700686f17eb87817ad25fb91fc99560",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "071701ce84a1d28bf156323863294392d8053aa789d49dc39a6f79bcda1d0486",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "31c7d8c30ee9a67f97474b364d3d33fee31ed613d8a3deed551e6e8473ead50d",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "bd682e57307734308b55bec3be4e66513ba3590bd7b0ce1219a619acbb207a1c",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0cf578afe1eafa6cc0da2a2163637c6249d094d0fd10ec5b4446bda512af91fe",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3b4a5d54d48de4c9c46115a8e7edb707eb9befe1fd4164e0b522ad35f3e956bd",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "48af0d397ffafbbb773f37875f62e4e450c334d0461e29d9bb586d123f2a4e8e",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "822d67f6b34e681271289c6e90e818288e160d938c868b541c30338f6a08d3e3",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0138071b046b3b665499a405b30cfe064cd4f921f89d7757af89a5c5b5704bae",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "99a86eff4f83795ee83ca78f57c147af06d0ae4c66e7d4b3eb15e83431079eb6",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "fdd48596ea22230d0d7ce9a736284ea3198cd8ca475a0ac9f3f13039e97a86b6",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "58bca56a08dd1a6dc13da2a56209965cbfb22429b764f20780565be7a27d0003",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "9d17940a619cf03de0927a19e4c7f6fad0612b2e8a55a54aec5cb694398fa80a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "db5dcd8a66c51adfe5faf09d40256289e915f91e0fde099b2d6b4e1669dbc8a4",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "8935865a07255a34671587e3232735e69c9595b95b74ac3011b812e9cc23194f",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "d3e9034ac56b9754d0dbe5c556026aa475792ab195e42a0eab2000e489235574",
-      "rule_id": "SEC-652",
-      "file_path": "internal/application/blast/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "be599649302a8686c3567013cf778d448dff294485d5b1f162e4a09c9490897a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f2a9392a2020ca6ef81df6b928e1baa4403dace120734b1ee0e4d2b88335c32b",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "caf538687ae1d212f5502f4336a816dd000eea4861c64ffaa2ef431200d41913",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "98ca3ccbcfd4f658d89fe74aa4fb8c847ac64a43d96511a9e22bbe10809725c1",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "feb394cb8f0b30c65a6895ab6aea19361499053f7bc2e6c74b61a0da5c597b69",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b7443ecd49c06927f9dc63ff4a8285eccf0fc1d37eecf80105a92b653bbd4242",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3e9516e011658169e504a831c61c61063a314ccbdc250518cb5ec49bc63dbe9e",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "539584b68563a24b2ccc69a61799fbb4b24a2b9f8a4ef2aaea5bee919ec856c9",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a642f63779674521f6e43ceb472c87695b7c3f1a631a48c217517abe95ee20be",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "b617dc00e30589d899503d021ab97fe3b229ee4e5d10a0f807c90b5fc0b8a98a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "050d57f1d5332d9ea5bc9ea2efb413a54572fe473b9493ea8dd469199357b313",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "0b3f1a6ec2dadc9bb6f8d1a3de11f1b37f140c9cd9009a9c0505cb724e854869",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a0a8704fe364139eadfd8c23a693d608dba19050ffeef8de8bb70434289471e4",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "c650f5ad4d7734f90dccf16a39625e4cd1ed423006bb5cad9e7bd047a59f6cf4",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "5d3fa3f4d492d82737add968ee38bd218388f85b724e1fe132490650e16cd975",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "77112eaf04d77b9135ef63d2c2f8eb3391db0eb6775c48fb01958db62f735d7a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "f41166420e265150ddfb4e5aa8d2acdf06785004c962300f415bf161f042fc1b",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cgp/ciapproval/config.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "8416efa2a2e0024f482e3cd2c73a6d0b0d7207bfc68dcc6f45022f03cf2903cf",
-      "rule_id": "SEC-652",
-      "file_path": "internal/security/masker.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "818a8dde172c5a9597a3af6919d1ef413008c0efee05d4ed1302ac832376f4e8",
-      "rule_id": "SEC-652",
-      "file_path": "internal/security/masker.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "7227ce4637bc7cd3c3a5460c722ef1c4a922293b32c719f032b4a7f94a8045aa",
-      "rule_id": "SEC-652",
-      "file_path": "internal/security/masker.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "68b6ef52fd576a64772791f2bac0e7ee413f46e31d0f580b4119f2a233e76992",
-      "rule_id": "SEC-652",
-      "file_path": "internal/security/masker.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "191719dc1074246c1892cb1f1d531346630218b1678b01b61bca107d212be111",
-      "rule_id": "SEC-652",
-      "file_path": "internal/security/masker.go",
-      "severity": "high",
-      "reason": "False positive: SEC-652 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6cd67665bf388be6d6707de44f32354fd58bf6e2f2a45f484cfb63e442ab799b",
-      "rule_id": "SEC-659",
-      "file_path": "internal/domain/version/semver.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "5a45d87a9e1f3274c86b9954fdc1f0dc3343407ffca8fb8b4499ebb740c6c054",
-      "rule_id": "SEC-659",
-      "file_path": "internal/domain/version/semver.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3de442ed8333621ec9910e3237f7119909bf40a8aaf85c05529fae6f0a803f75",
-      "rule_id": "SEC-659",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "6bbbe742051bfe866fe5b406c5aca799966519e1b073c2acf67329b143b291bb",
-      "rule_id": "SEC-659",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "77488b2da3389d5c2d6b9d8d42e6504fc9db7e54cc879d58a2af95796bcd48ed",
-      "rule_id": "SEC-659",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "c46deaf11b16194137009acd33acab2d1d04fb4828f74c0fd22073a12898127f",
-      "rule_id": "SEC-659",
-      "file_path": "internal/infrastructure/git/impl.go",
-      "severity": "high",
-      "reason": "False positive: SEC-659 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "3668586a5704ad23b84f096b4e61614d58bff74585d7060a89c0e9bd6e460874",
-      "rule_id": "SEC-664",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "a81ce0647a76cc87444d12c5d36773db86a8590e0777eadbcdc136a7741b083e",
-      "rule_id": "SEC-664",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "fc715201991968ae66bf751111acab0f038877e2e306dcf60c2dfa26aeb5143c",
-      "rule_id": "SEC-664",
-      "file_path": "internal/infrastructure/git/conventional.go",
-      "severity": "high",
-      "reason": "False positive: SEC-664 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "aae857469ca8edff240ba7e2b69c5d0b70ce41882eaf9cda319c300c95b57743",
-      "rule_id": "SEC-909",
-      "file_path": ".github/workflows/docker.yaml",
-      "severity": "high",
-      "reason": "False positive: SEC-909 pattern match on Go source code that handles token/key fields",
-      "created_at": "2026-03-22T21:41:22.594055Z"
-    },
-    {
-      "fingerprint": "11620ae9e1cf8d06d1872923c512c44bf77c93861645abf6b8310ca9ef19d866",
+      "fingerprint": "f7a88fbca3659a709558adfe643439d6e4e77d36d73a0222c4eb2c99ec47413a",
       "rule_id": "AI-006",
       "file_path": "internal/cli/eval.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "35d641d28c1b0f959f4f7a2198eb05884476e0f02ece7c28e1b992249c48fe1c",
+      "fingerprint": "deb78b8cd809f66db8c9c39164e3baeb715bfe443fe91f1179c738ed1def6a62",
       "rule_id": "AI-006",
       "file_path": "internal/infrastructure/ai/evals/judge_llm.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "17c6cbee3222b18085a9d9007363958bb9219bc71c9ff0e3537e3295113047fa",
+      "fingerprint": "b74dfe1201bfc9539f903ffd08e7339242162ea6529508afbc0dde75cf0ce543",
       "rule_id": "AI-007",
       "file_path": "internal/cli/eval.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "7ee3efb45c3c12d1008b7b76fa009ea404cf7db2a14596a7f467170f97d2fead",
+      "fingerprint": "b38c0d5533a7ca32035b1dcdcf88eaf4211450552f43adb389f6d58f80b64cf6",
       "rule_id": "AI-007",
       "file_path": "internal/cli/init.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "85892c34ca24d85ca79a4e02f6e3497bb8a8d2036f2f7ab3d30120c01e4bbd30",
+      "fingerprint": "a63442d143aa4f8369bc83f8c7671c0043d7a0bc5388ef5d75eadef82da366ac",
+      "rule_id": "AI-008",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "5bd8ff9a5492b0e4fa75b0ec150825eb36bc0ef0d57fff0205be2d649986efcd",
       "rule_id": "AI-008",
       "file_path": "internal/config/schema.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "5e06272322c5e4049eb8b871075c2c91ee90fd2897c670961317fb47db1d620a",
+      "fingerprint": "6ec69c969024774428541034279b0997da31372350c3746971d3808f388285e0",
       "rule_id": "AI-036",
       "file_path": "internal/config/schema.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "21b75f469cc96eda81212f543f273ccfd46570514a2b14f12a9858e5b407794f",
+      "fingerprint": "f87561db981095963155e0a041012f47d728048c8725e18e4ade44c767569297",
+      "rule_id": "CONT-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "a8c460542adf2109bf09ee1230cb624e4f267fe46201638b21b22e5104a72384",
+      "rule_id": "CONT-001",
+      "file_path": "Dockerfile",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "8ab3848267c20187c97731d2856a016eece2a392804869b71a66b861b4247716",
+      "rule_id": "DATA-001",
+      "file_path": "SECURITY.md",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "631102097676342053569622fdcbb8daf6ccaa64c977bd15e7b1aa1ced238abb",
+      "rule_id": "DATA-001",
+      "file_path": "examples/README.md",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "61983842099555ac40cd6afc92ba65c268da945b5a0383fc405508b8e98df9cd",
+      "rule_id": "DATA-001",
+      "file_path": "internal/benchmark/fixtures.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "977517b356cbe57480f65fe0c0505a569fb25f63e74ac68d7483b2b29ede390a",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/actor.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "23c6f278df6d1bade467fa00603c069513e8a60894f2d1dde42be8db47cdf05a",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b1231beee5ff0712a06474b662c39bf05122ff5f62afe9742ea7af9c3387f83b",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "1f568fbfa0a0fbf296c8a6a7b32dc6d2aca2745e80b02ffed02e1c5980ee322f",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "3843e364b3635eaf76791ea8c1009fb1af536e66d1b8689d213317e1ccdad5fd",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "dcfadcd8f3704c5eacedf3085c529f20a279fbb21a1f06a94556debf81263345",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "a4e444a771ab0e41176693f0f9bb0c3ab13caa3e712206e945caf9b4ebc22eed",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/history.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "f6cce8e823a0ffdc25c789251e4b95c3ddaa1f2f14867c8e66cd8fca12402ca9",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "0d12c4576eaddc26d03ffe6ebdaf122a47ceead74cac85acdcfa21d9ada595d5",
+      "fingerprint": "a073ba5b26ae8a2013909d6b6ac9507d423dec2d88866e5386eff90033c9c5b8",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b4b7caabea86987c57110b83cec8e09b5b311423697811024b2ea40f58dadf37",
+      "fingerprint": "a34e4ec5a5d8c53b46d509ecb8b4b3b4944b6beb99cb847180211e1c6378c33e",
       "rule_id": "DATA-001",
-      "file_path": "internal/cli/init.go",
+      "file_path": "internal/cli/templates/builder.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "ce743788092c06a7522fc4501453dfb32b4bd1ac34fea4518321a0a8d689a1ba",
+      "fingerprint": "a9b2eb20db79023bc2892cdf142d557bf2d400702d5e1237b0138a86e3c40efb",
       "rule_id": "DATA-001",
       "file_path": "internal/config/schema.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "20aa3de3f96b3f3e7e4da4240bdf9af254052e8d47427274871044a0934e39a6",
+      "fingerprint": "813f8bf44728e1529048a8cd00868fa8f0905b8cbb9eec364252e36a7dc1b3c9",
+      "rule_id": "DATA-001",
+      "file_path": "internal/infrastructure/git/adapter.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "9da53032aa2ddb3bcde56c4a2cff05936043900909f2bb5586da0addafb11414",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "c181f4534a36871da6ec7fa13e8bcb4c928f304c053fa4de4829954287d03981",
+      "fingerprint": "76fb8df95172d889b62d4a5868c839767dc2ea05555e6a9abb451fb4afe333fe",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "d5e34ae7eeb6df5010195e0df76cbcfbed5ed41c111b54cc764b81fed1d84ca8",
+      "fingerprint": "db15dd581891daa144f1c643554f66d5ba793197cf5d16fa5a34fef51af47b20",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "932434964325f318d551fb0ba576a3caf9b3a0ab37c1c17f76b0bb964624ac31",
+      "fingerprint": "85be74682584ac776d656653ef7bd01e3560a0f927e56d8dddee2569fe2a38dd",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "0ff0feab32a34e83e0c21dcf9a218e21f60afded6685256597e5a7b4199fd0f9",
+      "fingerprint": "a12a5aefe9c25c4476d6aa61b4ac99f8efc2e9543d6b532dbc38d45e5df5a6c9",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "9bfc70dfd040e5344c852243dd4c633eb1551ce177c257fd0556e4d6486b6f93",
+      "fingerprint": "f58896a7c2e83b6720ef67d5c76f68f81b9b9c8e8a6078c7ca14a0ad703f6f68",
       "rule_id": "IAC-018",
       "file_path": ".github/workflows/ci.yaml",
       "severity": "low",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "9c4ca5409260ff45075ea5e5204014de866485d3f6b010b6348adb08092fb53e",
+      "fingerprint": "4dd5fc917bf8747a2eaf02e535ff0f70d4273a23063d4c48ce2bca61297b40cb",
       "rule_id": "IAC-231",
       "file_path": "docker-compose.demo.yml",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "ab35a504ac25eae4fe8ae8b2dd32e2256830e2662d2a5365c146b1b82556f925",
+      "fingerprint": "ec31c96ba91758759c97137044a4adad433f1dad8f27ef8fcb8373104cbad11d",
       "rule_id": "IAC-231",
       "file_path": "docker-compose.demo.yml",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "4ad383bd4a9f596639b5ec4276063a0083ff91e54ef841fb3fa1f5b38cc7cfb6",
+      "fingerprint": "8d994817ada3efe909b255a87fbf7155e1e1421f817f20558717078e8553360f",
+      "rule_id": "IAC-306",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "1faa00595320815f1293190ce8482f7dbefde389bb8b4d9f5668eb98fc664159",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "51c62f334d2c0e8dee1a25109376e8fd82ba6bf856cbe945865fa9c480ff28c3",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/codeql.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b1a7fe533ffe90aea88c4ab6991d02806e7d095bd73d1efadf95ca340356ab03",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "e64b57eb90e2c5f2a3a5237b664d71662e06ae0a3da992a0aec99d59c12b269b",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/skill-quality.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "9c2e3eb43c9fd65c282d5106afe206aadd942dfc12968c2bfd35fbb4d4ce851a",
+      "rule_id": "IAC-308",
+      "file_path": ".github/workflows/test-action.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "e9c2113c56351b416cf66ef6dd11562e83af0795277b242d4a87b3d342566d21",
       "rule_id": "IAC-309",
       "file_path": ".github/workflows/ai-eval.yaml",
       "severity": "low",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b0da03114a8d12ceaa4b0d939d67f5569706d6b0db4dfa0c6de1ac2b25197891",
+      "fingerprint": "d43ae192e8b37ece985b1d56347c05e959aec0974bc71e493d40eb95cf48b8b9",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "327f9db47e1d2ce929fd5e94ff738919c6d509086bd3b77f57d0836971937b97",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/ci.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "607d962d91d8b5ab9d8aa1293f36939fd01ec4e0ed7d685e2d9bba64bb6f509a",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/codeql.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "c808542e597ec10ff330e760dc50067cf4c01f02ed4e89551e66f8c49c852de6",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "d10fc4cd837ce77134f47a29fd031dd6ca132624e83f3e45ffb408f7b5d1e3e1",
+      "rule_id": "IAC-309",
+      "file_path": ".github/workflows/skill-quality.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "fc76bef918b276338f17c61b8a3bd901af5dd3efb27b78d9a15b18f1025c634f",
       "rule_id": "IAC-309",
       "file_path": ".github/workflows/web-a11y.yaml",
       "severity": "low",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "456f274368005709424bbbf353182ebe35ef7a74a97082de5ed8950d7e154b48",
+      "fingerprint": "abd112ed7175ac904429098babe2881467758ede7da1b1812c2c03e00491519f",
       "rule_id": "IAC-310",
       "file_path": ".github/workflows/ci.yaml",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b2084c07d038f4b77c940fc463d99107473f24ca89f791f0950847b703c9476e",
+      "fingerprint": "91e5681eb16b778c7f7c81506234994405589ed229b123df404f25d921c90be9",
+      "rule_id": "IAC-314",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "951a3517dbaa9e29fa19c3f723411e187eec5ad001a6e62fa8e1741b71cb83e3",
+      "rule_id": "IAC-315",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "89bf04183b001fba7c718e2418a4ebb1b5107fc9c46c1575751cd2ad50b53c9d",
+      "rule_id": "IAC-315",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "low",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "bdbf4d7ee4b2c9614d6ec89eb9213c407c7be155a13c14d0d26631781c4d2b06",
+      "rule_id": "IAC-351",
+      "file_path": ".github/workflows/release.yaml",
+      "severity": "critical",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "cfa8300a12f6f4073842626897e586d6a0854cf4263dfef55d7bfb7d55fbebdc",
+      "rule_id": "SEC-080",
+      "file_path": "internal/cli/templates/data/opensource-python.yaml.tmpl",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7dd84c14cb54c9aef2e63c97aacd71db781132cdebd5f57733108fb57e930a4d",
+      "rule_id": "SEC-161",
+      "file_path": "internal/cli/notes.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "8ec4741a609955725223421e47b83db9026bb71af8b55855f28967606689d383",
+      "rule_id": "SEC-161",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b8952988e53453f4019c9b116097790aa3253f955dc887e5742510144ed2a663",
+      "rule_id": "SEC-161",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "ee4bc67023f569e333d307b19298cb065faca2b6aaa9666d8ab77cc709868135",
       "rule_id": "SEC-161",
       "file_path": "internal/infrastructure/ai/anthropic.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "6a6b5257a037a31ec097425dea62753ddcb9c42a8aef7f6d8cae857d52076e63",
+      "fingerprint": "0e4472b1aea5d38e22ab814581838159fd678ffa5c27e677ab9ee48e14492eae",
       "rule_id": "SEC-161",
       "file_path": "internal/infrastructure/ai/openai.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "abb4c960ab4e3a28c24406a913e4830b0de3538318c034a18b81d02a254d8f5b",
+      "fingerprint": "5ee6bad3db3ce9057eb904306fb8750d2c2435d4b21e5f2dd24b21bfb6bf56fd",
       "rule_id": "SEC-161",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "f88e37ad4c14dd35c6eb752059f1793f5b7f32b9e69b8c4fe6fb5ad4f572cd34",
+      "fingerprint": "520e134198b7599efa837e29c2462fa592100e1130fc8651ef23987d4d0999ca",
+      "rule_id": "SEC-162",
+      "file_path": "internal/cli/notes.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "fee36292dfe8662311f7358aa0f872b43f20085fdde52aa6e500ea49df5ca0bf",
       "rule_id": "SEC-162",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "6593d8a39cc0fb92a4caa078535ba5dd95782930fde66537444df9273ca02726",
+      "fingerprint": "4e862f5541901d31dee27fff9a408c61730fb7c6d5fe9de8611f499fc36c0371",
       "rule_id": "SEC-163",
       "file_path": ".github/workflows/ai-eval.yaml",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "ca910da313605a6e6eb2f4c478f546fb5aeaa4f90daa5da8ecf82cb7388f0aba",
+      "fingerprint": "9d1d2fcb824873fd71e1e9d6116ca7c5e7e0df4f69310017777a0847963cd66c",
+      "rule_id": "SEC-163",
+      "file_path": ".github/workflows/benchmark.yaml",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "a9e70d4122bd6e8ba0de55374d6d96af10afe75bd7e0ff2d260a4296b0c7a356",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/init.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "c485910583f024e2a7a2309d48db8ddac9a9b58c4a161875e15189948998dab9",
+      "fingerprint": "542f6191641bc71103c7dacbc1519ccdb56f2bd0824e6b127a76474cc2a96896",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/init.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "92be319fbe8aedf6df810cf779ad18c6e6566d04dcebb4c16f2e3bbfcad273bd",
+      "fingerprint": "ac31d688839e882ad2c6bdb3a76b13f0e31072c200f3e4574b1aed89f7a95349",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/integrations.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "cf3e27a908b0b8ca451aa754a2b0ec5b22a24d98c67d1304c8483fdf385dd5bc",
+      "fingerprint": "5470967001be4a09a8b5628ae68c87ef08b3cdc0fa6de791298e1c2fe168fe4f",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/integrations.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "678e6fa8afaa6e63ecdddc9dcaced25c15f326f6531b1c0b577e951fada0693a",
+      "fingerprint": "a1c5f63dce3d5b81b034e590ed5da43af61d7f716fd988cb478e5c7c05d20db2",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/integrations.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "3b582bba2c6a21eace46a912b8f07c4039ed749f4856a67c1b1b627ae98a42b5",
+      "fingerprint": "b2ddfa1f7f21596d93f3e0a6c69aa4fb29fc52cdd89d89e271047969fc8ef49f",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/integrations.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "9774d516c6b9c9a163aa4db22205733984be711abcf1c35c5c26897d25581e7a",
+      "fingerprint": "dd1748e9ff3ef66dfc57c7c8679fafa15af414b3769e224401835d7bfac020da",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/notes.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "63c886d2feb9721d88155c15ebb486f82a722af11860f2125d5263cb6166dc08",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/notes.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4ca881e0c4ad0ee7a2181c336d50879a3ec5ee3d0be84b2772dc66663a9c060f",
       "rule_id": "SEC-163",
       "file_path": "internal/cli/root.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "291f3bafa5c46f3e5141c2e166cdddae6f48fff38c752deb18488afe68cfb0bd",
+      "fingerprint": "e50868d7521e56854685f8f9e5dbe3ac289f1e32d0bc66222911a66cfa784504",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "bd86d683a7ad080a1b989672a1e7301aae60ebf3c034310018356a8188207c06",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "88ee7b0c75ed76c93af8b8de19ebb069a9f07044e13569f0deb2d0bf89b17770",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "adfa5a5d19aaf23a9bcc4de0bf4ad232aa839257273b0e19c5d75dd7cad06544",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/serve.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "0e967f50ccd817c98d9687198519cd6d8d6d939a1b4ad6de941404e298ba3205",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/server.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "c11be9b7283545c2f2c87fa3e3cdfd3fbe5ec669e94e317cd1b86d8198550c5b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/verify.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "e0267b74d912d4bec19de8a19960a5473cd10a3efef852aad42e0fc8b1caf198",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "56e0d6c107ec1bfff996d7d980e8a97f458a0a58a088fc63be67358dd51fc241",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4c24560f37f8f16a83f036b4d4673df117e902384dbc09ebe7bb9f2ddc5a761c",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "abad964215a8eff39414efa940bacc2a99c64428f4aee02c97f00ef296e3d1d9",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/loader.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "5874cfaca63474d0267423090c335561ad0497b2421e6dcc4f9987d9cbdeed83",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "a66fe29e0862cec4889bd9b47c6f3dd886c6428fa842493af30d492826f5b9e1",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "3882c2babf41843c85fe62292029422e094d1045afb8b8a03f74435e0e372e13",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4752f03c3b3928af0cec8dda645ee7442fc9a9747ea180b83f9e10398b3d3619",
       "rule_id": "SEC-163",
       "file_path": "internal/container/container.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "1bcac04d7b83ee9d28340113038cce924b75530e78ac2840de734f4ae20cc91f",
+      "fingerprint": "5fea89b0e879c87d446d079cbe356e9f5452b51e9af856d61298358a7906788f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/httpserver/middleware/auth.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "c400517d52c9ce3865c3b616928ddc3701d515aefd1a696e5dbc68a5345d25a9",
+      "rule_id": "SEC-163",
+      "file_path": "internal/httpserver/middleware/auth.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4f93133341352df32d280085c78a25b8d6b66f4089da826b0332a8c653e568fc",
       "rule_id": "SEC-163",
       "file_path": "internal/infrastructure/ai/anthropic.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "823b10ec8e722aef9a6ed60adfbfd47ea96fa16824b6f7153b6beb3deab4b922",
+      "fingerprint": "cfc9a33c6e6fd29ea5da56c3d4e08791db432d3a998d7fae3fd455b2d0498a1c",
       "rule_id": "SEC-163",
       "file_path": "internal/infrastructure/ai/gemini.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "1bc5e597cf4bc9d35e872ec764fddbeb047b0f5e18ff84b5dae55f0e81d88d2b",
+      "fingerprint": "f1304baca8377864cf8ff83d2f7a0731b390228d59c961347caeaadc4a52155f",
       "rule_id": "SEC-163",
       "file_path": "internal/infrastructure/ai/openai.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "c375ea116f945ef2d691038d2e674ffb571c64510fa1cfbaa8e04c236d326553",
+      "fingerprint": "0e3645ab64b2950d5461174adc01c81647f68771c4fda224629de328688af883",
       "rule_id": "SEC-163",
       "file_path": "internal/infrastructure/ai/openai.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "0ba60433f59e3780dd899b3d7c3d0581361270fa00c2f4cfb78a06219aef1e97",
+      "fingerprint": "02707fbef4e0dfe5a3edd1f4ddf7e728a8c9fc639dccf6c550de20ce27f43b5a",
       "rule_id": "SEC-163",
       "file_path": "internal/integrations/drata/client.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "f94f9d0736c343b3b2f355f761dd54929b9557c731181a25f569b83bf551754f",
+      "fingerprint": "b1f42dfce2b2c7b1a53503b81389a10125b8595b5ddde93ba16c314dc4dd7fc3",
       "rule_id": "SEC-163",
       "file_path": "internal/integrations/vanta/client.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "150129c33e973d62a2ce1f88da4c2561d77019efc0c0024e2caacf6fb9dc41b6",
+      "fingerprint": "ea2cd733e44fb8965d6a8c5a2fc975cb42e9778456aae50fc0083f98fabed5f5",
       "rule_id": "SEC-163",
       "file_path": "internal/mcp/adapters.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "c117536a898178265f8534551b95fe4d99adb16a8f9b804dc973766ccff8ce9e",
+      "fingerprint": "a09b5042bba6d123562814c06e452bbcf94beacf6baef8a5859e499f25b2c236",
       "rule_id": "SEC-163",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "ea2c90e7c0a8831654a03e515217a4c6bb36a087a8202a694572b4c67d19e094",
+      "fingerprint": "799e3a0a38397fa5f1a1e580ac124f71ee80b51ef5b312738dd0c2cd921051fb",
       "rule_id": "SEC-163",
       "file_path": "internal/mcp/server.go",
       "severity": "medium",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "2589c43084d4f8993a71fc274d92fc8b282e26ca3cff0dd6c77af6e11ea963bc",
+      "fingerprint": "27183ec7a66ec73e34934b9095d988c6f62713bbf794953926837920a1a0da7b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "e6167472397a1bee8dd536a9a4f60c561f6b12d52bcbaf979a2b779dce1e21ae",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "1e77121ce24db70814115881cf44485a904703daab45dc087de9c54b234ee68d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b61f2fb5d1dd29123d6b07d00f31425358a39366a9cd6ed90d5a7c881e08486f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/signer.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b7b98d3c8cbb9232b0c4a9d05018a16837dc81a45fd4748e1d35bc3340076cc8",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/verifier.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "8b3eb5292c6aca827967e85343c79cc8e46b76404e55d3b6a979737b7616eaf7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/verifier.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "3946e6d90c7d967025751da9e56e9ca374ecff0807d6de00a79252ee3d5c6cb7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/oidc/handlers.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "e80f8bcd280b4c9e489ef84af6102308bc4bea1e758004c1ad4b9e62be9559da",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7b060e73fec5ed922e07d3a71eaa03dc61dcf67375637e550503621f12041e72",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "f0806c087ed8eb3eaf28e41101e0dee1ba36e617273b38aa16bd4d05e9015642",
+      "rule_id": "SEC-163",
+      "file_path": "internal/ui/wizard/success.go",
+      "severity": "medium",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "d0ca040bdca9e3602e693a6efbf4666c93d92fbb2e24905a81dc0c3a3705101d",
+      "rule_id": "SEC-435",
+      "file_path": ".env.example",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7ec443ffa0634756762c269dff51c797ce34099ba79bf2bff985496210f69b21",
+      "rule_id": "SEC-435",
+      "file_path": "examples/README.md",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "5729c488a437261eb55bb3f801ef5c939e8d2ee66fd56ee091a9f00c75a975ee",
+      "rule_id": "SEC-436",
+      "file_path": "internal/errors/errors.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7f0b46c43e2568252d70f9f9aa7f3e6e54fbbe4cd5bbc10445694047b5a5be52",
+      "rule_id": "SEC-569",
+      "file_path": "internal/cli/notes.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b7d596f6f04be9b9d472391f3de826dd5eaf336dc590f98d0d296b1348a8af79",
+      "rule_id": "SEC-569",
+      "file_path": "internal/cli/notes.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "480f85927811ae29dfd0571ba36fb17d7eee6c2cc58f579b005cd34b3fef5e75",
       "rule_id": "SEC-569",
       "file_path": "internal/compliance/annex_iv.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "c16d28fbcfcae93467a819cdf8e32027c2e6e9c4fb75fcf7f4f846c19754e398",
+      "fingerprint": "9ca7ca73c471325c731e259c6ca59680bc1c222057e699a21ab4cc648c2940e7",
       "rule_id": "SEC-569",
       "file_path": "internal/compliance/annex_iv.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "5bc04b14bd7cd497a38283464411e7dd7dcd9ff189b91ec21995c109bddfc570",
+      "fingerprint": "7a0ba889fdddc59a3ac0e68162a69f4c347baef3488c34fb3dcede53d3e1df83",
       "rule_id": "SEC-569",
       "file_path": "internal/compliance/annex_iv.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "8605c09c06e3ae787c84fc1f6079d5015dc6332eed9b2234176d5e322ad0360e",
+      "fingerprint": "97e4b7ede595b46f03689e880e1256d1d0fb85e15364a04d24a82503daca6688",
       "rule_id": "SEC-569",
       "file_path": "internal/compliance/annex_iv.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "44bdc9d207f6a62be3bc207aede736e4db95d52bb6170ef004c94f1e69ace336",
-      "rule_id": "SEC-569",
-      "file_path": "internal/compliance/annex_iv.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "31b42bb83309b020a429dc7605e14148318f5e62021d860b07d8c4ab97ad6b3e",
-      "rule_id": "SEC-569",
-      "file_path": "internal/compliance/annex_iv.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "f3b0cd523f4d150d12ddd25aedc70fd1d820499492889721908eb75d3c05d975",
-      "rule_id": "SEC-569",
-      "file_path": "internal/compliance/annex_iv.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "9c4222e271f7887257481d06b02545661fde5d82458e33883de1dc0fe14fa215",
+      "fingerprint": "a23b4bb36a7f49a27d8c8a3b3e00a418278553e141a9a5def30f4de0f840392e",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "a23a3f84a2c838982b12f13c1598c635a1870c7e3bb2eed04c40829d994ad684",
+      "fingerprint": "cb5d7d1d4ff20ff9d5581eb8a3273a2c9edffea33fa50fdf33b562a712f62628",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "4a3107b78dd82333372f03b76168d5661f399075d5e9c4b74ca849dbaede090d",
+      "fingerprint": "c7e95b1e6fcdbc7e8a778ed063c4e6b5fee4ede4e930599a86b4c2dbfbf99d9a",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "eb2b5cab2262942baa44504b52e44501756cebaa23af98a6341279b03d3e10a7",
+      "fingerprint": "2a8b809351b2a3efda9b63ed77d74330382fd6aa82eeb78be4415b523b92c12a",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "6c7e05cdf72e41fce70e685f217217dba219e33742a0ebab772b0e5b6f05ba1e",
+      "fingerprint": "0eea07b5824e8787a6556d56ee8dc161dc22ea022ab71bb5edfb257f13c90ff2",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "783c295707254021e6ef2d4d4d36e6e4c45b4c0ec3e52f15e8a4e9463d68d58d",
+      "fingerprint": "9fbc95e96a39c55bc8db37b7e5bedcd622ef3b9b9b461bea5e5f3303da35664f",
       "rule_id": "SEC-569",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b2f6e50eb0a7ce5b1a77a59be86218a3f26da4b97f5a4932b06073ff2ace5ff9",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "aec976cd35e19963fdd145052f9037eb6c1945450aa9ee8c78daf43740495d8a",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "b324b56d7dfdcbda6d02aa098f6592d3d32ad2f62de0e9c183b061667c375b0e",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "5c4a776fa2e627ba4d69e56649349670ae7724290b1fd441c87e180a87a1c597",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "e4ff7dc363f17938fe1d40dd3c68e6454b8bffae6d8a6d3f75c32384690882c4",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "771c808d0e149af133a8c014ad4554762cf622fbf077bb9d728578922d6724be",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "8ce23364aa0a995a317722fc479e761729ba674ffd064a144d5024622b643e56",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "b5701acf57b2bc9587fa5b4a1a27a7ad2af621f7b97b5e9b5b75e62ffdcce126",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "4d9268f8e9ff309881456e1d51f630e726dc7543043fca25af7a0088888ee7f9",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "234e0b7b4aa43ab7499b12262f04e37b25b3c3f1dac6b92fdfc4d4cea214c784",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "f10770c1d82a424932a0b628f7b797767f6aa96b5887ff007867c702b4c20a27",
-      "rule_id": "SEC-569",
-      "file_path": "internal/config/schema.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "319666922783d368361d9d0a153db039704f9b62f7a46271fc1b84fe6df717c1",
+      "fingerprint": "f3e87bb73c20d47205f5e6ab69167bc0550bc73f89a2a32cae4325291d009f07",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "8086af6b752902d9762b49796e9bfcb72ea658a1458f47c91aebf315a51497be",
+      "fingerprint": "51d92179445a1a6a3abc54a45442d4eba51ee1c13212883cfb0e5a29e7e0fd11",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "98ff44d3d67032e1adb4bdd62a73345532970959fdf7c673480cae33a02eb3ce",
+      "fingerprint": "2866e34a24451cc2b8648f2448bb189269affcbf16f226305a1282931251dbcc",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "00d3036e8984c8c2c321d6af2f6701e2cd71ae40101c052220f6a0086b254997",
+      "fingerprint": "9ce727918b9909675dbb0d621b69bd55fd9b4beb767638a82a216a28fabfd4ed",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "7e888058c25df17a40471c881d1c6ef40544a404177eea4ebbd077b00ea3791c",
+      "fingerprint": "66596c37f9a963b87b93f75ee8bea993fa302f880cda8ddf84767929c22e607b",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "11518a8fa070c68275f6d5ad01a554b3207ecb661887a43721e41a33c463785e",
+      "fingerprint": "ce61e31a3a5c6f4a9c22e7c7633400fe7b4305c35f0541fe7a655ccd3584dce5",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "96e616ddb650950952bbaf56e9259e7a6d8fcf3242f0f1addcbc625c90da5fbd",
+      "fingerprint": "4b7cff24737d9c4519db3bb80cf0aee4adfc846e5699f38a04137de762e6f80e",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "2cddcded7b2192fb894cc31e26bb4ee5b061927011764aa2a153b6eff29c6579",
+      "fingerprint": "1fcc0ed6f95af356e5344bdca3fff19914d247e5279fa46a3b97eb2a7da3cd9e",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "3e75ede564d71dd42b1a2e6b84e91588cba86a3d2530259918e3e477ecf717f1",
+      "fingerprint": "17600f30ebe32895a37a6249014fd25d9979a5776a11e23757d8e911ce92cc8d",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "82593b4bd695c622587ac63760e593068abd8f2b22d29859c1510470edd37c44",
+      "fingerprint": "d4b01db3aa85f6927fa9ee37383a262114b09b3a46dfa6dc67e10f077c5577aa",
       "rule_id": "SEC-569",
       "file_path": "internal/container/container.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "498058f7e22b71893edb511a8291e1c02221a4a275df28dbc6d8ce3878a5aa66",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/container.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "3e5a0439a2f535e27767cc896b96210e7754508fc0d63fa3e74d78bb1b7e3a8d",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/container.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "f1dedd49fbbafb22b40cb809bf221cb423d74dff7443ac8619a89af893fd6505",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/container.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "3faf0963c4a1e7bbc47293a22e7858b7c3e19d08b76152c275a8336d5559fe63",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/container.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "77a95d8544f7b6133654690cfb77864563eb00925bd06762fb5786b70df29f1c",
+      "fingerprint": "cc7d1b62653d3b0ffabd21a42510c3ef51c743b2245a2a259173819f06bc4242",
       "rule_id": "SEC-569",
       "file_path": "internal/container/port_adapters.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "3e6f288ad9ffc642f7a37202f87874904c7e62019e2e3b4220eb81341a5079ab",
+      "fingerprint": "4091bde78a24f5986abbba5bb5c0d5a4cb2608b101887a6283064ff91d132bb1",
       "rule_id": "SEC-569",
       "file_path": "internal/container/port_adapters.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "11a1d8a54b8b8c77459eaae2c249e9b6079b181acf5395b718450b87c4756e56",
+      "fingerprint": "48acaee56354d13ee1f48c5b7e4c1bf8b8ba2e4bb29c6dda22e90b28fe89b8b5",
       "rule_id": "SEC-569",
       "file_path": "internal/container/port_adapters.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "2f3dcd201c14c8bf7b24281540dbf9947ccba0dd1d211a730f29135673c47c70",
+      "fingerprint": "c74c259240f977ecc15d0fecd1d90b5060904d51d37667be4490bc9add25dc47",
       "rule_id": "SEC-569",
       "file_path": "internal/container/port_adapters.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "bc96e24c22678f6ca7d0719819bbae243c905c511b5f65df52bc6b4dc7be46d4",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "4ce38c0545f2ef0f01a4fdd6bdb38b0232016f340527c3fd4c6037c992c08db0",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "96d27fa2dcf8fc9acaa9c6e11f76b1e88a4d3edb54f09b86dc82e9c4bb977cb3",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "feae25d4b4ce1baaa1c27bf4e2860f8978d83e514798530d0587c94ca8829310",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "cda5abc0f003589277673e70f632da6ad6e3fd0ff42723510633a3262cd72abc",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "be86f6ea11d4c25786e7f3cc844ca56de55d24f2fdc6356471149ce85c403fe5",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "40a1e89f6e7ae18cf4b4612fe30cc7380bdb368eb9e22b1d5f8e7608524d4efd",
-      "rule_id": "SEC-569",
-      "file_path": "internal/container/port_adapters.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "3bb8105651ef7b2f10882b0e819b35aa23a68e748e76018cbd785ef41636babc",
+      "fingerprint": "48979708047db31ee238205bf53be184bf9b4ad9e80e6c933d81a81619fac87b",
       "rule_id": "SEC-569",
       "file_path": "internal/infrastructure/ai/gemini.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "e825ddd938d208009e2a5858b421cd7462d48d2acf235e20818be92d02d8a671",
+      "fingerprint": "7f5d8c405e54f25ed29150bf95337714f6204a4420fa3003509310637c9bc82d",
       "rule_id": "SEC-569",
       "file_path": "internal/infrastructure/ai/schemas/schemas.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "8e72a6aea4802a4211065428d05cbca9428573e0be24486462e94eee19ac3cd9",
+      "fingerprint": "7576bd8377c59d225c181c505d807ad501d2c97cbf1cdf00ee507c7416217b8c",
       "rule_id": "SEC-569",
       "file_path": "internal/infrastructure/ai/schemas/schemas.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "916ba0a2c2a245bcb45fa93a0112c7d4c78eba89f1b922d6b7cc240f2eed8813",
-      "rule_id": "SEC-569",
-      "file_path": "internal/infrastructure/ai/schemas/schemas.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "cbbc70a127ddd43c967197f05436378dc5e2564f455ec7b1972f7d60498680da",
+      "fingerprint": "478e8e9c0535c180cabfa0f1b2e91b3539f33004217936dcf763ce8fdf36876f",
       "rule_id": "SEC-569",
       "file_path": "internal/infrastructure/ai/service.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "5aefb2c58cf4fb4f61bc82f7b9da878efa0f1477d51d4d31961e3b68ef39b2ad",
+      "fingerprint": "36de4ec608ad3d21b81687c583e1d9f8d6140b423fa08bf0256d175076aafb94",
+      "rule_id": "SEC-652",
+      "file_path": "internal/analysis/heuristics/keywords.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "82bec75ddb5bcddff76d0ed634b4e7ec539cb50aafdbf2553443234661513c54",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "c8b3d9fecba118d6b09523b5fde82f7a76dc614647557007f4014b483a942054",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "227efaf506c8b4f021792a71aec9c1057c2e4b2e74f10208ec74f9c5cc8074a7",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "99b8e834fc375a7b72652fdc4b2cfbe86982936b593a3fd532b8795181a791fa",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "439ba5d88d4f9e0df6e641695918b8ebc3600c783404882a5adba77e14b579f6",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "a364e630e88f892d2806b05d2a995a30e232838e58780c6259aa13735f4dd295",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4336b07a3c1f43d146511b94ceba9fbd7ac194b2653d158a177cb02d22b2b075",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7c21ffd2dafb6712743f44784d93754f44455bfb36f35389b873afb82a5f0cca",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "7169939b3d6b11fe8f6de607379967d34b68638a393f7a104bce00e21442ec2b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "dcc7dd838a8e47939dc5aa824d73d50535f9116715ddaf975508abe6f33de9a5",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "3e4372fa0d4b86220e0a73d9ef777986819a483637cb328186eefcf8d2dcce8b",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "6f58028c4d9199f12c5cbcfb9d975fb80232e8e479c54c7d76c0dfa0a7502b88",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "45f6542212b1b7228f136feef302648003c61b13fdae552c8fc73300c77348c3",
+      "rule_id": "SEC-652",
+      "file_path": "internal/application/blast/impl.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "052c1dde797fe0a7a6b111471efb676bbe9e9202e40c6fa0df72f8db51f09bd8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "1051ba0a3d34cad088b85ec09d11933f0a9ee087611b8b288dc56e1801df115f",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "bb2826046d7678555c67a193260a983f6fd53f1ad20eeae62f30c72ab3a1b6f8",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "4385146d17e0c5d3cc7b04578edc390adaf67b590fea0397fd09f06890d420f6",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "6a02dbff39bc333f03c08cd1f7212b5d82800f605340170cfe6b49fc7d350229",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "6b97696a378e7c71bc07744b1a8885a1d5e764e3968a65d6658d862cd3c3436a",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "adc2e5d526f81a9bf913f616e8e1e153ca96d08777783188fa563b1fce12bf71",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cgp/ciapproval/config.go",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "3a4b4c6c038a90ce64be93c8280c16c98e7577a2f184193f5c0e0e8da06eb89d",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b8ace8cf3933e3e037d167bbe236a78155e2adecddd05a458536f01330af0879",
+      "fingerprint": "f7d894fa823c319f6766fc150c795f78b5221bdcfe911fb236dea372b4af562c",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "6f4bb5b1d9812a9683bdef6f217b54bf00fc402221deb926387dec56a8159646",
+      "fingerprint": "a0c60084569e607155e9964ffa1a909d898f37fc3209edeaa88c870e717435ed",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "1a97623bb3464864435eb4d5435f56e0797654d5b9b0d49115ab3a5a472a6d16",
+      "fingerprint": "bd2736a3703943f51ee771d617dd83fe2a331130a6cbb12d4bdb8ca86903e28b",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b89f47a100b488af4e32e48313ca9606544df9ab0619696a5704fc24dd2bf868",
+      "fingerprint": "bb6619a7634a2f67bb8c2b14b8eef1629d017a4657bf9c0fffd0c3aa73c8830c",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "dcc0dd84296e78ab224985ec35fa60d0fc00cdcf43282f10f9dd66c4063d2307",
+      "fingerprint": "ccd1ceb441f24ae85f8341531cdf6d0acbe0b53ddfb3188c066f0d9725647d3d",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "d07a01c57038e41ef2a3be4b493b1c05aa2c799d79588ae131ba7db91a5c710d",
+      "fingerprint": "27440fcb1a3154db7ab903cff552ac941fa91068dbbaac7eea39ae857bd9859a",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "0b984855308d5aedd6967d9605607d005cde28afa73f8f37b50bd61d1479fd27",
+      "fingerprint": "dd91c862ff2fef72625ba64fe88435d342bc309aa266dd63b23a39a76b0cae32",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "fe56eb51dac813efaf13e903ca94dedb2a895b3c8393aa3d234fea07b3f15957",
+      "fingerprint": "2997b045ca5c3cb6daa0017dfa68750e2656d61ea96d54f109d74f4468beea1d",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "ac5b16e1164cea5422bdbbb9bca9c915e71e55cf8e1056c1d6a36c07777d06cb",
+      "fingerprint": "1d3e5702f10146b8d0c7bef4a660cd9ed63b95d98ab6e878cd7d067e6065e227",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "1dd58be1e2fcfddf7cea49208f947b9fa537e1686115607755c2afea4f93801f",
+      "fingerprint": "10b1f9a96c41d8e5d55a3ad607082bba718b01925dddf253a29b22785ce44cda",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "789c4d380c422a949d172e4cc1428ebac36c029068741868b84f73c4edddf2c0",
+      "fingerprint": "17b6c4c438148a2c204fc054d33f3daba791f8e04052a58ed025439b3212b3ca",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "3d00ee6bf361cb2679ad1d0668363bb8ca2ea3a1fcbe4783adc69d95d75ba800",
+      "fingerprint": "1766dcf158d317c9ed335176483e6476bf53eee1c542e207525122c1c5de0343",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "a7c73d6b62b1d546d3fc4f4716a1a1d57fcefe93e0826242c746a11ac12afbc9",
+      "fingerprint": "035ffa2d43db44048cf975bbf724c58b87042ad952b99b3e440e2c3904f4d560",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "697cde862fb53ef4de2b284c0c8574facde064cfbfc067e238bd3b880de43ce4",
+      "fingerprint": "6361925ceb3c16cd5aa102648de398ec59604e8fb5b60e963d6eb65377955c13",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b4dfc7a62c3ec5b4bfa612d80a2478a2cee95f65f52da87d75766d398a629ac4",
+      "fingerprint": "e5c19d2ae2019024c9c2a0b2e4f3b459699f2dde82a51d885764bf360be4d64b",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "739580ea0ba7f65a049036a97e69df687a42976ec4418d1f6f3914395e72128b",
+      "fingerprint": "ef8c9bceca4df5749609b5d44eb748e7060aab6171bd10cc0ebae6ecff23dbde",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "02f80e071448cdcb3c36046d95ed12168faa35ac7708d845d4f20aa9d8ac9eb5",
+      "fingerprint": "af410664fe98b82de2bfffda2007394f4d3b44e0b4ec5269dc1f84231e442566",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "a8fc1084633f2ccd9bb4c26c41ac7a8ea36a26783456b94782fba105f2f736c3",
+      "fingerprint": "7969577025bc9e9dca5f5d288ccff6dac3f16b2d4b9f929c59268c0f3d76b828",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "af6b9ba6b73ac6fdcdbd77eed3abcafa0071bbd5bedea8a4b83aa80c6718abc7",
+      "fingerprint": "7a719b9172c3f499bf4d671420061d013a9319cae036aa27cf59cfdfa0215d5c",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "63d8c56b4b845069abe89008d2ad1cd255eb438a5feda7ff2ad6c10b36c8e4d2",
+      "fingerprint": "42f0a4ff19ac7d9a5b017a02a5f405150eb19dfa7f766fc734a35be2937e0a69",
       "rule_id": "SEC-652",
       "file_path": "internal/cli/approve.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "206e8f9ba76f4a5d5a756587412a398d7fc403e721c80acdaa2968453a1d8d59",
+      "fingerprint": "18606c161831bd3b886fb129159cd2832fa9e5ae858fc151d21bddc5c93ff5a8",
       "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
+      "file_path": "internal/security/masker.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "a1aaf4dff2b113830c5a7af1f816fab2493e2d82ece318b6e66a0f2eb9465495",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
+      "fingerprint": "6dd51abd98ce78cab9b35ee0368f851b41cb83b4946cbe2b9b3fba37910de390",
+      "rule_id": "SEC-659",
+      "file_path": "internal/domain/version/semver.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "7720fa0ab88f50efa8d6a00d09db346e4e50315347aa460fd4c3f0f33a19bdb7",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
+      "fingerprint": "731a8708c059143cccc476beb478b9aefec3ee893a52f4a040ea12555671e916",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/conventional.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "8bb1dd15c4c91a10893d97dd0853a99c08345b74aaa3fbbee598f9c6b8daa7aa",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
+      "fingerprint": "8a35263c7f772b659ebf4601f30987a260b1f19b2622fa7aab7f926212274a5c",
+      "rule_id": "SEC-659",
+      "file_path": "internal/infrastructure/git/impl.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "00eec2e2afeb57df59193188aa791fc20951093f945be006f8307d6d277e4040",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
+      "fingerprint": "82c9e91b43e92abcbaea9745e56806cd802f5bef1d983bb8d96886a06c35e791",
+      "rule_id": "SEC-664",
+      "file_path": "internal/infrastructure/git/conventional.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b0b2a72ff4f1cd5d956704a629d237d7ea2d87414dec0b8bd4c18cc7f36a2d11",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "01a3fbb871e4b8ac094206b04563271d7a477867d9d0539d6d9a1d2e259abf39",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "8ec35ee3b80df9021b71001953386378fbcec393ecb5f255ebe4fd85c2e36c31",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "b88b334fe25c49633c1320f95f76b48e4e21205719ab4573eb8ad64d154738f9",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "bdda54cc9dc7d8599aa28cf91450eff0b2dbe425725aaeace8f328826a38de7d",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "71de3d078dd2ef10f677da2f7b76cc29e859e7a20e270d38499680a89dfeb24b",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "74a600cf2654df83e9b805157f7f649a8df328401c1c2eead7ecb43233745f88",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "b8a73ca227f516a36e6dd0b8ea6cc55b5c5021e8d8c6b3b18817e22676bdf1b3",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "3ed59eeddb938f8729caf33c33398c2c0003b4b0a4b054b6d944c65e5febaefe",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "6463e4d2c57a9c49f6fefccf1a2f07319974721b30a98bf6639741ec7602ea3f",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "d0aa482595fba6b7efad9d2b3bc28a9122656f82452ac5d80089e25b1b2d546b",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "5ce88d5a5e7e8b0e873037b3afd850c6637dbd9b3f453b52c2fb90c60ae14bc5",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "6b1fba03a301bcf93c144f57dcec1196b7a5efbd1f602a6014e78f34966fe8ca",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "d1b87bdddc0317f8a8a2f1580a265d9d32b1def1e4c5d2dd444ba8d794d08b0a",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "89067ec26185f2694af10cd7d78c0fb03319f3ce6b02158374e088bfee7ab676",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "906d49da023cebb677f2571d467844e303f44adadb22a514c27171662cdd3487",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "4f6082bff52555071d5249657c0f1a0d18e94058dc796925b06208dcbcc33e99",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "d8fc68bdfb594cb762c1ccb9775b66e6269e3cd6ec2a78a59eb483804354d21b",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "2360077c422cae19fbb377cb1275bed0cb81b9de99dda059b182db343a8c5a20",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "2f834d87ee21310e3b789deba14973c4f304e560bb27deb83467b3de2a1bac04",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "fd4f0c8047784b92e7f6c52de4c6efdd883b606eb533dcf8d38339b7cfb74374",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "019c46645b43433e02876bf97f033d94ce33d22c0cc9c4835a92ab6e947a5fa0",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "f4f2e277760afbde65c53a6006c5b11f80a1323dae16d1864e92c23fe9eb0a92",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "9be1a0f284a4cd1e53af2ad5c54effea16cfa3f922d3c82a5b4069e4108ea8b3",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "a607dbe30b022bc1e30c0e98a40725e804e95af3e954f01dbb4c2a6be20cde48",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "dc1b8af62e64d2db6b0d63ac2c8386e45b6d0de16c1f77e7b0e022b3192b7d30",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "14e3969761f02208c734e048039fece4dba6f2362323ec5ed262f912a9867cc6",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "42fff91e04262bb4e9ebcb146b335a2e0ca3877e55a50fbc70f99c46174efec1",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "7781aeb35c0b4f8946b74b96f6451add74caa5d970ad52f61ffba16d7001b6bd",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "d55af42f8c3bcebaf9f09851f441c643b2d89dd4e859a8635aec3e57015c32cc",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "7bcf090720a4d3c3cccf992bab48a5efc186744a6312d87979c64aee08ac3f4c",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "94a23d6935934a7d5b1150e5009cd3c6444cd025c227da5b818a27e75c49282d",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "2bd378033a32f87517cdc0af91fc3479c74aa45d106ffeaae87d8b365f742080",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "2708c926520db4d6d3946d19ba85812fa76dc8e9354e839f06e60928b197a378",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "9dc006826a34f7d1a02b31dc35a443bb19e8bc6dc1761eeddfb0d3b5e884a167",
-      "rule_id": "SEC-652",
-      "file_path": "internal/cli/approve.go",
-      "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
-    },
-    {
-      "fingerprint": "6fc9b6dea82ebb1a1234d65bec0df2b86171996fd581b46579fccb7c4c66cfb5",
+      "fingerprint": "29114e1c3ce416ca47c46d8593cc1602d7546543ce475be4a21919a13bd0c90b",
       "rule_id": "SEC-792",
       "file_path": "internal/config/schema.go",
       "severity": "high",
-      "created_at": "2026-06-11T05:55:55.764244Z"
+      "created_at": "2026-06-11T10:34:53.402889Z"
+    },
+    {
+      "fingerprint": "b6ea2752ef925af071361404fc905d4630d7501e19c45018555514143f8e2379",
+      "rule_id": "SEC-909",
+      "file_path": ".github/workflows/docker.yaml",
+      "severity": "high",
+      "created_at": "2026-06-11T10:34:53.402889Z"
     }
   ]
 }

@@ -80,11 +80,22 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, ErrTagPushMissingVersion
 	}
 
-	// Check for existing active run
-	if !input.Force {
-		activeRuns, err := uc.repo.FindActive(ctx, input.RepoRoot)
-		if err == nil && len(activeRuns) > 0 {
+	// Check for existing active run. With Force, re-planning supersedes any
+	// active runs: cancel them so they don't linger as "active" forever and
+	// so the audit trail records why they ended (issue #128 — after HEAD
+	// moves, re-planning is the recovery path; the stale run must not block
+	// or shadow the fresh one).
+	if activeRuns, findErr := uc.repo.FindActive(ctx, input.RepoRoot); findErr == nil && len(activeRuns) > 0 {
+		if !input.Force {
 			return nil, fmt.Errorf("active release run exists: %s (use --clean to clear, or 'relicta cancel' to abort)", activeRuns[0].ID())
+		}
+		for _, stale := range activeRuns {
+			if cancelErr := stale.Cancel("superseded by re-plan", input.Actor.ID); cancelErr != nil {
+				continue // already published or otherwise terminal — leave as-is
+			}
+			if saveErr := uc.repo.Save(ctx, stale); saveErr != nil {
+				return nil, fmt.Errorf("failed to cancel superseded run %s: %w", stale.ID(), saveErr)
+			}
 		}
 	}
 

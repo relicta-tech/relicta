@@ -208,6 +208,11 @@ jobs:
         if: always()
 
       - name: Run Nox Security Scan
+        env:
+          # v2 fingerprints are line-independent; with the default v1
+          # (line+path+content) any PR that shifts lines invalidates
+          # baseline entries and re-reports them as new findings.
+          NOX_FINGERPRINT_VERSION: "2"
         run: |
           nox scan .
 

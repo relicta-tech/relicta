@@ -88,13 +88,16 @@ func TestLoaderAutoDetectAISingleProvider(t *testing.T) {
 	}
 }
 
-func TestLoaderAutoDetectAIMultipleProvidersWarns(t *testing.T) {
+func TestLoaderAutoDetectAIMultipleProvidersRecorded(t *testing.T) {
 	cleanup := cleanupEnv("OPENAI_API_KEY", "ANTHROPIC_API_KEY")
 	defer cleanup()
 
 	os.Setenv("OPENAI_API_KEY", "a")
 	os.Setenv("ANTHROPIC_API_KEY", "b")
 
+	// Detection must be silent (issue #127: the warning used to print on
+	// every command, even ones that never touch AI) and instead recorded
+	// for AI-using callers to surface.
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("failed to create pipe: %v", err)
@@ -117,8 +120,14 @@ func TestLoaderAutoDetectAIMultipleProvidersWarns(t *testing.T) {
 		t.Fatalf("failed to read stderr: %v", err)
 	}
 
-	if !strings.Contains(buf.String(), "Multiple AI provider API keys detected") {
-		t.Fatalf("expected warning about multiple providers, got %q", buf.String())
+	if buf.String() != "" {
+		t.Fatalf("expected silent auto-detection, got stderr output %q", buf.String())
+	}
+	if l.autoSelectedProvider != "openai" {
+		t.Fatalf("expected auto-selected provider 'openai', got %q", l.autoSelectedProvider)
+	}
+	if len(l.detectedProviders) != 2 {
+		t.Fatalf("expected 2 detected providers, got %v", l.detectedProviders)
 	}
 }
 
