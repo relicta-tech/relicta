@@ -306,9 +306,9 @@ func TestMapSOC2_NilOrMissing(t *testing.T) {
 
 func TestDescribeEntry_Verifiers(t *testing.T) {
 	one := describeEntry(compliance.Article12LogEntry{
-		Actor:    cgp.Actor{Kind: cgp.ActorKindAgent, ID: "x"},
+		Actor:          cgp.Actor{Kind: cgp.ActorKindAgent, ID: "x"},
 		OutputDecision: "approved",
-		Verifiers: []compliance.Verifier{{Kind: "human", ID: "a"}},
+		Verifiers:      []compliance.Verifier{{Kind: "human", ID: "a"}},
 	})
 	if !strings.Contains(one, "1 verifier") {
 		t.Errorf("expected '1 verifier' in description, got %q", one)

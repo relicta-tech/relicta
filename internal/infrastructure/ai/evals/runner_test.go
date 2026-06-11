@@ -210,13 +210,13 @@ func TestAggregate_WeightedMean(t *testing.T) {
 		{Value: 5, Weight: 2},
 		{Value: 3, Weight: 1},
 	}
-	mean, min := aggregate(scores)
+	mean, lowest := aggregate(scores)
 	want := (10.0 + 3.0) / 3.0
 	if mean != want {
 		t.Errorf("mean: got %v, want %v", mean, want)
 	}
-	if min != 3 {
-		t.Errorf("min: got %d, want 3", min)
+	if lowest != 3 {
+		t.Errorf("min: got %d, want 3", lowest)
 	}
 }
 
@@ -235,20 +235,53 @@ func TestPasses_RubricGates(t *testing.T) {
 		Rubric:   DefaultRubric(),
 	}
 
+	llm := &MockJudge{}
+
 	// Mean above + min above → passes.
-	pass := passes(Verdict{Mean: 4.5, Min: 4}, g)
+	pass := passes(Verdict{Mean: 4.5, Min: 4}, g, llm)
 	if !pass {
 		t.Error("expected pass for high scores")
 	}
 
 	// Mean below floor → fails.
-	if passes(Verdict{Mean: 3.0, Min: 4}, g) {
+	if passes(Verdict{Mean: 3.0, Min: 4}, g, llm) {
 		t.Error("expected fail when mean < MeanPass")
 	}
 
 	// Min below floor → fails.
-	if passes(Verdict{Mean: 4.5, Min: 2}, g) {
+	if passes(Verdict{Mean: 4.5, Min: 2}, g, llm) {
 		t.Error("expected fail when min < MinPass")
+	}
+}
+
+func TestPasses_JudgeDeclaredThresholds(t *testing.T) {
+	// Golden with no explicit gates — the judge's declared ceiling applies.
+	g := Golden{ID: "g", Category: CategoryReleaseNotes}
+	det := DeterministicJudge{}
+
+	// Healthy heuristic verdict (canned/noop output scores ~3.88) passes
+	// against the deterministic floor, where the LLM-grade 4.0 would fail.
+	if !passes(Verdict{Mean: 3.88, Min: 3}, g, det) {
+		t.Error("expected deterministic judge floor (mean 3.5) to pass mean 3.88")
+	}
+
+	// Degenerate output still fails the min gate.
+	if passes(Verdict{Mean: 3.6, Min: 2}, g, det) {
+		t.Error("expected fail when min < deterministic MinPass")
+	}
+	if passes(Verdict{Mean: 1.0, Min: 1}, g, det) {
+		t.Error("expected fail for empty-output scores")
+	}
+
+	// Explicit per-golden gates beat judge-declared thresholds.
+	strict := Golden{ID: "s", Category: CategoryReleaseNotes, Rubric: Rubric{MeanPass: 4.0, MinPass: 4}}
+	if passes(Verdict{Mean: 3.88, Min: 3}, strict, det) {
+		t.Error("expected explicit rubric gates to override judge thresholds")
+	}
+
+	// A judge without declared thresholds keeps the LLM-grade defaults.
+	if passes(Verdict{Mean: 3.88, Min: 3}, g, &MockJudge{}) {
+		t.Error("expected default mean gate 4.0 for judges without PassThresholds")
 	}
 }
 
@@ -318,4 +351,6 @@ func TestLLMJudge_NoServiceErrors(t *testing.T) {
 // serviceFn lets tests use a closure as Service without defining a struct.
 type serviceFn func(ctx context.Context, systemPrompt, userPrompt string) (string, error)
 
-func (f serviceFn) Complete(ctx context.Context, sp, up string) (string, error) { return f(ctx, sp, up) }
+func (f serviceFn) Complete(ctx context.Context, sp, up string) (string, error) {
+	return f(ctx, sp, up)
+}

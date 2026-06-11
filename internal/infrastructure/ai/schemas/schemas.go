@@ -44,10 +44,10 @@ type rawSchema struct {
 	doc         any
 }
 
-func (r rawSchema) Name() string                    { return r.name }
-func (r rawSchema) Description() string             { return r.description }
-func (r rawSchema) Strict() bool                    { return r.strict }
-func (r rawSchema) MarshalJSON() ([]byte, error)    { return json.Marshal(r.doc) }
+func (r rawSchema) Name() string                 { return r.name }
+func (r rawSchema) Description() string          { return r.description }
+func (r rawSchema) Strict() bool                 { return r.strict }
+func (r rawSchema) MarshalJSON() ([]byte, error) { return json.Marshal(r.doc) }
 
 // GovernanceDecisionSchema is the schema for AI-generated governance decision
 // summaries. Used by `relicta_evaluate` and risk-narrative tools.

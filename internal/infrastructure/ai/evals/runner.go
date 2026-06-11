@@ -113,7 +113,7 @@ func (r *Runner) runOne(ctx context.Context, g Golden) (Verdict, error) {
 	}
 	finalize(&v, r.cfg.Judge.Name())
 
-	v.Passed = passes(v, g)
+	v.Passed = passes(v, g, r.cfg.Judge)
 	return v, nil
 }
 
@@ -131,21 +131,28 @@ func (r *Runner) includes(c Category) bool {
 }
 
 // passes applies the rubric's MinPass / MeanPass gates plus any per-golden
-// override.
-func passes(v Verdict, g Golden) bool {
-	rubric := g.Rubric
-	if len(rubric.Criteria) == 0 {
-		rubric = DefaultRubric()
-	}
-
-	minPass := rubric.MinPass
+// override. Gates the golden/rubric leave unset fall back to thresholds the
+// judge declares for its own scoring ceiling (see PassThresholder), then to
+// the LLM-grade defaults (min 3, mean 4.0).
+func passes(v Verdict, g Golden, judge Judge) bool {
+	minPass := g.Rubric.MinPass
 	if g.MinPass > 0 {
 		minPass = g.MinPass
+	}
+	meanPass := g.Rubric.MeanPass
+
+	if jt, ok := judge.(PassThresholder); ok {
+		jMin, jMean := jt.PassThresholds()
+		if minPass == 0 {
+			minPass = jMin
+		}
+		if meanPass == 0 {
+			meanPass = jMean
+		}
 	}
 	if minPass == 0 {
 		minPass = 3
 	}
-	meanPass := rubric.MeanPass
 	if meanPass == 0 {
 		meanPass = 4.0
 	}

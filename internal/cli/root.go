@@ -28,16 +28,16 @@ var (
 	}
 
 	// Global flags
-	cfgFile       string
-	verbose       bool
-	dryRun        bool
-	outputJSON    bool
-	noColor       bool
-	logLevel      string
-	logLevelAlias string
-	modelFlag     string // --model flag for AI provider/model selection
-	ciMode        bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
-	redactSecrets bool   // --redact flag to mask sensitive data in output
+	cfgFile               string
+	verbose               bool
+	dryRun                bool
+	outputJSON            bool
+	noColor               bool
+	logLevel              string
+	logLevelAlias         string
+	modelFlag             string // --model flag for AI provider/model selection
+	ciMode                bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
+	redactSecrets         bool   // --redact flag to mask sensitive data in output
 	versionProbeCognitive bool
 
 	// allowUntrustedPlugins is the operator opt-in that bypasses the
@@ -495,7 +495,7 @@ func probeBackendHealth(baseURL string) string {
 	candidates := []string{base + "/health", base + "/healthz"}
 
 	for _, u := range candidates {
-		resp, err := client.Get(u) // #nosec G107 -- URL is operator-configured local endpoint
+		resp, err := client.Get(u) // #nosec G107 G704 -- URL is operator-configured local endpoint
 		if err != nil {
 			continue
 		}

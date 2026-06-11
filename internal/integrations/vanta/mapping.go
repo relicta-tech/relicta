@@ -22,7 +22,7 @@ const (
 	// EvidenceTypeAuditLog covers Article 12 / hash-chained audit entries.
 	EvidenceTypeAuditLog EvidenceType = "audit_log"
 
-	// EvidenceTypeRiskAssessment covers risk evaluation artefacts.
+	// EvidenceTypeRiskAssessment covers risk evaluation artifacts.
 	EvidenceTypeRiskAssessment EvidenceType = "risk_assessment"
 )
 
@@ -34,7 +34,7 @@ type FrameworkMapping struct {
 
 // Evidence is the Vanta custom-evidence payload.
 //
-// The shape is intentionally generic so it can carry any Relicta artefact
+// The shape is intentionally generic so it can carry any Relicta artifact
 // (Article 12 log entry, governance decision, approval record, full SOC 2
 // report). Vanta's custom-evidence API accepts arbitrary JSON in `data`.
 type Evidence struct {
@@ -179,7 +179,7 @@ func MapSOC2(report *compliance.Report) []Evidence {
 			SystemIdentifier: systemID,
 			Frameworks:       soc2Frameworks,
 			Data: map[string]any{
-				"period":     report.Period,
+				"period":      report.Period,
 				"assessments": report.SOC2.RiskAssessments,
 			},
 		},

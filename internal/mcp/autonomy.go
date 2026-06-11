@@ -21,8 +21,8 @@ const MCPActorKind = "agent"
 // tool invocation. The error message lists every violation so callers can
 // surface the full failure reason without a second round-trip.
 type MCPBudgetDenialError struct {
-	Tool       string
-	Decision   policy.Decision
+	Tool     string
+	Decision policy.Decision
 }
 
 func (e *MCPBudgetDenialError) Error() string {

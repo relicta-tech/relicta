@@ -133,9 +133,11 @@ func (a *NotesGeneratorAdapter) generateReleaseNotesStructuredOrFreeForm(
 // the shim explicit clarifies the contract).
 type releaseNotesSchemaShim struct{}
 
-func (releaseNotesSchemaShim) Name() string        { return "ReleaseNotes" }
-func (releaseNotesSchemaShim) Description() string { return "Structured release notes with categorized sections." }
-func (releaseNotesSchemaShim) Strict() bool        { return false }
+func (releaseNotesSchemaShim) Name() string { return "ReleaseNotes" }
+func (releaseNotesSchemaShim) Description() string {
+	return "Structured release notes with categorized sections."
+}
+func (releaseNotesSchemaShim) Strict() bool { return false }
 func (releaseNotesSchemaShim) MarshalJSON() ([]byte, error) {
 	return []byte(`{
 		"type": "object",
@@ -166,8 +168,8 @@ func (releaseNotesSchemaShim) MarshalJSON() ([]byte, error) {
 // upgrade notes. Empty payload yields empty string so caller can fall back.
 func renderStructuredReleaseNotes(b []byte) (string, error) {
 	var payload struct {
-		Summary         string `json:"summary"`
-		Sections        []struct {
+		Summary  string `json:"summary"`
+		Sections []struct {
 			Category string   `json:"category"`
 			Items    []string `json:"items"`
 		} `json:"sections"`

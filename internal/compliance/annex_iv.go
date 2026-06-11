@@ -75,15 +75,15 @@ type GeneralDescription struct {
 
 // DetailedDescription is Annex IV §2 — how the system is built.
 type DetailedDescription struct {
-	DevelopmentMethods   []string `json:"developmentMethods"`
-	DesignSpecifications []string `json:"designSpecifications"`
-	SystemArchitecture   string   `json:"systemArchitecture"`
-	ComputationalResources string `json:"computationalResources,omitempty"`
-	DataRequirements     []string `json:"dataRequirements,omitempty"`
+	DevelopmentMethods     []string `json:"developmentMethods"`
+	DesignSpecifications   []string `json:"designSpecifications"`
+	SystemArchitecture     string   `json:"systemArchitecture"`
+	ComputationalResources string   `json:"computationalResources,omitempty"`
+	DataRequirements       []string `json:"dataRequirements,omitempty"`
 	HumanOversightMeasures []string `json:"humanOversightMeasures"`
-	PredeterminedChanges []string `json:"predeterminedChanges,omitempty"`
-	CGPProtocolVersion   string   `json:"cgpProtocolVersion"`
-	RiskModelVersion     string   `json:"riskModelVersion,omitempty"`
+	PredeterminedChanges   []string `json:"predeterminedChanges,omitempty"`
+	CGPProtocolVersion     string   `json:"cgpProtocolVersion"`
+	RiskModelVersion       string   `json:"riskModelVersion,omitempty"`
 }
 
 // MonitoringControl is Annex IV §3 — how the system is monitored and controlled.
@@ -96,19 +96,19 @@ type MonitoringControl struct {
 
 // RiskManagement is Annex IV §4 — how risks are identified, evaluated, mitigated.
 type RiskManagement struct {
-	IdentifiedRisks       []IdentifiedRisk      `json:"identifiedRisks"`
-	RiskEvaluationMethod  string                `json:"riskEvaluationMethod"`
-	RiskMitigationControls []MitigationControl  `json:"riskMitigationControls"`
-	ResidualRiskRationale string                `json:"residualRiskRationale,omitempty"`
+	IdentifiedRisks        []IdentifiedRisk    `json:"identifiedRisks"`
+	RiskEvaluationMethod   string              `json:"riskEvaluationMethod"`
+	RiskMitigationControls []MitigationControl `json:"riskMitigationControls"`
+	ResidualRiskRationale  string              `json:"residualRiskRationale,omitempty"`
 }
 
 // IdentifiedRisk records a risk category recognized by the system.
 type IdentifiedRisk struct {
-	Category    string  `json:"category"`
-	Description string  `json:"description"`
-	Severity    string  `json:"severity"`
-	OccurrenceCount int `json:"occurrenceCount"`
-	AverageScore float64 `json:"averageScore"`
+	Category        string  `json:"category"`
+	Description     string  `json:"description"`
+	Severity        string  `json:"severity"`
+	OccurrenceCount int     `json:"occurrenceCount"`
+	AverageScore    float64 `json:"averageScore"`
 }
 
 // MitigationControl describes a control applied to mitigate risk.
@@ -120,13 +120,13 @@ type MitigationControl struct {
 
 // LifecycleChange is a single change recorded against the system over time.
 type LifecycleChange struct {
-	Timestamp   time.Time `json:"timestamp"`
-	Version     string    `json:"version"`
-	ChangeType  string    `json:"changeType"`
-	Decision    string    `json:"decision"`
-	Actor       string    `json:"actor"`
-	Outcome     string    `json:"outcome"`
-	RiskScore   float64   `json:"riskScore"`
+	Timestamp  time.Time `json:"timestamp"`
+	Version    string    `json:"version"`
+	ChangeType string    `json:"changeType"`
+	Decision   string    `json:"decision"`
+	Actor      string    `json:"actor"`
+	Outcome    string    `json:"outcome"`
+	RiskScore  float64   `json:"riskScore"`
 }
 
 // HarmonizedStandard records compliance with an external framework or standard.
@@ -140,24 +140,24 @@ type HarmonizedStandard struct {
 // ConformityScaffold is Annex IV §7. Article 47 conformity declaration content
 // requires legal review; Relicta emits a scaffold for the provider to complete.
 type ConformityScaffold struct {
-	ProviderName       string `json:"providerName,omitempty"`
-	ProviderAddress    string `json:"providerAddress,omitempty"`
-	SystemIdentifier   string `json:"systemIdentifier"`
-	UniqueIdentifier   string `json:"uniqueIdentifier,omitempty"`
-	StandardsApplied   []string `json:"standardsApplied,omitempty"`
-	NotifiedBody       string `json:"notifiedBody,omitempty"`
-	DateOfDeclaration  string `json:"dateOfDeclaration,omitempty"`
-	Signatory          string `json:"signatory,omitempty"`
-	SignatoryRole      string `json:"signatoryRole,omitempty"`
+	ProviderName      string   `json:"providerName,omitempty"`
+	ProviderAddress   string   `json:"providerAddress,omitempty"`
+	SystemIdentifier  string   `json:"systemIdentifier"`
+	UniqueIdentifier  string   `json:"uniqueIdentifier,omitempty"`
+	StandardsApplied  []string `json:"standardsApplied,omitempty"`
+	NotifiedBody      string   `json:"notifiedBody,omitempty"`
+	DateOfDeclaration string   `json:"dateOfDeclaration,omitempty"`
+	Signatory         string   `json:"signatory,omitempty"`
+	SignatoryRole     string   `json:"signatoryRole,omitempty"`
 }
 
 // PostMarketMonitoring is Annex IV §8 — incident response + monitoring.
 type PostMarketMonitoring struct {
-	MonitoringPlan        string             `json:"monitoringPlan"`
-	IncidentRecords       []IncidentSummary8 `json:"incidentRecords"`
-	TotalIncidents        int                `json:"totalIncidents"`
-	AverageResolutionHrs  float64            `json:"averageResolutionHours"`
-	ChangeFailureRate     float64            `json:"changeFailureRate"`
+	MonitoringPlan       string             `json:"monitoringPlan"`
+	IncidentRecords      []IncidentSummary8 `json:"incidentRecords"`
+	TotalIncidents       int                `json:"totalIncidents"`
+	AverageResolutionHrs float64            `json:"averageResolutionHours"`
+	ChangeFailureRate    float64            `json:"changeFailureRate"`
 }
 
 // IncidentSummary8 is an incident record reformatted for §8 documentation.
@@ -271,7 +271,7 @@ func buildDetailedDescription(data *reportData) DetailedDescription {
 			"Hash-chained audit trail: internal/cgp/audit/",
 			"Hexagonal release aggregate: internal/domain/release/",
 		},
-		SystemArchitecture: "Hexagonal architecture with bounded contexts: domain (release aggregate, CGP), application (use cases), infrastructure (git, AI providers, persistence, webhooks), CLI (Cobra), MCP (server + adapters), httpserver (chi + middleware).",
+		SystemArchitecture:     "Hexagonal architecture with bounded contexts: domain (release aggregate, CGP), application (use cases), infrastructure (git, AI providers, persistence, webhooks), CLI (Cobra), MCP (server + adapters), httpserver (chi + middleware).",
 		ComputationalResources: "Single-binary CLI; optional PostgreSQL persistence backend. AI provider calls outsourced to OpenAI / Anthropic / Gemini / Ollama (per .relicta.yaml).",
 		DataRequirements: []string{
 			"git repository commit history",

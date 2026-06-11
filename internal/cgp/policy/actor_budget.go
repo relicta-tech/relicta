@@ -202,9 +202,9 @@ type Violation struct {
 
 // Decision is the outcome of evaluating a budget against an operation.
 type Decision struct {
-	Allowed    bool        `json:"allowed"`
+	Allowed    bool         `json:"allowed"`
 	Budget     *ActorBudget `json:"budget,omitempty"`
-	Violations []Violation `json:"violations,omitempty"`
+	Violations []Violation  `json:"violations,omitempty"`
 }
 
 // ErrNoBudget indicates Evaluate was called with a nil budget — the caller

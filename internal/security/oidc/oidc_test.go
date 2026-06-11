@@ -131,7 +131,7 @@ func (m *mockOIDCProvider) handleAuthorize(w http.ResponseWriter, r *http.Reques
 	// with a code and the state parameter.
 	state := r.URL.Query().Get("state")
 	redirectURI := r.URL.Query().Get("redirect_uri")
-	http.Redirect(w, r, redirectURI+"?code=mock-auth-code&state="+state, http.StatusFound)
+	http.Redirect(w, r, redirectURI+"?code=mock-auth-code&state="+state, http.StatusFound) // #nosec G710 -- test-only mock IdP echoing the client-supplied redirect_uri
 }
 
 func (m *mockOIDCProvider) close() {

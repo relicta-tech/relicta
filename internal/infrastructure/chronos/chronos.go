@@ -18,9 +18,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/relicta-tech/relicta/internal/cgp"
 	"github.com/relicta-tech/relicta/internal/cgp/memory"
-	"github.com/rs/zerolog/log"
 )
 
 // ChronosAdapter implements memory.Store using Chronos for pattern detection.
@@ -34,8 +35,8 @@ type ChronosAdapter struct {
 
 // ChronosIngestRequest represents an ingest request to Chronos.
 type ChronosIngestRequest struct {
-	EntityID string                 `json:"entity_id"`
-	ScopeID  string                 `json:"scope_id"`
+	EntityID  string                 `json:"entity_id"`
+	ScopeID   string                 `json:"scope_id"`
 	Timestamp time.Time              `json:"timestamp"`
 	Features  []float64              `json:"features"`
 	Labels    []string               `json:"labels,omitempty"`
@@ -44,15 +45,15 @@ type ChronosIngestRequest struct {
 
 // ChronosSignal represents a pattern signal from Chronos.
 type ChronosSignal struct {
-	ID         string             `json:"id"`
-	ScopeID    string             `json:"scope_id"`
-	Series     string             `json:"series"`
-	Pattern    string             `json:"pattern"`
-	DetectedAt time.Time        `json:"detected_at"`
-	Strength   float64            `json:"strength"`
-	Confidence float64            `json:"confidence"`
+	ID         string            `json:"id"`
+	ScopeID    string            `json:"scope_id"`
+	Series     string            `json:"series"`
+	Pattern    string            `json:"pattern"`
+	DetectedAt time.Time         `json:"detected_at"`
+	Strength   float64           `json:"strength"`
+	Confidence float64           `json:"confidence"`
 	Window     ChronosWindow     `json:"window"`
-	Metrics    ChronosMetrics     `json:"metrics"`
+	Metrics    ChronosMetrics    `json:"metrics"`
 	Evidence   []ChronosEvidence `json:"evidence"`
 }
 
@@ -65,8 +66,8 @@ type ChronosWindow struct {
 // ChronosMetrics contains detection metrics.
 type ChronosMetrics struct {
 	NormalizedStdDev float64 `json:"normalised_stddev"`
-	Mean            float64 `json:"mean"`
-	N               int     `json:"n"`
+	Mean             float64 `json:"mean"`
+	N                int     `json:"n"`
 }
 
 // ChronosEvidence represents evidence for a signal.
@@ -90,15 +91,24 @@ func NewChronosAdapter(baseURL, scopeID string) *ChronosAdapter {
 
 // NewChronosAdapterWithThreads creates a Chronos adapter with bounded ingest concurrency.
 func NewChronosAdapterWithThreads(baseURL, scopeID string, threads int) *ChronosAdapter {
+	return NewChronosAdapterWithConfig(baseURL, scopeID, threads, 0)
+}
+
+// NewChronosAdapterWithConfig creates a Chronos adapter with bounded ingest
+// concurrency and a custom HTTP timeout. A zero timeout defaults to 10s.
+func NewChronosAdapterWithConfig(baseURL, scopeID string, threads int, timeout time.Duration) *ChronosAdapter {
 	if baseURL == "" {
 		baseURL = "http://localhost:7778"
 	}
 	if threads <= 0 {
 		threads = 1
 	}
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
 	return &ChronosAdapter{
 		baseURL:    baseURL,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: timeout},
 		scopeID:    scopeID,
 		sem:        make(chan struct{}, threads),
 	}
@@ -128,17 +138,17 @@ func (a *ChronosAdapter) RecordRelease(ctx context.Context, record *memory.Relea
 	features = append(features, outcomeNum)
 
 	req := ChronosIngestRequest{
-		EntityID: record.ID,
-		ScopeID:  a.scopeID,
+		EntityID:  record.ID,
+		ScopeID:   a.scopeID,
 		Timestamp: record.ReleasedAt,
 		Features:  features,
 		Labels:    []string{"release", string(record.Decision)},
 		Metadata: map[string]interface{}{
-			"repository":  record.Repository,
-			"version":     record.Version,
-			"actor_id":    record.Actor.ID,
-			"actor_kind":  string(record.Actor.Kind),
-			"outcome":     string(record.Outcome),
+			"repository": record.Repository,
+			"version":    record.Version,
+			"actor_id":   record.Actor.ID,
+			"actor_kind": string(record.Actor.Kind),
+			"outcome":    string(record.Outcome),
 		},
 	}
 
@@ -149,17 +159,17 @@ func (a *ChronosAdapter) RecordRelease(ctx context.Context, record *memory.Relea
 func (a *ChronosAdapter) RecordIncident(ctx context.Context, incident *memory.IncidentRecord) error {
 	// Incidents are recorded as a spike in a special "incident" series
 	req := ChronosIngestRequest{
-		EntityID: incident.ID,
-		ScopeID:  a.scopeID,
+		EntityID:  incident.ID,
+		ScopeID:   a.scopeID,
 		Timestamp: incident.DetectedAt,
 		Features:  []float64{1.0}, // Spike value
 		Labels:    []string{"incident", string(incident.Type)},
 		Metadata: map[string]interface{}{
-			"repository":   incident.Repository,
-			"release_id":  incident.ReleaseID,
-			"version":     incident.Version,
-			"severity":    string(incident.Severity),
-			"actor_id":    incident.ActorID,
+			"repository": incident.Repository,
+			"release_id": incident.ReleaseID,
+			"version":    incident.Version,
+			"severity":   string(incident.Severity),
+			"actor_id":   incident.ActorID,
 		},
 	}
 
@@ -224,8 +234,8 @@ func (a *ChronosAdapter) GetActorMetrics(ctx context.Context, actorID string) (*
 // This is the key method - it detects trending, spikes, stalls in risk.
 func (a *ChronosAdapter) GetRiskPatterns(ctx context.Context, repository string) (*memory.RiskPatterns, error) {
 	patterns := &memory.RiskPatterns{
-		Repository:    repository,
-		UpdatedAt:     time.Now(),
+		Repository: repository,
+		UpdatedAt:  time.Now(),
 	}
 
 	// Query Chronos for signals on the risk series

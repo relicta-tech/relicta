@@ -112,10 +112,10 @@ func DefaultRubric() Rubric {
 
 // Score is one criterion's judgment.
 type Score struct {
-	Criterion string  `json:"criterion"`
-	Value     int     `json:"value"`     // 1-5
-	Rationale string  `json:"rationale"` // judge's brief justification
-	Weight    int     `json:"weight"`
+	Criterion string `json:"criterion"`
+	Value     int    `json:"value"`     // 1-5
+	Rationale string `json:"rationale"` // judge's brief justification
+	Weight    int    `json:"weight"`
 }
 
 // Verdict is the judge's evaluation of one Golden's output.
@@ -142,10 +142,10 @@ type Run struct {
 
 // Summary is per-category aggregation suitable for CI status output.
 type Summary struct {
-	Total     int                       `json:"total"`
-	Passed    int                       `json:"passed"`
-	Failed    int                       `json:"failed"`
-	OverallMean float64                 `json:"overallMean"`
+	Total       int                      `json:"total"`
+	Passed      int                      `json:"passed"`
+	Failed      int                      `json:"failed"`
+	OverallMean float64                  `json:"overallMean"`
 	ByCategory  map[Category]CategoryAgg `json:"byCategory"`
 }
 

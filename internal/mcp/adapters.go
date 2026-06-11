@@ -1168,7 +1168,7 @@ func enrichDiffSummaryWithStructuredAI(
 		return
 	}
 
-	systemPrompt := "You are a release-governance assistant. Analyse the diff and return structured signals."
+	systemPrompt := "You are a release-governance assistant. Analyze the diff and return structured signals."
 	userPrompt := buildDiffStructuredPrompt(input, result)
 
 	bytes, err := structured.CompleteStructured(ctx, systemPrompt, userPrompt, schemas.DiffSummarySchema())
@@ -1211,7 +1211,7 @@ func buildDiffStructuredPrompt(input SummarizeDiffInput, result *servicerelease.
 	}
 	summary := result.ChangeSet.Summary()
 	return fmt.Sprintf(
-		"Analyse a release diff for audience=%q.\n"+
+		"Analyze a release diff for audience=%q.\n"+
 			"Total commits: %d. From=%s To=%s.\n"+
 			"Return a structured DiffSummary with summary text, categories observed, and boolean risk signals.",
 		input.Audience,

@@ -46,11 +46,11 @@ func (f ReportFormat) IsValid() bool {
 type ReportType string
 
 const (
-	ReportDORA              ReportType = "dora"                 // DORA metrics
-	ReportSOC2              ReportType = "soc2"                 // SOC 2 change management evidence
-	ReportSummary           ReportType = "summary"              // General governance summary
-	ReportEUAIActArticle12  ReportType = "eu-ai-act-article-12" // EU AI Act Article 12 record-keeping
-	ReportEUAIActAnnexIV    ReportType = "eu-ai-act-annex-iv"   // EU AI Act Annex IV technical documentation
+	ReportDORA             ReportType = "dora"                 // DORA metrics
+	ReportSOC2             ReportType = "soc2"                 // SOC 2 change management evidence
+	ReportSummary          ReportType = "summary"              // General governance summary
+	ReportEUAIActArticle12 ReportType = "eu-ai-act-article-12" // EU AI Act Article 12 record-keeping
+	ReportEUAIActAnnexIV   ReportType = "eu-ai-act-annex-iv"   // EU AI Act Annex IV technical documentation
 )
 
 // IsValid returns true if the report type is recognized.

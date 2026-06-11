@@ -226,13 +226,13 @@ func (s *anthropicService) CompleteStructured(ctx context.Context, systemPrompt,
 			if block.MessageContentToolUse == nil {
 				continue
 			}
-			if block.MessageContentToolUse.Name != schema.Name() {
+			if block.Name != schema.Name() {
 				continue
 			}
-			if len(block.MessageContentToolUse.Input) == 0 {
+			if len(block.Input) == 0 {
 				return "", errors.AI("CompleteStructured", "tool_use block has empty input")
 			}
-			return string(block.MessageContentToolUse.Input), nil
+			return string(block.Input), nil
 		}
 
 		return "", errors.AI("CompleteStructured", "no tool_use block matching schema in response")

@@ -147,9 +147,9 @@ type CustomPrompts struct {
 
 // DefaultOpenAIModel is the default OpenAI model. 2026 default: gpt-5.
 const (
-	DefaultOpenAIModel        = "gpt-5"
-	OpenAIModelHighStakes     = "gpt-5"      // governance-sensitive prose
-	OpenAIModelFast           = "gpt-5-mini" // fast/cheap for diff summaries
+	DefaultOpenAIModel    = "gpt-5"
+	OpenAIModelHighStakes = "gpt-5"      // governance-sensitive prose
+	OpenAIModelFast       = "gpt-5-mini" // fast/cheap for diff summaries
 )
 
 // DefaultServiceConfig returns the default service configuration.

@@ -214,7 +214,7 @@ func TestLLMJudge_PrefersStructuredOutputWhenSupported(t *testing.T) {
 		t.Errorf("expected EvalJudge schema, got %q", stub.structuredSchema)
 	}
 	// Free-form Complete must NOT have been called.
-	if stub.stubLLMService.response != "" {
+	if stub.response != "" {
 		t.Errorf("free-form Complete should not have been invoked")
 	}
 }
