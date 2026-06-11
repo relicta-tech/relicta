@@ -3,6 +3,11 @@ internal/mcp/dist/
 app/
 web/
 
+# Scanner output generated earlier in the same CI job — scanning it
+# re-reports every vulnerability description as a fresh secret finding
+govulncheck-results.json
+findings.json
+
 # Lock files (dependency hashes, not source code)
 go.sum
 
