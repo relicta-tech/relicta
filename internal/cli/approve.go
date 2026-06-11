@@ -119,8 +119,10 @@ func displayLoadedRelease(rel *release.ReleaseRun) {
 // isReleaseAlreadyApproved checks if the release is already approved and prints info.
 func isReleaseAlreadyApproved(rel *release.ReleaseRun) bool {
 	if rel.State() == release.StateApproved || rel.IsApproved() {
-		printInfo("Release already approved")
-		printInfo("Run 'relicta publish' to execute the release")
+		if !outputJSON {
+			printInfo("Release already approved")
+			printInfo("Run 'relicta publish' to execute the release")
+		}
 		return true
 	}
 	return false
@@ -210,31 +212,32 @@ func getApproverName() string {
 	return approvedBy
 }
 
-// executeApproval executes the approval use case using domain services.
-func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) error {
+// executeApproval executes the approval use case using domain services and
+// returns the authoritative approval output.
+func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) (*releaseapp.ApproveReleaseOutput, error) {
 	// Get repository info for domain services
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get repository info: %w", err)
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
 	// Initialize domain services
 	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
-		return fmt.Errorf("failed to initialize release services: %w", err)
+		return nil, fmt.Errorf("failed to initialize release services: %w", err)
 	}
 	if !app.HasReleaseServices() {
-		return fmt.Errorf("release services not available")
+		return nil, fmt.Errorf("release services not available")
 	}
 	services := app.ReleaseServices()
 	if services == nil || services.ApproveRelease == nil {
-		return fmt.Errorf("ApproveRelease use case not available")
+		return nil, fmt.Errorf("ApproveRelease use case not available")
 	}
 	return executeApprovalWithServices(ctx, app, repoInfo.Path, rel, editedNotes)
 }
 
 // executeApprovalWithServices executes approval using the ApproveReleaseUseCase.
-func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath string, rel *release.ReleaseRun, editedNotes *string) error {
+func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath string, rel *release.ReleaseRun, editedNotes *string) (*releaseapp.ApproveReleaseOutput, error) {
 	services := app.ReleaseServices()
 
 	// Handle edited notes separately - update the release before approval
@@ -242,10 +245,10 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 		// Update notes on the release and save
 		releaseRepo := app.ReleaseRepository()
 		if err := rel.UpdateNotesText(*editedNotes); err != nil {
-			return fmt.Errorf("failed to update notes: %w", err)
+			return nil, fmt.Errorf("failed to update notes: %w", err)
 		}
 		if err := releaseRepo.Save(ctx, rel); err != nil {
-			return fmt.Errorf("failed to save release with updated notes: %w", err)
+			return nil, fmt.Errorf("failed to save release with updated notes: %w", err)
 		}
 	}
 
@@ -260,11 +263,11 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 		Force:       true, // Force since we've already validated state
 	}
 
-	_, err := services.ApproveRelease.Execute(ctx, input)
+	out, err := services.ApproveRelease.Execute(ctx, input)
 	if err != nil {
-		return fmt.Errorf("failed to approve release: %w", err)
+		return nil, fmt.Errorf("failed to approve release: %w", err)
 	}
-	return nil
+	return out, nil
 }
 
 // printApproveNextSteps prints the next steps after approval.
@@ -282,8 +285,10 @@ func printApproveNextSteps() {
 func runApprove(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
-	printTitle("Release Approval")
-	fmt.Println()
+	if !outputJSON {
+		printTitle("Release Approval")
+		fmt.Println()
+	}
 
 	// Initialize container
 	app, err := newContainerApp(ctx, cfg)
@@ -298,8 +303,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Check if already approved
+	// Check if already approved (idempotent success)
 	if isReleaseAlreadyApproved(rel) {
+		if outputJSON {
+			return outputApproveJSON(rel)
+		}
 		return nil
 	}
 
@@ -308,9 +316,14 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Output JSON if requested
-	if outputJSON {
-		return outputApproveJSON(rel)
+	// JSON output is non-interactive — refuse to prompt mid-stream rather
+	// than silently skipping the approval. The previous code returned a
+	// status dump here WITHOUT approving, so `approve --ci` exited 0 as a
+	// no-op and the release never advanced (issue #136). JSON mode now
+	// runs the same approval flow (including governance evaluation) and
+	// emits the result at the end.
+	if outputJSON && !approveYes && !ciMode && cfg.Workflow.RequireApproval {
+		return fmt.Errorf("approve --json is non-interactive: pass --ci or --yes, or set workflow.require_approval=false")
 	}
 
 	// Use interactive TUI if requested
@@ -319,7 +332,9 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	}
 
 	// Display release summary
-	displayReleaseSummary(rel)
+	if !outputJSON {
+		displayReleaseSummary(rel)
+	}
 
 	// CGP Governance evaluation (if enabled)
 	var govResult *governance.EvaluateReleaseOutput
@@ -364,15 +379,23 @@ func runApprove(cmd *cobra.Command, args []string) error {
 
 			// Auto-approve if allowed and conditions met
 			if govResult.CanAutoApprove && approveYes {
-				printSuccess("Auto-approved by governance (low risk)")
+				if !outputJSON {
+					printSuccess("Auto-approved by governance (low risk)")
+				}
+				var approveOut *releaseapp.ApproveReleaseOutput
 				if !dryRun {
-					if err := executeApproval(ctx, app, rel, nil); err != nil {
+					out, err := executeApproval(ctx, app, rel, nil)
+					if err != nil {
 						return err
 					}
+					approveOut = out
 					// Record successful outcome
 					recordReleaseOutcome(ctx, app, rel, govResult, true)
-				} else {
+				} else if !outputJSON {
 					printWarning("Dry run - approval not saved")
+				}
+				if outputJSON {
+					return outputApproveResultJSON(rel, approveOut)
 				}
 				printApproveNextSteps()
 				return nil
@@ -403,12 +426,16 @@ func runApprove(cmd *cobra.Command, args []string) error {
 
 	// Dry run check
 	if dryRun {
+		if outputJSON {
+			return outputApproveJSON(rel)
+		}
 		printWarning("Dry run - approval not saved")
 		return nil
 	}
 
 	// Execute approval
-	if err := executeApproval(ctx, app, rel, editedNotes); err != nil {
+	approveOut, err := executeApproval(ctx, app, rel, editedNotes)
+	if err != nil {
 		return err
 	}
 
@@ -417,8 +444,30 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		recordReleaseOutcome(ctx, app, rel, govResult, true)
 	}
 
+	if outputJSON {
+		return outputApproveResultJSON(rel, approveOut)
+	}
 	printApproveNextSteps()
 	return nil
+}
+
+// outputApproveResultJSON emits the post-approval JSON view. Fields the
+// legacy file repository does not round-trip (version proposal, approval)
+// are taken from the authoritative use-case output — re-reading the run
+// through the legacy repo is what produced the reported "tag_name":
+// "v0.0.0" (issue #136).
+func outputApproveResultJSON(rel *release.ReleaseRun, out *releaseapp.ApproveReleaseOutput) error {
+	payload := approveJSONPayload(rel)
+	if out != nil {
+		payload["approved"] = out.Approved
+		payload["state"] = release.StateApproved.String()
+		payload["approved_by"] = out.ApprovedBy
+		if out.VersionNext != "" && out.VersionNext != "0.0.0" {
+			payload["next_version"] = out.VersionNext
+			payload["tag_name"] = cfg.Versioning.TagPrefix + out.VersionNext
+		}
+	}
+	return encodeApproveJSON(payload)
 }
 
 // createCGPActor creates a CGP actor from the current environment.
@@ -818,6 +867,11 @@ func editReleaseNotes(notes string) (string, error) {
 
 // outputApproveJSON outputs the approval information as JSON.
 func outputApproveJSON(rel *release.ReleaseRun) error {
+	return encodeApproveJSON(approveJSONPayload(rel))
+}
+
+// approveJSONPayload builds the machine-readable approve view of a release.
+func approveJSONPayload(rel *release.ReleaseRun) map[string]any {
 	summary := rel.Summary()
 
 	output := map[string]any{
@@ -849,6 +903,11 @@ func outputApproveJSON(rel *release.ReleaseRun) error {
 		}
 	}
 
+	return output
+}
+
+// encodeApproveJSON writes the approve JSON document to stdout.
+func encodeApproveJSON(output map[string]any) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)
@@ -1030,7 +1089,7 @@ func runInteractiveApproval(ctx context.Context, app cliApp, rel *release.Releas
 	}
 
 	// Execute approval (reuse the common helper)
-	if err := executeApproval(ctx, app, rel, editedNotes); err != nil {
+	if _, err := executeApproval(ctx, app, rel, editedNotes); err != nil {
 		return err
 	}
 
