@@ -7,16 +7,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // captureStdoutCov captures stdout output for test assertions.

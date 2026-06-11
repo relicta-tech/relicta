@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/compliance"
+	"github.com/relicta-tech/relicta/v4/internal/compliance"
 )
 
 // EvidenceType categorizes the artifact kind for Vanta's evidence taxonomy.

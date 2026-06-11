@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 )
 
 // PythonAnalyzer implements export analysis for Python files.

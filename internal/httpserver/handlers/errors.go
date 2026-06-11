@@ -5,7 +5,7 @@ import (
 
 	chimw "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/relicta-tech/relicta/internal/httpserver/dto"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/dto"
 )
 
 // Standard error codes following the pattern "RESOURCE_ACTION" or "CATEGORY_REASON".

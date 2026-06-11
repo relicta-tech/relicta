@@ -5,9 +5,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
-	"github.com/relicta-tech/relicta/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 // Service defines the interface for AI operations.

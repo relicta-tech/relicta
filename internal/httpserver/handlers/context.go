@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/security/token"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/security/token"
 )
 
 // Context holds dependencies for HTTP handlers.

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/domain/workspace"
+	"github.com/relicta-tech/relicta/v4/internal/domain/workspace"
 )
 
 func TestFileDetector_Detect_PnpmWorkspace(t *testing.T) {

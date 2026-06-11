@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/security/attestation"
+	"github.com/relicta-tech/relicta/v4/internal/security/attestation"
 )
 
 // TestResolveAttestationPath_FromFile returns the file directly when --file is set.

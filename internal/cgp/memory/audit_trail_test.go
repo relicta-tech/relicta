@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 func TestInMemoryStore_RecordDecision(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/security/token"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/security/token"
 )
 
 var testSecret = []byte("test-secret-key-that-is-at-least-32-bytes-long!")

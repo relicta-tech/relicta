@@ -12,17 +12,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/analysis"
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	"github.com/relicta-tech/relicta/v4/internal/analysis"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 var (

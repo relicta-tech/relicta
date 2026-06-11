@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
 // loginRequest is the request body for POST /api/v1/auth/login.

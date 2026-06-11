@@ -4,7 +4,7 @@ package git
 import (
 	"strings"
 
-	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
 )
 
 // ParseConventionalCommit parses a commit message as a conventional commit.

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
 )
 
 // MonitorConfig configures the deployment health monitor.

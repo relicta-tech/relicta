@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 
-	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
 // Options holds the CLI runtime options and dependencies.

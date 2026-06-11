@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 // Article12Report is an EU AI Act Article 12 record-keeping bundle.

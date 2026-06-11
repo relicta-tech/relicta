@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // RunID uniquely identifies a release run. It is derived from the plan_hash.

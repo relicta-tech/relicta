@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"github.com/relicta-tech/relicta/internal/plugin/proto"
+	"github.com/relicta-tech/relicta/v4/internal/plugin/proto"
 )
 
 // getInfoTimeout is the maximum duration for GetInfo RPC calls.

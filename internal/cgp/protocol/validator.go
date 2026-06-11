@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 // ValidationError represents a message validation failure.

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/security/token"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/security/token"
 )
 
 // testHandler is a simple handler for testing middleware

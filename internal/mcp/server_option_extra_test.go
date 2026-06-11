@@ -3,7 +3,7 @@ package mcp
 import (
 	"testing"
 
-	cgpprotocol "github.com/relicta-tech/relicta/internal/cgp/protocol"
+	cgpprotocol "github.com/relicta-tech/relicta/v4/internal/cgp/protocol"
 )
 
 func TestWithCGPService(t *testing.T) {

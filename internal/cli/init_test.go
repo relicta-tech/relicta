@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
 func TestParseGitHubURL(t *testing.T) {

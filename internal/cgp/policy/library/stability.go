@@ -1,7 +1,7 @@
 package library
 
 import (
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 )
 
 // registerStabilityTemplates adds stability-focused policy templates.

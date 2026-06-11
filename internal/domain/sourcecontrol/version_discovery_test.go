@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // stubGitRepo is a minimal stub satisfying GitRepository for VersionDiscovery tests.

@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/integration"
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/plugin/sandbox"
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/plugin/sandbox"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 func BenchmarkNewManager(b *testing.B) {

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 // Engine evaluates policies against proposals.

@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
 
 func TestReleaseTypeToBumpKind(t *testing.T) {

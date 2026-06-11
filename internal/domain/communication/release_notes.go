@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // NoteTone represents the tone of the release notes.

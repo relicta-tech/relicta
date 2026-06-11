@@ -22,7 +22,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 
-	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
 )
 
 // errStopIteration is a sentinel error used to signal early termination of commit iteration.

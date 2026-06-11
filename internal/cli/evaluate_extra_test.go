@@ -3,8 +3,8 @@ package cli
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 func TestPrintEvaluateNextStep(t *testing.T) {

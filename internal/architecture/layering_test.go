@@ -24,10 +24,10 @@ import (
 // Adding a new entry requires reviewer approval — that's the whole point.
 // Removing an entry tightens the architecture; preferred direction.
 var allowedDirectInfrastructureImports = map[string]string{
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai":                   "AI provider abstraction is a leaf concern; CLI selects + injects providers directly",
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/evals":             "eval harness is a dev/CI tool the eval command drives directly; not part of the release flow",
-	"github.com/relicta-tech/relicta/internal/infrastructure/git":                  "Git access is a leaf concern; CLI uses go-git directly via this adapter",
-	"github.com/relicta-tech/relicta/internal/infrastructure/persistence/postgres": "DB migration CLI commands operate on the adapter directly",
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai":                   "AI provider abstraction is a leaf concern; CLI selects + injects providers directly",
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/evals":             "eval harness is a dev/CI tool the eval command drives directly; not part of the release flow",
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git":                  "Git access is a leaf concern; CLI uses go-git directly via this adapter",
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres": "DB migration CLI commands operate on the adapter directly",
 }
 
 // TestCLIDoesNotImportInfrastructureDirectly is FF#1 — the hexagonal
@@ -48,7 +48,7 @@ func TestCLIDoesNotImportInfrastructureDirectly(t *testing.T) {
 		return
 	}
 
-	const prefix = "github.com/relicta-tech/relicta/internal/infrastructure/"
+	const prefix = "github.com/relicta-tech/relicta/v4/internal/infrastructure/"
 	seen := make(map[string]bool)
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)

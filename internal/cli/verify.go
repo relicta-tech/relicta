@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/security/attestation"
+	"github.com/relicta-tech/relicta/v4/internal/security/attestation"
 )
 
 var (

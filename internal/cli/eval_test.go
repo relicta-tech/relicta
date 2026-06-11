@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/evals"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/evals"
 )
 
 func TestSelectJudge(t *testing.T) {

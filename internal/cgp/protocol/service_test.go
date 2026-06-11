@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
-	cgpsdk "github.com/relicta-tech/relicta/pkg/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
 
 func validProposal() *cgpsdk.ChangeProposal {

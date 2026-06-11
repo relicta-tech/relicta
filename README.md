@@ -133,7 +133,7 @@ sudo mv relicta /usr/local/bin/
 ### Using Go
 
 ```bash
-go install github.com/relicta-tech/relicta/cmd/relicta@latest
+go install github.com/relicta-tech/relicta/v4/cmd/relicta@latest
 ```
 
 ### From Source

@@ -14,13 +14,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/ui"
-	pkgcgp "github.com/relicta-tech/relicta/pkg/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/ui"
+	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
 
 // emitApprovalCardJSON writes the canonical ApprovalCard JSON to stdout.

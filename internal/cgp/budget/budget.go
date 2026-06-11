@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
 // BudgetResult contains the outcome of a risk budget check.

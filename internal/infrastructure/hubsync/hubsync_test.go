@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/webhook/retry"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/webhook/retry"
 )
 
 func TestNewClient_RejectsMissingURL(t *testing.T) {

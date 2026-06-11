@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	rperrors "github.com/relicta-tech/relicta/internal/errors"
-	"github.com/relicta-tech/relicta/internal/security"
+	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
+	"github.com/relicta-tech/relicta/v4/internal/security"
 )
 
 // Pre-compiled regex patterns for environment variable expansion.

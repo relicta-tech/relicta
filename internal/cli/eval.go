@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/evals"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/evals"
 )
 
 var (

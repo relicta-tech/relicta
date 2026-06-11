@@ -7,7 +7,7 @@ import (
 
 	"go.klarlabs.de/statekit"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 func TestNewReleaseRunMachine(t *testing.T) {

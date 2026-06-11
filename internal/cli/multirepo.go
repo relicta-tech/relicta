@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	appmultirepo "github.com/relicta-tech/relicta/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/internal/domain/multirepo"
+	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
 )
 
 var (

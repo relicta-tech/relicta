@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/relicta-tech/relicta/pkg/cgp"
+	"github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
 
 // LoadActorBudgets parses an ActorBudgetSet from a YAML file.

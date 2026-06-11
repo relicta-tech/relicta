@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // TagPattern defines how release tags are formatted for a package.

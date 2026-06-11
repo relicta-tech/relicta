@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 )
 
 // PolicyTemplate represents a pre-built policy template.

@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/httpserver/dto"
-	"github.com/relicta-tech/relicta/internal/httpserver/middleware"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/dto"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/middleware"
 )
 
 // ListPendingApprovals returns releases waiting for approval.

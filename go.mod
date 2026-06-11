@@ -1,4 +1,4 @@
-module github.com/relicta-tech/relicta
+module github.com/relicta-tech/relicta/v4
 
 go 1.25.0
 

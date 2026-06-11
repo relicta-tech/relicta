@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 // cleanTestReleaseRepo is a mock release repository for determineRunsToDelete tests.

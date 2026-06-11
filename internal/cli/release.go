@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/communication"
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 var (

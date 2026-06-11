@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/application/versioning"
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 func TestBuildCalculateVersionInputExtended(t *testing.T) {

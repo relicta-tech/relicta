@@ -15,8 +15,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 )
 
 // matrixScenarioName resolves a scenario's display name. Falls back to a

@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/relicta-tech/relicta/internal/analytics"
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
 )
 
 // governanceMemoryStore is the release memory store used by governance analytics handlers.

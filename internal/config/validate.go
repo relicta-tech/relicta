@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	rperrors "github.com/relicta-tech/relicta/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
 )
 
 // openAIKeyLength is the standard length of OpenAI API keys (e.g., "sk-..." format).

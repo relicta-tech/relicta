@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
 func TestArticle12_GenerateBuilds(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 func TestValidator_ValidateProposal(t *testing.T) {

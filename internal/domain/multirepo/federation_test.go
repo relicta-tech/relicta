@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 // mockWebhookSender records sent messages for testing.

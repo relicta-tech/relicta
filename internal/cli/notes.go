@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 )
 
 var (

@@ -19,12 +19,12 @@ import (
 	"golang.org/x/sync/semaphore"
 	"gopkg.in/yaml.v3"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/errors"
-	"github.com/relicta-tech/relicta/internal/plugin/audit"
-	pmgr "github.com/relicta-tech/relicta/internal/plugin/manager"
-	"github.com/relicta-tech/relicta/internal/plugin/sandbox"
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/errors"
+	"github.com/relicta-tech/relicta/v4/internal/plugin/audit"
+	pmgr "github.com/relicta-tech/relicta/v4/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v4/internal/plugin/sandbox"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 // MaxConcurrentPluginExecutions limits the number of plugins that can execute simultaneously.

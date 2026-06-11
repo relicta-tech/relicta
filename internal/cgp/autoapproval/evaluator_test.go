@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
 )
 
 func TestDefaultConfig(t *testing.T) {

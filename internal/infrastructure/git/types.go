@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 )
 
 // CommitType is an alias to the domain CommitType for backward compatibility.

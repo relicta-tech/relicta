@@ -9,9 +9,9 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/relicta-tech/relicta/internal/httpserver/handlers"
-	"github.com/relicta-tech/relicta/internal/httpserver/middleware"
-	"github.com/relicta-tech/relicta/internal/httpserver/openapi"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/middleware"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/openapi"
 )
 
 // setupRouter configures the Chi router with all routes and middleware.

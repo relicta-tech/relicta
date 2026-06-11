@@ -3,7 +3,7 @@ package attribution
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 func TestRegistry_Register(t *testing.T) {

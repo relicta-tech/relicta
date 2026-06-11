@@ -16,7 +16,7 @@ Choose your preferred method:
 brew install relicta-tech/tap/relicta
 
 # Go install
-go install github.com/relicta-tech/relicta/cmd/relicta@latest
+go install github.com/relicta-tech/relicta/v4/cmd/relicta@latest
 
 # Direct download (see README for all platforms)
 curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_$(uname -s)_$(uname -m).tar.gz | tar xz

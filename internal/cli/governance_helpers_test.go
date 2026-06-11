@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 type govTestApp struct {

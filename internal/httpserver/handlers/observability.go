@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/relicta-tech/relicta/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/internal/observability/providers"
-	"github.com/relicta-tech/relicta/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
 )
 
 // ObservabilityService defines the interface required by observability handlers.

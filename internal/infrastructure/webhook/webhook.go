@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 // getTimeout returns the configured timeout or default.

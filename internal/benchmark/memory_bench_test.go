@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"testing"
 
-	analysisfactory "github.com/relicta-tech/relicta/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/internal/service/release"
+	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 // BenchmarkMemory_PlanCommand benchmarks memory usage for the plan workflow.

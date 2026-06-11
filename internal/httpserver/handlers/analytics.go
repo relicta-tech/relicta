@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/analytics"
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 )
 
 // analyticsAggregator is the global analytics aggregator used by analytics handlers.

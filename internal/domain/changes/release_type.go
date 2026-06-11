@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // ReleaseType represents the type of release based on changes.

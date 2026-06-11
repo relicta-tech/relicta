@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 func TestApproveCommand_FlagsExist(t *testing.T) {

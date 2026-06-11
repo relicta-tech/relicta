@@ -5,8 +5,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
 )
 
 // WebhookCorrelatorAdapter adapts the IncidentCorrelator to the webhook

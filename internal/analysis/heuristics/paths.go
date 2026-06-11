@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 )
 
 // PathDetector detects commit types from file paths.

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
 )
 
 // RepoReleaseState tracks the release state of an individual repository.

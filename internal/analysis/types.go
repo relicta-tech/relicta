@@ -5,8 +5,8 @@ package analysis
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	"github.com/relicta-tech/relicta/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // ClassifyMethod indicates how a commit was classified.

@@ -4,8 +4,8 @@ package adapters
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 )
 
 // EventPublishingRepository wraps a repository and publishes domain events after save.

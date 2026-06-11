@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 )
 
 // Message is a wrapper for any CGP message with common envelope fields.

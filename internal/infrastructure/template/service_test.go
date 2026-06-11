@@ -10,7 +10,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 func TestDefaultServiceConfig(t *testing.T) {

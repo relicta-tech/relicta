@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/fileutil"
+	"github.com/relicta-tech/relicta/v4/internal/fileutil"
 )
 
 // MaxEventFileSize is the maximum allowed size for analytics event files (1MB).

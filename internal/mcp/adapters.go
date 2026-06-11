@@ -7,17 +7,17 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/relicta-tech/relicta/internal/application/blast"
-	"github.com/relicta-tech/relicta/internal/application/governance"
-	"github.com/relicta-tech/relicta/internal/cgp"
-	"github.com/relicta-tech/relicta/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/internal/infrastructure/ai/schemas"
-	servicerelease "github.com/relicta-tech/relicta/internal/service/release"
+	"github.com/relicta-tech/relicta/v4/internal/application/blast"
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
+	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
 // Adapter bridges MCP server to application use cases.

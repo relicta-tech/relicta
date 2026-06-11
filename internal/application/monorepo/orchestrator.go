@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/relicta-tech/relicta/internal/domain/monorepo"
-	"github.com/relicta-tech/relicta/internal/domain/version"
-	"github.com/relicta-tech/relicta/internal/domain/workspace"
+	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/domain/workspace"
 )
 
 // OrchestratorInput contains input parameters for orchestrated multi-package releases.

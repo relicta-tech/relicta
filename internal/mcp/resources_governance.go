@@ -9,9 +9,9 @@ import (
 
 	mcplib "go.klarlabs.de/mcp"
 
-	"github.com/relicta-tech/relicta/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	pkgcgp "github.com/relicta-tech/relicta/pkg/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
 
 // Governance-as-context MCP resources.

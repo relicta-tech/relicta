@@ -17,8 +17,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	pmgr "github.com/relicta-tech/relicta/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	pmgr "github.com/relicta-tech/relicta/v4/internal/plugin/manager"
 )
 
 func TestManager_LoadPlugin_Success_Integration(t *testing.T) {
@@ -194,7 +194,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/pkg/plugin"
+	"github.com/relicta-tech/relicta/v4/pkg/plugin"
 )
 
 type testPlugin struct{}

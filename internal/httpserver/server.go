@@ -13,12 +13,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/relicta-tech/relicta/internal/config"
-	"github.com/relicta-tech/relicta/internal/domain/release"
-	"github.com/relicta-tech/relicta/internal/httpserver/handlers"
-	httpws "github.com/relicta-tech/relicta/internal/httpserver/websocket"
-	"github.com/relicta-tech/relicta/internal/security/oidc"
-	"github.com/relicta-tech/relicta/internal/security/token"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
+	httpws "github.com/relicta-tech/relicta/v4/internal/httpserver/websocket"
+	"github.com/relicta-tech/relicta/v4/internal/security/oidc"
+	"github.com/relicta-tech/relicta/v4/internal/security/token"
 )
 
 // Server is the HTTP server for the dashboard.

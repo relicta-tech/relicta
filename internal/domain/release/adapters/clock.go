@@ -4,7 +4,7 @@ package adapters
 import (
 	"time"
 
-	"github.com/relicta-tech/relicta/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 )
 
 // RealClock implements ports.Clock using the system time.
