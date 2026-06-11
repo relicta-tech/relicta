@@ -13,7 +13,7 @@
     <header class="flex items-start justify-between mb-4">
       <div>
         <h2 class="text-xl font-semibold">
-          <span class="font-mono text-sm text-gray-500">{{ card.cardId }}</span>
+          <span class="font-mono text-sm text-gray-600">{{ card.cardId }}</span>
         </h2>
         <p v-if="card.version || card.repository" class="text-sm text-gray-600 mt-1">
           <span v-if="card.repository">{{ card.repository }}</span>
@@ -36,6 +36,7 @@
           :class="['h-full transition-all duration-300', tierStyle.bar]"
           :style="{ width: `${Math.round(card.risk.score * 100)}%` }"
           role="progressbar"
+          :aria-label="`Risk score ${Math.round(card.risk.score * 100)} out of 100`"
           :aria-valuenow="Math.round(card.risk.score * 100)"
           aria-valuemin="0"
           aria-valuemax="100"
@@ -53,7 +54,7 @@
           :key="factor.category"
           class="flex items-start gap-2 text-sm"
         >
-          <span class="font-mono text-xs uppercase text-gray-500 min-w-[80px]">
+          <span class="font-mono text-xs uppercase text-gray-600 min-w-[80px]">
             {{ factor.category }}
           </span>
           <span class="flex-1">{{ factor.description }}</span>
@@ -79,7 +80,7 @@
           :class="actorBadgeClass"
         >{{ card.actor.kind }}</span>
         <span class="font-mono">{{ card.actor.id }}</span>
-        <span v-if="card.actor.name" class="text-gray-500">— {{ card.actor.name }}</span>
+        <span v-if="card.actor.name" class="text-gray-600">— {{ card.actor.name }}</span>
       </div>
     </section>
 
@@ -99,7 +100,7 @@
     </section>
 
     <footer class="flex items-center justify-between pt-4 border-t border-gray-200">
-      <div class="text-xs text-gray-500">
+      <div class="text-xs text-gray-600">
         <span class="font-semibold">Decision:</span>
         <span class="ml-1 font-mono">{{ card.decision }}</span>
       </div>
@@ -167,7 +168,8 @@ function actionButtonClasses(action: ApprovalAction): string[] {
   const base = ['px-4 py-2 rounded text-sm font-medium transition-colors']
   switch (action.type) {
     case 'primary':
-      return [...base, 'bg-emerald-600 text-white hover:bg-emerald-700']
+      // emerald-700: white text on emerald-600 is 3.76:1, below WCAG AA
+      return [...base, 'bg-emerald-700 text-white hover:bg-emerald-800']
     case 'danger':
       return [...base, 'bg-red-600 text-white hover:bg-red-700']
     default:

@@ -65,6 +65,17 @@ test.describe('ApprovalWorkflow a11y', () => {
       }),
     )
 
+    // loadData() fetches decisions in the same Promise.all as approvals —
+    // without this stub the dead backend proxy rejects the whole load and
+    // no cards render.
+    await context.route('**/api/v1/governance/decisions**', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      }),
+    )
+
     await page.goto('/approvals')
     await page.waitForSelector('[data-testid="approval-card"]')
 
