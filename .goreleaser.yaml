@@ -101,16 +101,18 @@ upx:
       - linux
       - darwin
 
-# Sign checksums
+# Sign checksums with the cosign v3 bundle format (single .sigstore.json
+# bundle replaces the .pem/.sig pair; v3 sign-blob errors without --bundle).
+# Verify with: cosign verify-blob --bundle checksums.txt.sigstore.json \
+#   --certificate-identity-regexp 'github.com/relicta-tech/relicta' \
+#   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#   checksums.txt
 signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - "--output-certificate=${certificate}"
-      - "--output-signature=${signature}"
+      - "--bundle=${signature}"
       - "${artifact}"
       - --yes
     artifacts: checksum
