@@ -1,0 +1,3491 @@
+{
+  "schema_version": "2",
+  "generated_at": "2026-06-11T22:04:37.064261Z",
+  "plugins": [
+    {
+      "name": "acr",
+      "description": "Push container images to Azure Container Registry",
+      "homepage": "https://github.com/relicta-tech/plugin-acr",
+      "category": "container",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-acr",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.6",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "auth_method": {
+              "Type": "string",
+              "Required": false,
+              "Default": "azure_cli",
+              "Description": "Authentication method",
+              "Env": "",
+              "Options": [
+                "azure_cli",
+                "service_principal",
+                "admin",
+                "managed_identity"
+              ],
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "client_id": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Azure client ID (for service_principal)",
+              "Env": "AZURE_CLIENT_ID",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "client_secret": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Azure client secret (for service_principal)",
+              "Env": "AZURE_CLIENT_SECRET",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Image name to push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "ACR registry name (without .azurecr.io suffix)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repository": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Repository/namespace within ACR",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "source_image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Source image to tag and push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tags": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Tags to apply (supports templates)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tenant_id": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Azure tenant ID (for service_principal)",
+              "Env": "AZURE_TENANT_ID",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-acr/releases/download/v1.0.6/acr_1.0.6_darwin_aarch64.tar.gz",
+              "digest": "sha256:b2e6fb7b5b423fde40d9578b61a5a746ca16d2954b45f7ec5e22459bf35680ad"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-acr/releases/download/v1.0.6/acr_1.0.6_darwin_x86_64.tar.gz",
+              "digest": "sha256:0d1906254b96ccbebb1a986639a47603a18b611452a01b75312fdf64aa7f8716"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-acr/releases/download/v1.0.6/acr_1.0.6_linux_aarch64.tar.gz",
+              "digest": "sha256:afb1b08871887acd27dff67947354dc730db5ae305a23dc01cc6afbc0e453355"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-acr/releases/download/v1.0.6/acr_1.0.6_linux_x86_64.tar.gz",
+              "digest": "sha256:f47616c3f41eb8bf33808c8a3b58cfc64ea53225d77868fbf7e4288bc2493255"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-acr/releases/download/v1.0.6/acr_1.0.6_windows_x86_64.zip",
+              "digest": "sha256:c132731a488c3d76eebe04f7bf44f3d83b3c14f1953a0138e31ee5b5ab8d8547"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "chocolatey",
+      "description": "Publish packages to Chocolatey",
+      "homepage": "https://github.com/relicta-tech/plugin-chocolatey",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-chocolatey",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Chocolatey API key",
+              "Env": "CHOCOLATEY_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "nuspec_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Path to .nuspec file",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "package_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Chocolatey package ID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "source": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://push.chocolatey.org/",
+              "Description": "Chocolatey source URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-chocolatey/releases/download/v2.0.0/chocolatey_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:350c680b4250b0e34cddc2b2f15eb18b743648eac00ace49b135e8fe37627b10"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-chocolatey/releases/download/v2.0.0/chocolatey_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:b50242505bb849956c963c260ca02b42ce884346bc647517fd8dcaa7adbcea80"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-chocolatey/releases/download/v2.0.0/chocolatey_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:a2f1fa40c55825226ad84f5a7d1d675f525039509aea16df8d9b865d8ec20a20"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-chocolatey/releases/download/v2.0.0/chocolatey_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:d5faeecc572b078a4e68d2f1a80e96c940c16ae5d35d0e2d914741e9c3509835"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-chocolatey/releases/download/v2.0.0/chocolatey_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:b8a944663ded2888f4b60e25b21557a0be310e340ba50d4ac598a239abc6b830"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "crates",
+      "description": "Publish packages to crates.io",
+      "homepage": "https://github.com/relicta-tech/plugin-crates",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-crates",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "allow_dirty": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Allow publishing from dirty working directory",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "dry_run": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Perform a dry run without publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "manifest_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": "Cargo.toml",
+              "Description": "Path to Cargo.toml",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "crates.io API token",
+              "Env": "CARGO_REGISTRY_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-crates/releases/download/v2.0.0/crates_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:03a590bcdd1534ed612380cd69582f3023c45315db98ec21e0007919214808e4"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-crates/releases/download/v2.0.0/crates_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:624dea3b3dcd5b642eee7710096b14666a7a21f14e6dc6e31ffee24bd1d31b01"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-crates/releases/download/v2.0.0/crates_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:b16aee9d6eb655ad9c2970d3a10310d908126da415dd8dbad28e268e32d8179c"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-crates/releases/download/v2.0.0/crates_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:a3ca41e4204e9046c5b9ada299e3abfa2b6cd39cd73b680da5b5a8b2a87a5e4f"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-crates/releases/download/v2.0.0/crates_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:e3819f73f17ff86fc5c82be4d298bd234d7590025c4581abf6ea3fa09c24bac9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "discord",
+      "description": "Send release notifications to Discord",
+      "homepage": "https://github.com/relicta-tech/plugin-discord",
+      "category": "notification",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-discord",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "avatar_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Bot avatar URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": "Relicta",
+              "Description": "Bot username",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "webhook": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Discord webhook URL",
+              "Env": "DISCORD_WEBHOOK_URL",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-discord/releases/download/v2.0.0/discord_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:b188383cb56c28b8ac1c72c27f179f1e4ad0eb5891abcdf397366fe98eeff015"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-discord/releases/download/v2.0.0/discord_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:d1c85ad781225996f6de6f33d71a8a22e61eb07dd08dfb8cb3b07f18fe47bddb"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-discord/releases/download/v2.0.0/discord_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:459005dd8fd433160486fc33e7aa542041cc9330ba627b0c2b94fbf87f4a060d"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-discord/releases/download/v2.0.0/discord_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:7faf52ec5365fe595092639ede0623fc6024eca2c3e36e6ca16592bf080f1599"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-discord/releases/download/v2.0.0/discord_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:1995b063a5c16546118eca4905ab2663cda43c0a2a67663d648dde1f7099217f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "docker",
+      "description": "Build and push Docker images",
+      "homepage": "https://github.com/relicta-tech/plugin-docker",
+      "category": "container",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-docker",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "build_args": {
+              "Type": "object",
+              "Required": false,
+              "Default": null,
+              "Description": "Build arguments as key-value pairs",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "context": {
+              "Type": "string",
+              "Required": false,
+              "Default": ".",
+              "Description": "Build context path",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "dockerfile": {
+              "Type": "string",
+              "Required": false,
+              "Default": "Dockerfile",
+              "Description": "Path to Dockerfile",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Image name (e.g., username/image)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "password": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Registry password or token",
+              "Env": "DOCKER_PASSWORD",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "platforms": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Target platforms (e.g., linux/amd64, linux/arm64)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry": {
+              "Type": "string",
+              "Required": false,
+              "Default": "docker.io",
+              "Description": "Container registry URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tags": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Additional tags (version tag is automatic)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Registry username",
+              "Env": "DOCKER_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-docker/releases/download/v2.0.0/docker_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:4dda46ba55686984051f66d893adbb7b27ef6345f4cbafae14c05e0b322355c5"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-docker/releases/download/v2.0.0/docker_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:99ec8ec2c3a02bffe0f9473130950aae60de05d6cfbc397ec4778aca5e59f8ad"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-docker/releases/download/v2.0.0/docker_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:f66ca4edaedd515369671f3954b05a9feaa14903625e69ef5c55e962d856041f"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-docker/releases/download/v2.0.0/docker_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:d34053f4ad01f2abe119fe3b37594322013d1a7caac9877dd69fb110beb7d49f"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-docker/releases/download/v2.0.0/docker_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:5ff61258a51fec0b967c2702eef3b0486e0521393b3792228d914f339a527b1c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ecr",
+      "description": "Push container images to Amazon ECR",
+      "homepage": "https://github.com/relicta-tech/plugin-ecr",
+      "category": "container",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-ecr",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Image name to push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "region": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "AWS region",
+              "Env": "AWS_REGION",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "ECR registry URL (account.dkr.ecr.region.amazonaws.com)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "source_image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Source image to tag and push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tags": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Tags to apply (supports templates)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-ecr/releases/download/v1.0.0/ecr_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:82b23e1c83767b9474aa2a2962769c69e34c3b44f7afadeca1f92973c2a785ef"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-ecr/releases/download/v1.0.0/ecr_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:76fa620b2430b479ec902fd498a2318bc3c061adc4b3c6170d6b2c07d42b288a"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-ecr/releases/download/v1.0.0/ecr_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:1debb42dda99374b4183e8169c8597c0e3303685e486f577d608369c1ea0aaf1"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-ecr/releases/download/v1.0.0/ecr_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:aa5f0ac7b0818d76cf054933edd02fdbe366f455b433a317a6a6603d6ca53c0e"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-ecr/releases/download/v1.0.0/ecr_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:5d30ab322abbf5df4701064924d243f6aa4cffc69fda2190f8d0ff44a6893a9e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gcr",
+      "description": "Push container images to Google Artifact Registry",
+      "homepage": "https://github.com/relicta-tech/plugin-gcr",
+      "category": "container",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-gcr",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Image name to push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "location": {
+              "Type": "string",
+              "Required": false,
+              "Default": "us",
+              "Description": "Artifact Registry location",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "project": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "GCP project ID",
+              "Env": "GCP_PROJECT",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "GAR/GCR registry URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "source_image": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Source image to tag and push",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tags": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Tags to apply (supports templates)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gcr/releases/download/v1.0.0/gcr_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:524d93883199b9875891e5443510a590fcf234ad5491c31c740d153ada8272c7"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gcr/releases/download/v1.0.0/gcr_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:3a59595040e2f97fe0022d4bc2aa5ba62ddc44d71555347eaf5839d128c8b613"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gcr/releases/download/v1.0.0/gcr_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:2db43a7b961eb8f7d639296ea87f87c738d1eb91dbe682fb4e7145498f5b48a7"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gcr/releases/download/v1.0.0/gcr_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:0675dd535dfc57663bbba7aba77c3c43e4c53f1b8381c4610cafd1ecb4078541"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gcr/releases/download/v1.0.0/gcr_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:e1776e52e5332314f37a5a4e4a83edf96f25981fbb548d656586a04968ccc508"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "github",
+      "description": "Create GitHub releases and upload assets",
+      "homepage": "https://github.com/relicta-tech/plugin-github",
+      "category": "vcs",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-github",
+      "audit_status": "verified",
+      "versions": [
+        {
+          "version": "2.0.3",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish",
+            "on_success",
+            "on_error"
+          ],
+          "config_schema": {
+            "assets": {
+              "Type": "array",
+              "Required": false,
+              "Default": null,
+              "Description": "Glob patterns for assets to upload (e.g., dist/*.tar.gz)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "discussion_category": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Discussion category name to create for the release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "draft": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Create release as a draft",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "generate_release_notes": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Use GitHub's auto-generated release notes",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "owner": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Repository owner (auto-detected from git remote)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "prerelease": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Mark release as a prerelease",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repo": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Repository name (auto-detected from git remote)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "GitHub personal access token (uses GITHUB_TOKEN env if not provided)",
+              "Env": "GITHUB_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/github_2.0.3_darwin_aarch64.tar.gz",
+              "digest": "sha256:2003ba8575830aff35ed8abb8649f35e5b2cb9171a9b202171ca5956b534de6e"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/github_2.0.3_darwin_x86_64.tar.gz",
+              "digest": "sha256:c11641e59753d271d12846d55ba0e711b1e8a8f409b3b9e54d583e86203693f4"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/github_2.0.3_linux_aarch64.tar.gz",
+              "digest": "sha256:8c64c6485df1deb36a7ba11ec378f10d128cf31fe1da5c305ddc9f7287986617"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/github_2.0.3_linux_x86_64.tar.gz",
+              "digest": "sha256:15c6006d999c0c868cb523b7b572bac33e4286ae40cf4eb6e7bdcc8b5ec2d736"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-github/releases/download/v2.0.3/github_2.0.3_windows_x86_64.zip",
+              "digest": "sha256:cfdbb252846e1357586b4d755bed2f815106ac2c5e05c1536ec40f5702e21a8c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gitlab",
+      "description": "Create GitLab releases",
+      "homepage": "https://github.com/relicta-tech/plugin-gitlab",
+      "category": "vcs",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-gitlab",
+      "audit_status": "verified",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "project_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "GitLab project ID or path (e.g., 'group/project')",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "GitLab personal access token",
+              "Env": "GITLAB_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://gitlab.com",
+              "Description": "GitLab instance URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gitlab/releases/download/v2.0.0/gitlab_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:6ca8230c57cad65ee46385a514e2b22fc653c6a063ceaa47883e9eb60f72cd42"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gitlab/releases/download/v2.0.0/gitlab_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:1cf98dae627b2d8621fb42da8feaebcfb5bd8541bfb90d1c142bd18874d04d85"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gitlab/releases/download/v2.0.0/gitlab_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:327576fc51881d0ef6f731fc40276f711d2c1be3d3901b5663391b69e77c8032"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gitlab/releases/download/v2.0.0/gitlab_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:aad5c11c65d16bd714a9abb5a61a4d9a8c30577c7bf9ea3364602589c3b98b34"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gitlab/releases/download/v2.0.0/gitlab_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:da294650e9b56eb2646fc10c2a9eb463a0f4fc439f4319a54adbe6a6fa91dd2e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gomod",
+      "description": "Publish Go modules",
+      "homepage": "https://github.com/relicta-tech/plugin-gomod",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-gomod",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "module_path": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Go module path (e.g., github.com/user/repo)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "private": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Module is private (skip proxy notification)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "proxy_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://proxy.golang.org",
+              "Description": "Go module proxy URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "sumdb_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://sum.golang.org",
+              "Description": "Go checksum database URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gomod/releases/download/v2.0.0/gomod_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:a679eb4a37a83d97b4cde6301633de9404267db34824f3d4123165acb8ebf014"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gomod/releases/download/v2.0.0/gomod_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:112a89b83cd18960ec27ca486f17b0a312cfcf1f1a865b9958a36f7be7c8432c"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-gomod/releases/download/v2.0.0/gomod_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:45011818e713001e027f706562ff90305d17e129b70d7f66a965fe1125f442ef"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gomod/releases/download/v2.0.0/gomod_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:b4183e56422c6429fd510597fca3eece4216389b30e99183e9c23de401353333"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-gomod/releases/download/v2.0.0/gomod_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:072c961056f2f3727b8dfd21134fd6d93c94fbce57227d9d79ac0102089e01f3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "helm",
+      "description": "Package and publish Helm charts",
+      "homepage": "https://github.com/relicta-tech/plugin-helm",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-helm",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "chart_path": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Path to chart directory",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "lint": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Lint chart before publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "password": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Repository password",
+              "Env": "HELM_REPO_PASSWORD",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repository_type": {
+              "Type": "string",
+              "Required": false,
+              "Default": "oci",
+              "Description": "Repository type",
+              "Env": "",
+              "Options": [
+                "oci",
+                "http",
+                "chartmuseum"
+              ],
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repository_url": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Repository URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "update_chart_version": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Update version in Chart.yaml",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Repository username",
+              "Env": "HELM_REPO_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-helm/releases/download/v1.0.0/helm_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:3176c039ce2ea6e7637a1b25a00bde1f10524a1a3f68e670c90c7eb09f53a564"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-helm/releases/download/v1.0.0/helm_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:eca1f0f9df9bb3ada5d0648cd064dda7141734ed53ed79f99b82082bb2ad550d"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-helm/releases/download/v1.0.0/helm_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:397863b62968c220b175ab42765a44e3c9166ee9b43163f667fbc5d086a9dc3e"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-helm/releases/download/v1.0.0/helm_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:6344a0d393cc20b87e7e43363090b3c01d174c5aad9b8db662b5f30ee30467f9"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-helm/releases/download/v1.0.0/helm_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:387126db17f14d2ece22df6f646cde4262db15bc4ed749773b8dca8c3463c0ab"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "hex",
+      "description": "Publish packages to Hex.pm",
+      "homepage": "https://github.com/relicta-tech/plugin-hex",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-hex",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Hex.pm API key",
+              "Env": "HEX_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "mix_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": "mix.exs",
+              "Description": "Path to mix.exs file",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "organization": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Hex.pm organization (for private packages)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "replace": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Replace existing package version",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-hex/releases/download/v2.0.0/hex_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:38433d04462ab2e611bf38b8d9b49966d2e0a19efce95c44580af4645bfe6818"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-hex/releases/download/v2.0.0/hex_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:906137beebb60e763140068d9f4120edc10a3eee5cccf60eeeefc5c04dbd7d7e"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-hex/releases/download/v2.0.0/hex_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:410879c55f594872b938918115bc46ccaf6cc64e4af55849c4b35906712f95ae"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-hex/releases/download/v2.0.0/hex_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:ebeb05d442dee322dff2de0596fffa424e6f82b4f35789c02aacc43d57762ed7"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-hex/releases/download/v2.0.0/hex_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:b148462fb511b4939b8fae86a2d69667164f6b91ad3263f3cfae8f0fd84fa732"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "homebrew",
+      "description": "Update Homebrew formula with new release",
+      "homepage": "https://github.com/relicta-tech/plugin-homebrew",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-homebrew",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "formula": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Formula name",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "sha256": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "SHA256 checksum of the release archive",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "tap": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Homebrew tap repository (e.g., user/homebrew-tap)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "GitHub token for tap repository access",
+              "Env": "HOMEBREW_GITHUB_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "url_template": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "URL template for download (uses {{.Version}} placeholder)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-homebrew/releases/download/v2.0.0/homebrew_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:16367a1a2dcfbbda35023eaa48d80ab99a61156b6e67659c74f0fec7d78c8c31"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-homebrew/releases/download/v2.0.0/homebrew_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:9b7d9c8e185bd67203503fd11254904a3de5349dd9cba056f386a0187017f233"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-homebrew/releases/download/v2.0.0/homebrew_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:8896b5af4e6769fc088c9985725104282a7f652908c0574851ee8eaeb47dfadb"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-homebrew/releases/download/v2.0.0/homebrew_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:ea8449084a48a9e2a31e05978a167609c28a5a296272a62a59129810daefb9a3"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-homebrew/releases/download/v2.0.0/homebrew_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:4f23852e5eb3d3eefcd7f9ba5d00dd1f3623ae7745d5a9c7b32caaab8eceb1b7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "jira",
+      "description": "Create and link Jira release versions",
+      "homepage": "https://github.com/relicta-tech/plugin-jira",
+      "category": "project_management",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-jira",
+      "audit_status": "verified",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "create_version": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Create a Jira version for the release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "project": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Jira project key (e.g., PROJ)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "release_version": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Mark the Jira version as released",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Jira API token",
+              "Env": "JIRA_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "url": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Jira instance URL (e.g., https://company.atlassian.net)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Jira username or email",
+              "Env": "JIRA_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-jira/releases/download/v2.0.0/jira_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:9c859c85257e51b3a6494d2ff15974d66b0f5eec8392c7ef3bbeb6132e04c6ba"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-jira/releases/download/v2.0.0/jira_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:5470577893097c7a8908be5562966b75f125cd3b1855db212b66b78a0836f470"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-jira/releases/download/v2.0.0/jira_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:e9e812bd23d97f855a25b37cf2bb7f6028d642fad2ec432498c79eb7b7b47933"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-jira/releases/download/v2.0.0/jira_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:3ef49d6ddbddbdc9f3b9fc138c440899357b34810c7eecbe143cc01d5a099b56"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-jira/releases/download/v2.0.0/jira_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:7f32d2505b76d371fea60836583b2255db292e8326c85f72b17dca3eddfe26f4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "launchnotes",
+      "description": "Create releases in LaunchNotes",
+      "homepage": "https://github.com/relicta-tech/plugin-launchnotes",
+      "category": "project_management",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-launchnotes",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "LaunchNotes API key",
+              "Env": "LAUNCHNOTES_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "project_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "LaunchNotes project ID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-launchnotes/releases/download/v2.0.0/launchnotes_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:5131134b92d79e76c0e9f92e6022fa72cefc87e684d049bcd26f5a5974de9583"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-launchnotes/releases/download/v2.0.0/launchnotes_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:7f8b8d63a6d143b498ad79ce622546e1f63297c7acaa0192f07dc7b3648224ea"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-launchnotes/releases/download/v2.0.0/launchnotes_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:4e764dc7479d11840279258dd773f2ece6e1be3dd85495b91751ee06686e6117"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-launchnotes/releases/download/v2.0.0/launchnotes_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:811d14402031453d4aa3800a7dcbc47c9007938f632169208531939c38ebf678"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-launchnotes/releases/download/v2.0.0/launchnotes_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:87610049ceb6b4637c707984fe8e5e4bc759e54d3ef57f9fafc92d67db1274c7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "linear",
+      "description": "Track releases and update issues in Linear",
+      "homepage": "https://github.com/relicta-tech/plugin-linear",
+      "category": "project_management",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-linear",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_plan",
+            "post_publish",
+            "on_error"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Linear API key",
+              "Env": "LINEAR_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "create_release_issue": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Create a release tracking issue",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "issue_prefix": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Issue prefix pattern in commits",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "project_id": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Linear project UUID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "released_state": {
+              "Type": "string",
+              "Required": false,
+              "Default": "Done",
+              "Description": "State to move issues to after release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "team_id": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Linear team UUID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "team_key": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Linear team key (e.g., ENG)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "update_linked_issues": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Update linked issues after release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-linear/releases/download/v1.0.0/linear_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:c095f1bc746298dfbae87498503b9a36bbe38aa9d8f9207df48e9b327f7ff45f"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linear/releases/download/v1.0.0/linear_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:8e9af943bf92f1a96a4d8509aeddcbc4a97da9def606c8bb7da27180878096fb"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-linear/releases/download/v1.0.0/linear_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:0992413dcb11fd554d7fbd47b7cb55beecd3a3fdd298735c1157c9751ba44408"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linear/releases/download/v1.0.0/linear_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:b09a7df1c887cc1239dae5c5f93e6d13f4511e13b6aabc40395c3bfb0e107657"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linear/releases/download/v1.0.0/linear_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:7d9f92f9d45c0ac13e4fae559f884014a4fecfc39769eddcc34abd3c67db458c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "linuxpkg",
+      "description": "Build Linux packages (deb, rpm, apk)",
+      "homepage": "https://github.com/relicta-tech/plugin-linuxpkg",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-linuxpkg",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "binaries": {
+              "Type": "array",
+              "Required": true,
+              "Default": null,
+              "Description": "List of binary files to include",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "description": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Package description",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "formats": {
+              "Type": "array",
+              "Required": false,
+              "Default": [
+                "deb",
+                "rpm"
+              ],
+              "Description": "Package formats to build (deb, rpm, apk)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "homepage": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Project homepage URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "license": {
+              "Type": "string",
+              "Required": false,
+              "Default": "MIT",
+              "Description": "Package license",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "maintainer": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Package maintainer name and email",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "output_dir": {
+              "Type": "string",
+              "Required": false,
+              "Default": "dist",
+              "Description": "Output directory for packages",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-linuxpkg/releases/download/v2.0.0/linuxpkg_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:8ef12dc1950ed558d36fce174a58f416aea1a222c9f0fb94c9b9a3d80306adc5"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linuxpkg/releases/download/v2.0.0/linuxpkg_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:ea983b80518a7fdb6d93d58cd23b3762ac66dea458df63a2470eda0651f730b8"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-linuxpkg/releases/download/v2.0.0/linuxpkg_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:44d557c7382fba68a9da3a9dbe4fcc8442506efd958d34d2ed5c66be2399c270"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linuxpkg/releases/download/v2.0.0/linuxpkg_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:12752b081eb740d31b20767e09508a8618f62cccc5dcc0a07a0dafb85e09a61a"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-linuxpkg/releases/download/v2.0.0/linuxpkg_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:e9a52b2b8a0f10ab69ac85d7d3ab0324509ac4e0b8cee06740839dc2d6d00214"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "maven",
+      "description": "Publish packages to Maven Central",
+      "homepage": "https://github.com/relicta-tech/plugin-maven",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-maven",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "artifact_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Maven artifact ID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "gpg_key": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "GPG key ID for signing",
+              "Env": "GPG_KEY_ID",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "group_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Maven group ID",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "password": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Maven repository password",
+              "Env": "MAVEN_PASSWORD",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "pom_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": "pom.xml",
+              "Description": "Path to pom.xml",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repository_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://oss.sonatype.org/service/local/staging/deploy/maven2/",
+              "Description": "Maven repository URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Maven repository username",
+              "Env": "MAVEN_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-maven/releases/download/v2.0.0/maven_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:5e37d17e61b68812a4ef0ad462b258e39cf015aaf5fbaafe710f5a0d45130af0"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-maven/releases/download/v2.0.0/maven_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:d0fd5843122afc79d07f4a0779751bcd25573a3fdaa98925f9dd6fec2148748f"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-maven/releases/download/v2.0.0/maven_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:a60b6e8567b524ad2e71a1f2dc242836e72f9be4f69afd1b96685f62cded3461"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-maven/releases/download/v2.0.0/maven_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:4bf4c9fe74ab2edca79e66aeb12882ed1b8f93f12af8b8cb5a1ebea04e53bf3d"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-maven/releases/download/v2.0.0/maven_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:6616490357f53d935f61c7e0ac28f7b1e518ac69e0b7d45eb919efc93f823ce8"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "npm",
+      "description": "Publish packages to npm registry",
+      "homepage": "https://github.com/relicta-tech/plugin-npm",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-npm",
+      "audit_status": "verified",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "access": {
+              "Type": "string",
+              "Required": false,
+              "Default": "public",
+              "Description": "Package access level",
+              "Env": "",
+              "Options": [
+                "public",
+                "restricted"
+              ],
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "otp": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "One-time password for 2FA",
+              "Env": "NPM_OTP",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://registry.npmjs.org",
+              "Description": "npm registry URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "token": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "npm authentication token",
+              "Env": "NPM_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-npm/releases/download/v2.0.0/npm_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:27960be265929454ee767b555ce47dbf2e2d66653b759768f2b4169eebc6673d"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-npm/releases/download/v2.0.0/npm_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:ca3d0162bfa06e2baa2cef7fee2c93cd6f5bcc51385f7687433495a179f1187d"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-npm/releases/download/v2.0.0/npm_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:03e31b88f5f3ad2acb7eb4a602c131dcf9b3f56a90d1f07208789abf639a24c1"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-npm/releases/download/v2.0.0/npm_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:b4d91ae715e60f31a7f2ec9f5aeb9f508fe1214b566d56d91008946013e52306"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-npm/releases/download/v2.0.0/npm_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:bae0adc8479cd4a06bce73f0177c54c1bc91e6d797ba9533c4814d43ad816f26"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "nuget",
+      "description": "Publish packages to NuGet",
+      "homepage": "https://github.com/relicta-tech/plugin-nuget",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-nuget",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "NuGet API key",
+              "Env": "NUGET_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "package_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Path to .nupkg file (auto-detected if not specified)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "skip_duplicate": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Skip push if package version already exists",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "source": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://api.nuget.org/v3/index.json",
+              "Description": "NuGet source URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-nuget/releases/download/v2.0.0/nuget_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:53b3bb0193f2265e28d496da9587397141d5c1d1100703299303e9d135d821b5"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-nuget/releases/download/v2.0.0/nuget_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:f8c0de3664b19c4fce8aa80a93a39ec4973021ba9923c269979bc8420e0bbf4e"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-nuget/releases/download/v2.0.0/nuget_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:e58b06ed5cff2a6652ec8a85b6d0fcb07c1e135ebe70ad5a2427d64d8bae033e"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-nuget/releases/download/v2.0.0/nuget_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:8991fb2c252280a0b6a52583a9d14cb5e71b26eae4373f306fe20a6ad6526e8c"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-nuget/releases/download/v2.0.0/nuget_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:a5e8e31878ae358647262e15546be0d6b0f435bc0b0893b7b7c462d4195fefe7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "packagist",
+      "description": "Publish packages to Packagist",
+      "homepage": "https://github.com/relicta-tech/plugin-packagist",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-packagist",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_token": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Packagist API token",
+              "Env": "PACKAGIST_API_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "package_name": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Package name (vendor/package)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "update_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://packagist.org/api/update-package",
+              "Description": "Packagist update API URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Packagist username",
+              "Env": "PACKAGIST_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-packagist/releases/download/v2.0.0/packagist_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:b57559444a54ec2ac467663449e02a217ef47a8c41c0f5cd98f78be1b87997a5"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-packagist/releases/download/v2.0.0/packagist_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:45c16093fba1b50f2a0113a46ed7fa92ab04d3cd6fdc10e31147acb11f4f4888"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-packagist/releases/download/v2.0.0/packagist_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:6301dd796adbb1d08c89de64300c83ef96c22da0f5f2ac1756410b70851727bc"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-packagist/releases/download/v2.0.0/packagist_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:caccef49c426a99ea866c05dc2c46a4a255f73c33aae8b21730282dc4e63c142"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-packagist/releases/download/v2.0.0/packagist_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:88bc9ef6640a6517c7f33f863abfc0424d166ed85f45dddeea4cff1d983fef91"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pub",
+      "description": "Publish Dart/Flutter packages to pub.dev",
+      "homepage": "https://github.com/relicta-tech/plugin-pub",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-pub",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "dry_run": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Validate without publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "pubspec_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": "pubspec.yaml",
+              "Description": "Path to pubspec.yaml",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "run_tests": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Run tests before publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "update_version": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Update version in pubspec.yaml",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-pub/releases/download/v1.0.0/pub_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:d183f449ebe40ced4d02054f69b414153eb96834814a7d7221a2075a96a94ebc"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pub/releases/download/v1.0.0/pub_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:72de12ae48c752cf4866f4ac1edb289fa8973469fc4cdfdf5c072adb172bd284"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-pub/releases/download/v1.0.0/pub_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:9abfc64de6a46da7ee0055b2db4eb6c7cffd98187c81aa25f5689364b504e6ff"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pub/releases/download/v1.0.0/pub_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:85f577ed7da7a19dd1c1da6b551b255bbb996cd5fe1c634038c70dbed3b90d10"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pub/releases/download/v1.0.0/pub_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:f218cb30ab411eafffa2f150c20686329859acf64a86166147bc4888934278cd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pypi",
+      "description": "Publish packages to PyPI",
+      "homepage": "https://github.com/relicta-tech/plugin-pypi",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-pypi",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "dist_dir": {
+              "Type": "string",
+              "Required": false,
+              "Default": "dist",
+              "Description": "Directory containing distribution files",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "password": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "PyPI password or API token",
+              "Env": "PYPI_PASSWORD",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "repository": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://upload.pypi.org/legacy/",
+              "Description": "PyPI repository URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "skip_existing": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Skip upload if version already exists",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "PyPI username (use __token__ for API tokens)",
+              "Env": "PYPI_USERNAME",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-pypi/releases/download/v2.0.0/pypi_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:2357ad120647dbd8f1b2b7232cea4816774ccdf6d4addf09a1ff323a935a3572"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pypi/releases/download/v2.0.0/pypi_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:8f650f2cce5bd3f38c11df4c3ca414710710b10d8cd6a096d1c0a332b680c99c"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-pypi/releases/download/v2.0.0/pypi_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:7bf1b724f4c5eb2846acfef35909eacfb1d5dd5cdd0af85b7b228e64283c8f49"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pypi/releases/download/v2.0.0/pypi_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:d9137c1f2eadf8c1cb50a927e06ab3309042416a6071cbb7ad59401c99a62757"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-pypi/releases/download/v2.0.0/pypi_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:ee70876aac03fdf648bb648feca2cb4d890ae1d413b9a0ae8eb561ab390694fd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rubygems",
+      "description": "Publish gems to RubyGems",
+      "homepage": "https://github.com/relicta-tech/plugin-rubygems",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-rubygems",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "api_key": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "RubyGems API key",
+              "Env": "GEM_HOST_API_KEY",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "gem_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Path to built .gem file",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "gemspec_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Path to .gemspec file (auto-detected if not specified)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "host": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://rubygems.org",
+              "Description": "RubyGems host URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-rubygems/releases/download/v2.0.0/rubygems_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:35d6e509421c389f72b4f345a00aaa57dc863f62ba9fadebb660629483ea4838"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-rubygems/releases/download/v2.0.0/rubygems_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:b5b007022a90442cffa562a2759a8105ca039b51f1987a093e3527e28127ec98"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-rubygems/releases/download/v2.0.0/rubygems_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:eed7e08f03c4bcc8a587c1c696631322715b6fc265e7cecc8f67f460928b2d94"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-rubygems/releases/download/v2.0.0/rubygems_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:050b12628ace2ef084c06ecbbb690d8d5992c8d6114efc0e2233f48bbb8f099d"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-rubygems/releases/download/v2.0.0/rubygems_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:309628b43c20c4f689d8dbcd2155d68711642f1d4af750db7cc37adcef70f0c7"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sentry",
+      "description": "Track releases and deployments in Sentry",
+      "homepage": "https://github.com/relicta-tech/plugin-sentry",
+      "category": "monitoring",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-sentry",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish",
+            "on_error"
+          ],
+          "config_schema": {
+            "auth_token": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Sentry auth token",
+              "Env": "SENTRY_AUTH_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "environment": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Deployment environment",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "finalize": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Finalize release after creation",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "org": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Sentry organization slug",
+              "Env": "SENTRY_ORG",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "project": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Sentry project slug",
+              "Env": "SENTRY_PROJECT",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "set_commits": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Associate commits with release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "url": {
+              "Type": "string",
+              "Required": false,
+              "Default": "https://sentry.io",
+              "Description": "Sentry instance URL (for self-hosted)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-sentry/releases/download/v1.0.0/sentry_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:ef5993e23c0d4946d591c490c3018c2bd11f29827f24343e8c7475e53255ab89"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-sentry/releases/download/v1.0.0/sentry_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:c112afa525921de466d64098c17d17ebbd96b92990b7de7abfd4370d3a5f4dca"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-sentry/releases/download/v1.0.0/sentry_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:f97748261c67aa5020d5d78d30973dc65d0c136a1c0d7895b4352e0afae84617"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-sentry/releases/download/v1.0.0/sentry_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:31ed4bef0cb3f458b5c4cec9134bb19e7a347cf5eb16d2aa03c0edcc3deeffde"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-sentry/releases/download/v1.0.0/sentry_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:a6cf3ad48731bd6d325a3a64f4fd899e1f66413dad9391f8e12f0177e94c8477"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "slack",
+      "description": "Send release notifications to Slack",
+      "homepage": "https://github.com/relicta-tech/plugin-slack",
+      "category": "notification",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-slack",
+      "audit_status": "verified",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "channel": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Override default channel (e.g., #releases)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "notify_on_error": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on release failure",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "notify_on_success": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on successful release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "username": {
+              "Type": "string",
+              "Required": false,
+              "Default": "Relicta",
+              "Description": "Bot username",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "webhook": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Slack incoming webhook URL",
+              "Env": "SLACK_WEBHOOK_URL",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-slack/releases/download/v2.0.0/slack_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:05a45f24b8539d0915e67cd88d0960000f20e65f3f9426e5c40a724a6b71bd70"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-slack/releases/download/v2.0.0/slack_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:9f535d9717f76074bd233362e49a283788c3eba32c77aab7e7650fdd7c72f1a0"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-slack/releases/download/v2.0.0/slack_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:124ba2b0c33ff07d09f4694de7a85b91dcb0979f6f5d72047957ef76122e7d28"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-slack/releases/download/v2.0.0/slack_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:c76e3d24080299ce7b4add9be870051dad2a71072673fd1d8769152224ed96f8"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-slack/releases/download/v2.0.0/slack_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:b7dddf4e2da1014ebb888975b7016a58985740cd6f0f68175769abb329f3d447"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "swift-pm",
+      "description": "Publish Swift packages",
+      "homepage": "https://github.com/relicta-tech/plugin-swift-pm",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-swift-pm",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "pre_publish",
+            "post_publish"
+          ],
+          "config_schema": {
+            "build": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Build package before publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "package_path": {
+              "Type": "string",
+              "Required": false,
+              "Default": ".",
+              "Description": "Path to Package.swift",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "registry_url": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Swift Package Registry URL",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "test": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Run tests before publishing",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-swift-pm/releases/download/v1.0.0/swift-pm_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:b1a63ad8ceb387d64e47ef78bd9c7453f8a6b5aa0cbe5a63795a93f9b4d81a84"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-swift-pm/releases/download/v1.0.0/swift-pm_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:e1acf6d5f4effc54d313f95ace5a43b902a4d7f3c4f5a8d5a871ed02db5b3125"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-swift-pm/releases/download/v1.0.0/swift-pm_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:8956bbacd5674c6dce1ebf4488ffbff822017aa6a9d8fd2a68befe28695a1797"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-swift-pm/releases/download/v1.0.0/swift-pm_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:1d266fa4c81f10ccae7015804d56f5c5e159f2210535ec20686374ebaff61ed9"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-swift-pm/releases/download/v1.0.0/swift-pm_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:bed0273895628ba311f67dc0fbf22443ab4e831cf49bf1067f4744c86000f18e"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "teams",
+      "description": "Send release notifications to Microsoft Teams",
+      "homepage": "https://github.com/relicta-tech/plugin-teams",
+      "category": "notification",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-teams",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "2.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "notify_on_error": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on release failure",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "notify_on_success": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on successful release",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "theme_color": {
+              "Type": "string",
+              "Required": false,
+              "Default": "0076D7",
+              "Description": "Theme color for the message card (hex without #)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "title": {
+              "Type": "string",
+              "Required": false,
+              "Default": null,
+              "Description": "Message title template",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "webhook": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Microsoft Teams incoming webhook URL",
+              "Env": "TEAMS_WEBHOOK_URL",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-teams/releases/download/v2.0.0/teams_2.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:64a636be502cf31f4647bad7c963fabcd8b17eb1d772ada02a568b40a67d345c"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-teams/releases/download/v2.0.0/teams_2.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:bf7cc8f73dee81a4b253ecf75450747d1dc7ab6398cfbb4b4f8f4f1938e70f17"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-teams/releases/download/v2.0.0/teams_2.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:220587ce5dd02fe3935b41a2e3a755b858a9d9c26c5e46f2d4cc16584a89f0dc"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-teams/releases/download/v2.0.0/teams_2.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:e31580915119149b203eccd43eb867d72ba03ab68ab7100cf4daeaee5f0ac589"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-teams/releases/download/v2.0.0/teams_2.0.0_windows_x86_64.zip",
+              "digest": "sha256:5ded3e399897fd1ed41ad0e0cb647e50e3bfef82657aff06f5ea3c157d868ffa"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "telegram",
+      "description": "Send release notifications to Telegram",
+      "homepage": "https://github.com/relicta-tech/plugin-telegram",
+      "category": "notification",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-telegram",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish",
+            "on_success",
+            "on_error"
+          ],
+          "config_schema": {
+            "bot_token": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Telegram bot token from @BotFather",
+              "Env": "TELEGRAM_BOT_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "chat_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Chat ID or @channel_username",
+              "Env": "TELEGRAM_CHAT_ID",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "disable_web_page_preview": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Disable link previews",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "include_changelog": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": false,
+              "Description": "Include changelog in message",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "message_thread_id": {
+              "Type": "integer",
+              "Required": false,
+              "Default": null,
+              "Description": "Thread ID for topic-based groups",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "notify_on_error": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on error",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "notify_on_success": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Send notification on success",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "parse_mode": {
+              "Type": "string",
+              "Required": false,
+              "Default": "MarkdownV2",
+              "Description": "Message format",
+              "Env": "",
+              "Options": [
+                "MarkdownV2",
+                "HTML",
+                ""
+              ],
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-telegram/releases/download/v1.0.0/telegram_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:6c10f51d8d80d3cd38c11d42255f3b4d4ee53306e31251ff2318bb3e48e5b034"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-telegram/releases/download/v1.0.0/telegram_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:ca0ae0f8e4f3d8b8a64a559d4071ae9c3b18fe06083bcb8bfea9a4932ff64e41"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-telegram/releases/download/v1.0.0/telegram_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:69861a521e05a2b66bb115e2deb100778aa47f799b4709bfc601f108f5cc1ea6"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-telegram/releases/download/v1.0.0/telegram_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:b3e2affcfc84deb99c11c5a9b32cd1dbc29cece951a18f2cea2b88727a5ff13f"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-telegram/releases/download/v1.0.0/telegram_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:f0706397039d424cc5bc06a9d5d7ac571cdcb8e55e8d80d30d9206b9f56da6f2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "winget",
+      "description": "Publish packages to Windows Package Manager",
+      "homepage": "https://github.com/relicta-tech/plugin-winget",
+      "category": "package_manager",
+      "maintainers": [
+        "Relicta Team"
+      ],
+      "license": "MIT",
+      "repository": "relicta-tech/plugin-winget",
+      "audit_status": "community",
+      "versions": [
+        {
+          "version": "1.0.0",
+          "min_sdk_version": 1,
+          "published_at": "0001-01-01T00:00:00Z",
+          "hooks": [
+            "post_publish"
+          ],
+          "config_schema": {
+            "create_pr": {
+              "Type": "boolean",
+              "Required": false,
+              "Default": true,
+              "Description": "Create PR to winget-pkgs repository",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "github_token": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "GitHub token for PR creation",
+              "Env": "GITHUB_TOKEN",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "installer_type": {
+              "Type": "string",
+              "Required": false,
+              "Default": "exe",
+              "Description": "Installer type",
+              "Env": "",
+              "Options": [
+                "exe",
+                "msi",
+                "msix",
+                "zip"
+              ],
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "installer_url": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "URL template for installer download",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            },
+            "package_id": {
+              "Type": "string",
+              "Required": true,
+              "Default": null,
+              "Description": "Package identifier (e.g., Publisher.AppName)",
+              "Env": "",
+              "Options": null,
+              "Pattern": "",
+              "MinValue": null,
+              "MaxValue": null
+            }
+          },
+          "artifacts": [
+            {
+              "os": "darwin",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-winget/releases/download/v1.0.0/winget_1.0.0_darwin_aarch64.tar.gz",
+              "digest": "sha256:27ff14e414f8ca82dfebe0c436c21dd2bfefe5623d19abc8856991642e299c2c"
+            },
+            {
+              "os": "darwin",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-winget/releases/download/v1.0.0/winget_1.0.0_darwin_x86_64.tar.gz",
+              "digest": "sha256:f48b4bf79e8bc9a0944e51ad52538c68121fabf90734904251df38c481f32096"
+            },
+            {
+              "os": "linux",
+              "arch": "arm64",
+              "url": "https://github.com/relicta-tech/plugin-winget/releases/download/v1.0.0/winget_1.0.0_linux_aarch64.tar.gz",
+              "digest": "sha256:37255c8b1e7fadeedfdaf7e76b6380fde818ad1e1c9cd4fc2e2e689e09b166fc"
+            },
+            {
+              "os": "linux",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-winget/releases/download/v1.0.0/winget_1.0.0_linux_x86_64.tar.gz",
+              "digest": "sha256:d3801256c3c56092484c8a3b793275228f89eaf4ab2a5f20deac81e60ad90579"
+            },
+            {
+              "os": "windows",
+              "arch": "amd64",
+              "url": "https://github.com/relicta-tech/plugin-winget/releases/download/v1.0.0/winget_1.0.0_windows_x86_64.zip",
+              "digest": "sha256:37c729bcf3ae7484d48d66c3edcf70d50ae32437f55e79ee59f915b5f62f0b49"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

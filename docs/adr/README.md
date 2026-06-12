@@ -15,6 +15,7 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-005](005-ai-integration.md) | Multi-provider AI Integration | Accepted | 2024-03 |
 | [ADR-006](006-mcp-protocol.md) | Model Context Protocol for AI Agent Integration | Accepted | 2024-06 |
 | [ADR-007](007-interface-service-layer.md) | All Interfaces Must Use Application Services Layer | Accepted | 2025-01 |
+| [ADR-008](008-nox-style-plugin-distribution.md) | Nox-style Plugin Distribution, Trust, and Safety Model | Accepted | 2026-06 |
 
 ## ADR Template
 

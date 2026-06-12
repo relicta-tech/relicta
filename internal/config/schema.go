@@ -21,6 +21,8 @@ type Config struct {
 	AI AIConfig `mapstructure:"ai" json:"ai"`
 	// Plugins configures plugin loading and execution.
 	Plugins []PluginConfig `mapstructure:"plugins" json:"plugins"`
+	// PluginSecurity configures plugin distribution trust (ADR-008).
+	PluginSecurity PluginSecurityConfig `mapstructure:"plugin_security" json:"plugin_security,omitempty"`
 	// Workflow configures the release workflow.
 	Workflow WorkflowConfig `mapstructure:"workflow" json:"workflow"`
 	// Output configures output settings.
@@ -297,6 +299,18 @@ type PluginCapabilities struct {
 	// MaxCPUSeconds is the maximum CPU time in seconds (0 = unlimited).
 	// On Linux, this is enforced via RLIMIT_CPU. Note this is CPU time, not wall-clock time.
 	MaxCPUSeconds int `mapstructure:"max_cpu_seconds" json:"max_cpu_seconds"`
+}
+
+// PluginSecurityConfig configures plugin distribution trust (ADR-008).
+type PluginSecurityConfig struct {
+	// TrustPolicy controls artifact verification at install time:
+	// permissive (digest only) | default (digest + Cosign keyless,
+	// fails closed on unsigned artifacts) | enterprise (digest +
+	// operator-managed key).
+	TrustPolicy string `mapstructure:"trust_policy" json:"trust_policy,omitempty"`
+	// TrustKey is the path to the operator-managed public key required
+	// by the enterprise trust policy.
+	TrustKey string `mapstructure:"trust_key" json:"trust_key,omitempty"`
 }
 
 // PluginConfig configures a single plugin.

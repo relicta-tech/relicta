@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -79,6 +81,26 @@ var pluginRegistryDisableCmd = &cobra.Command{
 	RunE:  runPluginRegistryDisable,
 }
 
+var (
+	registryIndexInput  string
+	registryIndexOutput string
+)
+
+var pluginRegistryGenerateIndexCmd = &cobra.Command{
+	Use:   "generate-index",
+	Short: "Generate the v2 JSON registry index from registry.yaml",
+	Long: `Generate the published registry index (schema_version 2) from the
+legacy registry.yaml source (ADR-008).
+
+The index is a static JSON document with per-plugin version lists and
+per-artifact sha256 digests plus Cosign verification metadata. It is what
+clients fetch; registry.yaml remains the source it is generated from.
+
+Example:
+  relicta plugin registry generate-index --input plugins/registry.yaml --output plugins/index.json`,
+	RunE: runPluginRegistryGenerateIndex,
+}
+
 func init() {
 	pluginCmd.AddCommand(pluginRegistryCmd)
 
@@ -87,6 +109,30 @@ func init() {
 	pluginRegistryCmd.AddCommand(pluginRegistryRemoveCmd)
 	pluginRegistryCmd.AddCommand(pluginRegistryEnableCmd)
 	pluginRegistryCmd.AddCommand(pluginRegistryDisableCmd)
+	pluginRegistryCmd.AddCommand(pluginRegistryGenerateIndexCmd)
+
+	pluginRegistryGenerateIndexCmd.Flags().StringVar(&registryIndexInput, "input", "plugins/registry.yaml", "registry.yaml source path")
+	pluginRegistryGenerateIndexCmd.Flags().StringVar(&registryIndexOutput, "output", "plugins/index.json", "index.json output path")
+}
+
+func runPluginRegistryGenerateIndex(cmd *cobra.Command, args []string) error {
+	reg, err := manager.LoadRegistryFromFile(registryIndexInput)
+	if err != nil {
+		return err
+	}
+	idx, err := manager.BuildIndexFromRegistry(reg, time.Now())
+	if err != nil {
+		return fmt.Errorf("build index: %w", err)
+	}
+	data, err := manager.MarshalIndex(idx)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(registryIndexOutput, data, filePermReadable); err != nil {
+		return fmt.Errorf("write index: %w", err)
+	}
+	printSuccess(fmt.Sprintf("Wrote %s (%d plugins, schema_version %s)", registryIndexOutput, len(idx.Plugins), idx.SchemaVersion))
+	return nil
 }
 
 func runPluginRegistryList(cmd *cobra.Command, args []string) error {

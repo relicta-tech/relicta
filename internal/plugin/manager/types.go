@@ -52,6 +52,8 @@ type PluginInfo struct {
 	Homepage string `yaml:"homepage,omitempty"`
 	// License of the plugin
 	License string `yaml:"license,omitempty"`
+	// AuditStatus is the registry-level trust annotation (verified | community)
+	AuditStatus string `yaml:"audit_status,omitempty"`
 	// Source is the registry URL this plugin came from (set at runtime)
 	Source string `yaml:"-"`
 }
