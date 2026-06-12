@@ -1,8 +1,11 @@
 package manager
 
 import (
+	"context"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseRequirement(t *testing.T) {
@@ -89,5 +92,74 @@ func TestResolveRequired(t *testing.T) {
 	}
 	if !got["jira"] {
 		t.Error("jira v2.9.0 violates >=3.0 — install required")
+	}
+}
+
+func TestManager_InstallRequired(t *testing.T) {
+	pluginDir := t.TempDir()
+	configDir := t.TempDir()
+	cacheDir := t.TempDir()
+
+	writeRegistryConfig(t, configDir, []RegistryEntry{
+		{Name: OfficialRegistryName, URL: OfficialRegistryURL, Priority: 1000, Enabled: false},
+		{Name: "local", URL: "https://example.com/registry.yaml", Priority: 10, Enabled: true},
+	})
+	writeRegistryCache(t, cacheDir, "local", Registry{
+		Version: "1.0",
+		Plugins: []PluginInfo{
+			{Name: "jira", Version: "v2.9.0"}, // violates >=3.0 below
+		},
+		UpdatedAt: time.Now(),
+	})
+
+	mgr := &Manager{
+		registry:     NewRegistryService(configDir, cacheDir),
+		installer:    NewInstaller(pluginDir),
+		pluginDir:    pluginDir,
+		cacheDir:     cacheDir,
+		manifestPath: filepath.Join(pluginDir, ManifestFile),
+	}
+
+	// Pre-install github 2.0.3 via the manifest.
+	manifest := &Manifest{
+		Version:   "1.0",
+		Installed: []InstalledPlugin{{Name: "github", Version: "v2.0.3"}},
+	}
+	if err := mgr.saveManifest(manifest); err != nil {
+		t.Fatal(err)
+	}
+
+	results, err := mgr.InstallRequired(context.Background(), []string{
+		"github@^2.0", // satisfied — skipped, no registry needed
+		"missing",     // not in registry — per-spec error
+		"jira@>=3.0",  // registry offers 2.9.0 — constraint error
+	})
+	if err != nil {
+		t.Fatalf("InstallRequired: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(results))
+	}
+
+	bySpec := map[string]RequiredResult{}
+	for _, r := range results {
+		bySpec[r.Spec] = r
+	}
+
+	if r := bySpec["github@^2.0"]; !r.Skipped || r.Err != nil || r.Version != "v2.0.3" {
+		t.Errorf("github: %+v", r)
+	}
+	if r := bySpec["missing"]; r.Err == nil {
+		t.Errorf("missing plugin must error: %+v", r)
+	}
+	if r := bySpec["jira@>=3.0"]; r.Err == nil || !strings.Contains(r.Err.Error(), "does not satisfy") {
+		t.Errorf("constraint violation must error with offered version: %+v", r)
+	}
+}
+
+func TestManager_InstallRequired_InvalidSpecs(t *testing.T) {
+	mgr := &Manager{manifestPath: filepath.Join(t.TempDir(), ManifestFile)}
+	if _, err := mgr.InstallRequired(context.Background(), []string{"@broken"}); err == nil {
+		t.Fatal("invalid specs must fail before any resolution")
 	}
 }
