@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -47,13 +48,22 @@ from the registry.`,
 }
 
 var pluginInstallCmd = &cobra.Command{
-	Use:   "install <name>",
-	Short: "Install a plugin",
+	Use:   "install [name]",
+	Short: "Install a plugin (or all required plugins)",
 	Long: `Install a plugin from the registry.
 
 Downloads the plugin binary for your platform and makes it available
-for use. Plugins must be enabled after installation with 'plugin enable'.`,
-	Args: cobra.ExactArgs(1),
+for use. Plugins must be enabled after installation with 'plugin enable'.
+
+With no arguments, resolves and installs every plugin pinned in
+plugin_security.required (ADR-008), skipping requirements that are
+already satisfied:
+
+  plugin_security:
+    required:
+      - github@^2.0
+      - slack`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: runPluginInstall,
 }
 
@@ -317,12 +327,18 @@ func getCategoryTitle(category string) string {
 
 func runPluginInstall(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	pluginName := args[0]
 
 	mgr, err := newPluginManager()
 	if err != nil {
 		return fmt.Errorf("failed to create plugin manager: %w", err)
 	}
+
+	// No argument: install the project's required set (ADR-008).
+	if len(args) == 0 {
+		return runPluginInstallRequired(ctx, mgr)
+	}
+
+	pluginName := args[0]
 
 	fmt.Printf("Installing plugin %q...\n", pluginName)
 
@@ -337,6 +353,36 @@ func runPluginInstall(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  1. Enable it: relicta plugin enable %s\n", pluginName)
 	fmt.Printf("  2. Configure it in .relicta.yaml\n")
 
+	return nil
+}
+
+// runPluginInstallRequired installs every spec from plugin_security.required.
+func runPluginInstallRequired(ctx context.Context, mgr pluginManager) error {
+	if cfg == nil || len(cfg.PluginSecurity.Required) == 0 {
+		printInfo("No required plugins configured (plugin_security.required is empty)")
+		return nil
+	}
+
+	results, err := mgr.InstallRequired(ctx, cfg.PluginSecurity.Required)
+	if err != nil {
+		return err
+	}
+
+	var failed int
+	for _, r := range results {
+		switch {
+		case r.Err != nil:
+			failed++
+			printError(fmt.Sprintf("%s: %v", r.Spec, r.Err))
+		case r.Installed:
+			printSuccess(fmt.Sprintf("%s: installed %s", r.Spec, r.Version))
+		default:
+			printInfo(fmt.Sprintf("%s: already satisfied (%s)", r.Spec, r.Version))
+		}
+	}
+	if failed > 0 {
+		return fmt.Errorf("%d of %d required plugins failed to install", failed, len(results))
+	}
 	return nil
 }
 
