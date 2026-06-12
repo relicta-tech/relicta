@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package relicta;
 
-option go_package = "github.com/relicta-tech/relicta/internal/plugin/proto";
+option go_package = "github.com/relicta-tech/relicta/v4/internal/plugin/proto";
 
 // Optimize for code size - uses LITE_RUNTIME which reduces binary size
 // by excluding reflection and descriptor metadata.
@@ -38,6 +38,9 @@ message PluginInfo {
   repeated string hooks = 5;
   // config_schema is a JSON schema for the plugin configuration.
   string config_schema = 6;
+  // safety declares the plugin's runtime requirements (ADR-008).
+  // Absent on legacy plugins; the host treats that as undeclared.
+  SafetyRequirements safety = 7;
 }
 
 // Hook represents a hook type in the release workflow.
@@ -193,4 +196,25 @@ message ValidationError {
   string message = 2;
   // code is an optional error code.
   string code = 3;
+}
+
+// SafetyRequirements declares what a plugin needs at runtime (ADR-008).
+// The host validates the declaration against the active safety policy
+// BEFORE registering the plugin and derives sandbox configuration from it.
+// Plugins that declare nothing are treated as risk_class "runtime" —
+// loadable only with explicit operator trust.
+message SafetyRequirements {
+  // risk_class is one of: passive | active | runtime.
+  //   passive  — read-only observation (notifications, reporting)
+  //   active   — mutates files, tags, or remote state (publishing)
+  //   runtime  — arbitrary execution beyond declared scopes
+  string risk_class = 1;
+  // network_hosts lists host globs the plugin connects to (e.g. "*.github.com").
+  repeated string network_hosts = 2;
+  // file_paths lists path globs the plugin reads/writes.
+  repeated string file_paths = 3;
+  // env_vars lists environment variables the plugin needs.
+  repeated string env_vars = 4;
+  // needs_confirmation requests an interactive confirmation before execution.
+  bool needs_confirmation = 5;
 }

@@ -55,7 +55,36 @@ func (s *GRPCServer) GetInfo(ctx context.Context, req *proto.Empty) (*proto.Plug
 		Author:       info.Author,
 		Hooks:        hooks,
 		ConfigSchema: info.ConfigSchema,
+		Safety:       safetyToProto(info.Safety),
 	}, nil
+}
+
+// safetyToProto converts the SDK safety declaration to its wire form.
+func safetyToProto(s *SafetyRequirements) *proto.SafetyRequirements {
+	if s == nil {
+		return nil
+	}
+	return &proto.SafetyRequirements{
+		RiskClass:         string(s.RiskClass),
+		NetworkHosts:      s.NetworkHosts,
+		FilePaths:         s.FilePaths,
+		EnvVars:           s.EnvVars,
+		NeedsConfirmation: s.NeedsConfirmation,
+	}
+}
+
+// safetyFromProto converts the wire safety declaration to its SDK form.
+func safetyFromProto(s *proto.SafetyRequirements) *SafetyRequirements {
+	if s == nil {
+		return nil
+	}
+	return &SafetyRequirements{
+		RiskClass:         RiskClass(s.RiskClass),
+		NetworkHosts:      s.NetworkHosts,
+		FilePaths:         s.FilePaths,
+		EnvVars:           s.EnvVars,
+		NeedsConfirmation: s.NeedsConfirmation,
+	}
 }
 
 // Execute runs the plugin for a given hook.
@@ -202,6 +231,7 @@ func (c *GRPCClient) GetInfo() Info {
 		Author:       resp.Author,
 		Hooks:        hooks,
 		ConfigSchema: resp.ConfigSchema,
+		Safety:       safetyFromProto(resp.Safety),
 	}
 }
 
