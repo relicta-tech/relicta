@@ -80,6 +80,38 @@ type Info struct {
 	Hooks []Hook `json:"hooks"`
 	// ConfigSchema is a JSON schema for the plugin configuration.
 	ConfigSchema string `json:"config_schema,omitempty"`
+	// Safety declares the plugin's runtime requirements (ADR-008). The
+	// host validates the declaration against its safety policy before
+	// registering the plugin and derives sandbox configuration from it.
+	// A nil Safety means "undeclared": the host treats the plugin as
+	// RiskRuntime, loadable only with explicit operator trust.
+	Safety *SafetyRequirements `json:"safety,omitempty"`
+}
+
+// RiskClass categorizes what a plugin may do at runtime.
+type RiskClass string
+
+const (
+	// RiskPassive is read-only observation (notifications, reporting).
+	RiskPassive RiskClass = "passive"
+	// RiskActive mutates files, tags, or remote state (publishing).
+	RiskActive RiskClass = "active"
+	// RiskRuntime is arbitrary execution beyond declared scopes.
+	RiskRuntime RiskClass = "runtime"
+)
+
+// SafetyRequirements declares what a plugin needs at runtime.
+type SafetyRequirements struct {
+	// RiskClass is one of passive | active | runtime.
+	RiskClass RiskClass `json:"risk_class"`
+	// NetworkHosts lists host globs the plugin connects to ("*.github.com").
+	NetworkHosts []string `json:"network_hosts,omitempty"`
+	// FilePaths lists path globs the plugin reads or writes.
+	FilePaths []string `json:"file_paths,omitempty"`
+	// EnvVars lists environment variables the plugin needs.
+	EnvVars []string `json:"env_vars,omitempty"`
+	// NeedsConfirmation requests interactive confirmation before execution.
+	NeedsConfirmation bool `json:"needs_confirmation,omitempty"`
 }
 
 // ExecuteRequest contains the context for plugin execution.

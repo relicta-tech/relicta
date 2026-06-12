@@ -333,6 +333,18 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 	// Get plugin info
 	info := p.GetInfo()
 
+	// Validate the plugin's safety declaration against host policy
+	// (ADR-008 Phase 2) before registering it.
+	decision, err := ValidateSafety(info, m.allowUntrustedPlugins)
+	if err != nil {
+		client.Kill()
+		_ = audit.LogLoad(ctx, cfg.Name, false, "safety declaration rejected: "+err.Error())
+		return errors.Plugin(op, err.Error())
+	}
+	if decision.Warning != "" {
+		m.logger.Warn(decision.Warning, "plugin", cfg.Name)
+	}
+
 	// Validate configuration
 	if cfg.Config != nil {
 		resp, err := p.Validate(ctx, cfg.Config)
