@@ -1330,6 +1330,41 @@
       "file_path": "internal/cli/approve.go",
       "severity": "high",
       "created_at": "2026-06-11T21:59:18.001185Z"
+    },
+    {
+      "fingerprint": "095f631f053e3e3d9fff5563edc1a3372670f4ae89fbf38080cad851d801203c",
+      "rule_id": "SEC-163",
+      "file_path": "internal/plugin/manager/index.go",
+      "severity": "medium",
+      "created_at": "2026-06-12T09:02:40.618474Z"
+    },
+    {
+      "fingerprint": "3355868f99af5c3e57021fc82739477cf7824d13cab6c06d6aebc2b66828aa5f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/plugin/manager/trust.go",
+      "severity": "medium",
+      "created_at": "2026-06-12T09:02:40.618474Z"
+    },
+    {
+      "fingerprint": "923ca138aee4fddbf0be5ff339475318a32dc2564f0424a086268b818e4f9970",
+      "rule_id": "SEC-163",
+      "file_path": "internal/plugin/manager/trust.go",
+      "severity": "medium",
+      "created_at": "2026-06-12T09:02:40.618474Z"
+    },
+    {
+      "fingerprint": "92ddae668ea7fbd5bdd13c26ddb327663c00c363bc515d1047a8b67843ff32a7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/plugin/manager/trust.go",
+      "severity": "medium",
+      "created_at": "2026-06-12T09:02:40.618474Z"
+    },
+    {
+      "fingerprint": "c34def9df74586fd9936ac50559b2cd47e9100dda04c394ab3dd8799fca6f6eb",
+      "rule_id": "SEC-163",
+      "file_path": "internal/plugin/manager/trust.go",
+      "severity": "medium",
+      "created_at": "2026-06-12T09:02:40.618474Z"
     }
   ]
 }
