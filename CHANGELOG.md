@@ -114,6 +114,10 @@ For more details, you can refer to the complete changelog [here](https://github.
 - docs: update version references to v4.0.1
 
 
+- fix(cli): approve --ci actually approves instead of dumping status JSON (#138)
+- fix: declare /v4 module path and restore version stamping (#137)
+
+
 ## [3.5.0] - 2022-04-21
 
 ### Added
