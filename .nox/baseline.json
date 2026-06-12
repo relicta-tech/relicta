@@ -1316,6 +1316,20 @@
       "file_path": ".github/workflows/security.yaml",
       "severity": "medium",
       "created_at": "2026-06-11T12:03:53.874152Z"
+    },
+    {
+      "fingerprint": "bef87ca14d7ef14d04ec6d7af54c2812a7e569bae2c6d78de10ba337d3317622",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "created_at": "2026-06-11T21:59:18.001185Z"
+    },
+    {
+      "fingerprint": "f303f2e53a59e697e5d3a11bdb0cd1e1f1cccdebe4dae3bb7b3bea5fb21f162d",
+      "rule_id": "SEC-652",
+      "file_path": "internal/cli/approve.go",
+      "severity": "high",
+      "created_at": "2026-06-11T21:59:18.001185Z"
     }
   ]
 }

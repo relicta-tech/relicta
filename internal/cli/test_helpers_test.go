@@ -18,11 +18,12 @@ import (
 // commandTestApp provides a minimal cliApp implementation for testing.
 // Embed this in test-specific app types to satisfy the interface.
 type commandTestApp struct {
-	gitRepo       sourcecontrol.GitRepository
-	releaseRepo   domainrelease.Repository
-	govSvc        *governance.Service
-	hasGov        bool
-	calcVersionUC calculateVersionUseCase
+	gitRepo         sourcecontrol.GitRepository
+	releaseRepo     domainrelease.Repository
+	govSvc          *governance.Service
+	hasGov          bool
+	calcVersionUC   calculateVersionUseCase
+	releaseServices *domainrelease.Services
 }
 
 func (a commandTestApp) Close() error                                      { return nil }
@@ -35,8 +36,8 @@ func (a commandTestApp) AI() ai.Service                                    { ret
 func (a commandTestApp) HasGovernance() bool                               { return a.hasGov }
 func (a commandTestApp) GovernanceService() *governance.Service            { return a.govSvc }
 func (a commandTestApp) InitReleaseServices(context.Context, string) error { return nil }
-func (a commandTestApp) ReleaseServices() *domainrelease.Services          { return nil }
-func (a commandTestApp) HasReleaseServices() bool                          { return false }
+func (a commandTestApp) ReleaseServices() *domainrelease.Services          { return a.releaseServices }
+func (a commandTestApp) HasReleaseServices() bool                          { return a.releaseServices != nil }
 
 // testCLIApp is an alias for commandTestApp for backward compatibility.
 type testCLIApp = commandTestApp
