@@ -311,6 +311,13 @@ type PluginSecurityConfig struct {
 	// TrustKey is the path to the operator-managed public key required
 	// by the enterprise trust policy.
 	TrustKey string `mapstructure:"trust_key" json:"trust_key,omitempty"`
+	// Required pins the plugins this project needs, package.json-style:
+	// "name" or "name@constraint" ("github@^2.0"). `relicta plugin install`
+	// with no arguments resolves and installs the full set.
+	Required []string `mapstructure:"required" json:"required,omitempty"`
+	// AutoInstall installs missing required plugins automatically before
+	// release commands run. Defaults to true when Required is non-empty.
+	AutoInstall *bool `mapstructure:"auto_install" json:"auto_install,omitempty"`
 }
 
 // PluginConfig configures a single plugin.

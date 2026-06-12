@@ -10,6 +10,7 @@ type pluginManager interface {
 	ListAvailable(context.Context, bool) ([]manager.PluginListEntry, error)
 	ListInstalled(context.Context) ([]manager.PluginListEntry, error)
 	Install(context.Context, string) error
+	InstallRequired(context.Context, []string) ([]manager.RequiredResult, error)
 	Uninstall(context.Context, string) error
 	Enable(context.Context, string) error
 	Disable(context.Context, string) error

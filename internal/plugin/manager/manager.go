@@ -272,6 +272,84 @@ func (m *Manager) Install(ctx context.Context, name string) error {
 	return nil
 }
 
+// RequiredResult reports the outcome for one required-plugin spec.
+type RequiredResult struct {
+	Spec      string
+	Installed bool   // true when an install was performed
+	Skipped   bool   // true when the requirement was already satisfied
+	Version   string // version now present
+	Err       error
+}
+
+// InstallRequired resolves and installs a set of required-plugin specs
+// ("name" or "name@constraint", ADR-008). Already-satisfied requirements
+// are skipped; the registry version must satisfy the constraint for an
+// install to proceed. All specs are processed; per-spec failures are
+// reported in the results rather than aborting the set.
+func (m *Manager) InstallRequired(ctx context.Context, specs []string) ([]RequiredResult, error) {
+	reqs, err := ParseRequirements(specs)
+	if err != nil {
+		return nil, err
+	}
+
+	manifest, err := m.getOrCreateManifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load manifest: %w", err)
+	}
+
+	actions := ResolveRequired(reqs, manifest.Installed)
+
+	var (
+		results  []RequiredResult
+		registry *Registry
+	)
+	for _, action := range actions {
+		res := RequiredResult{Spec: action.Requirement.Raw}
+		if !action.Install {
+			res.Skipped = true
+			for _, p := range manifest.Installed {
+				if p.Name == action.Requirement.Name {
+					res.Version = p.Version
+				}
+			}
+			results = append(results, res)
+			continue
+		}
+
+		// Lazily fetch the registry on the first actual install.
+		if registry == nil {
+			registry, err = m.registry.Fetch(ctx, false)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch registry: %w", err)
+			}
+		}
+
+		info, err := registry.GetPlugin(action.Requirement.Name)
+		if err != nil {
+			res.Err = err
+			results = append(results, res)
+			continue
+		}
+		if !action.Requirement.Satisfies(info.Version) {
+			res.Err = fmt.Errorf("registry offers %s %s, which does not satisfy %s",
+				info.Name, info.Version, action.Requirement.Raw)
+			results = append(results, res)
+			continue
+		}
+
+		if err := m.Install(ctx, action.Requirement.Name); err != nil {
+			res.Err = err
+			results = append(results, res)
+			continue
+		}
+		res.Installed = true
+		res.Version = info.Version
+		results = append(results, res)
+	}
+
+	return results, nil
+}
+
 // Uninstall removes a plugin.
 func (m *Manager) Uninstall(ctx context.Context, name string) error {
 	manifest, err := m.loadManifest()

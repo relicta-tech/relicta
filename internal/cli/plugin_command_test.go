@@ -57,6 +57,14 @@ func (s *stubPluginManager) Install(ctx context.Context, name string) error {
 	return s.install(ctx, name)
 }
 
+func (s *stubPluginManager) InstallRequired(ctx context.Context, specs []string) ([]manager.RequiredResult, error) {
+	results := make([]manager.RequiredResult, 0, len(specs))
+	for _, spec := range specs {
+		results = append(results, manager.RequiredResult{Spec: spec, Installed: true})
+	}
+	return results, nil
+}
+
 func (s *stubPluginManager) Uninstall(ctx context.Context, name string) error {
 	return s.uninstall(ctx, name)
 }
