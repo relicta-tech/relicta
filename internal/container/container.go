@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/blast"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
@@ -82,6 +84,10 @@ type App struct {
 
 	// Governance service (CGP)
 	governanceService *governance.Service
+
+	// Analytics service captures governance events (risk evaluations,
+	// policy decisions, approval outcomes) for trend reporting.
+	analyticsService *analytics.Service
 
 	// Release workflow services (domain use cases)
 	releaseServices *domainrelease.Services
@@ -404,8 +410,30 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 			// Governance failure is non-fatal in advisory mode
 			c.logger.Warn("governance service initialization failed", "error", err)
 		}
+		// Analytics captures governance events for trend reporting. A
+		// store failure is non-fatal — capture calls no-op on a nil service.
+		if err := c.initAnalyticsService(ctx); err != nil {
+			c.logger.Warn("analytics service initialization failed", "error", err)
+		}
 	}
 
+	return nil
+}
+
+// initAnalyticsService initializes the governance analytics service backed by
+// a file store under the repository's .relicta/governance/analytics directory.
+func (c *App) initAnalyticsService(ctx context.Context) error {
+	repoPath := "."
+	if c.gitAdapter != nil {
+		if info, err := c.gitAdapter.GetInfo(ctx); err == nil {
+			repoPath = info.Path
+		}
+	}
+	store, err := analytics.NewFileStore(filepath.Join(repoPath, ".relicta", "governance", "analytics"))
+	if err != nil {
+		return err
+	}
+	c.analyticsService = analytics.NewService(store)
 	return nil
 }
 
@@ -524,6 +552,14 @@ func (c *App) HasGovernance() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.governanceService != nil
+}
+
+// Analytics returns the governance analytics service, or nil when analytics
+// could not be initialized (e.g. its store directory is unwritable).
+func (c *App) Analytics() *analytics.Service {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.analyticsService
 }
 
 // MemoryStore returns the CGP memory store for release history.
