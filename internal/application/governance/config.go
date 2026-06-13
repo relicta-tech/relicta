@@ -56,6 +56,8 @@ func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger 
 		WithReputationThreshold(cfg.ReputationProbationThreshold),
 		WithAttribution(cfg.AttributionEnabled),
 		WithCalibrationValidation(cfg.CalibrationMinAccuracy, cfg.CalibrationStrict),
+		WithEarnedTrust(cfg.EarnedTrustEnabled),
+		WithEarnedTrustSamples(cfg.EarnedTrustMinSamples, cfg.EarnedTrustFullSamples),
 	}
 
 	// Set up memory store if enabled

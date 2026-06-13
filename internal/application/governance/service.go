@@ -60,6 +60,15 @@ type Service struct {
 	// calibrationStrict is set, suspect weights are not applied (fail closed).
 	calibrationMinAccuracy float64
 	calibrationStrict      bool
+
+	// earnedTrustEnabled raises an actor's effective trust level from a strong,
+	// verifiable track record, unlocking low-risk auto-approval. This is the only
+	// path that loosens governance, so it is opt-in and sample-gated. minSamples
+	// gates escalation to Trusted; fullSamples gates escalation to Full. Zero
+	// values fall back to the package defaults.
+	earnedTrustEnabled     bool
+	earnedTrustMinSamples  int
+	earnedTrustFullSamples int
 }
 
 // ServiceOption configures a governance Service.
@@ -118,6 +127,27 @@ func WithCalibrationValidation(minAccuracy float64, strict bool) ServiceOption {
 	return func(s *Service) {
 		s.calibrationMinAccuracy = minAccuracy
 		s.calibrationStrict = strict
+	}
+}
+
+// WithEarnedTrust enables reputation-driven trust escalation (requires a memory
+// store). It is the only governance path that loosens outcomes.
+func WithEarnedTrust(enabled bool) ServiceOption {
+	return func(s *Service) {
+		s.earnedTrustEnabled = enabled
+	}
+}
+
+// WithEarnedTrustSamples sets the sample floors gating escalation to Trusted
+// (minSamples) and Full (fullSamples). Non-positive values keep the defaults.
+func WithEarnedTrustSamples(minSamples, fullSamples int) ServiceOption {
+	return func(s *Service) {
+		if minSamples > 0 {
+			s.earnedTrustMinSamples = minSamples
+		}
+		if fullSamples > 0 {
+			s.earnedTrustFullSamples = fullSamples
+		}
 	}
 }
 
@@ -184,6 +214,25 @@ type EvaluateReleaseOutput struct {
 	// reputation guarding is enabled and the actor has history. Informational;
 	// the guard's effect is already reflected in Decision/Rationale.
 	Reputation *ReputationInfo
+
+	// EarnedTrust describes a reputation-driven trust escalation applied to the
+	// governing actor before evaluation, when earned-trust is enabled and the
+	// actor qualified. Nil when no escalation occurred.
+	EarnedTrust *EarnedTrustInfo
+}
+
+// EarnedTrustInfo summarizes a reputation-driven trust escalation.
+type EarnedTrustInfo struct {
+	// ActorID is the governing actor whose trust was raised.
+	ActorID string
+	// FromLevel is the actor's trust level before escalation.
+	FromLevel string
+	// ToLevel is the trust level granted by track record.
+	ToLevel string
+	// Reputation is the overall score that justified the escalation.
+	Reputation float64
+	// SampleSize is the number of release records backing the score.
+	SampleSize int
 }
 
 // ReputationInfo summarizes an actor's reputation for evaluation output.
@@ -236,6 +285,14 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	// Build change proposal and analysis from release
 	proposal, analysis := s.buildProposalAndAnalysis(input)
 
+	// Raise the governing actor's trust from a verifiable track record before
+	// evaluation, so an earned-trusted actor can auto-approve low-risk changes.
+	// This is the only path that loosens; it is opt-in and sample-gated.
+	var earnedTrust *EarnedTrustInfo
+	if s.earnedTrustEnabled && s.memoryStore != nil {
+		earnedTrust = s.applyEarnedTrust(ctx, input.Repository, proposal)
+	}
+
 	// Evaluate the proposal
 	result, err := s.evaluator.Evaluate(ctx, proposal, analysis)
 	if err != nil {
@@ -243,6 +300,7 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	}
 
 	output := &EvaluateReleaseOutput{
+		EarnedTrust:     earnedTrust,
 		Decision:        result.Decision.Decision,
 		RiskScore:       result.Decision.RiskScore,
 		Severity:        result.RiskAssessment.Severity,

@@ -490,6 +490,23 @@ type GovernanceConfig struct {
 	// below CalibrationMinAccuracy (fail closed, keep defaults) instead of
 	// applying them with a warning.
 	CalibrationStrict bool `mapstructure:"calibration_strict" json:"calibration_strict,omitempty"`
+	// EarnedTrustEnabled turns on reputation-driven trust escalation: an actor
+	// with a strong, sufficiently-sampled track record has its effective trust
+	// level raised, allowing low-risk auto-approval it would not otherwise get.
+	// This is the one governance path that LOOSENS outcomes, so it is off by
+	// default and derives only from verifiable stored release outcomes (never
+	// from spoofable signals). Requires MemoryEnabled. Escalation is still
+	// necessary-not-sufficient: agent/CI auto-approval also needs the matching
+	// actor rule enabled.
+	EarnedTrustEnabled bool `mapstructure:"earned_trust_enabled" json:"earned_trust_enabled,omitempty"`
+	// EarnedTrustMinSamples is the minimum number of an actor's own release
+	// records required before trust may be raised to "trusted". Zero uses the
+	// built-in default (10).
+	EarnedTrustMinSamples int `mapstructure:"earned_trust_min_samples" json:"earned_trust_min_samples,omitempty"`
+	// EarnedTrustFullSamples is the minimum number of records required before
+	// trust may be raised to "full" (human-equivalent autonomy). Zero uses the
+	// built-in default (50).
+	EarnedTrustFullSamples int `mapstructure:"earned_trust_full_samples" json:"earned_trust_full_samples,omitempty"`
 }
 
 // RiskBudgetConfig configures cumulative risk budget limits.
