@@ -51,6 +51,8 @@ func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger 
 	// Create service with evaluator
 	opts := []ServiceOption{
 		WithLogger(logger),
+		WithCalibration(cfg.CalibrationEnabled),
+		WithReputation(cfg.ReputationEnabled),
 	}
 
 	// Set up memory store if enabled

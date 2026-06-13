@@ -442,11 +442,39 @@ governance:
   # Always require humans for high-impact areas
   require_human_for_breaking: true
   require_human_for_security: true
-  # Optional trust list for low-risk automation
+  # Optional trust list for low-risk automation. Entries match an actor's
+  # kind-scoped ID ("human:alice", "ci:release-bot") or its bare name
+  # ("alice"). Trust is NEVER inferred from the environment — only actors on
+  # this list may auto-approve; everyone else can propose but not self-approve.
   trusted_actors:
-    - github-actions
-    - ci-release-bot
+    - human:alice
+    - ci:release-bot
 ```
+
+### Adaptive Risk: Calibration & Reputation
+
+Two learning loops feed on Release History. Both are **off by default** because
+they change evaluation outcomes; enable them once you have a track record. Both
+require `memory_enabled: true`.
+
+```yaml
+governance:
+  memory_enabled: true
+  # Retune the risk model's factor weights from historical release outcomes.
+  # Calibration runs once per process from stored history; weights that better
+  # predicted past failures are emphasized.
+  calibration_enabled: true
+  # Guard auto-approval by actor reputation. An actor with a demonstrated poor
+  # track record (>= 3 release records and a "restricted" reputation level) has
+  # auto-approved decisions downgraded to require human review. This only ever
+  # TIGHTENS a decision — it never auto-approves something that wasn't already
+  # approved, and never penalizes actors with too little history.
+  reputation_enabled: true
+```
+
+When the reputation guard fires, the evaluation rationale records why
+(`actor reputation is restricted (…%, restricted) — human review required`), so
+the downgrade is always visible in `relicta evaluate` output and the audit trail.
 
 ## Release History
 
