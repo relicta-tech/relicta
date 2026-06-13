@@ -471,6 +471,25 @@ type GovernanceConfig struct {
 	// tightens a decision, never loosens one. Requires MemoryEnabled. Off by
 	// default — it changes evaluation outcomes.
 	ReputationEnabled bool `mapstructure:"reputation_enabled" json:"reputation_enabled,omitempty"`
+	// ReputationProbationThreshold is the reputation score (0.0-1.0) below which
+	// the reputation guard downgrades an auto-approval. Zero uses the built-in
+	// default (0.4). Raise it to be stricter (more actors guarded), lower it to
+	// be more permissive. Only meaningful when ReputationEnabled is true.
+	ReputationProbationThreshold float64 `mapstructure:"reputation_probation_threshold" json:"reputation_probation_threshold,omitempty"`
+	// AttributionEnabled turns on commit-authorship detection: the actual author
+	// of a changeset (human, AI agent, or CI) is detected from commit metadata,
+	// and a machine author behind a human-initiated release governs the proposal
+	// so agent-authored changes face agent governance rules. Only ever tightens.
+	// Off by default — it changes which actor governs the evaluation.
+	AttributionEnabled bool `mapstructure:"attribution_enabled" json:"attribution_enabled,omitempty"`
+	// CalibrationMinAccuracy is the prediction-accuracy floor (0.0-1.0) below
+	// which a calibration result is considered unreliable. Zero disables the
+	// check. Only meaningful when CalibrationEnabled is true.
+	CalibrationMinAccuracy float64 `mapstructure:"calibration_min_accuracy" json:"calibration_min_accuracy,omitempty"`
+	// CalibrationStrict, when true, discards calibrated weights whose accuracy is
+	// below CalibrationMinAccuracy (fail closed, keep defaults) instead of
+	// applying them with a warning.
+	CalibrationStrict bool `mapstructure:"calibration_strict" json:"calibration_strict,omitempty"`
 }
 
 // RiskBudgetConfig configures cumulative risk budget limits.

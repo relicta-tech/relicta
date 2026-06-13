@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
@@ -40,6 +41,25 @@ type Service struct {
 	calibrationEnabled bool
 	reputationEnabled  bool
 	calibrateOnce      sync.Once
+
+	// attributionEnabled turns on authorship detection: the actual author of a
+	// changeset's commits (human, AI agent, or CI) is detected from commit
+	// metadata and, when a machine authored a human-initiated release, governs
+	// the proposal so agent-authored changes face agent governance rules. Only
+	// ever tightens — machine authorship adds scrutiny, never removes it.
+	attributionEnabled bool
+	detector           *attribution.Detector
+
+	// reputationProbationThreshold is the overall-score floor below which the
+	// reputation guard downgrades an auto-approval. Zero means use the package
+	// default (reputation.ThresholdProbation).
+	reputationProbationThreshold float64
+
+	// calibrationMinAccuracy is the accuracy floor below which a calibration
+	// result is considered unreliable. Zero disables the check. When
+	// calibrationStrict is set, suspect weights are not applied (fail closed).
+	calibrationMinAccuracy float64
+	calibrationStrict      bool
 }
 
 // ServiceOption configures a governance Service.
@@ -73,11 +93,40 @@ func WithReputation(enabled bool) ServiceOption {
 	}
 }
 
+// WithReputationThreshold sets the reputation probation floor for the guard.
+// Values outside (0, 1) are ignored and the package default is used.
+func WithReputationThreshold(threshold float64) ServiceOption {
+	return func(s *Service) {
+		if threshold > 0 && threshold < 1 {
+			s.reputationProbationThreshold = threshold
+		}
+	}
+}
+
+// WithAttribution enables commit-authorship detection so machine-authored
+// changes are governed as such even when a human initiates the release.
+func WithAttribution(enabled bool) ServiceOption {
+	return func(s *Service) {
+		s.attributionEnabled = enabled
+	}
+}
+
+// WithCalibrationValidation guards calibration on prediction accuracy. When the
+// calibrated accuracy is below minAccuracy a warning is logged; when strict is
+// true the suspect weights are not applied. minAccuracy <= 0 disables the check.
+func WithCalibrationValidation(minAccuracy float64, strict bool) ServiceOption {
+	return func(s *Service) {
+		s.calibrationMinAccuracy = minAccuracy
+		s.calibrationStrict = strict
+	}
+}
+
 // NewService creates a new governance service.
 func NewService(eval *evaluator.Evaluator, opts ...ServiceOption) *Service {
 	s := &Service{
 		evaluator: eval,
 		logger:    slog.Default().With("service", "governance"),
+		detector:  attribution.NewDetector(),
 	}
 
 	for _, opt := range opts {
@@ -269,11 +318,23 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 	intent := cgp.ProposalIntent{
 		Summary:       fmt.Sprintf("Release %s for %s", rel.VersionNext(), input.Repository),
 		SuggestedBump: bumpType,
-		Confidence:    1.0, // Human-initiated releases have full confidence
+		Confidence:    1.0, // Default; refined by authorship detection below.
+	}
+
+	// Detect who actually authored the changeset's commits and let machine
+	// authorship govern the proposal. Tightens only — see applyAttribution.
+	governingActor := input.Actor
+	var detection *attribution.DetectionResult
+	if s.attributionEnabled && plan != nil && plan.HasChangeSet() {
+		detection = s.detectAuthorship(plan.GetChangeSet())
+		governingActor, intent.Confidence = applyAttribution(input.Actor, detection)
 	}
 
 	// Create proposal
-	proposal := cgp.NewProposal(input.Actor, scope, intent)
+	proposal := cgp.NewProposal(governingActor, scope, intent)
+	if detection != nil {
+		recordAttributionContext(proposal, input.Actor, detection)
+	}
 
 	// Build analysis
 	var analysis *cgp.ChangeAnalysis

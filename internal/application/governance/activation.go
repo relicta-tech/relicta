@@ -42,6 +42,23 @@ func (s *Service) ensureCalibrated(ctx context.Context, repository string) {
 
 		calRecords := toCalibrationRecords(records)
 		result := risk.NewCalibrator().Calibrate(calRecords)
+
+		// Validate prediction accuracy before trusting the new weights. Stale or
+		// noisy history can yield weights that degrade risk scoring silently.
+		if s.calibrationMinAccuracy > 0 && result.Accuracy < s.calibrationMinAccuracy {
+			if s.calibrationStrict {
+				s.logger.Warn("risk calibration rejected: accuracy below threshold, keeping default weights",
+					"accuracy", result.Accuracy,
+					"min_accuracy", s.calibrationMinAccuracy,
+					"samples", result.SampleSize)
+				return
+			}
+			s.logger.Warn("risk calibration accuracy below threshold; applying anyway (non-strict)",
+				"accuracy", result.Accuracy,
+				"min_accuracy", s.calibrationMinAccuracy,
+				"samples", result.SampleSize)
+		}
+
 		s.evaluator.ApplyCalibration(result)
 
 		s.logger.Info("risk weights calibrated from history",
@@ -96,7 +113,11 @@ func (s *Service) applyReputationGuard(ctx context.Context, input EvaluateReleas
 	if score.SampleSize < minReputationSamples {
 		return
 	}
-	if score.Overall >= reputation.ThresholdProbation {
+	probationThreshold := reputation.ThresholdProbation
+	if s.reputationProbationThreshold > 0 {
+		probationThreshold = s.reputationProbationThreshold
+	}
+	if score.Overall >= probationThreshold {
 		return
 	}
 
