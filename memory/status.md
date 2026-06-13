@@ -2,13 +2,20 @@
 updated: 2026-06-13
 ---
 ## Current State
-Relicta v4.1.0 shipped. `main` clean, no open PRs or issues. Recent work activated risk calibration + actor-reputation guarding (#156) and removed spoofable env-based actor trust (#155).
+On branch `chore/agent-os-memory`. Tier A governance fixes done on top of v4.1.0:
+attribution wiring, configurable reputation threshold, calibration validation, E2E test.
+All touched packages pass tests + lint.
 
 ## Last Session Summary
-Set up Agent OS memory system. No code work this session.
+Scanned codebase (3 parallel agents): tech-debt, v4.1.0 follow-ups, CGP product surface.
+Found attribution detector built-but-unwired (core vision gap). Fixed Tier A: wired
+attribution into evaluation, made reputation threshold + calibration accuracy configurable,
+added E2E pipeline test. Documented new config keys in docs/governance.md.
 
 ## Next Session Should
-Decide next feature/fix from roadmap, or capture a goal into roadmap.md.
+Decide on Tier B initiatives (see roadmap Later): earned-trust model, MCP decomposition,
+darwin sandbox, CLI exit-code coverage. Or push branch + open PR for Tier A.
 
 ## Blocked / Waiting
-None.
+None. Pre-existing macOS-only test flake in internal/infrastructure/git
+(TestGetRepositoryRoot/Info: /private/var vs /var TempDir symlink) — not ours, unrelated.
