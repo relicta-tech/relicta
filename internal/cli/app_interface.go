@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
 	"github.com/relicta-tech/relicta/v4/internal/config"
@@ -28,6 +29,7 @@ type cliApp interface {
 	AI() ai.Service
 	HasGovernance() bool
 	GovernanceService() *governance.Service
+	Analytics() *analytics.Service
 
 	// Release workflow services (DDD layer)
 	InitReleaseServices(ctx context.Context, repoRoot string) error

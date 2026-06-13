@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
 	"github.com/relicta-tech/relicta/v4/internal/config"
@@ -311,6 +312,7 @@ func (b bumpTestApp) HasAI() bool                                       { return
 func (b bumpTestApp) AI() ai.Service                                    { return nil }
 func (b bumpTestApp) HasGovernance() bool                               { return false }
 func (b bumpTestApp) GovernanceService() *governance.Service            { return nil }
+func (b bumpTestApp) Analytics() *analytics.Service                     { return nil }
 func (b bumpTestApp) InitReleaseServices(context.Context, string) error { return nil }
 func (b bumpTestApp) ReleaseServices() *domainrelease.Services          { return nil }
 func (b bumpTestApp) HasReleaseServices() bool                          { return false }
