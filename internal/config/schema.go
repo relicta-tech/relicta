@@ -507,6 +507,11 @@ type GovernanceConfig struct {
 	// trust may be raised to "full" (human-equivalent autonomy). Zero uses the
 	// built-in default (50).
 	EarnedTrustFullSamples int `mapstructure:"earned_trust_full_samples" json:"earned_trust_full_samples,omitempty"`
+	// IdentityRegistryPath is the directory holding the actor-identity registry
+	// (actors.json). When set, an actor is granted the trust level its
+	// organization registered for it (raise-only, composing with earned trust).
+	// Empty disables identity-based grants.
+	IdentityRegistryPath string `mapstructure:"identity_registry_path" json:"identity_registry_path,omitempty"`
 }
 
 // RiskBudgetConfig configures cumulative risk budget limits.

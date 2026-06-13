@@ -12,6 +12,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -69,6 +70,12 @@ type Service struct {
 	earnedTrustEnabled     bool
 	earnedTrustMinSamples  int
 	earnedTrustFullSamples int
+
+	// identityRegistry, when set, grants an actor the trust level its
+	// organization explicitly registered for it. Like earned trust this only
+	// ever raises an actor's trust; the two compose (the higher wins). Nil
+	// disables identity-based grants.
+	identityRegistry *identity.Registry
 }
 
 // ServiceOption configures a governance Service.
@@ -151,6 +158,14 @@ func WithEarnedTrustSamples(minSamples, fullSamples int) ServiceOption {
 	}
 }
 
+// WithIdentityRegistry enables organization-granted trust from an actor identity
+// registry. Grants only ever raise an actor's trust level.
+func WithIdentityRegistry(registry *identity.Registry) ServiceOption {
+	return func(s *Service) {
+		s.identityRegistry = registry
+	}
+}
+
 // NewService creates a new governance service.
 func NewService(eval *evaluator.Evaluator, opts ...ServiceOption) *Service {
 	s := &Service{
@@ -219,6 +234,24 @@ type EvaluateReleaseOutput struct {
 	// governing actor before evaluation, when earned-trust is enabled and the
 	// actor qualified. Nil when no escalation occurred.
 	EarnedTrust *EarnedTrustInfo
+
+	// IdentityTrust describes an organization-granted trust escalation from the
+	// identity registry. Nil when no grant applied.
+	IdentityTrust *IdentityTrustInfo
+}
+
+// IdentityTrustInfo summarizes an organization-granted trust escalation.
+type IdentityTrustInfo struct {
+	// ActorID is the governing actor whose trust was raised.
+	ActorID string
+	// IdentityID is the matched registry identity ("name@scope").
+	IdentityID string
+	// FromLevel is the actor's trust level before the grant.
+	FromLevel string
+	// ToLevel is the trust level granted by the organization.
+	ToLevel string
+	// TrustScore is the registered trust score that mapped to the level.
+	TrustScore float64
 }
 
 // EarnedTrustInfo summarizes a reputation-driven trust escalation.
@@ -285,9 +318,15 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	// Build change proposal and analysis from release
 	proposal, analysis := s.buildProposalAndAnalysis(input)
 
-	// Raise the governing actor's trust from a verifiable track record before
-	// evaluation, so an earned-trusted actor can auto-approve low-risk changes.
-	// This is the only path that loosens; it is opt-in and sample-gated.
+	// Raise the governing actor's trust before evaluation so a trusted actor can
+	// auto-approve low-risk changes. Two independent raise-only sources: an
+	// organization grant from the identity registry, and a reputation-derived
+	// earned-trust from a verifiable track record. Both are opt-in and are the
+	// only paths that loosen an outcome.
+	var identityTrust *IdentityTrustInfo
+	if s.identityRegistry != nil {
+		identityTrust = s.applyIdentityTrust(ctx, proposal)
+	}
 	var earnedTrust *EarnedTrustInfo
 	if s.earnedTrustEnabled && s.memoryStore != nil {
 		earnedTrust = s.applyEarnedTrust(ctx, input.Repository, proposal)
@@ -301,6 +340,7 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 
 	output := &EvaluateReleaseOutput{
 		EarnedTrust:     earnedTrust,
+		IdentityTrust:   identityTrust,
 		Decision:        result.Decision.Decision,
 		RiskScore:       result.Decision.RiskScore,
 		Severity:        result.RiskAssessment.Severity,
