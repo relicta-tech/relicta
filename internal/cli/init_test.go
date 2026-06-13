@@ -373,7 +373,10 @@ func TestInitCommand_FlagDefaults(t *testing.T) {
 		wantDefault string
 	}{
 		{"force default", "force", "false"},
-		{"interactive default", "interactive", "true"},
+		// interactive defaults to false: a bare `relicta init` runs zero-config
+		// quick mode; the wizard is opt-in via --guided/--interactive.
+		{"interactive default", "interactive", "false"},
+		{"guided default", "guided", "false"},
 		{"format default", "format", "yaml"},
 	}
 
@@ -465,6 +468,36 @@ func TestRunInitNonInteractiveCreatesConfig(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(tmpDir, ".relicta.yaml")); err != nil {
 		t.Fatalf("expected config file to be created: %v", err)
+	}
+}
+
+// TestRunInitDefaultIsQuick verifies a bare `relicta init` (no flags) writes a
+// config without launching the interactive wizard. If the default still routed
+// to the wizard, RunWizard would block on a TUI rather than return here.
+func TestRunInitDefaultIsQuick(t *testing.T) {
+	origForce, origGuided, origInteractive, origFormat, origVerbose := initForce, initGuided, initInteractive, initFormat, verbose
+	defer func() {
+		initForce, initGuided, initInteractive, initFormat, verbose = origForce, origGuided, origInteractive, origFormat, origVerbose
+	}()
+
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd error: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir error: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origWd) })
+
+	// All flags at their zero value — exactly a bare `relicta init`.
+	initForce, initGuided, initInteractive, initFormat, verbose = false, false, false, "yaml", false
+
+	if err := runInit(&cobra.Command{}, nil); err != nil {
+		t.Fatalf("runInit error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, ".relicta.yaml")); err != nil {
+		t.Fatalf("bare init should create config via quick mode: %v", err)
 	}
 }
 

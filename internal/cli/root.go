@@ -453,8 +453,10 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new relicta configuration",
 	Long: `Initialize a new relicta configuration in the current directory.
 
-This command creates a .relicta.yaml file with sensible defaults
-and guides you through the initial setup.`,
+By default this is zero-config: relicta detects your project from its git
+remote and manifests, writes a .relicta.yaml with sensible defaults, and
+prints next steps — no prompts. Pass --guided for the 8-step interactive
+setup wizard, or --force to overwrite an existing config.`,
 	RunE: runInit,
 }
 

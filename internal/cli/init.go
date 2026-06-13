@@ -23,10 +23,10 @@ var (
 
 func init() {
 	initCmd.Flags().BoolVarP(&initForce, "force", "f", false, "overwrite existing config file")
-	initCmd.Flags().BoolVarP(&initInteractive, "interactive", "i", true, "run interactive setup (deprecated alias for --guided)")
+	initCmd.Flags().BoolVarP(&initInteractive, "interactive", "i", false, "run the interactive wizard (deprecated alias for --guided)")
 	initCmd.Flags().StringVar(&initFormat, "format", "yaml", "config file format (yaml, json)")
-	initCmd.Flags().BoolVar(&initQuick, "quick", false, "quick mode: detect from git remote + manifests, write defaults, skip wizard")
-	initCmd.Flags().BoolVar(&initGuided, "guided", false, "explicit opt-in to the 8-step interactive wizard (synonym for --interactive)")
+	initCmd.Flags().BoolVar(&initQuick, "quick", false, "explicit quick mode (now the default): detect from git + manifests, write defaults, no prompts")
+	initCmd.Flags().BoolVar(&initGuided, "guided", false, "opt in to the 8-step interactive setup wizard")
 }
 
 // runInit implements the init command.
@@ -39,87 +39,38 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Quick mode: skip the wizard, infer from environment, write defaults.
-	// Goal-Gradient + Doherty Threshold — get to first governed release fast.
-	if initQuick {
-		return runInitQuick()
+	// The interactive wizard is opt-in only (--guided, or the deprecated
+	// --interactive alias). Everything else — including a bare `relicta init`
+	// — runs zero-config quick mode: detect from the environment, write
+	// sensible defaults, no prompts. Goal-Gradient + Doherty Threshold: get to
+	// a first governed release fast, with the wizard one flag away for those
+	// who want explanatory prompts.
+	if initGuided || initInteractive {
+		return runInitGuided()
 	}
 
-	// Interactive wizard mode (--guided is the new name; --interactive kept for back-compat).
-	if initInteractive || initGuided {
-		result, err := wizard.RunWizard(".")
-		if err != nil {
-			return fmt.Errorf("wizard failed: %w", err)
-		}
+	return runInitQuick()
+}
 
-		// Handle wizard result
-		switch result.State {
-		case wizard.StateSuccess:
-			// Wizard completed successfully, config already saved
-			return nil
-
-		case wizard.StateQuit:
-			// User quit the wizard
-			printInfo("Setup canceled")
-			return nil
-
-		case wizard.StateError:
-			// Wizard encountered an error
-			return fmt.Errorf("wizard error: %w", result.Error)
-
-		default:
-			return fmt.Errorf("unexpected wizard state: %v", result.State)
-		}
+// runInitGuided runs the 8-step interactive setup wizard.
+func runInitGuided() error {
+	result, err := wizard.RunWizard(".")
+	if err != nil {
+		return fmt.Errorf("wizard failed: %w", err)
 	}
 
-	// Non-interactive mode: fall back to old behavior
-	printTitle("Relicta Setup")
-	fmt.Println()
-
-	// Determine config file name
-	configFile := ".relicta.yaml"
-	if initFormat == "json" {
-		configFile = ".relicta.json"
+	switch result.State {
+	case wizard.StateSuccess:
+		// Wizard completed successfully, config already saved.
+		return nil
+	case wizard.StateQuit:
+		printInfo("Setup canceled")
+		return nil
+	case wizard.StateError:
+		return fmt.Errorf("wizard error: %w", result.Error)
+	default:
+		return fmt.Errorf("unexpected wizard state: %v", result.State)
 	}
-
-	// Start with defaults
-	cfg := config.DefaultConfig()
-
-	// Try to detect repository settings
-	if err := detectRepoSettings(cfg); err != nil {
-		if verbose {
-			printWarning(fmt.Sprintf("Could not detect repository settings: %v", err))
-		}
-	}
-
-	// Write config file
-	if err := config.WriteConfig(cfg, configFile); err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
-	}
-
-	printSuccess(fmt.Sprintf("Created %s", configFile))
-	fmt.Println()
-
-	// Print next steps
-	printTitle("Next Steps")
-	fmt.Println()
-	fmt.Println("  1. Review and customize your config file")
-	fmt.Println("  2. Set up required environment variables:")
-	fmt.Println()
-	if cfg.AI.Enabled {
-		printSubtle("     export OPENAI_API_KEY=<your-api-key>")
-	}
-	if hasPlugin(cfg, "github") {
-		printSubtle("     export GITHUB_TOKEN=<your-token>")
-	}
-	if hasPlugin(cfg, "slack") {
-		printSubtle("     export SLACK_WEBHOOK_URL=<your-webhook-url>")
-	}
-	fmt.Println()
-	fmt.Println("  3. Run 'relicta plan' to analyze your commits")
-	fmt.Println()
-
-	return nil
 }
 
 // runInitQuick performs zero-prompt project initialization.
@@ -145,7 +96,24 @@ func runInitQuick() error {
 		return fmt.Errorf("write config: %w", err)
 	}
 
-	printSuccess(fmt.Sprintf("Created %s (quick mode)", configFile))
+	printSuccess(fmt.Sprintf("Created %s", configFile))
+
+	// Surface any tokens the detected config will need, so the user isn't
+	// surprised at publish time. Kept terse — quick mode is zero-prompt.
+	var envHints []string
+	if cfg.AI.Enabled {
+		envHints = append(envHints, "export OPENAI_API_KEY=<your-api-key>")
+	}
+	if hasPlugin(cfg, "github") {
+		envHints = append(envHints, "export GITHUB_TOKEN=<your-token>")
+	}
+	if hasPlugin(cfg, "slack") {
+		envHints = append(envHints, "export SLACK_WEBHOOK_URL=<your-webhook-url>")
+	}
+	for _, h := range envHints {
+		printSubtle("  " + h)
+	}
+
 	printInfo("Run 'relicta plan' to start your first release, or 'relicta init --guided' for the full setup wizard.")
 	return nil
 }

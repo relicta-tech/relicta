@@ -23,13 +23,6 @@
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "b38c0d5533a7ca32035b1dcdcf88eaf4211450552f43adb389f6d58f80b64cf6",
-      "rule_id": "AI-007",
-      "file_path": "internal/cli/init.go",
-      "severity": "high",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
       "fingerprint": "a63442d143aa4f8369bc83f8c7671c0043d7a0bc5388ef5d75eadef82da366ac",
       "rule_id": "AI-008",
       "file_path": "internal/cgp/attribution/detector.go",
@@ -411,20 +404,6 @@
       "fingerprint": "9d1d2fcb824873fd71e1e9d6116ca7c5e7e0df4f69310017777a0847963cd66c",
       "rule_id": "SEC-163",
       "file_path": ".github/workflows/benchmark.yaml",
-      "severity": "medium",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
-      "fingerprint": "a9e70d4122bd6e8ba0de55374d6d96af10afe75bd7e0ff2d260a4296b0c7a356",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/init.go",
-      "severity": "medium",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
-      "fingerprint": "542f6191641bc71103c7dacbc1519ccdb56f2bd0824e6b127a76474cc2a96896",
-      "rule_id": "SEC-163",
-      "file_path": "internal/cli/init.go",
       "severity": "medium",
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
@@ -1386,6 +1365,34 @@
       "file_path": "internal/cli/approve.go",
       "severity": "high",
       "created_at": "2026-06-13T10:23:19.298104Z"
+    },
+    {
+      "fingerprint": "ee551569030eca2e475154c082f5fb83a77221bed4eaf2ee5526d57d57445b43",
+      "rule_id": "SEC-161",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T13:35:41.164916Z"
+    },
+    {
+      "fingerprint": "c2cc4f81bd566c6533840d4233a664459fa292ae2a8a3a6ab1f260968f2a2736",
+      "rule_id": "SEC-161",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T13:35:41.164916Z"
+    },
+    {
+      "fingerprint": "78abd22ed1d57e6911878bf790bf4cadecf624092621909e532602dc911e025a",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T13:35:41.164916Z"
+    },
+    {
+      "fingerprint": "2b707670b8b9666b8c7fe49527701742dc9a407fe1b0561fc8e18c6ebbc09972",
+      "rule_id": "SEC-163",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T13:35:41.164916Z"
     }
   ]
 }
