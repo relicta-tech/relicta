@@ -24,6 +24,10 @@ const MaxPluginFileSize = 100 * 1024 * 1024
 type Installer struct {
 	httpClient *http.Client
 	pluginDir  string
+	// verifier applies the trust policy (digest + optional Cosign keyless
+	// verification) to the downloaded archive. When nil the installer falls
+	// back to the legacy bare-checksum check.
+	verifier *Verifier
 }
 
 // NewInstaller creates a new plugin installer.
@@ -34,6 +38,36 @@ func NewInstaller(pluginDir string) *Installer {
 		},
 		pluginDir: pluginDir,
 	}
+}
+
+// SetVerifier attaches a trust-policy verifier used to validate downloaded
+// archives before extraction.
+func (i *Installer) SetVerifier(v *Verifier) {
+	i.verifier = v
+}
+
+// artifactForVerification bridges a legacy registry PluginInfo into the
+// IndexArtifact shape the trust Verifier consumes. The legacy registry
+// carries only per-platform checksums (no Cosign metadata), so under the
+// default/enterprise policies these artifacts fail closed until the v2
+// index supplies signatures — which is the intended migration pressure.
+func artifactForVerification(p *PluginInfo) IndexArtifact {
+	goos, goarch := splitPlatform(GetCurrentPlatform())
+	digest := p.GetChecksum()
+	if digest != "" {
+		digest = "sha256:" + digest
+	}
+	return IndexArtifact{OS: goos, Arch: goarch, Digest: digest}
+}
+
+// splitPlatform converts a "darwin_aarch64" platform key into index
+// (os, arch) form ("darwin", "arm64").
+func splitPlatform(key string) (string, string) {
+	goos, goarch, ok := platformKeyToOSArch(key)
+	if !ok {
+		return key, ""
+	}
+	return goos, goarch
 }
 
 // Install downloads and installs a plugin binary.
@@ -66,9 +100,16 @@ func (i *Installer) Install(ctx context.Context, pluginInfo PluginInfo) (*Instal
 		return nil, fmt.Errorf("failed to close temp file: %w", err)
 	}
 
-	// Verify archive checksum BEFORE extraction (security: prevent installing tampered archives)
-	expectedChecksum := pluginInfo.GetChecksum()
-	if expectedChecksum != "" {
+	// Verify the downloaded archive BEFORE extraction. When a trust-policy
+	// verifier is configured it owns verification (digest + Cosign keyless
+	// under the active policy, failing closed); otherwise fall back to the
+	// legacy bare-checksum comparison.
+	if i.verifier != nil {
+		artifact := artifactForVerification(&pluginInfo)
+		if err := i.verifier.VerifyArtifact(ctx, tmpFile.Name(), artifact); err != nil {
+			return nil, fmt.Errorf("plugin %s failed trust verification: %w", pluginInfo.Name, err)
+		}
+	} else if expectedChecksum := pluginInfo.GetChecksum(); expectedChecksum != "" {
 		archiveFile, err := os.Open(tmpFile.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to open archive for checksum verification: %w", err)
