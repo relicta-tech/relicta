@@ -23,5 +23,21 @@ type pluginManager interface {
 }
 
 var newPluginManager = func() (pluginManager, error) {
-	return manager.NewManager()
+	mgr, err := manager.NewManager()
+	if err != nil {
+		return nil, err
+	}
+	// Apply the configured plugin trust policy (ADR-008). Defaults to
+	// permissive when unset so the legacy unsigned registry keeps working;
+	// operators opt into signature enforcement via plugin_security.trust_policy.
+	if cfg != nil {
+		policy := cfg.PluginSecurity.TrustPolicy
+		if policy == "" {
+			policy = string(manager.TrustPermissive)
+		}
+		if err := mgr.SetTrustPolicy(policy, cfg.PluginSecurity.TrustKey); err != nil {
+			return nil, err
+		}
+	}
+	return mgr, nil
 }

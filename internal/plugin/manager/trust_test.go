@@ -124,3 +124,42 @@ func TestVerifyArtifact_EnterpriseRequiresKey(t *testing.T) {
 		t.Fatalf("enterprise without key must fail, got %v", err)
 	}
 }
+
+func TestInstaller_SetVerifier_DigestPathThroughVerifier(t *testing.T) {
+	// With a permissive verifier attached, the installer verifies the
+	// archive digest through the trust path instead of the legacy checksum
+	// branch. artifactForVerification bridges PluginInfo → IndexArtifact.
+	p := &PluginInfo{
+		Name:      "demo",
+		Checksums: map[string]string{GetCurrentPlatform(): "abc123"},
+	}
+	art := artifactForVerification(p)
+	if art.Digest != "sha256:abc123" {
+		t.Errorf("digest bridge = %q, want sha256:abc123", art.Digest)
+	}
+	goos, _ := splitPlatform(GetCurrentPlatform())
+	if art.OS != goos {
+		t.Errorf("os = %q, want %q", art.OS, goos)
+	}
+}
+
+func TestInstaller_DefaultPolicyFailsClosedOnLegacyEntry(t *testing.T) {
+	// A legacy registry entry carries no Cosign metadata, so the default
+	// (signature-requiring) policy must refuse it — the migration pressure
+	// toward signed plugins.
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "a.tar.gz")
+	if err := os.WriteFile(archive, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte("data"))
+
+	inst := NewInstaller(dir)
+	inst.SetVerifier(NewVerifier(TrustDefault))
+
+	art := IndexArtifact{Digest: "sha256:" + hex.EncodeToString(sum[:])}
+	err := inst.verifier.VerifyArtifact(context.Background(), archive, art)
+	if err == nil || !strings.Contains(err.Error(), "Cosign keyless signature") {
+		t.Fatalf("default policy must reject unsigned legacy artifact, got %v", err)
+	}
+}

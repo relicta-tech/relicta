@@ -62,6 +62,20 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
+// SetTrustPolicy configures how downloaded plugin archives are verified at
+// install time. keyPath is the operator public key required by the
+// enterprise policy. An empty/invalid policy returns an error.
+func (m *Manager) SetTrustPolicy(policy string, keyPath string) error {
+	p, err := ParseTrustPolicy(policy)
+	if err != nil {
+		return err
+	}
+	v := NewVerifier(p)
+	v.KeyPath = keyPath
+	m.installer.SetVerifier(v)
+	return nil
+}
+
 // ListAvailable returns all plugins available in the registry.
 func (m *Manager) ListAvailable(ctx context.Context, forceRefresh bool) ([]PluginListEntry, error) {
 	registry, err := m.registry.Fetch(ctx, forceRefresh)
