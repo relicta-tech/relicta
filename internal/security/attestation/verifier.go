@@ -99,8 +99,14 @@ func (v *Verifier) Verify(_ context.Context, att *SignedAttestation) (*Verificat
 // verifySignature verifies a cryptographic signature against the payload.
 func (v *Verifier) verifySignature(payload []byte, sig Signature) error {
 	if v.publicKeyPEM == nil {
-		// If no public key configured, accept any signature (trust mode).
-		return nil
+		// A signature is present but we have no key to check it against, so
+		// we cannot establish validity. Fail closed unless the operator has
+		// explicitly opted into accepting unverified attestations — anything
+		// else lets a forged signature pass as valid (the previous behavior).
+		if v.allowUnsigned {
+			return nil
+		}
+		return fmt.Errorf("attestation is signed but no public key is configured to verify it: pass --public-key, or --allow-unsigned to accept unverified attestations")
 	}
 
 	block, _ := pem.Decode(v.publicKeyPEM)

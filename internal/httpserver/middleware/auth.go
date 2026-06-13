@@ -54,10 +54,13 @@ func Auth(cfg config.DashboardAuthConfig, tokenSvc *token.Service) func(http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch cfg.Mode {
 			case config.DashboardAuthNone, "":
-				// No authentication - pass through with anonymous user
+				// No authentication - pass through with an anonymous, READ-ONLY
+				// user. Granting admin here let unauthenticated callers
+				// approve/reject releases; viewer keeps no-auth usable for
+				// local inspection without exposing mutating actions.
 				user := &AuthenticatedUser{
 					Name:  "anonymous",
-					Roles: []string{string(config.DashboardRoleAdmin)}, // Full access when auth disabled
+					Roles: []string{string(config.DashboardRoleViewer)},
 				}
 				ctx := context.WithValue(r.Context(), UserContextKey, user)
 				next.ServeHTTP(w, r.WithContext(ctx))
