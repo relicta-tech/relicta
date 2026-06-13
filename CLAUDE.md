@@ -122,5 +122,5 @@ Environment variables override config with `RELICTA_` prefix.
 
 ## Documentation
 
-- **PRD:** `docs/prd.md` - Product requirements and feature specifications
-- **Technical Design:** `docs/technical-design.md` - Architecture, interfaces, and implementation details
+- **PRD:** `docs/internal/prd.md` - Product requirements and feature specifications
+- **Technical Design:** `docs/internal/technical-design.md` - Architecture, interfaces, and implementation details

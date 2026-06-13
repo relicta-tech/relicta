@@ -1,0 +1,43 @@
+## relicta plugin list
+
+List plugins
+
+### Synopsis
+
+List installed plugins or available plugins from the registry.
+
+By default, shows installed plugins. Use --available to show all plugins
+from the registry.
+
+```
+relicta plugin list [flags]
+```
+
+### Options
+
+```
+  -a, --available   Show all available plugins from registry
+  -h, --help        help for list
+  -r, --refresh     Force refresh registry cache
+```
+
+### Options inherited from parent commands
+
+```
+      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
+  -c, --config string             config file (default: .relicta.yaml)
+      --dry-run                   simulate actions without making changes
+      --json                      output results as JSON
+      --log string                alias for --log-level
+      --log-level string          log level (debug, info, warn, error) (default "info")
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --no-color                  disable colored output
+      --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
+  -v, --verbose                   enable verbose output
+```
+
+### SEE ALSO
+
+* [relicta plugin](relicta_plugin.md)	 - Manage Relicta plugins
+

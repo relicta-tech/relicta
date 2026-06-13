@@ -129,6 +129,13 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
+// RootCommand returns the root command. Exposed for documentation generation
+// (tools/gendocs walks the command tree to emit docs/cli/*.md). Do not use it
+// to mutate command state at runtime.
+func RootCommand() *cobra.Command {
+	return rootCmd
+}
+
 // ExecuteContext runs the root command with a context for graceful shutdown.
 func ExecuteContext(ctx context.Context) error {
 	return rootCmd.ExecuteContext(ctx)
