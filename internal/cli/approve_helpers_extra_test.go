@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
@@ -59,5 +60,61 @@ func TestCreateCGPActorCI(t *testing.T) {
 	}
 	if actor.TrustLevel == 3 {
 		t.Fatal("expected ci actor not to have full trust level")
+	}
+}
+
+// TestCreateCGPActorUntrustedHumanIsLimited locks in the trust-spoofing fix:
+// a human actor that is NOT in the trusted-actors allowlist must stay Limited
+// and must NOT be able to auto-approve. Previously any invocation without CI
+// markers was granted TrustLevelTrusted, so clearing CI=true unlocked
+// auto-approval.
+func TestCreateCGPActorUntrustedHumanIsLimited(t *testing.T) {
+	cfg = config.DefaultConfig()
+	defer cleanupEnv("CI", "GITHUB_ACTOR", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "USER")()
+
+	os.Unsetenv("CI")
+	os.Unsetenv("GITHUB_ACTOR")
+	os.Unsetenv("GITHUB_ACTIONS")
+	os.Unsetenv("GITLAB_CI")
+	os.Unsetenv("JENKINS_URL")
+	os.Setenv("USER", "stranger")
+	cfg.Governance.TrustedActors = nil // empty allowlist
+
+	actor := createCGPActor()
+
+	if actor.Kind != "human" {
+		t.Fatalf("expected human kind, got %s", actor.Kind)
+	}
+	if actor.TrustLevel != cgp.TrustLevelLimited {
+		t.Fatalf("untrusted human must be Limited, got %d", actor.TrustLevel)
+	}
+	if actor.TrustLevel.CanAutoApprove() {
+		t.Fatal("untrusted human must NOT be able to auto-approve")
+	}
+}
+
+// TestCreateCGPActorTrustScopedByKind verifies a kind-scoped allowlist entry
+// (human:alice) does not also trust a CI actor running under the same identity
+// (GITHUB_ACTOR=alice), closing a same-name escalation path.
+func TestCreateCGPActorTrustScopedByKind(t *testing.T) {
+	cfg = config.DefaultConfig()
+	defer cleanupEnv("CI", "GITHUB_ACTOR", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "USER")()
+
+	cfg.Governance.TrustedActors = []string{"human:alice"}
+
+	os.Setenv("CI", "true")
+	os.Setenv("GITHUB_ACTOR", "alice")
+	ciActor := createCGPActor()
+	if ciActor.TrustLevel == cgp.TrustLevelFull {
+		t.Fatal("ci:alice must not match a human:alice trust entry")
+	}
+
+	os.Unsetenv("CI")
+	os.Unsetenv("GITHUB_ACTIONS")
+	os.Unsetenv("GITHUB_ACTOR")
+	os.Setenv("USER", "alice")
+	humanActor := createCGPActor()
+	if humanActor.TrustLevel != cgp.TrustLevelFull {
+		t.Fatalf("human:alice must match its trust entry, got %d", humanActor.TrustLevel)
 	}
 }

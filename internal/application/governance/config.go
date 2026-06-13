@@ -164,9 +164,18 @@ func buildRule(cfg config.GovernancePolicyConfig) policy.Rule {
 }
 
 // IsActorTrusted checks if an actor is in the trusted actors list.
+//
+// An entry matches either the actor's full kind-scoped ID ("human:alice",
+// "ci:deploy-bot") or its bare name ("alice"). The scoped form lets operators
+// grant trust to a human without also trusting a CI actor that happens to run
+// under the same identity (e.g. GITHUB_ACTOR=alice in a workflow); the bare
+// form is kept for backwards compatibility with existing allowlists.
 func IsActorTrusted(cfg *config.GovernanceConfig, actor cgp.Actor) bool {
 	for _, trusted := range cfg.TrustedActors {
-		if actor.ID == trusted {
+		if trusted == "" {
+			continue
+		}
+		if actor.ID == trusted || (actor.Name != "" && actor.Name == trusted) {
 			return true
 		}
 	}
