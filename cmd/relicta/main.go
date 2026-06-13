@@ -19,6 +19,9 @@ var (
 func main() {
 	cli.SetVersionInfo(ver, commit, date)
 	if err := cli.Execute(); err != nil {
+		// cobra runs with SilenceErrors; surface the error ourselves so a
+		// non-zero exit is never silent.
+		cli.ReportError(err)
 		os.Exit(1)
 	}
 }

@@ -29,6 +29,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
+	go.klarlabs.de/bolt v1.5.2
 	go.klarlabs.de/fortify v1.6.0
 	go.klarlabs.de/mcp v1.15.0
 	go.klarlabs.de/statekit v1.8.0
@@ -36,6 +37,7 @@ require (
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
+	golang.org/x/term v0.43.0
 	golang.org/x/text v0.37.0
 	google.golang.org/genai v1.59.0
 	google.golang.org/grpc v1.81.1
@@ -140,7 +142,6 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.klarlabs.de/bolt v1.5.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0 // indirect
@@ -150,7 +151,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260504160031-60b97b32f348 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

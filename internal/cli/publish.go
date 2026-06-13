@@ -75,7 +75,7 @@ func outputStepResults(results []releaseapp.StepResult) {
 		} else if result.Success {
 			printSuccess(fmt.Sprintf("  %s: %s", result.StepName, result.Output))
 		} else {
-			printError(fmt.Sprintf("  %s: %s", result.StepName, result.Error))
+			printErrorResult(fmt.Sprintf("  %s: %s", result.StepName, result.Error))
 		}
 	}
 }
