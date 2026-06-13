@@ -1131,10 +1131,22 @@ func TestDTO_RoundTrip(t *testing.T) {
 		"plugin-hash",
 	)
 
-	// Transition through states
+	// Transition through states, populating the version-proposal confidence
+	// and policy thresholds that the round-trip previously dropped.
 	_ = run.Plan("system")
+	_ = run.SetVersionProposal(
+		version.NewSemanticVersion(1, 0, 0),
+		version.NewSemanticVersion(1, 1, 0),
+		domain.BumpMinor,
+		0.87,
+	)
 	_ = run.SetVersion(version.NewSemanticVersion(1, 1, 0), "v1.1.0")
 	_ = run.Bump("system")
+	run.SetPolicyEvaluation(0.42, []string{"touches auth"}, domain.PolicyThresholds{
+		AutoApproveRiskThreshold: 0.3,
+		RequireApprovalAbove:     0.5,
+		BlockReleaseAbove:        0.9,
+	})
 
 	// Add notes using GenerateNotes
 	notes := &domain.ReleaseNotes{
@@ -1179,6 +1191,25 @@ func TestDTO_RoundTrip(t *testing.T) {
 	}
 	if reconstructed.Notes() == nil || reconstructed.Notes().Text != notes.Text {
 		t.Error("Notes mismatch")
+	}
+
+	// Full-fidelity assertions: these five fields silently serialized as
+	// zero values before the toDTO fix (the round-trip executed the code at
+	// 100% line coverage but never checked the values — the bug behind #136).
+	if reconstructed.ConfigHash() != run.ConfigHash() {
+		t.Errorf("ConfigHash lost: got %q, want %q", reconstructed.ConfigHash(), run.ConfigHash())
+	}
+	if reconstructed.PluginPlanHash() != run.PluginPlanHash() {
+		t.Errorf("PluginPlanHash lost: got %q, want %q", reconstructed.PluginPlanHash(), run.PluginPlanHash())
+	}
+	if reconstructed.Confidence() != run.Confidence() {
+		t.Errorf("Confidence lost: got %v, want %v", reconstructed.Confidence(), run.Confidence())
+	}
+	if reconstructed.NotesInputsHash() != run.NotesInputsHash() {
+		t.Errorf("NotesInputsHash lost: got %q, want %q", reconstructed.NotesInputsHash(), run.NotesInputsHash())
+	}
+	if reconstructed.Thresholds() != run.Thresholds() {
+		t.Errorf("Thresholds lost: got %+v, want %+v", reconstructed.Thresholds(), run.Thresholds())
 	}
 }
 
