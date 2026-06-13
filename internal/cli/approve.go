@@ -357,6 +357,9 @@ func runApprove(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("governance evaluation failed: %w", err)
 			}
 		} else {
+			// Capture risk + policy-decision analytics from the evaluation.
+			captureGovernanceAnalytics(ctx, app, string(rel.ID()), govResult)
+
 			// JSON mode: emit the canonical ApprovalCard so downstream
 			// consumers (CI scripts, web dashboard, MCP relay) all see the
 			// same wire shape regardless of which Relicta surface produced it.
@@ -444,6 +447,9 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// Capture the approval outcome for actor/bottleneck analytics.
+	captureApprovalOutcome(ctx, app, string(rel.ID()), "approved", 0)
 
 	// Record successful outcome to Release Memory
 	if govResult != nil {

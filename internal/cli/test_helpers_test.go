@@ -5,6 +5,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -24,6 +25,7 @@ type commandTestApp struct {
 	hasGov          bool
 	calcVersionUC   calculateVersionUseCase
 	releaseServices *domainrelease.Services
+	analyticsSvc    *analytics.Service
 }
 
 func (a commandTestApp) Close() error                                      { return nil }
@@ -35,6 +37,7 @@ func (a commandTestApp) HasAI() bool                                       { ret
 func (a commandTestApp) AI() ai.Service                                    { return nil }
 func (a commandTestApp) HasGovernance() bool                               { return a.hasGov }
 func (a commandTestApp) GovernanceService() *governance.Service            { return a.govSvc }
+func (a commandTestApp) Analytics() *analytics.Service                     { return a.analyticsSvc }
 func (a commandTestApp) InitReleaseServices(context.Context, string) error { return nil }
 func (a commandTestApp) ReleaseServices() *domainrelease.Services          { return a.releaseServices }
 func (a commandTestApp) HasReleaseServices() bool                          { return a.releaseServices != nil }

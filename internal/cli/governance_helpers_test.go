@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/v4/internal/config"
@@ -29,6 +30,7 @@ func (a govTestApp) HasAI() bool                                       { return 
 func (a govTestApp) AI() ai.Service                                    { return nil }
 func (a govTestApp) HasGovernance() bool                               { return a.hasGov }
 func (a govTestApp) GovernanceService() *governance.Service            { return a.govSvc }
+func (a govTestApp) Analytics() *analytics.Service                     { return nil }
 func (a govTestApp) InitReleaseServices(context.Context, string) error { return nil }
 func (a govTestApp) ReleaseServices() *release.Services                { return nil }
 func (a govTestApp) HasReleaseServices() bool                          { return false }
