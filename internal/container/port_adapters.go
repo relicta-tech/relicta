@@ -549,22 +549,31 @@ func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *doma
 	repoID := run.RepoRoot()
 	gen := attestation.NewGenerator(repoID, a.auditChain)
 
+	// attestationFailure reports an attestation error. When the operator
+	// marked attestation Required, the failure blocks the publish step
+	// instead of being silently swallowed as success (the previous
+	// behavior shipped releases with no attestation and no signal).
+	attestationFailure := func(stage string, cause error) (*ports.StepResult, error) {
+		if a.attestationConfig.Required {
+			wrapped := fmt.Errorf("attestation %s failed: %w", stage, cause)
+			return &ports.StepResult{Success: false, Error: wrapped}, wrapped
+		}
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Attestation %s failed (non-blocking): %v", stage, cause),
+		}, nil
+	}
+
 	// Generate the attestation statement
 	stmt, err := gen.Generate(ctx, run)
 	if err != nil {
-		return &ports.StepResult{
-			Success: true,
-			Output:  fmt.Sprintf("Attestation generation failed (non-blocking): %v", err),
-		}, nil
+		return attestationFailure("generation", err)
 	}
 
 	// Parse signing mode and create signer
 	mode, err := attestation.ParseSigningMode(a.attestationConfig.SigningMode)
 	if err != nil {
-		return &ports.StepResult{
-			Success: true,
-			Output:  fmt.Sprintf("Attestation signing mode invalid (non-blocking): %v", err),
-		}, nil
+		return attestationFailure("signing-mode parse", err)
 	}
 
 	var signerOpts []attestation.SignerOption
@@ -577,19 +586,13 @@ func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *doma
 	// Sign the attestation
 	signed, err := signer.Sign(ctx, stmt)
 	if err != nil {
-		return &ports.StepResult{
-			Success: true,
-			Output:  fmt.Sprintf("Attestation signing failed (non-blocking): %v", err),
-		}, nil
+		return attestationFailure("signing", err)
 	}
 
 	// Write the signed attestation to the release directory
 	outputPath, err := a.writeAttestation(run, signed)
 	if err != nil {
-		return &ports.StepResult{
-			Success: true,
-			Output:  fmt.Sprintf("Attestation write failed (non-blocking): %v", err),
-		}, nil
+		return attestationFailure("write", err)
 	}
 
 	return &ports.StepResult{

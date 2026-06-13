@@ -1174,6 +1174,11 @@ type DashboardAuthConfig struct {
 	SessionMaxAge time.Duration `mapstructure:"session_max_age" json:"session_max_age,omitempty"`
 	// OIDC configures OpenID Connect authentication (required for oidc mode).
 	OIDC *OIDCConfig `mapstructure:"oidc" json:"oidc,omitempty"`
+	// AllowInsecureNoAuth must be set explicitly to run mode=none on a
+	// non-loopback bind address. Without it the server refuses to start
+	// when unauthenticated and reachable off-host, so a dashboard is never
+	// silently exposed with anonymous admin access.
+	AllowInsecureNoAuth bool `mapstructure:"allow_insecure_no_auth" json:"allow_insecure_no_auth,omitempty"`
 }
 
 // DashboardAPIKeyConfig configures a single API key for dashboard access.
@@ -1272,6 +1277,11 @@ type AttestationConfig struct {
 	RekorURL string `mapstructure:"rekor_url" json:"rekor_url,omitempty"`
 	// FulcioURL is the Fulcio CA URL (for keyless mode).
 	FulcioURL string `mapstructure:"fulcio_url" json:"fulcio_url,omitempty"`
+	// Required makes attestation generation/signing/writing failures fail
+	// the publish step instead of being swallowed as a non-blocking
+	// warning. Defaults to false to preserve best-effort behavior; set it
+	// when an unsigned-or-missing attestation must block the release.
+	Required bool `mapstructure:"required" json:"required,omitempty"`
 }
 
 // ObservabilityConfig configures runtime observability integration for

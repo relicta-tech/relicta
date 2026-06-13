@@ -249,12 +249,37 @@ func TestVerifier_CheckGovernance_NoConstraints(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestVerifier_Verify_NoPublicKey_TrustMode(t *testing.T) {
+func TestVerifier_Verify_NoPublicKey_FailsClosed(t *testing.T) {
 	pred := GovernancePredicate{Version: "1.0.0", Decision: "approved"}
 	att, _ := signedAttestationForTest(t, pred)
 
-	// Verify without providing a public key (trust mode).
+	// Verifying a signed attestation without a public key can't establish
+	// validity, so it must fail closed (was previously accepted blindly).
 	verifier := NewVerifier()
+	_, err := verifier.Verify(context.Background(), att)
+	require.Error(t, err)
+}
+
+// TestVerifier_Verify_SignedNoKey_FailsClosed is the regression test for the
+// fail-open vuln: a signed attestation with no configured public key must be
+// rejected, not blindly accepted as valid.
+func TestVerifier_Verify_SignedNoKey_FailsClosed(t *testing.T) {
+	pred := GovernancePredicate{Version: "1.0.0", Decision: "approved"}
+	att, _ := signedAttestationForTest(t, pred)
+
+	verifier := NewVerifier() // no public key, no allow-unsigned
+	_, err := verifier.Verify(context.Background(), att)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no public key")
+}
+
+// TestVerifier_Verify_SignedNoKey_AllowUnsigned lets the operator explicitly
+// accept unverifiable attestations.
+func TestVerifier_Verify_SignedNoKey_AllowUnsigned(t *testing.T) {
+	pred := GovernancePredicate{Version: "1.0.0", Decision: "approved"}
+	att, _ := signedAttestationForTest(t, pred)
+
+	verifier := NewVerifier(WithAllowUnsigned(true))
 	result, err := verifier.Verify(context.Background(), att)
 	require.NoError(t, err)
 	assert.True(t, result.Valid)

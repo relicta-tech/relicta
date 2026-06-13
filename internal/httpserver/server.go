@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -104,6 +105,14 @@ func NewServer(deps ServerDeps) *Server {
 
 // Start starts the HTTP server.
 func (s *Server) Start(ctx context.Context) error {
+	// Refuse to expose an unauthenticated dashboard off-host. mode=none
+	// grants anonymous (read-only) access; binding it to a non-loopback
+	// address without an explicit opt-in would silently publish the
+	// dashboard to the network.
+	if err := guardInsecureExposure(s.config); err != nil {
+		return err
+	}
+
 	// Start WebSocket hub
 	go s.wsHub.Run(ctx)
 
@@ -131,6 +140,51 @@ func (s *Server) Start(ctx context.Context) error {
 	case err := <-errChan:
 		return err
 	}
+}
+
+// guardInsecureExposure blocks startup when the dashboard would be both
+// unauthenticated and reachable off-host. mode=none on a loopback address is
+// fine for local development; binding it elsewhere requires the explicit
+// auth.allow_insecure_no_auth opt-in.
+func guardInsecureExposure(cfg config.DashboardConfig) error {
+	mode := cfg.Auth.Mode
+	if mode != config.DashboardAuthNone && mode != "" {
+		return nil // authenticated
+	}
+	if cfg.Auth.AllowInsecureNoAuth {
+		return nil // operator explicitly accepted the risk
+	}
+	if isLoopbackBind(cfg.Address) {
+		return nil // not reachable off-host
+	}
+	return fmt.Errorf(
+		"refusing to start dashboard with auth mode=none on non-loopback address %q: "+
+			"configure dashboard.auth (api_key/session/oidc), bind to localhost, "+
+			"or set dashboard.auth.allow_insecure_no_auth=true to override",
+		cfg.Address)
+}
+
+// isLoopbackBind reports whether the bind address only serves the local host.
+func isLoopbackBind(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = strings.TrimPrefix(addr, ":") // tolerate ":8080" form... falls through
+		if host == addr {
+			return false
+		}
+		host = ""
+	}
+	switch host {
+	case "localhost":
+		return true
+	case "":
+		// ":8080" / empty host binds all interfaces — not loopback-only.
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
 
 // Shutdown gracefully shuts down the server.
