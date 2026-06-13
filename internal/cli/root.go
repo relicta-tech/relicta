@@ -16,6 +16,7 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/logging"
@@ -517,8 +518,29 @@ func printSuccess(msg string) {
 	fmt.Println(styles.Success.Render("✓ " + security.Mask(msg)))
 }
 
+// printError writes a masked error to stderr. Errors are diagnostics, not
+// command output — keeping them off stdout means machine consumers parsing a
+// command's stdout (e.g. --json) never see error chrome mixed into the data.
 func printError(msg string) {
+	fmt.Fprintln(os.Stderr, styles.Error.Render("✗ "+security.Mask(msg)))
+}
+
+// printErrorResult renders an error-styled line to stdout. Use it for failure
+// rows inside a results table (alongside printSuccess/printInfo), where the
+// line is part of the command's output — not for top-level diagnostics, which
+// belong on stderr via printError.
+func printErrorResult(msg string) {
 	fmt.Println(styles.Error.Render("✗ " + security.Mask(msg)))
+}
+
+// ReportError prints a top-level command error to stderr. cobra runs with
+// SilenceErrors, so without this a non-zero exit from Execute would be silent
+// (issue: `relicta plan` exited 1 with no message). Call once from main.
+func ReportError(err error) {
+	if err == nil {
+		return
+	}
+	printError(err.Error())
 }
 
 func printWarning(msg string) {
@@ -561,11 +583,24 @@ func probeBackendHealth(baseURL string) string {
 	return "unreachable"
 }
 
-// Spinner provides a simple CLI loading indicator.
+// Spinner provides a simple CLI loading indicator. It animates on stderr only
+// when stderr is an interactive terminal — never in CI, when --json is set, or
+// when output is piped. This keeps cursor-control escape sequences (\r, \033[K)
+// out of redirected output, where they previously leaked as "[K" artifacts.
 type Spinner struct {
 	message string
 	stop    chan struct{}
 	done    chan struct{}
+	active  bool
+}
+
+// spinnerEnabled reports whether an animated spinner is appropriate: stderr is
+// a TTY and the operator hasn't requested machine-readable / CI output.
+func spinnerEnabled() bool {
+	if outputJSON || ciMode {
+		return false
+	}
+	return term.IsTerminal(int(os.Stderr.Fd()))
 }
 
 // NewSpinner creates a new spinner with a message.
@@ -574,11 +609,15 @@ func NewSpinner(message string) *Spinner {
 		message: message,
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
+		active:  spinnerEnabled(),
 	}
 }
 
-// Start begins the spinner animation.
+// Start begins the spinner animation. No-op on a non-interactive stderr.
 func (s *Spinner) Start() {
+	if !s.active {
+		return
+	}
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	go func() {
 		defer close(s.done)
@@ -588,22 +627,24 @@ func (s *Spinner) Start() {
 		for {
 			select {
 			case <-s.stop:
-				// Clear the spinner line
-				fmt.Printf("\r\033[K")
+				// Clear the spinner line.
+				fmt.Fprintf(os.Stderr, "\r\033[K")
 				return
 			case <-ticker.C:
-				fmt.Printf("\r%s %s", styles.Info.Render(frames[i%len(frames)]), s.message)
+				fmt.Fprintf(os.Stderr, "\r%s %s", styles.Info.Render(frames[i%len(frames)]), s.message)
 				i++
 			}
 		}
 	}()
 }
 
-// Stop stops the spinner.
+// Stop stops the spinner. No-op (no stray newline) when it never animated.
 func (s *Spinner) Stop() {
+	if !s.active {
+		return
+	}
 	close(s.stop)
 	<-s.done
-	fmt.Println() // Ensure we're on a new line after spinner
 }
 
 // StopWithSuccess stops the spinner and shows a success message.
