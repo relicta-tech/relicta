@@ -1365,6 +1365,13 @@
       "file_path": "internal/plugin/manager/trust.go",
       "severity": "medium",
       "created_at": "2026-06-12T09:02:40.618474Z"
+    },
+    {
+      "fingerprint": "6c0a6a8fc0f0538da9eaa9490f06f7c8398e5ab2529922d0bbc9f1806f5e44d7",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/attestation/verifier.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T09:32:19.022314Z"
     }
   ]
 }
