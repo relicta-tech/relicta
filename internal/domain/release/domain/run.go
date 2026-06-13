@@ -485,6 +485,31 @@ func (r *ReleaseRun) RiskScore() float64 {
 	return r.riskScore
 }
 
+// ConfigHash returns the hash of the config snapshot taken at plan time.
+func (r *ReleaseRun) ConfigHash() string {
+	return r.configHash
+}
+
+// PluginPlanHash returns the hash of the plugin configuration at plan time.
+func (r *ReleaseRun) PluginPlanHash() string {
+	return r.pluginPlanHash
+}
+
+// Confidence returns the confidence in the version calculation (0..1).
+func (r *ReleaseRun) Confidence() float64 {
+	return r.confidence
+}
+
+// Thresholds returns the policy thresholds captured at plan time.
+func (r *ReleaseRun) Thresholds() PolicyThresholds {
+	return r.thresholds
+}
+
+// NotesInputsHash returns the hash of the inputs used to generate notes.
+func (r *ReleaseRun) NotesInputsHash() string {
+	return r.notesInputsHash
+}
+
 // Reasons returns the reasons for the risk assessment.
 func (r *ReleaseRun) Reasons() []string {
 	return r.reasons
