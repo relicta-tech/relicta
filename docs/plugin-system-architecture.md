@@ -1118,8 +1118,8 @@ func (p *MyPlugin) Validate(ctx context.Context, config map[string]any) (*plugin
 
 ### Relicta-Specific Documents
 
-- PRD: `docs/prd.md`
-- Technical Design: `docs/technical-design.md`
+- PRD: `docs/internal/prd.md`
+- Technical Design: `docs/internal/technical-design.md`
 - Current Plugin Interface: `pkg/plugin/interface.go`
 - Current Runtime Manager: `internal/plugin/manager.go`
 - Current CLI Manager: `internal/plugin/manager/manager.go`

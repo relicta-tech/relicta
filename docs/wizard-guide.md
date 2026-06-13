@@ -1,14 +1,21 @@
-# Template Wizard Guide
+# Setup Wizard Guide
 
-The Relicta Template Wizard provides an interactive, visual setup experience that reduces configuration time from 30 minutes to under 2 minutes. This guide covers how to use the wizard and customize your configuration.
+The Relicta setup wizard provides an interactive, visual setup experience that walks you through configuration step by step. This guide covers how to use the wizard and customize your configuration.
+
+> **The wizard is opt-in.** A bare `relicta init` runs **zero-config quick mode** — it
+> detects your project from the git remote and manifests, writes `.relicta.yaml` with
+> sensible defaults, and asks no questions. Reach for the wizard only when you want the
+> explanatory, guided experience. See the [Quick Start](quick-start.md) for the default path.
 
 ## Quick Start
 
 Run the wizard to create your configuration:
 
 ```bash
-relicta init --interactive
+relicta init --guided
 ```
+
+> `--interactive` (`-i`) still works as a **deprecated alias** for `--guided`.
 
 The wizard will guide you through 8 steps:
 1. **Welcome** - Introduction and overview
@@ -572,41 +579,26 @@ plugins:
 
 ## Advanced Usage
 
-### Non-Interactive Mode
+### Non-Interactive / CI Mode
 
-For CI/CD or automated setups:
-
-```bash
-# Generate default configuration
-relicta init --non-interactive
-
-# With specific template
-relicta init --template go-opensource
-
-# With custom config path
-relicta init --config custom.config.yaml
-```
-
-### Template Override
-
-Specify template directly:
+The wizard is for humans. In CI/CD or any non-interactive setup, skip it entirely — a bare
+`relicta init` already runs zero-config quick mode and never prompts:
 
 ```bash
-relicta init --interactive --template=python-pypi
+# Generate default configuration from detected project info (no prompts)
+relicta init
+
+# Write to a different format
+relicta init --format json
+
+# Overwrite an existing config file
+relicta init --force
 ```
 
-Available template IDs:
-- `go-opensource`
-- `go-cli`
-- `nodejs-opensource`
-- `python-pypi`
-- `rust-crate`
-- `saas-webapp`
-- `api-service`
-- `cli-tool`
-- `mobile-app`
-- `container`
-- `monorepo`
+For repeatable, reviewable setups, the recommended approach is to **commit a pre-made
+`.relicta.yaml`** to your repository. Generate it once (with `relicta init` or
+`relicta init --guided`), tune it by hand, and check it in — CI then uses the committed
+config directly with no init step required.
 
 ### Configuration Validation
 
@@ -639,7 +631,7 @@ relicta config validate
    ```
 4. Run with debug logging:
    ```bash
-   RELICTA_DEBUG=1 relicta init --interactive
+   RELICTA_DEBUG=1 relicta init --guided
    ```
 
 ### Detection Incorrect
@@ -868,7 +860,7 @@ relicta plan
 
 ### Can I re-run the wizard?
 
-Yes! Run `relicta init --interactive` again. It will:
+Yes! Run `relicta init --guided` again. It will:
 - Detect existing configuration
 - Offer to backup old config
 - Merge detected values with existing settings
@@ -902,15 +894,17 @@ Detection is optional:
 
 ### Can I automate wizard answers?
 
-For CI/CD, use non-interactive mode:
+You don't need to — for CI/CD, skip the wizard and let the zero-config default do the work:
 ```bash
-relicta init --non-interactive --template=go-opensource
+relicta init
 ```
 
-Then customize programmatically:
+Then customize programmatically if needed:
 ```bash
 sed -i 's/enabled: false/enabled: true/' .relicta.yaml
 ```
+
+For reproducible setups, prefer committing a hand-tuned `.relicta.yaml` to your repo.
 
 ### How do I add custom plugins?
 
@@ -927,28 +921,6 @@ plugins:
     config:
       setting: value
 ```
-
-### Where are templates stored?
-
-Templates are embedded in the Relicta binary:
-```
-internal/cli/templates/data/
-├── go-opensource.yaml.tmpl
-├── nodejs-opensource.yaml.tmpl
-├── python-pypi.yaml.tmpl
-└── ...
-```
-
-### Can I create my own template?
-
-Yes! Templates are Go templates (`.tmpl` files):
-
-1. Create template file
-2. Define variables with `{{ .Variable }}`
-3. Use in wizard:
-   ```bash
-   relicta init --template-file=mytemplate.yaml.tmpl
-   ```
 
 ---
 
@@ -986,7 +958,7 @@ The Relicta Template Wizard:
 **Get started now:**
 
 ```bash
-relicta init --interactive
+relicta init --guided
 ```
 
 The wizard makes release automation accessible to everyone - no configuration expertise required!

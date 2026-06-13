@@ -29,6 +29,34 @@ Verify installation:
 relicta version
 ```
 
+## Initialize Your Project
+
+Run `relicta init` with no flags. This is **zero-config quick mode**: Relicta detects
+your project from the git remote and manifests (`go.mod`, `package.json`, `Cargo.toml`,
+etc.), writes a `.relicta.yaml` with sensible defaults, and prints your next steps — no
+prompts to answer.
+
+```bash
+cd your-project
+relicta init
+```
+
+That's it — you're ready to release. A few useful variations:
+
+```bash
+relicta init --force    # Overwrite an existing .relicta.yaml
+relicta init --format json   # Write .relicta.json instead of YAML
+```
+
+Prefer an explanatory, step-by-step walkthrough? Opt in to the interactive setup wizard:
+
+```bash
+relicta init --guided
+```
+
+The guided wizard asks about your project type, AI provider, and plugins, and previews the
+config before saving. See the [Wizard Guide](wizard-guide.md) for the full walkthrough.
+
 ## Your First Release
 
 ### Option 1: One Command (Fastest)
@@ -52,7 +80,7 @@ This runs the complete workflow: analyze → version → notes → approve → p
 For more control and understanding, run each step:
 
 ```bash
-# 1. Initialize Relicta (creates config file)
+# 1. Initialize Relicta (zero-config quick mode by default)
 relicta init
 
 # 2. Analyze commits and plan the release
@@ -93,7 +121,7 @@ Each command transitions the release to the next state:
 
 ## Configuration
 
-The `relicta init` wizard creates a `.relicta.yaml`:
+`relicta init` creates a `.relicta.yaml`:
 
 ```yaml
 # Minimal config - Relicta works with sensible defaults
@@ -414,7 +442,7 @@ Shows:
 | Command | Description |
 |---------|-------------|
 | `relicta release` | Complete workflow in one command |
-| `relicta init` | Initialize with guided setup |
+| `relicta init` | Initialize config (zero-config quick mode; `--guided` for the wizard) |
 | `relicta plan` | Analyze commits and plan release |
 | `relicta bump` | Apply version bump |
 | `relicta notes` | Generate release notes |

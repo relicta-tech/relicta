@@ -28,7 +28,7 @@ CMD_DIR := cmd/relicta
         test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
         check-binary-size help release-local release-snapshot check check-ci install-hooks \
         frontend frontend-deps frontend-standalone build-with-frontend clean-frontend \
-        test-policy-gate skill-preflight \
+        test-policy-gate skill-preflight changelog docs-cli \
         mcp-apps mcp-apps-deps clean-mcp-apps \
 	    sbom fuzz
 	    changelog
@@ -208,6 +208,13 @@ changelog:
 		echo ""; \
 	} > docs/changelog.md
 	@echo "✓ Wrote docs/changelog.md"
+
+# Generate the Markdown CLI reference under docs/cli/ from the cobra command
+# tree. Commit the result so the reference stays in sync with the binary.
+docs-cli:
+	@echo "Generating docs/cli/..."
+	@$(GOCMD) run ./tools/gendocs docs/cli
+	@echo "✓ Wrote docs/cli/ CLI reference"
 
 # Run benchmarks
 bench:
