@@ -240,6 +240,12 @@ func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, e
 func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath string, rel *release.ReleaseRun, editedNotes *string) (*releaseapp.ApproveReleaseOutput, error) {
 	services := app.ReleaseServices()
 
+	// Enforce the per-actor autonomy budget before recording approval — the
+	// CLI previously skipped this gate that the MCP surface applies.
+	if err := enforceActorBudget("approve", rel.RiskScore()); err != nil {
+		return nil, err
+	}
+
 	// Handle edited notes separately - update the release before approval
 	if editedNotes != nil {
 		// Update notes on the release and save

@@ -456,6 +456,11 @@ type GovernanceConfig struct {
 	RiskBudget *RiskBudgetConfig `mapstructure:"risk_budget" yaml:"risk_budget,omitempty" json:"risk_budget,omitempty"`
 	// FreezePeriods configures recurring time windows with restricted releases.
 	FreezePeriods []FreezePeriodConfig `mapstructure:"freeze_periods" yaml:"freeze_periods,omitempty" json:"freeze_periods,omitempty"`
+	// ActorBudgetPath is the path to the per-actor autonomy budget YAML.
+	// When set, CLI publish/approve/rollback enforce it (the autonomy
+	// slider). When empty, safe defaults apply: humans permissive,
+	// agents/CI restrictive.
+	ActorBudgetPath string `mapstructure:"actor_budget_path" json:"actor_budget_path,omitempty"`
 }
 
 // RiskBudgetConfig configures cumulative risk budget limits.

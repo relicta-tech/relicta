@@ -61,6 +61,16 @@ func runRollback(cmd *cobra.Command, args []string) error {
 		printDryRunBanner()
 	}
 
+	// Enforce the per-actor autonomy budget for the real (non-dry-run)
+	// rollback. Rollback mutates production state and has no per-run risk
+	// score in hand, so it is gated as a critical-blast-radius operation —
+	// restrictive (agent/CI) budgets block it, permissive (human) allow.
+	if !effectiveDryRun {
+		if err := enforceActorBudget("rollback", 1.0); err != nil {
+			return err
+		}
+	}
+
 	// Initialize container
 	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
