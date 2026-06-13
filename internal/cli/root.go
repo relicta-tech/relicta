@@ -4,6 +4,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/logging"
 	"github.com/relicta-tech/relicta/v4/internal/security"
 )
 
@@ -35,6 +38,7 @@ var (
 	noColor               bool
 	logLevel              string
 	logLevelAlias         string
+	logLevelExplicit      bool
 	modelFlag             string // --model flag for AI provider/model selection
 	ciMode                bool   // --ci flag for CI/CD pipeline mode (auto-approve, JSON output)
 	redactSecrets         bool   // --redact flag to mask sensitive data in output
@@ -104,6 +108,11 @@ releases in an AI-driven world.
 
 Get started with 'relicta init' to set up your project.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Record whether the operator explicitly set a log level on this
+		// invocation. configureSlog needs this to tell `--log-level info`
+		// (an explicit opt-in that must raise the slog floor) apart from the
+		// "info" default the flag carries when untouched.
+		logLevelExplicit = cmd.Flags().Changed("log-level") || cmd.Flags().Changed("log")
 		// Skip config loading for commands that don't need it
 		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "verify" || cmd.Name() == "report" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Name() == "policy" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp" || cmd.Parent().Name() == "policy") {
 			return nil
@@ -236,6 +245,13 @@ func applyGlobalFlags() {
 		cfg.Output.Verbose = true
 	}
 
+	// The --log-level flag is BindPFlag'd to the global viper, but cfg is built
+	// by config.NewLoader()'s own viper instance — so the binding never reaches
+	// cfg. Copy it explicitly when the operator set it (mirrors --verbose).
+	if logLevelExplicit {
+		cfg.Output.LogLevel = logLevel
+	}
+
 	if dryRun {
 		cfg.Workflow.DryRunByDefault = true
 	}
@@ -321,6 +337,36 @@ func configureLogLevel() {
 	}
 }
 
+// configureSlog routes operational slog logging through Bolt to stderr. The
+// default level is WARN so routine INFO chatter (e.g. "release services
+// initialized") never pollutes normal command output; --verbose or an
+// explicit --log-level raises it. This is the single hygiene swap point —
+// all slog.Default() call sites across the codebase inherit it.
+func configureSlog() {
+	// The operational slog firehose (release services, plugin loads, CGP
+	// evaluation traces) is internal plumbing, not command output. It stays at
+	// WARN by default so routine INFO chatter never pollutes stdout consumers,
+	// and rises only when the operator explicitly opts in via --log-level /
+	// --log, an output.log_level entry in the config file, or --verbose.
+	level := slog.LevelWarn
+	// Detect explicit opt-in without referencing rootCmd (avoids a package
+	// init cycle): the --log alias is non-empty, --log-level was moved off its
+	// "info" default, or the config file carries an output.log_level entry.
+	explicit := logLevelExplicit || logLevelAlias != "" || viper.InConfig("output.log_level")
+	if explicit {
+		level = logging.LevelFromString(cfg.Output.LogLevel)
+	}
+	if cfg.Output.Verbose {
+		level = slog.LevelDebug
+	}
+
+	out := io.Writer(os.Stderr)
+	if logFile != nil {
+		out = logFile
+	}
+	logging.Configure(level, out)
+}
+
 // configureLogFile sets up log file output if specified.
 func configureLogFile() error {
 	if cfg.Output.LogFile == "" {
@@ -354,8 +400,15 @@ func initConfig() error {
 	configureLoggerFormat()
 	configureLogLevel()
 
-	// Configure log file
-	return configureLogFile()
+	// Configure log file (may redirect output)
+	if err := configureLogFile(); err != nil {
+		return err
+	}
+
+	// Route operational slog logging through Bolt (stderr or log file).
+	// Done last so it picks up any --log-file redirect.
+	configureSlog()
+	return nil
 }
 
 // Cleanup closes any open resources. Should be called before program exit.
