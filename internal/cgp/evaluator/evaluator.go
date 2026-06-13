@@ -94,6 +94,13 @@ func WithRiskCalculator(calc *risk.Calculator) Option {
 	}
 }
 
+// ApplyCalibration retunes the evaluator's risk-calculator weights from a
+// calibration result computed against historical release outcomes. Subsequent
+// Evaluate/EvaluateQuick calls use the calibrated weights.
+func (e *Evaluator) ApplyCalibration(result risk.CalibrationResult) {
+	e.riskCalculator.ApplyCalibration(result)
+}
+
 // WithPolicyEngine sets a custom policy engine.
 func WithPolicyEngine(engine *policy.Engine) Option {
 	return func(e *Evaluator) {

@@ -461,6 +461,16 @@ type GovernanceConfig struct {
 	// slider). When empty, safe defaults apply: humans permissive,
 	// agents/CI restrictive.
 	ActorBudgetPath string `mapstructure:"actor_budget_path" json:"actor_budget_path,omitempty"`
+	// CalibrationEnabled turns on data-driven risk calibration: the evaluator's
+	// risk weights are tuned once from historical release outcomes in the memory
+	// store. Requires MemoryEnabled. Off by default — it changes risk scores.
+	CalibrationEnabled bool `mapstructure:"calibration_enabled" json:"calibration_enabled,omitempty"`
+	// ReputationEnabled turns on actor-reputation guarding: an actor with a
+	// demonstrated poor track record (enough samples, restricted level) has
+	// auto-approved decisions downgraded to require human review. It only ever
+	// tightens a decision, never loosens one. Requires MemoryEnabled. Off by
+	// default — it changes evaluation outcomes.
+	ReputationEnabled bool `mapstructure:"reputation_enabled" json:"reputation_enabled,omitempty"`
 }
 
 // RiskBudgetConfig configures cumulative risk budget limits.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
@@ -31,6 +32,14 @@ type Service struct {
 	evaluator   *evaluator.Evaluator
 	memoryStore memory.Store
 	logger      *slog.Logger
+
+	// calibrationEnabled retunes risk weights from historical outcomes once,
+	// lazily, on first evaluation. reputationEnabled downgrades auto-approvals
+	// for actors with a demonstrated poor track record. Both require a memory
+	// store and only ever tighten outcomes.
+	calibrationEnabled bool
+	reputationEnabled  bool
+	calibrateOnce      sync.Once
 }
 
 // ServiceOption configures a governance Service.
@@ -47,6 +56,20 @@ func WithLogger(logger *slog.Logger) ServiceOption {
 func WithMemoryStore(store memory.Store) ServiceOption {
 	return func(s *Service) {
 		s.memoryStore = store
+	}
+}
+
+// WithCalibration enables data-driven risk calibration (requires a memory store).
+func WithCalibration(enabled bool) ServiceOption {
+	return func(s *Service) {
+		s.calibrationEnabled = enabled
+	}
+}
+
+// WithReputation enables actor-reputation guarding (requires a memory store).
+func WithReputation(enabled bool) ServiceOption {
+	return func(s *Service) {
+		s.reputationEnabled = enabled
 	}
 }
 
@@ -107,6 +130,25 @@ type EvaluateReleaseOutput struct {
 
 	// HistoricalContext provides historical analysis if available.
 	HistoricalContext *HistoricalContext
+
+	// Reputation is the initiating actor's reputation assessment, when
+	// reputation guarding is enabled and the actor has history. Informational;
+	// the guard's effect is already reflected in Decision/Rationale.
+	Reputation *ReputationInfo
+}
+
+// ReputationInfo summarizes an actor's reputation for evaluation output.
+type ReputationInfo struct {
+	// Overall is the composite reputation score in [0.0, 1.0].
+	Overall float64
+	// Level is the qualitative band: trusted, reliable, probation, restricted.
+	Level string
+	// SampleSize is the number of release records the score is based on.
+	SampleSize int
+	// Trend indicates improving, stable, or declining reputation.
+	Trend string
+	// Guarded is true when poor reputation downgraded the decision.
+	Guarded bool
 }
 
 // HistoricalContext provides historical analysis for a release.
@@ -136,6 +178,12 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 		return nil, fmt.Errorf("release is required")
 	}
 
+	// Retune risk weights from historical outcomes once, before the first
+	// evaluation, when calibration is enabled.
+	if s.calibrationEnabled && s.memoryStore != nil {
+		s.ensureCalibrated(ctx, input.Repository)
+	}
+
 	// Build change proposal and analysis from release
 	proposal, analysis := s.buildProposalAndAnalysis(input)
 
@@ -154,6 +202,12 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 		Rationale:       result.Decision.Rationale,
 		Conditions:      result.Decision.Conditions,
 		CanAutoApprove:  result.Decision.Decision == cgp.DecisionApproved,
+	}
+
+	// Reputation guard: downgrade an auto-approval when the initiating actor has
+	// a demonstrated poor track record. Tightens only — never loosens.
+	if s.reputationEnabled && s.memoryStore != nil {
+		s.applyReputationGuard(ctx, input, output)
 	}
 
 	// Add historical context if requested and available
