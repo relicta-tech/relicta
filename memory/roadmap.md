@@ -6,10 +6,10 @@ updated: 2026-06-13
 ## Next
 
 ## Later
-- Identity-registry-driven trust grants (org-level explicit Full grants; registry built but unused) — extends earned trust
-- Decompose internal/mcp/server.go (2417 LOC monolith, 30+ handlers)
-- Darwin plugin sandbox: container/cgroup runner (RLIMIT_AS unenforced on Apple Silicon)
-- CLI exit-code path test coverage (os.Exit skips)
+- Capability-based identity grants (registry Capabilities action/scope gating, beyond TrustScore→level)
+- Decompose internal/mcp/server.go (done on refactor/mcp-server-split → PR #161)
+- Darwin plugin sandbox (done via sandbox-exec on feat/darwin-sandbox-exec → PR #162)
+- CLI exit-code path test coverage (done on feat/cli-exit-codes → PR #160)
 
 ## Done
 - v4.1.0 release (risk calibration, actor-reputation guarding, security hardening)
@@ -18,3 +18,4 @@ updated: 2026-06-13
 - Post-calibration accuracy validation (warn / strict fail-closed)
 - E2E EvaluateRelease integration test (calibration + reputation + attribution)
 - Earned-trust model: reputation-driven trust escalation (Tier B; tiers 10→trusted, 50→full)
+- Identity-registry trust grants (org-assigned trust via actors.json; raise-only, composes with earned trust)
