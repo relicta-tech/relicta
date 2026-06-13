@@ -192,6 +192,7 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		// Load legacy release for governance (it reads from same path)
 		if rel, err := getLatestRelease(ctx, app); err == nil {
 			govResult, _ = evaluateGovernanceForPublish(ctx, app, rel)
+			captureGovernanceAnalytics(ctx, app, string(run.ID()), govResult)
 			if govResult != nil && cfg.Governance.StrictMode && govResult.Decision == cgp.DecisionRejected {
 				printError("Release blocked by governance policy")
 				return fmt.Errorf("release denied by governance")
@@ -237,8 +238,12 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 				recordPublishOutcome(ctx, app, rel, govResult, false, time.Since(publishStart))
 			}
 		}
+		captureReleaseDuration(ctx, app, string(run.ID()), nextVersion, time.Since(publishStart).Milliseconds(), false)
 		return fmt.Errorf("failed to publish release: %w", err)
 	}
+
+	// Capture release duration + success for DORA-style analytics.
+	captureReleaseDuration(ctx, app, string(run.ID()), nextVersion, time.Since(publishStart).Milliseconds(), true)
 
 	// Record success outcome to Release Memory
 	if govResult != nil {

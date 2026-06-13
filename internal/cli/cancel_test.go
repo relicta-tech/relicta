@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/v4/internal/analytics"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -222,6 +223,7 @@ func (c cancelTestApp) HasAI() bool                                       { retu
 func (c cancelTestApp) AI() ai.Service                                    { return nil }
 func (c cancelTestApp) HasGovernance() bool                               { return false }
 func (c cancelTestApp) GovernanceService() *governance.Service            { return nil }
+func (c cancelTestApp) Analytics() *analytics.Service                     { return nil }
 func (c cancelTestApp) InitReleaseServices(context.Context, string) error { return nil }
 func (c cancelTestApp) ReleaseServices() *release.Services                { return nil }
 func (c cancelTestApp) HasReleaseServices() bool                          { return false }

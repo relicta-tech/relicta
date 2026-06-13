@@ -77,6 +77,15 @@ func TestRunApproveOutputsJSONWithStub(t *testing.T) {
 	outputJSON = true
 	approveYes = true // JSON mode is non-interactive; --yes authorizes the approval
 
+	// Pin the actor to a human so this test exercises the approval OUTPUT path,
+	// not the autonomy-budget gate. Without this the actor inherits the host's
+	// env: on CI it resolves to a ci:* actor that the restrictive default
+	// budget blocks from self-approving (covered by actor_budget_test.go).
+	withEnv(t, map[string]string{
+		"CI": "", "GITHUB_ACTIONS": "", "GITLAB_CI": "", "JENKINS_URL": "",
+		"USER": "alice", "GITHUB_ACTOR": "",
+	})
+
 	rel := newNotesReadyRelease(t, "approve-json")
 	portsRepo := &portsReleaseRepoStub{run: rel}
 	app := testCLIApp{
@@ -237,6 +246,15 @@ func TestRunApproveCIModeApproves(t *testing.T) {
 	outputJSON = true // applyCIModeFlag forces this in production
 	approveYes = false
 	dryRun = false
+
+	// This test verifies the --ci flag's OUTPUT contract (JSON, approved=true,
+	// planned tag), not the actor-budget gate. Pin the actor to a human so the
+	// restrictive default budget doesn't block it — a real ci:* actor needs an
+	// explicit budget to self-approve, which actor_budget_test.go covers.
+	withEnv(t, map[string]string{
+		"CI": "", "GITHUB_ACTIONS": "", "GITLAB_CI": "", "JENKINS_URL": "",
+		"USER": "alice", "GITHUB_ACTOR": "",
+	})
 
 	rel := newNotesReadyRelease(t, "approve-ci")
 	portsRepo := &portsReleaseRepoStub{run: rel}
