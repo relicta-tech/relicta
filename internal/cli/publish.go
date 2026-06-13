@@ -173,6 +173,12 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		return fmt.Errorf("failed to load release: %w", err)
 	}
 
+	// Enforce the per-actor autonomy budget before publishing — the CLI
+	// previously skipped this gate that the MCP surface applies.
+	if err := enforceActorBudget("publish", run.RiskScore()); err != nil {
+		return err
+	}
+
 	nextVersion := run.VersionNext().String()
 
 	// Output JSON if requested
