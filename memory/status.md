@@ -2,20 +2,21 @@
 updated: 2026-06-13
 ---
 ## Current State
-On branch `chore/agent-os-memory`. Tier A governance fixes done on top of v4.1.0:
-attribution wiring, configurable reputation threshold, calibration validation, E2E test.
-All touched packages pass tests + lint.
+Two branches open. `chore/agent-os-memory` → PR #158 (Tier A: attribution wiring,
+configurable reputation/calibration). `feat/earned-trust` (branched off #158) →
+Tier B earned-trust model, ready to push/PR.
 
 ## Last Session Summary
-Scanned codebase (3 parallel agents): tech-debt, v4.1.0 follow-ups, CGP product surface.
-Found attribution detector built-but-unwired (core vision gap). Fixed Tier A: wired
-attribution into evaluation, made reputation threshold + calibration accuracy configurable,
-added E2E pipeline test. Documented new config keys in docs/governance.md.
+After Tier A (PR #158), built Tier B earned-trust: reputation-driven trust
+escalation. Strong verifiable record raises an actor's effective trust (10 samples
++ rep≥0.8 → trusted; 50 + rep≥0.95 + non-declining → full), unlocking low-risk
+auto-approval. Opt-in, escalation-only, necessary-not-sufficient. Tests + E2E
+(earned trust unlocks auto-approve, baseline stays gated) + docs. All green.
 
 ## Next Session Should
-Decide on Tier B initiatives (see roadmap Later): earned-trust model, MCP decomposition,
-darwin sandbox, CLI exit-code coverage. Or push branch + open PR for Tier A.
+Push feat/earned-trust + open PR (stacked on #158). Then remaining Tier B:
+MCP decomposition, darwin sandbox, CLI exit-code coverage. Or merge #158 first.
 
 ## Blocked / Waiting
-None. Pre-existing macOS-only test flake in internal/infrastructure/git
-(TestGetRepositoryRoot/Info: /private/var vs /var TempDir symlink) — not ours, unrelated.
+feat/earned-trust is stacked on #158 — merge #158 before earned-trust, or rebase
+earned-trust onto main after #158 lands. Pre-existing macOS git test flake unrelated.

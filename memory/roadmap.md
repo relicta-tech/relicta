@@ -6,7 +6,7 @@ updated: 2026-06-13
 ## Next
 
 ## Later
-- Earned-trust model: replace manual Actor.TrustLevel with reputation/identity-driven escalation (depends on attribution wiring)
+- Identity-registry-driven trust grants (org-level explicit Full grants; registry built but unused) — extends earned trust
 - Decompose internal/mcp/server.go (2417 LOC monolith, 30+ handlers)
 - Darwin plugin sandbox: container/cgroup runner (RLIMIT_AS unenforced on Apple Silicon)
 - CLI exit-code path test coverage (os.Exit skips)
@@ -17,3 +17,4 @@ updated: 2026-06-13
 - Configurable reputation probation threshold
 - Post-calibration accuracy validation (warn / strict fail-closed)
 - E2E EvaluateRelease integration test (calibration + reputation + attribution)
+- Earned-trust model: reputation-driven trust escalation (Tier B; tiers 10→trusted, 50→full)
