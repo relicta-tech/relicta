@@ -507,19 +507,22 @@ func createCGPActor() cgp.Actor {
 		identity = actor
 	}
 
-	// Determine trust level
-	trustLevel := cgp.TrustLevelLimited
-	if kind == cgp.ActorKindHuman {
-		trustLevel = cgp.TrustLevelTrusted
-	}
+	id := fmt.Sprintf("%s:%s", kind.String(), identity)
 
-	// Check if actor is in trusted list
-	if governance.IsActorTrusted(&cfg.Governance, cgp.Actor{ID: identity}) {
+	// Trust level. Trust is NEVER inferred from actor kind or the absence of CI
+	// markers — both are environment signals an attacker can spoof to escalate.
+	// (Previously a "human" actor — i.e. any invocation with no CI markers set —
+	// was granted TrustLevelTrusted, so unsetting CI=true was enough to unlock
+	// auto-approval.) Every actor now starts Limited (may propose, may NOT
+	// auto-approve); elevation to Full requires explicit membership in the
+	// operator-authored governance.trusted_actors allowlist.
+	trustLevel := cgp.TrustLevelLimited
+	if governance.IsActorTrusted(&cfg.Governance, cgp.Actor{ID: id, Name: identity}) {
 		trustLevel = cgp.TrustLevelFull
 	}
 
 	return cgp.Actor{
-		ID:         fmt.Sprintf("%s:%s", kind.String(), identity),
+		ID:         id,
 		Kind:       kind,
 		Name:       identity,
 		TrustLevel: trustLevel,
