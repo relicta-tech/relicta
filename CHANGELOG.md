@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0]
+
+Governance hardening, a nox-style plugin architecture, and CLI/onboarding polish.
+
+### ⚠️ Behavior changes
+
+- **Auto-approval is now opt-in.** Actor trust is no longer inferred from the
+  environment — clearing `CI=true` to masquerade as a trusted human no longer
+  unlocks auto-approval. Every actor starts `Limited`; only actors listed in
+  `governance.trusted_actors` may auto-approve. Entries match a kind-scoped ID
+  (`human:alice`) or a bare name (`alice`). (#155)
+- **`relicta approve --ci` requires an autonomy budget.** CLI
+  publish/approve/rollback now enforce the per-actor autonomy budget. By
+  default `ci:*`/agent actors require a human cosigner; grant rights via
+  `governance.actor_budget_path`. (#147)
+- **`relicta init` is zero-config by default.** A bare `init` writes a config
+  with no prompts; the 8-step wizard is opt-in via `--guided`. (#153)
+
+### Added
+
+- **Adaptive risk (opt-in, off by default).** `governance.calibration_enabled`
+  retunes risk-factor weights from historical outcomes;
+  `governance.reputation_enabled` downgrades auto-approval for actors with a
+  demonstrated poor track record (tightens only, never loosens). Both require
+  `memory_enabled`. (#156)
+- **nox-style plugin architecture (ADR-008):** registry index, declared
+  `SafetyRequirements` with host-side validation, required-plugin pinning, and
+  trust-policy verification wired into install. (#139, #141, #142, #146)
+- **Live governance analytics** + `relicta analytics` command. (#149)
+- **Generated CLI reference** under `docs/cli/` (`make docs-cli`). (#154)
+
+### Changed
+
+- Operational logs route through Bolt as an `slog` handler, default WARN, on
+  stderr — stdout stays clean for `--json` consumers. `--log-level` now actually
+  propagates to the logger. (#150)
+- Output hygiene: visible error on every non-zero exit (no more silent
+  `relicta plan` failures), TTY-aware spinner that no longer leaks escape codes
+  into piped output. (#152)
+
+### Fixed
+
+- Fail closed on attestation verification; block dashboard no-auth exposure. (#143)
+- Round-trip release Confidence/Thresholds/ConfigHash/Plugin/Notes hashes. (#144)
+
+### Security
+
+- Bump `golang.org/x/net` to v0.55.0 (GO-2026-5026). (#145)
+- Bump esbuild to ≥0.28.1 in `app/` and `web/` dashboards (GHSA). (#148, #151)
+
 # Release Notes for Project Version 4.0.1
 
 Enhanced cognitive backends with tests, benchmarks, CLI flags, and CI improvements.
