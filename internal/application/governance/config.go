@@ -8,6 +8,7 @@ import (
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
@@ -81,6 +82,25 @@ func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger 
 			)
 		} else {
 			opts = append(opts, WithMemoryStore(store))
+		}
+	}
+
+	// Set up identity registry if configured
+	if cfg.IdentityRegistryPath != "" {
+		regDir := cfg.IdentityRegistryPath
+		if !filepath.IsAbs(regDir) && repoPath != "" {
+			regDir = filepath.Join(repoPath, regDir)
+		}
+
+		store, err := identity.NewFileStore(regDir)
+		if err != nil {
+			logger.Warn("failed to create identity registry store, proceeding without identity grants",
+				"error", err, "path", regDir)
+		} else if registry, err := identity.NewRegistry(store, identity.WithLogger(logger)); err != nil {
+			logger.Warn("failed to load identity registry, proceeding without identity grants",
+				"error", err, "path", regDir)
+		} else {
+			opts = append(opts, WithIdentityRegistry(registry))
 		}
 	}
 

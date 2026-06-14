@@ -520,6 +520,41 @@ auto-approve unless you have separately enabled agent auto-approval. The
 escalation is recorded on the proposal audit context
 (`earned_trust.from` / `earned_trust.to` / `earned_trust.reputation`).
 
+### Organization-granted trust (identity registry)
+
+Earned trust is *learned* from outcomes; **identity grants** are *assigned* by
+the organization. Point `identity_registry_path` at a directory holding an
+`actors.json` registry, and an actor is granted the trust level its registered
+`trustScore` maps to:
+
+```yaml
+governance:
+  identity_registry_path: .relicta/governance
+```
+
+```json
+[
+  { "id": "claude-code@team-platform", "kind": "agent",
+    "organization": "acme", "trustScore": 0.95 }
+]
+```
+
+| Registered `trustScore` | Granted level |
+|-------------------------|---------------|
+| ≥ 0.9 | full |
+| ≥ 0.7 | trusted |
+| ≥ 0.5 | limited |
+| < 0.5 | no grant |
+
+An identity matches the governing actor when their **kinds** agree and the
+registry ID's local part (before `@`) equals the actor's local name (after
+`kind:`) — so `claude-code@team-platform` matches actor `agent:claude-code`. Like
+earned trust, identity grants are **raise-only** (they never lower an actor's
+trust) and **necessary-not-sufficient** (agent/CI auto-approval still needs the
+actor rule). When both apply, the higher of the two wins. The grant is recorded
+on the audit context (`identity_trust.id` / `identity_trust.from` /
+`identity_trust.to` / `identity_trust.score`).
+
 ## Authorship Attribution
 
 `attribution_enabled: true` detects who actually authored a release's commits —
