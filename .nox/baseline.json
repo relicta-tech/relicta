@@ -1393,6 +1393,62 @@
       "file_path": "internal/cli/init.go",
       "severity": "medium",
       "created_at": "2026-06-13T13:35:41.164916Z"
+    },
+    {
+      "fingerprint": "f8d6260c134b53797a2abed3c6caa1d3f2c58925a6738a4c3207b1ec494d8d95",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "created_at": "2026-06-13T21:40:00Z"
+    },
+    {
+      "fingerprint": "06c57230f5ef4f7d0ffaf4780a725937844a419f932c8a5f1bb11ffd10c5f9e9",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "507b169b3dfc9f6428a70c600c3b794d5f96fb9e6c864a916beef5b413d6666d",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "76edff2c6a7cc61a218fcb6cc7a3fcde27068d77f6d907739b48582eb6b3bc7f",
+      "rule_id": "SEC-163",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "7d54a4fc874f7af1a1343b304a01841e64e2bdd2fb1af75295cfc8656ffca0e9",
+      "rule_id": "SEC-161",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "823f57216d63cef66826f043e89f0f4bcf722a75778304826731675071dff4df",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "cb157a8a3c18f019710275367d3d16a6dab03a85b3b915cb1f57a6d7c45e14ac",
+      "rule_id": "SEC-162",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "ceaff424c2e559c77b198eb192d1d884fe15eccede4f1edb632b63da9ab38272",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_tools.go",
+      "severity": "medium",
+      "created_at": "2026-06-13T21:45:00Z"
     }
   ]
 }
