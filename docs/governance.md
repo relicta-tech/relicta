@@ -470,11 +470,40 @@ governance:
   # TIGHTENS a decision — it never auto-approves something that wasn't already
   # approved, and never penalizes actors with too little history.
   reputation_enabled: true
+  # Optional: reputation score (0.0-1.0) below which the guard downgrades an
+  # auto-approval. Defaults to 0.4. Raise to guard more actors, lower to be more
+  # permissive.
+  reputation_probation_threshold: 0.4
+  # Optional: reject calibrated weights whose prediction accuracy falls below
+  # this floor (0.0-1.0). With calibration_strict, suspect weights are discarded
+  # (fail closed, defaults kept); otherwise they are applied with a warning.
+  calibration_min_accuracy: 0.5
+  calibration_strict: false
 ```
 
 When the reputation guard fires, the evaluation rationale records why
 (`actor reputation is restricted (…%, restricted) — human review required`), so
 the downgrade is always visible in `relicta evaluate` output and the audit trail.
+
+## Authorship Attribution
+
+`attribution_enabled: true` detects who actually authored a release's commits —
+a human, an AI coding agent (Claude, Cursor, Copilot, Aider, Windsurf), or a CI
+system — from commit author, email, message, and trailer metadata. When a
+machine authored the changes but a human initiated the release, the detected
+machine author governs the proposal, so agent-authored changes face the agent
+governance rules (e.g. `require_human_for_agent_changes`) rather than being
+treated as human work.
+
+```yaml
+governance:
+  attribution_enabled: true
+```
+
+Attribution only ever **tightens**: a human author, or an initiator that is
+already a machine, is left in place. The original initiator is preserved in the
+proposal's audit context (`attribution.initiator`) alongside the detected author
+(`attribution.author`, `attribution.author_kind`, `attribution.confidence`).
 
 ## Release History
 

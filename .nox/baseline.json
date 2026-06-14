@@ -1393,6 +1393,13 @@
       "file_path": "internal/cli/init.go",
       "severity": "medium",
       "created_at": "2026-06-13T13:35:41.164916Z"
+    },
+    {
+      "fingerprint": "f8d6260c134b53797a2abed3c6caa1d3f2c58925a6738a4c3207b1ec494d8d95",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "created_at": "2026-06-13T21:40:00Z"
     }
   ]
 }
