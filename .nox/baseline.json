@@ -1395,6 +1395,13 @@
       "created_at": "2026-06-13T13:35:41.164916Z"
     },
     {
+      "fingerprint": "f8d6260c134b53797a2abed3c6caa1d3f2c58925a6738a4c3207b1ec494d8d95",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "created_at": "2026-06-13T21:40:00Z"
+    },
+    {
       "fingerprint": "06c57230f5ef4f7d0ffaf4780a725937844a419f932c8a5f1bb11ffd10c5f9e9",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server_tools.go",

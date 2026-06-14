@@ -333,14 +333,27 @@ func outputHealthText(report *HealthReport) error {
 	return exitWithHealthStatus(report.Status)
 }
 
-var exitWithHealthStatusHook = func(status HealthStatus) error {
+// healthStatusExitCode maps a health status to its process exit code:
+// 0 = healthy, 1 = degraded, 2 = unhealthy. Any unknown status maps to 0 so an
+// unrecognized state never wedges the process on a non-zero exit. Pure so the
+// mapping can be tested without forking a process.
+func healthStatusExitCode(status HealthStatus) int {
 	switch status {
-	case HealthStatusHealthy:
-		return nil
 	case HealthStatusDegraded:
-		os.Exit(1)
+		return 1
 	case HealthStatusUnhealthy:
-		os.Exit(2)
+		return 2
+	default:
+		return 0
+	}
+}
+
+// exitWithHealthStatusHook performs the process exit for a health status. It is
+// a var so tests can substitute a capturing implementation in place of the real
+// os.Exit side effect.
+var exitWithHealthStatusHook = func(status HealthStatus) error {
+	if code := healthStatusExitCode(status); code != 0 {
+		os.Exit(code)
 	}
 	return nil
 }

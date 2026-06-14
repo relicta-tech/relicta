@@ -2,6 +2,7 @@ package attribution
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
@@ -406,8 +407,8 @@ func (d *Detector) DetectMultiple(commits []*CommitInfo) *DetectionResult {
 	consistency := float64(maxCount) / float64(len(commits))
 	result.Confidence = result.Confidence * consistency
 
-	result.Evidence["commit_count"] = string(rune(len(commits)))
-	result.Evidence["actor_count"] = string(rune(maxCount))
+	result.Evidence["commit_count"] = strconv.Itoa(len(commits))
+	result.Evidence["actor_count"] = strconv.Itoa(maxCount)
 
 	return result
 }
