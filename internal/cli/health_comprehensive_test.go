@@ -179,13 +179,9 @@ func TestOutputHealthJSON_Coverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.status != HealthStatusHealthy {
-				// exitWithHealthStatus calls os.Exit for non-healthy states
-				// We can't test those paths without forking, but we can test
-				// the JSON encoding part by checking that it doesn't panic
-				// before reaching exitWithHealthStatus
-				t.Skip("Skipping test that would call os.Exit")
-			}
+			// Capture the exit so non-healthy statuses, which would otherwise
+			// os.Exit, run through the full JSON-encoding path.
+			captured := withCapturedHealthExit(t)
 
 			report := &HealthReport{
 				Status: tt.status,
@@ -204,10 +200,11 @@ func TestOutputHealthJSON_Coverage(t *testing.T) {
 				},
 			}
 
-			// Just verify it doesn't panic for healthy status
-			err := outputHealthJSON(report)
-			if err != nil {
+			if err := outputHealthJSON(report); err != nil {
 				t.Errorf("outputHealthJSON() error = %v", err)
+			}
+			if *captured != tt.status {
+				t.Errorf("exit hook saw %q, want %q", *captured, tt.status)
 			}
 		})
 	}
@@ -258,10 +255,9 @@ func TestOutputHealthText_AllStatuses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.status != HealthStatusHealthy {
-				// Skip non-healthy as they call os.Exit
-				t.Skip("Skipping test that would call os.Exit")
-			}
+			// Capture the exit so non-healthy statuses run the full text-render
+			// path instead of calling os.Exit.
+			captured := withCapturedHealthExit(t)
 
 			report := &HealthReport{
 				Status: tt.status,
@@ -274,9 +270,11 @@ func TestOutputHealthText_AllStatuses(t *testing.T) {
 				},
 			}
 
-			err := outputHealthText(report)
-			if err != nil {
+			if err := outputHealthText(report); err != nil {
 				t.Errorf("outputHealthText() error = %v", err)
+			}
+			if *captured != tt.status {
+				t.Errorf("exit hook saw %q, want %q", *captured, tt.status)
 			}
 		})
 	}

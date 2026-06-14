@@ -12,9 +12,18 @@
 package sandbox
 
 import (
+	"os/exec"
 	"runtime"
 	"strings"
 )
+
+// seatbeltAvailable reports whether the macOS sandbox-exec binary is on PATH.
+// On non-darwin platforms it returns false (the binary does not exist), which is
+// harmless because the posture only consults it in the darwin branch.
+func seatbeltAvailable() bool {
+	_, err := exec.LookPath("sandbox-exec")
+	return err == nil
+}
 
 // EnforcementLevel ranks the strength of sandbox enforcement on this platform.
 type EnforcementLevel string
@@ -89,13 +98,24 @@ func CurrentPosture() SecurityPosture {
 		p.Level = EnforcementBestEffort
 		p.MemoryEnforced = false
 		p.CPUEnforced = false
-		p.FilesystemIsolated = false
+		// Filesystem/network confinement is enforced via a sandbox-exec seatbelt
+		// profile when the binary is available and the plugin's capabilities
+		// restrict access. Memory/CPU remain best-effort, so the overall level
+		// stays best_effort.
+		seatbelt := seatbeltAvailable()
+		p.FilesystemIsolated = seatbelt
 		p.Caveats = []string{
 			"On Apple Silicon (arm64), RLIMIT_AS is silently ignored by the kernel.",
-			"No sandbox-exec profile is generated; plugins run with the user's full filesystem access.",
 			"CPU caps are not enforced on macOS without launchd job control.",
-			"Primary protection is the per-plugin timeout in the plugin manager.",
+			"Primary protection against runaway plugins is the per-plugin timeout in the plugin manager.",
 			"Plugin signature verification is not yet implemented; only run trusted plugins.",
+		}
+		if seatbelt {
+			p.Caveats = append(p.Caveats,
+				"Network egress and filesystem writes are confined via a sandbox-exec profile when a plugin's capabilities restrict them (loopback and temp paths stay permitted).")
+		} else {
+			p.Caveats = append(p.Caveats,
+				"sandbox-exec was not found on PATH; plugins run with the user's full filesystem and network access.")
 		}
 
 	default:
