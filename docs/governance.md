@@ -485,6 +485,41 @@ When the reputation guard fires, the evaluation rationale records why
 (`actor reputation is restricted (…%, restricted) — human review required`), so
 the downgrade is always visible in `relicta evaluate` output and the audit trail.
 
+### Earned trust
+
+Reputation guarding tightens; **earned trust** is its mirror image — it lets an
+actor's verifiable track record *raise* its effective trust level, unlocking
+low-risk auto-approval a fresh actor would not get. This is the one governance
+path that loosens an outcome, so it is **off by default**, requires
+`memory_enabled: true`, and is gated on sample size. It derives only from stored
+release outcomes (never from spoofable signals), and escalation only ever raises
+trust — it never lowers what an actor was assigned.
+
+```yaml
+governance:
+  memory_enabled: true
+  earned_trust_enabled: true
+  # Records required before trust may rise to "trusted" (default 10) and to
+  # "full"/human-equivalent autonomy (default 50).
+  earned_trust_min_samples: 10
+  earned_trust_full_samples: 50
+```
+
+Escalation tiers, applied to the governing actor before evaluation:
+
+| Earned level | Requires |
+|--------------|----------|
+| **trusted**  | ≥ `earned_trust_min_samples` releases and reputation ≥ 0.8 |
+| **full**     | ≥ `earned_trust_full_samples` releases, reputation ≥ 0.95, and a non-declining trend |
+
+Earned trust is **necessary, not sufficient**: a raised trust level lets the
+evaluator auto-approve low-risk changes, but agent- and CI-authored changes are
+*also* subject to the actor rules (`agent_auto_approve`,
+`require_human_for_agent_changes`). An AI agent earning "trusted" still cannot
+auto-approve unless you have separately enabled agent auto-approval. The
+escalation is recorded on the proposal audit context
+(`earned_trust.from` / `earned_trust.to` / `earned_trust.reputation`).
+
 ## Authorship Attribution
 
 `attribution_enabled: true` detects who actually authored a release's commits —
