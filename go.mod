@@ -31,15 +31,15 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
 	go.klarlabs.de/bolt v1.5.2
 	go.klarlabs.de/fortify v1.6.0
-	go.klarlabs.de/mcp v1.15.0
+	go.klarlabs.de/mcp v1.17.1
 	go.klarlabs.de/statekit v1.8.0
-	golang.org/x/crypto v0.52.0
+	golang.org/x/crypto v0.53.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
-	golang.org/x/term v0.43.0
-	golang.org/x/text v0.37.0
-	google.golang.org/genai v1.59.0
+	golang.org/x/term v0.44.0
+	golang.org/x/text v0.38.0
+	google.golang.org/genai v1.60.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
