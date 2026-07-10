@@ -20,12 +20,27 @@ import (
 )
 
 // parseJSONResult parses a JSON string result into a map for test assertions
-func parseJSONResult(t *testing.T, jsonStr string) map[string]any {
+// parseJSONResult decodes a tool handler result into a map. Handlers may return
+// either a raw JSON string (legacy/degenerate paths) or a typed struct value
+// (structured-output paths); both are normalized to JSON bytes first.
+func parseJSONResult(t *testing.T, result any) map[string]any {
 	t.Helper()
-	var result map[string]any
-	err := json.Unmarshal([]byte(jsonStr), &result)
-	require.NoError(t, err, "failed to parse JSON result: %s", jsonStr)
-	return result
+	data := toResultJSON(t, result)
+	var out map[string]any
+	err := json.Unmarshal(data, &out)
+	require.NoError(t, err, "failed to parse JSON result: %s", string(data))
+	return out
+}
+
+// toResultJSON normalizes a handler result (string or typed value) to JSON bytes.
+func toResultJSON(t *testing.T, result any) []byte {
+	t.Helper()
+	if s, ok := result.(string); ok {
+		return []byte(s)
+	}
+	data, err := json.Marshal(result)
+	require.NoError(t, err, "failed to marshal handler result")
+	return data
 }
 
 // createTestReleaseRun creates a test release run in draft state

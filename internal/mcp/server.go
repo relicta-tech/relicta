@@ -469,6 +469,7 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta_status").
 		Description("Get the current release state and pending actions").
 		UIResource("ui://relicta/status").
+		OutputSchema(StatusToolOutput{}).
 		Handler(s.handleStatus)
 
 	// Init tool
@@ -480,6 +481,7 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta_plan").
 		Description("Analyze commits since the last release and suggest a version bump").
 		UIResource("ui://relicta/commits").
+		OutputSchema(PlanToolOutput{}).
 		Handler(s.handlePlan)
 
 	// Bump tool
@@ -526,11 +528,13 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta_blast_radius").
 		Description("Analyze blast radius of changes in a monorepo. Returns impacted packages, transitive dependencies, and deployment risk assessment.").
 		UIResource("ui://relicta/blast").
+		OutputSchema(BlastRadiusOutput{}).
 		Handler(s.handleBlastRadius)
 
 	// Infer Version tool - Lightweight version inference
 	s.server.Tool("relicta_infer_version").
 		Description("Infer the next semantic version based on commits. Lightweight alternative to plan for quick queries.").
+		OutputSchema(InferVersionToolOutput{}).
 		Handler(s.handleInferVersion)
 
 	// Summarize Diff tool - Audience-tailored change summaries
@@ -542,6 +546,7 @@ func (s *Server) registerTools() {
 	s.server.Tool("relicta_validate_release").
 		Description("Run pre-flight validation checks before release. Validates git state, plugins, and governance requirements.").
 		UIResource("ui://relicta/approval").
+		OutputSchema(ValidateReleaseToolOutput{}).
 		Handler(s.handleValidateRelease)
 
 	// --- CGP Protocol Wire Format Tools ---
@@ -559,6 +564,7 @@ func (s *Server) registerTools() {
 	// CGP Status tool - Query the current governance state of a proposal
 	s.server.Tool("cgp_status").
 		Description("Query the current governance state (proposed, decided, authorized) for a CGP proposal by ID.").
+		OutputSchema(CGPStatusToolOutput{}).
 		Handler(s.handleCGPStatus)
 }
 
