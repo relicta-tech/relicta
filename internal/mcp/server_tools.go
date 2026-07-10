@@ -146,7 +146,7 @@ func parseRemoteURL(remoteURL string) string {
 	return ""
 }
 
-func (s *Server) handleStatus(ctx context.Context, input StatusInput) (string, error) {
+func (s *Server) handleStatus(ctx context.Context, input StatusInput) (any, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -160,26 +160,26 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (string, e
 			}), nil
 		}
 
-		result := map[string]any{
-			"release_id":  status.ReleaseID,
-			"state":       status.State,
-			"version":     status.Version,
-			"created":     status.CreatedAt,
-			"updated":     status.UpdatedAt,
-			"can_approve": status.CanApprove,
-			"next_action": status.NextAction,
+		out := StatusToolOutput{
+			ReleaseID:  status.ReleaseID,
+			State:      status.State,
+			Version:    status.Version,
+			Created:    status.CreatedAt,
+			Updated:    status.UpdatedAt,
+			CanApprove: status.CanApprove,
+			NextAction: status.NextAction,
 		}
 
 		if status.ApprovalMsg != "" {
-			result["approval_message"] = status.ApprovalMsg
+			out.ApprovalMessage = status.ApprovalMsg
 		}
 
 		if status.Stale {
-			result["stale"] = true
-			result["warning"] = status.Warning
+			out.Stale = true
+			out.Warning = status.Warning
 		}
 
-		return toJSONString(result), nil
+		return out, nil
 	}
 
 	// Fallback to direct repository access
@@ -213,7 +213,7 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (string, e
 	return toJSONString(result), nil
 }
 
-func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (string, error) {
+func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (any, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	repoPath := s.ensureRepoPath(ctx)
 
@@ -246,33 +246,29 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (string, e
 			_ = progress.Report(2, &total)
 		}
 
-		result := map[string]any{
-			"release_id":      output.ReleaseID,
-			"current_version": output.CurrentVersion,
-			"next_version":    output.NextVersion,
-			"release_type":    output.ReleaseType,
-			"commit_count":    output.CommitCount,
-			"has_breaking":    output.HasBreaking,
-			"has_features":    output.HasFeatures,
-			"has_fixes":       output.HasFixes,
+		out := PlanToolOutput{
+			ReleaseID:      output.ReleaseID,
+			CurrentVersion: output.CurrentVersion,
+			NextVersion:    output.NextVersion,
+			ReleaseType:    output.ReleaseType,
+			CommitCount:    output.CommitCount,
+			HasBreaking:    output.HasBreaking,
+			HasFeatures:    output.HasFeatures,
+			HasFixes:       output.HasFixes,
 		}
 
 		// Include commit details when analyze=true
 		if input.Analyze && len(output.Commits) > 0 {
-			commits := make([]map[string]any, 0, len(output.Commits))
+			out.Commits = make([]PlanCommitInfo, 0, len(output.Commits))
 			for _, c := range output.Commits {
-				commit := map[string]any{
-					"sha":     c.SHA,
-					"type":    c.Type,
-					"message": c.Message,
-					"author":  c.Author,
-				}
-				if c.Scope != "" {
-					commit["scope"] = c.Scope
-				}
-				commits = append(commits, commit)
+				out.Commits = append(out.Commits, PlanCommitInfo{
+					SHA:     c.SHA,
+					Type:    c.Type,
+					Message: c.Message,
+					Author:  c.Author,
+					Scope:   c.Scope,
+				})
 			}
-			result["commits"] = commits
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -281,7 +277,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (string, e
 		}
 
 		s.invalidateCache()
-		return toJSONString(result), nil
+		return out, nil
 	}
 
 	return toJSONString(map[string]any{
@@ -737,7 +733,7 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string,
 
 // --- Specialized AI Agent Tool Handlers ---
 
-func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (string, error) {
+func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInput) (any, error) {
 	if s.adapter == nil || !s.adapter.HasBlastService() {
 		return toJSONString(map[string]any{
 			"status":  "not_configured",
@@ -774,55 +770,13 @@ func (s *Server) handleBlastRadius(ctx context.Context, input BlastRadiusToolInp
 		_ = progress.Report(4, &total)
 	}
 
-	result := map[string]any{
-		"total_packages":             output.TotalPackages,
-		"directly_affected":          output.DirectlyAffected,
-		"transitively_affected":      output.TransitivelyAffected,
-		"packages_requiring_release": output.PackagesRequiringRelease,
-		"risk_level":                 output.RiskLevel,
-		"total_files_changed":        output.TotalFilesChanged,
-		"total_insertions":           output.TotalInsertions,
-		"total_deletions":            output.TotalDeletions,
-	}
-
-	if len(output.RiskFactors) > 0 {
-		result["risk_factors"] = output.RiskFactors
-	}
-
-	if len(output.Impacts) > 0 {
-		impacts := make([]map[string]any, 0, len(output.Impacts))
-		for _, impact := range output.Impacts {
-			impactMap := map[string]any{
-				"package_name":     impact.PackageName,
-				"package_path":     impact.PackagePath,
-				"package_type":     impact.PackageType,
-				"impact_level":     impact.ImpactLevel,
-				"risk_score":       impact.RiskScore,
-				"requires_release": impact.RequiresRelease,
-				"changed_files":    impact.ChangedFiles,
-			}
-			if impact.ReleaseType != "" {
-				impactMap["release_type"] = impact.ReleaseType
-			}
-			if len(impact.SuggestedActions) > 0 {
-				impactMap["suggested_actions"] = impact.SuggestedActions
-			}
-			impacts = append(impacts, impactMap)
-		}
-		result["impacts"] = impacts
-	}
-
-	if output.DependencyGraph != nil {
-		result["dependency_graph"] = map[string]any{
-			"nodes": output.DependencyGraph.Nodes,
-			"edges": output.DependencyGraph.Edges,
-		}
-	}
-
-	return toJSONString(result), nil
+	// BlastRadiusOutput already carries the exact snake_case JSON tags and
+	// omitempty semantics the response requires, so it doubles as the tool's
+	// structured output type (advertised via OutputSchema at registration).
+	return output, nil
 }
 
-func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolInput) (string, error) {
+func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolInput) (any, error) {
 	if s.adapter == nil || !s.adapter.HasReleaseAnalyzer() {
 		return toJSONString(map[string]any{
 			"status":  "not_configured",
@@ -852,27 +806,29 @@ func (s *Server) handleInferVersion(ctx context.Context, input InferVersionToolI
 		_ = progress.Report(2, &total)
 	}
 
-	result := map[string]any{
-		"current_version": output.CurrentVersion,
-		"next_version":    output.NextVersion,
-		"bump_type":       output.BumpType,
-		"has_breaking":    output.HasBreaking,
-		"has_features":    output.HasFeatures,
-		"has_fixes":       output.HasFixes,
-		"commit_count":    output.CommitCount,
-		"confidence":      output.Confidence,
+	out := InferVersionToolOutput{
+		CurrentVersion: output.CurrentVersion,
+		NextVersion:    output.NextVersion,
+		BumpType:       output.BumpType,
+		HasBreaking:    output.HasBreaking,
+		HasFeatures:    output.HasFeatures,
+		HasFixes:       output.HasFixes,
+		CommitCount:    output.CommitCount,
+		Confidence:     output.Confidence,
 	}
 
 	if len(output.Rationale) > 0 {
-		result["rationale"] = output.Rationale
+		out.Rationale = output.Rationale
 	}
 
 	if input.IncludeRisk {
-		result["risk_score"] = output.RiskScore
-		result["risk_severity"] = output.RiskSeverity
+		riskScore := output.RiskScore
+		riskSeverity := output.RiskSeverity
+		out.RiskScore = &riskScore
+		out.RiskSeverity = &riskSeverity
 	}
 
-	return toJSONString(result), nil
+	return out, nil
 }
 
 func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToolInput) (string, error) {
@@ -917,7 +873,7 @@ func (s *Server) handleSummarizeDiff(ctx context.Context, input SummarizeDiffToo
 	return toJSONString(result), nil
 }
 
-func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (string, error) {
+func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleaseToolInput) (ValidateReleaseToolOutput, error) {
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
@@ -942,50 +898,31 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 	if s.adapter != nil {
 		output, err := s.adapter.ValidateRelease(ctx, validateInput)
 		if err != nil {
-			return "", userError(err)
+			return ValidateReleaseToolOutput{}, userError(err)
 		}
 
-		result := map[string]any{
-			"valid":          output.Valid,
-			"can_proceed":    output.CanProceed,
-			"recommendation": output.Recommendation,
-		}
-
-		if len(output.Checks) > 0 {
-			checks := make([]map[string]any, 0, len(output.Checks))
-			for _, check := range output.Checks {
-				checkMap := map[string]any{
-					"name":   check.Name,
-					"status": check.Status,
-				}
-				if check.Message != "" {
-					checkMap["message"] = check.Message
-				}
-				checks = append(checks, checkMap)
-			}
-			result["checks"] = checks
-		}
-
-		if len(output.BlockingIssues) > 0 {
-			result["blocking_issues"] = output.BlockingIssues
-		}
-
-		if len(output.Warnings) > 0 {
-			result["warnings"] = output.Warnings
-		}
-
-		return toJSONString(result), nil
+		// ValidationCheckResult already carries the exact JSON tags the
+		// response requires, so checks pass through unchanged. omitempty on
+		// the slice fields preserves the prior conditional-inclusion behavior.
+		return ValidateReleaseToolOutput{
+			Valid:          output.Valid,
+			CanProceed:     output.CanProceed,
+			Recommendation: output.Recommendation,
+			Checks:         output.Checks,
+			BlockingIssues: output.BlockingIssues,
+			Warnings:       output.Warnings,
+		}, nil
 	}
 
 	// Minimal validation without adapter
-	return toJSONString(map[string]any{
-		"valid":          true,
-		"can_proceed":    true,
-		"recommendation": "Basic validation passed. Full validation requires configured dependencies.",
-		"checks": []map[string]any{
-			{"name": "basic", "status": "passed", "message": "Basic checks passed"},
+	return ValidateReleaseToolOutput{
+		Valid:          true,
+		CanProceed:     true,
+		Recommendation: "Basic validation passed. Full validation requires configured dependencies.",
+		Checks: []ValidationCheckResult{
+			{Name: "basic", Status: "passed", Message: "Basic checks passed"},
 		},
-	}), nil
+	}, nil
 }
 
 // Resource handlers
@@ -1063,21 +1000,21 @@ func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolI
 	return string(data), nil
 }
 
-func (s *Server) handleCGPStatus(ctx context.Context, input CGPStatusToolInput) (string, error) {
+func (s *Server) handleCGPStatus(ctx context.Context, input CGPStatusToolInput) (CGPStatusToolOutput, error) {
 	if err := s.ensureCGPService(); err != nil {
-		return "", err
+		return CGPStatusToolOutput{}, err
 	}
 
 	status, err := s.cgpService.GetStatus(ctx, input.ProposalID)
 	if err != nil {
-		return "", userError(err)
+		return CGPStatusToolOutput{}, userError(err)
 	}
 
-	return toJSONString(map[string]any{
-		"proposalId":    status.ProposalID,
-		"state":         status.State,
-		"proposal":      status.Proposal,
-		"decision":      status.Decision,
-		"authorization": status.Authorization,
-	}), nil
+	return CGPStatusToolOutput{
+		ProposalID:    status.ProposalID,
+		State:         status.State,
+		Proposal:      status.Proposal,
+		Decision:      status.Decision,
+		Authorization: status.Authorization,
+	}, nil
 }

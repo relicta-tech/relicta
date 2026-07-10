@@ -282,12 +282,22 @@ var _ domainrelease.Repository = (*mockPortsRepoLegacyAdapter)(nil)
 // JSON helper
 // =============================================================================
 
-func parseJSONMap(t *testing.T, s string) map[string]any {
+// parseJSONMap decodes a tool handler result into a map. Handlers may return a
+// raw JSON string or a typed struct value; both are handled.
+func parseJSONMap(t *testing.T, result any) map[string]any {
 	t.Helper()
-	var result map[string]any
-	err := json.Unmarshal([]byte(s), &result)
-	require.NoError(t, err, "failed to parse JSON: %s", s)
-	return result
+	var data []byte
+	if s, ok := result.(string); ok {
+		data = []byte(s)
+	} else {
+		b, err := json.Marshal(result)
+		require.NoError(t, err, "failed to marshal handler result")
+		data = b
+	}
+	var out map[string]any
+	err := json.Unmarshal(data, &out)
+	require.NoError(t, err, "failed to parse JSON: %s", string(data))
+	return out
 }
 
 // =============================================================================
