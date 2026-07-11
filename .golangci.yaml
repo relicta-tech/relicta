@@ -28,7 +28,9 @@ linters:
     - ineffassign
     - govet
     - errcheck
-    - gosec
+    # gosec removed: nox is the sole security/vulnerability scanner for this
+    # repo (secrets, SAST via the taint-analysis plugin, and dependency CVEs
+    # via OSV.dev). See .github/workflows/security.yaml + ci.yaml.
 
     # Additional recommended linters
     - bodyclose
@@ -63,11 +65,6 @@ linters:
           - errorlint  # Tests often check specific error values with ==
           - govet      # Shadow warnings are common in tests
           - revive     # Var naming and style in tests is less critical
-      # Exclude gosec file/directory permission and secret-pattern checks in test files
-      - path: _test\.go
-        linters:
-          - gosec
-        text: G306|G301|G117|G703
       # Exclude var-naming in generated proto types and plugin types
       - path: pkg/plugin/types\.go
         linters:
@@ -141,23 +138,6 @@ linters:
       disable:
         - fieldalignment  # Too strict for readability
         - shadow          # Too strict - many valid Go patterns trigger this
-
-    gosec:
-      severity: medium
-      confidence: medium
-      excludes:
-        - G104  # Audit errors not checked (we handle this with errcheck)
-        - G115  # Integer overflow conversion - values are validated before conversion
-        - G122  # Filesystem walk callback - paths come from controlled walk roots
-        - G204  # Subprocess with variable - git commands are validated
-        - G301  # Directory permissions - plugins and temp dirs need 0755
-        - G302  # File permissions in tests
-        - G304  # Potential file inclusion via variable (needed for config)
-        - G306  # WriteFile permissions - plugins need to be executable
-        - G702  # Command injection taint - editor path validated before use
-        - G117  # Marshaled secret-pattern fields - webhook configs need serialization
-        - G404  # Weak RNG for jitter - cryptographic strength not needed for backoff
-        - G703  # Path traversal taint - paths validated by allowlist checks
 
     gocritic:
       enabled-tags:
