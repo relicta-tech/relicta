@@ -81,7 +81,7 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	defer closeApp(app)
 
 	// Find the current release
-	rel, err := findCurrentRelease(ctx, app)
+	rel, err := findCurrentRelease(ctx, app, "cancel")
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func runReset(cmd *cobra.Command, args []string) error {
 	defer closeApp(app)
 
 	// Find the current release
-	rel, err := findCurrentRelease(ctx, app)
+	rel, err := findCurrentRelease(ctx, app, "reset")
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,12 @@ func runReset(cmd *cobra.Command, args []string) error {
 }
 
 // findCurrentRelease finds the current/latest release for the repository.
-func findCurrentRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, error) {
+//
+// operation names the calling command ("cancel", "reset") so the not-found
+// message describes what the user actually ran. It previously always said
+// "Nothing to cancel", which made `relicta reset` print three lines that
+// contradicted each other and each other's exit error.
+func findCurrentRelease(ctx context.Context, app cliApp, operation string) (*release.ReleaseRun, error) {
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -212,8 +217,8 @@ func findCurrentRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, e
 	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
 	if err != nil {
 		if errors.Is(err, release.ErrRunNotFound) {
-			printInfo("No active release found")
-			printInfo("Nothing to cancel - there is no release in progress")
+			printInfo(fmt.Sprintf("No release run found in %s", repoInfo.Path))
+			printInfo(fmt.Sprintf("Nothing to %s - run 'relicta plan' to start a release", operation))
 			return nil, err
 		}
 		return nil, fmt.Errorf("failed to find release: %w", err)
@@ -267,9 +272,14 @@ func validateResetState(rel *release.ReleaseRun) error {
 		return nil
 
 	case release.StatePublished:
-		printError("Published releases cannot be reset")
+		// Naming the state and the run, and pointing at the command that can
+		// actually remove it: a published run is complete, so there is nothing
+		// for reset to return to a clean state, but it still blocks 'notes' and
+		// until now had no supported way to be cleared.
+		printError(fmt.Sprintf("Run %s is in terminal state '%s' - there is nothing in progress to reset", rel.ID(), state))
 		printInfo("Start a new release with 'relicta plan'")
-		return fmt.Errorf("release in state '%s' is complete and cannot be reset", state)
+		printInfo(fmt.Sprintf("Or remove the stale run with 'relicta clean --run %s'", rel.ID()))
+		return fmt.Errorf("release run %s is in terminal state '%s' and cannot be reset", rel.ID(), state)
 
 	case release.StatePublishing:
 		if !cancelForce {

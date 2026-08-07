@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,12 @@ var (
 	cleanOlderThan  string
 	cleanAll        bool
 	cleanDryRunFlag bool
+	cleanRunID      string
+
+	// cleanKeepExplicit records whether --keep was actually passed. --keep has a
+	// non-zero default, so without this the default silently overrode
+	// --older-than and kept the newest 10 runs whatever their age.
+	cleanKeepExplicit bool
 )
 
 func init() {
@@ -25,6 +32,7 @@ func init() {
 	cleanCmd.Flags().StringVarP(&cleanOlderThan, "older-than", "o", "", "remove runs older than duration (e.g., 7d, 30d)")
 	cleanCmd.Flags().BoolVarP(&cleanAll, "all", "a", false, "remove all release runs except the latest")
 	cleanCmd.Flags().BoolVar(&cleanDryRunFlag, "dry-run", false, "show what would be deleted without deleting")
+	cleanCmd.Flags().StringVar(&cleanRunID, "run", "", "remove one specific run by ID, whatever its state or age")
 
 	rootCmd.AddCommand(cleanCmd)
 }
@@ -43,10 +51,16 @@ Examples:
   relicta clean --keep 5            # Keep last 5 runs
   relicta clean --older-than 30d    # Remove runs older than 30 days
   relicta clean --all               # Remove all except the latest
+  relicta clean --run run-af793f82  # Remove one specific run
   relicta clean --dry-run           # Show what would be deleted
 
 The command will never delete an active (in-progress) release run.
-Use 'relicta cancel' to cancel an active release first.`,
+Use 'relicta cancel' to cancel an active release first.
+
+--run is the escape hatch for a stale run in a terminal state ('published'
+or 'canceled'). Such a run is skipped by --all when it is also the latest,
+and 'reset' and 'cancel' both decline it because there is nothing in flight
+to return to a clean state.`,
 	RunE: runClean,
 }
 
@@ -72,6 +86,15 @@ func runClean(cmd *cobra.Command, args []string) error {
 	if isDryRun {
 		printDryRunBanner()
 	}
+
+	// --run targets one run, so the age and count criteria do not apply to it.
+	if cleanRunID != "" {
+		if cleanAll || cleanOlderThan != "" || cmd.Flags().Changed("keep") {
+			return fmt.Errorf("--run selects a single run; it cannot be combined with --all, --older-than or --keep")
+		}
+	}
+
+	cleanKeepExplicit = cmd.Flags().Changed("keep")
 
 	// Parse older-than duration if provided
 	var olderThanDuration time.Duration
@@ -114,7 +137,12 @@ func runClean(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Determine which runs to delete
-	result, err := determineRunsToDelete(ctx, releaseRepo, runIDs, olderThanDuration, isDryRun)
+	var result *cleanResult
+	if cleanRunID != "" {
+		result, err = selectRunByID(ctx, releaseRepo, runIDs, cleanRunID, isDryRun)
+	} else {
+		result, err = determineRunsToDelete(ctx, releaseRepo, runIDs, olderThanDuration, isDryRun)
+	}
 	if err != nil {
 		return err
 	}
@@ -161,6 +189,74 @@ func runClean(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// selectRunByID resolves --run to exactly one run and marks it for deletion.
+//
+// Unlike determineRunsToDelete it applies no age or position criteria: the point
+// of --run is to clear a specific stale run that the bulk criteria refuse to
+// touch, in particular a terminal-state run that is also the latest. Active runs
+// are still protected — cancel them first, so an in-flight release cannot be
+// deleted out from under a workflow.
+//
+// The ID may be given in full or as any unambiguous prefix, matching how run IDs
+// are abbreviated in this command's own output.
+func selectRunByID(ctx context.Context, releaseRepo release.Repository, runIDs []release.RunID, wanted string, isDryRun bool) (*cleanResult, error) {
+	result := &cleanResult{
+		TotalRuns:  len(runIDs),
+		DeletedIDs: []string{},
+		KeptIDs:    []string{},
+		DryRun:     isDryRun,
+	}
+
+	var matches []release.RunID
+	for _, id := range runIDs {
+		if string(id) == wanted {
+			matches = []release.RunID{id}
+			break
+		}
+		if strings.HasPrefix(string(id), wanted) {
+			matches = append(matches, id)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("no release run matching %q; run 'relicta clean --dry-run' to list the runs on disk", wanted)
+	case 1:
+		// Unambiguous.
+	default:
+		ids := make([]string, len(matches))
+		for i, m := range matches {
+			ids[i] = string(m)
+		}
+		return nil, fmt.Errorf("%q matches %d runs (%s); pass a longer prefix",
+			wanted, len(matches), strings.Join(ids, ", "))
+	}
+
+	id := matches[0]
+	rel, err := releaseRepo.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load run %s: %w", id, err)
+	}
+
+	// Protect in-flight releases; everything terminal is fair game.
+	if !rel.State().IsFinal() {
+		return nil, fmt.Errorf(
+			"run %s is in state %q and is still in progress; run 'relicta cancel' first, then remove it",
+			id, rel.State())
+	}
+
+	result.DeletedIDs = append(result.DeletedIDs, string(id))
+	result.DeletedCount = 1
+	for _, other := range runIDs {
+		if other != id {
+			result.KeptIDs = append(result.KeptIDs, string(other))
+		}
+	}
+	result.KeptCount = len(result.KeptIDs)
+
+	return result, nil
 }
 
 // determineRunsToDelete determines which runs to delete based on the configured options.
@@ -231,8 +327,11 @@ func determineRunsToDelete(ctx context.Context, releaseRepo release.Repository, 
 			}
 		}
 
-		// When using --older-than with --keep, apply both criteria
-		if olderThan > 0 && !cleanAll && !shouldKeep {
+		// When --keep was given alongside --older-than, apply both criteria.
+		// Only when it was given: --keep defaults to 10, and applying that
+		// default here meant --older-than could never delete anything in a
+		// repository with fewer than 10 runs, however old they were.
+		if olderThan > 0 && cleanKeepExplicit && !cleanAll && !shouldKeep {
 			if i < cleanKeepLast {
 				shouldDelete = false // Keep even if old
 			}
