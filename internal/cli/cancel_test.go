@@ -524,7 +524,7 @@ func TestFindCurrentRelease_Success(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	found, err := findCurrentRelease(ctx, app)
+	found, err := findCurrentRelease(ctx, app, "cancel")
 
 	if err != nil {
 		t.Errorf("findCurrentRelease() error = %v", err)
@@ -544,7 +544,7 @@ func TestFindCurrentRelease_NotFound(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	found, err := findCurrentRelease(ctx, app)
+	found, err := findCurrentRelease(ctx, app, "cancel")
 
 	if err == nil {
 		t.Error("findCurrentRelease() should return error when no release found")

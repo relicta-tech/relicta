@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -435,6 +436,27 @@ func (r *FileReleaseRepository) Delete(ctx context.Context, id release.RunID) er
 			return release.ErrRunNotFound
 		}
 		return fmt.Errorf("failed to delete release file: %w", err)
+	}
+
+	// A run is written by two persistence layers over this one directory, so
+	// removing only <id>.json orphaned <id>.state.json and <id>.machine.json and
+	// left the "latest" pointer naming a run that no longer exists — which is
+	// what made a stale run survive 'clean' and still block 'notes'.
+	safeID := filepath.Base(string(id))
+	for _, suffix := range []string{".state.json", ".machine.json"} {
+		if err := os.Remove(filepath.Join(r.basePath, safeID+suffix)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to delete %s sidecar for %s: %w", suffix, id, err)
+		}
+	}
+
+	// Clear the latest pointer only when it names the run just deleted.
+	latestPath := filepath.Join(r.basePath, "latest")
+	if data, err := os.ReadFile(latestPath); err == nil {
+		if strings.TrimSpace(string(data)) == string(id) {
+			if err := os.Remove(latestPath); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("failed to clear latest pointer for %s: %w", id, err)
+			}
+		}
 	}
 
 	return nil
