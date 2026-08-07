@@ -223,16 +223,21 @@ func (s *anthropicService) CompleteStructured(ctx context.Context, systemPrompt,
 			if block.Type != anthropic.MessagesContentTypeToolUse {
 				continue
 			}
-			if block.MessageContentToolUse == nil {
+			toolUse := block.MessageContentToolUse
+			if toolUse == nil {
 				continue
 			}
-			if block.Name != schema.Name() {
+			// Read Name/Input through the embedded struct rather than promoting
+			// them off block: MessageContent embeds both *MessageContentToolUse
+			// and *MessageContentServerToolUse, and both declare ID, Name and
+			// Input at the same depth, so the promoted selectors are ambiguous.
+			if toolUse.Name != schema.Name() {
 				continue
 			}
-			if len(block.Input) == 0 {
+			if len(toolUse.Input) == 0 {
 				return "", errors.AI("CompleteStructured", "tool_use block has empty input")
 			}
-			return string(block.Input), nil
+			return string(toolUse.Input), nil
 		}
 
 		return "", errors.AI("CompleteStructured", "no tool_use block matching schema in response")
