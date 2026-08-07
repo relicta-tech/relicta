@@ -22,8 +22,11 @@ func TestDefaultConfig(t *testing.T) {
 	if !cfg.Versioning.GitTag {
 		t.Error("Versioning.GitTag should be true by default")
 	}
-	if !cfg.Versioning.GitPush {
-		t.Error("Versioning.GitPush should be true by default")
+	// Pushing a tag is irreversible and fires tag-triggered release workflows,
+	// so it is opt-in. Tagging locally stays on by default because a local tag
+	// is cheap to delete. See issue #194.
+	if cfg.Versioning.GitPush {
+		t.Error("Versioning.GitPush should be false by default - pushing a tag is irreversible and must be opt-in")
 	}
 	if cfg.Versioning.BumpFrom != "tag" {
 		t.Errorf("Versioning.BumpFrom = %v, want tag", cfg.Versioning.BumpFrom)

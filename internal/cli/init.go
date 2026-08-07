@@ -4,6 +4,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,6 +14,10 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 	"github.com/relicta-tech/relicta/v4/internal/ui/wizard"
 )
+
+// githubWorkflowsDir is where GitHub Actions workflows live, relative to the
+// repository root.
+const githubWorkflowsDir = ".github/workflows"
 
 var (
 	initForce       bool
@@ -97,6 +103,24 @@ func runInitQuick() error {
 	}
 
 	printSuccess(fmt.Sprintf("Created %s", configFile))
+
+	// The github plugin is auto-enabled for GitHub remotes, and it publishes a
+	// release itself. If CI already publishes one on tag push, enabling both
+	// double-publishes — so say so at the moment the config is written rather
+	// than leaving it to be discovered at publish time (issue #194).
+	if hasPlugin(cfg, "github") {
+		if wf, found := detectTagTriggeredWorkflow(); found {
+			printWarning(fmt.Sprintf("%s publishes a release on tag push, and the github plugin publishes one too", wf))
+			printSubtle("  Enabling both will create two releases for the same tag.")
+			printSubtle("  Disable one: set plugins.github.enabled=false, or drop the tag trigger in the workflow.")
+		}
+	}
+
+	// gitpush is off by default; be explicit that the tag stops locally, so
+	// nobody concludes publish is broken when no release appears.
+	if cfg.Versioning.GitTag && !cfg.Versioning.GitPush {
+		printSubtle("  versioning.gitpush is false: 'relicta publish' tags locally and does not push.")
+	}
 
 	// Surface any tokens the detected config will need, so the user isn't
 	// surprised at publish time. Kept terse — quick mode is zero-prompt.
@@ -242,4 +266,74 @@ func removePlugin(cfg *config.Config, name string) {
 		}
 	}
 	cfg.Plugins = filtered
+}
+
+// detectTagTriggeredWorkflow reports whether any GitHub Actions workflow triggers
+// on tag push, which is what makes an unattended `relicta publish` able to start
+// a real release. It returns the workflow's path for use in the warning.
+//
+// Deliberately a cheap textual check rather than a YAML parse: it only drives a
+// warning, and the shapes in the wild vary ("tags:", "tags-ignore:", branch and
+// tag filters combined). A false negative costs a missing warning; parsing every
+// workflow to be exact would cost more than the warning is worth.
+func detectTagTriggeredWorkflow() (string, bool) {
+	entries, err := os.ReadDir(githubWorkflowsDir)
+	if err != nil {
+		return "", false
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".yml") && !strings.HasSuffix(name, ".yaml") {
+			continue
+		}
+
+		path := filepath.Join(githubWorkflowsDir, name)
+		data, err := os.ReadFile(path) //nolint:gosec // path is confined to .github/workflows
+		if err != nil {
+			continue
+		}
+
+		if hasTagPushTrigger(string(data)) {
+			return path, true
+		}
+	}
+
+	return "", false
+}
+
+// hasTagPushTrigger looks for a `tags:` key inside a `push:` block, ignoring
+// `tags-ignore:`.
+func hasTagPushTrigger(content string) bool {
+	inPush := false
+	pushIndent := 0
+
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+
+		if trimmed == "push:" {
+			inPush = true
+			pushIndent = indent
+			continue
+		}
+
+		// A key at or above push's indentation ends the push block.
+		if inPush && indent <= pushIndent {
+			inPush = false
+		}
+
+		if inPush && (trimmed == "tags:" || strings.HasPrefix(trimmed, "tags: ")) {
+			return true
+		}
+	}
+
+	return false
 }

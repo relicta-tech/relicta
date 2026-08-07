@@ -628,9 +628,14 @@ func DefaultConfig() *Config {
 			Strategy:  "conventional",
 			TagPrefix: "v",
 			GitTag:    true,
-			GitPush:   true,
-			GitSign:   false,
-			BumpFrom:  "tag",
+			// GitPush defaults to false: creating a tag locally is recoverable,
+			// pushing one is not, and in any repository whose release workflow
+			// triggers on tag push it fires a real public release. Pushing is
+			// therefore opt-in. GitTag stays true because a local tag is cheap
+			// to delete. See issue #194.
+			GitPush:  false,
+			GitSign:  false,
+			BumpFrom: "tag",
 		},
 		Git: GitConfig{
 			DefaultRemote:  "origin",

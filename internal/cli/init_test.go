@@ -4,6 +4,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -629,5 +630,110 @@ func TestRunInit_JSONFormat(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(tmpDir, ".relicta.json")); err != nil {
 		t.Fatalf("expected JSON config file to be created: %v", err)
+	}
+}
+
+// TestHasTagPushTrigger covers the detection behind the double-publish warning in
+// issue #194: a workflow that triggers on tag push is what lets an unattended
+// `relicta publish` start a real release.
+func TestHasTagPushTrigger(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{
+			name:    "push tags",
+			content: "on:\n  push:\n    tags:\n      - 'v*'\n",
+			want:    true,
+		},
+		{
+			name:    "push tags inline",
+			content: "on:\n  push:\n    tags: ['v*']\n",
+			want:    true,
+		},
+		{
+			name:    "push branches and tags",
+			content: "on:\n  push:\n    branches: [main]\n    tags:\n      - 'v*'\n",
+			want:    true,
+		},
+		{
+			name:    "push branches only",
+			content: "on:\n  push:\n    branches: [main]\n",
+			want:    false,
+		},
+		{
+			// tags-ignore is not a tag trigger.
+			name:    "tags-ignore only",
+			content: "on:\n  push:\n    branches: [main]\n    tags-ignore:\n      - 'v*'\n",
+			want:    false,
+		},
+		{
+			// A tags: key belonging to something other than push must not count.
+			name:    "tags outside push block",
+			content: "on:\n  push:\n    branches: [main]\njobs:\n  build:\n    tags:\n      - nope\n",
+			want:    false,
+		},
+		{
+			name:    "pull_request only",
+			content: "on:\n  pull_request:\n    branches: [main]\n",
+			want:    false,
+		},
+		{
+			name:    "commented out",
+			content: "on:\n  push:\n    # tags:\n    branches: [main]\n",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasTagPushTrigger(tt.content); got != tt.want {
+				t.Errorf("hasTagPushTrigger() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDetectTagTriggeredWorkflow(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+
+	// No .github/workflows at all.
+	if _, found := detectTagTriggeredWorkflow(); found {
+		t.Error("detectTagTriggeredWorkflow() = true with no workflows directory")
+	}
+
+	if err := os.MkdirAll(filepath.Join(".github", "workflows"), 0o750); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	// A workflow with no tag trigger.
+	ci := filepath.Join(".github", "workflows", "ci.yml")
+	if err := os.WriteFile(ci, []byte("on:\n  push:\n    branches: [main]\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if _, found := detectTagTriggeredWorkflow(); found {
+		t.Error("detectTagTriggeredWorkflow() = true for a branches-only workflow")
+	}
+
+	// Add one that does trigger on tags.
+	rel := filepath.Join(".github", "workflows", "release.yml")
+	if err := os.WriteFile(rel, []byte("on:\n  push:\n    tags:\n      - 'v*'\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	path, found := detectTagTriggeredWorkflow()
+	if !found {
+		t.Fatal("detectTagTriggeredWorkflow() = false, want true")
+	}
+	if !strings.Contains(path, "release.yml") {
+		t.Errorf("path = %q, want it to name release.yml", path)
 	}
 }

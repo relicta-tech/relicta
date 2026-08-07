@@ -253,3 +253,90 @@ func TestLoad_StopsAtRepositoryRoot(t *testing.T) {
 		t.Error("loaded a config from outside the repository; the search must stop at the repository root")
 	}
 }
+
+// TestWriteConfig_AnnotatesPublishAffectingKeys covers issue #194: the generated
+// config was ~80 alphabetically-sorted keys with zero comments, so the settings
+// that can fire a public release looked exactly like the one that sets log level.
+func TestWriteConfig_AnnotatesPublishAffectingKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".relicta.yaml")
+
+	if err := WriteConfig(DefaultConfig(), path); err != nil {
+		t.Fatalf("WriteConfig() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	body := string(data)
+
+	for _, want := range []string{
+		"# Relicta configuration",
+		"THIS IS IRREVERSIBLE",
+		"will publish twice",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("generated config is missing the annotation %q", want)
+		}
+	}
+
+	// The annotations must not break parsing, and the values must survive.
+	loaded, err := LoadFromFile(path)
+	if err != nil {
+		t.Fatalf("LoadFromFile() on the annotated config error = %v", err)
+	}
+	if loaded.Versioning.GitPush {
+		t.Error("GitPush = true after round-trip, want false")
+	}
+	if !loaded.Versioning.GitTag {
+		t.Error("GitTag = false after round-trip, want true")
+	}
+}
+
+// Re-running init with --force must not stack a second copy of the comments.
+func TestWriteConfig_AnnotationIsIdempotent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".relicta.yaml")
+
+	count := func() int {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("ReadFile() error = %v", err)
+		}
+		n := 0
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "#") {
+				n++
+			}
+		}
+		return n
+	}
+
+	if err := WriteConfig(DefaultConfig(), path); err != nil {
+		t.Fatalf("WriteConfig() error = %v", err)
+	}
+	first := count()
+
+	if err := WriteConfig(DefaultConfig(), path); err != nil {
+		t.Fatalf("WriteConfig() second call error = %v", err)
+	}
+	if second := count(); second != first {
+		t.Errorf("comment count = %d after rewrite, want %d - annotations are stacking", second, first)
+	}
+}
+
+// JSON output must be left alone; a '#' comment would make it invalid.
+func TestWriteConfig_JSONIsNotAnnotated(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".relicta.json")
+
+	if err := WriteConfig(DefaultConfig(), path); err != nil {
+		t.Fatalf("WriteConfig() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if strings.Contains(string(data), "#") {
+		t.Error("JSON config contains a '#' comment, which makes it invalid")
+	}
+}
