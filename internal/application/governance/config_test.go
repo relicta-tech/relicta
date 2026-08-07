@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -66,7 +67,7 @@ func TestNewServiceFromConfig(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			logger := slog.Default()
-			svc, err := NewServiceFromConfig(tt.cfg, tmpDir, logger)
+			svc, err := NewServiceFromConfig(context.Background(), tt.cfg, tmpDir, logger)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewServiceFromConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -90,7 +91,7 @@ func TestNewServiceFromConfig_WithMemory(t *testing.T) {
 	}
 
 	logger := slog.Default()
-	svc, err := NewServiceFromConfig(cfg, tmpDir, logger)
+	svc, err := NewServiceFromConfig(context.Background(), cfg, tmpDir, logger)
 	if err != nil {
 		t.Fatalf("NewServiceFromConfig() error = %v", err)
 	}

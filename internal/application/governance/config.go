@@ -2,6 +2,7 @@
 package governance
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -17,8 +18,9 @@ import (
 
 // NewServiceFromConfig creates a governance service from configuration.
 // It sets up the evaluator, policy engine, and optionally the memory store
-// based on the provided configuration.
-func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger *slog.Logger) (*Service, error) {
+// based on the provided configuration. Construction reads from disk (identity
+// registry), so ctx governs that I/O rather than being started afresh here.
+func NewServiceFromConfig(ctx context.Context, cfg *config.GovernanceConfig, repoPath string, logger *slog.Logger) (*Service, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -96,7 +98,7 @@ func NewServiceFromConfig(cfg *config.GovernanceConfig, repoPath string, logger 
 		if err != nil {
 			logger.Warn("failed to create identity registry store, proceeding without identity grants",
 				"error", err, "path", regDir)
-		} else if registry, err := identity.NewRegistry(store, identity.WithLogger(logger)); err != nil {
+		} else if registry, err := identity.NewRegistry(ctx, store, identity.WithLogger(logger)); err != nil {
 			logger.Warn("failed to load identity registry, proceeding without identity grants",
 				"error", err, "path", regDir)
 		} else {

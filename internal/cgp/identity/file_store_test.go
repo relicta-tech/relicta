@@ -373,7 +373,7 @@ func TestFileStore_RegistryIntegration(t *testing.T) {
 	}
 
 	// Use FileStore as RegistryStore with the Registry.
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -406,7 +406,7 @@ func TestFileStore_RegistryIntegration(t *testing.T) {
 
 	// Verify persistence by creating a new registry from the same store.
 	store2, _ := NewFileStore(tmpDir)
-	reg2, err := NewRegistry(store2)
+	reg2, err := NewRegistry(context.Background(), store2)
 	if err != nil {
 		t.Fatalf("NewRegistry() from persisted store error = %v", err)
 	}

@@ -455,6 +455,7 @@ func (c *App) initGovernanceService(ctx context.Context) error {
 
 	var err error
 	c.governanceService, err = governance.NewServiceFromConfig(
+		ctx,
 		&c.config.Governance,
 		repoPath,
 		c.logger,

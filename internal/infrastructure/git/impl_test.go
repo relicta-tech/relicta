@@ -25,7 +25,15 @@ type testRepoHelper struct {
 func newTestRepo(t *testing.T) *testRepoHelper {
 	t.Helper()
 
+	// Canonicalize the temp dir: on darwin t.TempDir() hands back a path under
+	// /var/folders/... which is a symlink to /private/var/folders/..., while the
+	// git service reports the resolved path. Comparing unresolved paths would
+	// fail on macOS while passing on Linux CI.
 	repoDir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(repoDir); err == nil {
+		repoDir = resolved
+	}
+
 	repo, err := git.PlainInit(repoDir, false)
 	if err != nil {
 		t.Fatalf("failed to init test repo: %v", err)
