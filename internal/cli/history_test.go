@@ -4,8 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	gogit "github.com/go-git/go-git/v5"
+	gogitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
@@ -142,29 +147,86 @@ func TestCalculateReleaseStats(t *testing.T) {
 	}
 }
 
-func TestExtractRepoFromURL(t *testing.T) {
+// TestGetRepositoryName_ResolvesRemote covers the case the previous tests
+// missed: that a real checkout with a real remote actually resolves. Every
+// existing case asserted the empty result, so a getRepositoryName that never
+// resolved anything passed the whole suite.
+func TestGetRepositoryName_ResolvesRemote(t *testing.T) {
 	tests := []struct {
-		url      string
-		expected string
+		name      string
+		remoteURL string
+		wantOwner string
 	}{
-		{"git@github.com:owner/repo.git", "owner/repo"},
-		{"git@github.com:owner/repo", "owner/repo"},
-		{"https://github.com/owner/repo.git", "owner/repo"},
-		{"https://github.com/owner/repo", "owner/repo"},
-		{"http://github.com/owner/repo.git", "owner/repo"},
-		{"git@gitlab.com:org/project.git", "org/project"},
-		{"https://gitlab.com/org/project.git", "org/project"},
-		{"invalid-url", ""},
+		{"https with .git suffix", "https://github.com/owner/repo.git", "owner"},
+		{"https without suffix", "https://github.com/owner/repo", "owner"},
+		{"ssh scp-like", "git@github.com:owner/repo.git", "owner"},
+		{"gitlab https", "https://gitlab.com/org/project.git", "org"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.url, func(t *testing.T) {
-			result := extractRepoFromURL(tt.url)
-			if result != tt.expected {
-				t.Errorf("extractRepoFromURL(%q) = %q, want %q", tt.url, result, tt.expected)
+		t.Run(tt.name, func(t *testing.T) {
+			repoDir := newGitRepoWithRemote(t, tt.remoteURL)
+
+			oldWd, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("Getwd() error = %v", err)
+			}
+			t.Cleanup(func() { _ = os.Chdir(oldWd) })
+			if err := os.Chdir(repoDir); err != nil {
+				t.Fatalf("Chdir() error = %v", err)
+			}
+
+			got := getRepositoryName(context.Background())
+
+			// Name comes from the repository root directory, owner from the
+			// remote URL, matching how plan and health resolve it.
+			want := tt.wantOwner + "/" + filepath.Base(repoDir)
+			if got != want {
+				t.Errorf("getRepositoryName() = %q, want %q", got, want)
 			}
 		})
 	}
+}
+
+// newGitRepoWithRemote creates a committed git repository with an origin
+// remote and returns its canonical path.
+func newGitRepoWithRemote(t *testing.T, remoteURL string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = resolved
+	}
+
+	repo, err := gogit.PlainInit(dir, false)
+	if err != nil {
+		t.Fatalf("PlainInit() error = %v", err)
+	}
+
+	if _, err := repo.CreateRemote(&gogitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{remoteURL},
+	}); err != nil {
+		t.Fatalf("CreateRemote() error = %v", err)
+	}
+
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatalf("Worktree() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("test\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if _, err := wt.Add("README.md"); err != nil {
+		t.Fatalf("Add() error = %v", err)
+	}
+	if _, err := wt.Commit("initial commit", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+	}); err != nil {
+		t.Fatalf("Commit() error = %v", err)
+	}
+
+	return dir
 }
 
 func TestHistoryCommand_FlagsExist(t *testing.T) {
@@ -289,7 +351,7 @@ func TestGetRepositoryName_NoGitDir(t *testing.T) {
 	defer func() { _ = os.Chdir(oldWd) }()
 	_ = os.Chdir(tmpDir)
 
-	result := getRepositoryName()
+	result := getRepositoryName(context.Background())
 	if result != "" {
 		t.Errorf("getRepositoryName() = %q, want empty string for non-git dir", result)
 	}
@@ -877,7 +939,7 @@ repositoryformatversion = 0
 	_ = os.WriteFile(gitDir+"/config", []byte(configContent), 0o644)
 
 	// Since there's no remote origin, should return empty string
-	result := getRepositoryName()
+	result := getRepositoryName(context.Background())
 	if result != "" {
 		t.Errorf("getRepositoryName() = %q, want empty string", result)
 	}
@@ -894,7 +956,7 @@ func TestGetRepositoryName_UnreadableConfig(t *testing.T) {
 	_ = os.MkdirAll(gitDir, 0o755)
 
 	// No config file means getRepositoryName should return empty string
-	result := getRepositoryName()
+	result := getRepositoryName(context.Background())
 	if result != "" {
 		t.Errorf("getRepositoryName() = %q, want empty string", result)
 	}

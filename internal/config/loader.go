@@ -198,7 +198,10 @@ func (l *Loader) configFileExists() bool {
 		}
 	}
 
-	return false
+	// Must agree with loadConfigFile, which also searches ancestors up to the
+	// repository root. Otherwise a subdirectory run would report "no config"
+	// and auto-detect an AI provider while still loading the file it found.
+	return findConfigInAncestors() != ""
 }
 
 // autoDetectAI detects AI provider from environment variables and sets sensible defaults.
@@ -387,8 +390,58 @@ func (l *Loader) loadConfigFile() error {
 		}
 	}
 
+	// Nothing in the explicit search paths: walk up towards the repository root.
+	//
+	// Without this, running relicta from a subdirectory silently falls back to
+	// built-in defaults instead of the repository's own .relicta.yaml. Those
+	// defaults include versioning.git_tag and versioning.git_push = true, so a
+	// project that had deliberately disabled pushing would get a tag pushed
+	// anyway purely because of the directory the command ran in.
+	if configFile := findConfigInAncestors(); configFile != "" {
+		l.v.SetConfigFile(configFile)
+		if err := l.v.ReadInConfig(); err != nil {
+			return fmt.Errorf("reading config file %s: %w", configFile, err)
+		}
+		return nil
+	}
+
 	// No config file found - this is OK, we use defaults
 	return nil
+}
+
+// findConfigInAncestors looks for a config file in each parent of the working
+// directory, stopping at the repository root (the directory holding .git). It
+// returns "" when no config file is found, or when the working directory is not
+// inside a repository, so behavior outside a checkout is unchanged.
+func findConfigInAncestors() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	for dir := cwd; ; {
+		// Only search at or below the repository root.
+		for _, name := range ConfigFileNames {
+			for _, ext := range ConfigFileExtensions {
+				candidate := filepath.Join(dir, name+"."+ext)
+				if _, err := os.Stat(candidate); err == nil {
+					return candidate
+				}
+			}
+		}
+
+		// Stop once this directory is the repository root.
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return ""
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached the filesystem root without finding a repository.
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // expandEnvVars expands environment variables in sensitive configuration fields.
