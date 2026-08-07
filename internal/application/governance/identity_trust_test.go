@@ -54,7 +54,7 @@ func testRegistry(t *testing.T, identities ...*identity.ActorIdentity) *identity
 	if err != nil {
 		t.Fatalf("new file store: %v", err)
 	}
-	reg, err := identity.NewRegistry(store)
+	reg, err := identity.NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("new registry: %v", err)
 	}

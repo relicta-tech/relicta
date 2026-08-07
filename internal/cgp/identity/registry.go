@@ -92,8 +92,9 @@ func WithLogger(logger *slog.Logger) RegistryOption {
 }
 
 // NewRegistry creates a new actor identity registry backed by the given store.
-// It loads all existing identities from the store on creation.
-func NewRegistry(store RegistryStore, opts ...RegistryOption) (*Registry, error) {
+// It loads all existing identities from the store on creation, so ctx governs
+// that load and lets a canceled caller abort instead of blocking on I/O.
+func NewRegistry(ctx context.Context, store RegistryStore, opts ...RegistryOption) (*Registry, error) {
 	if store == nil {
 		return nil, fmt.Errorf("registry store is required")
 	}
@@ -109,7 +110,6 @@ func NewRegistry(store RegistryStore, opts ...RegistryOption) (*Registry, error)
 	}
 
 	// Load existing identities from store.
-	ctx := context.Background()
 	actors, err := store.LoadAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loading identities from store: %w", err)

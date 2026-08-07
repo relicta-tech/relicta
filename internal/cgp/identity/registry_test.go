@@ -58,7 +58,7 @@ func testIdentity(id string, kind cgp.ActorKind, team string) *ActorIdentity {
 }
 
 func TestNewRegistry_NilStore(t *testing.T) {
-	_, err := NewRegistry(nil)
+	_, err := NewRegistry(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error for nil store")
 	}
@@ -69,7 +69,7 @@ func TestNewRegistry_LoadsExisting(t *testing.T) {
 	ctx := context.Background()
 	_ = store.Save(ctx, testIdentity("alice@team-a", cgp.ActorKindHuman, "team-a"))
 
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -85,7 +85,7 @@ func TestNewRegistry_LoadsExisting(t *testing.T) {
 
 func TestRegistry_RegisterAndGet(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -118,7 +118,7 @@ func TestRegistry_RegisterAndGet(t *testing.T) {
 
 func TestRegistry_RegisterUpdate_PreservesCreatedAt(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -150,7 +150,7 @@ func TestRegistry_RegisterUpdate_PreservesCreatedAt(t *testing.T) {
 
 func TestRegistry_RegisterValidation(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -226,7 +226,7 @@ func TestRegistry_RegisterValidation(t *testing.T) {
 
 func TestRegistry_GetNotFound(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -239,7 +239,7 @@ func TestRegistry_GetNotFound(t *testing.T) {
 
 func TestRegistry_GetByTeam(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -271,7 +271,7 @@ func TestRegistry_GetByTeam(t *testing.T) {
 
 func TestRegistry_List(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -302,7 +302,7 @@ func TestRegistry_List(t *testing.T) {
 
 func TestRegistry_UpdateTrust(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -341,7 +341,7 @@ func TestRegistry_UpdateTrust(t *testing.T) {
 
 func TestRegistry_UpdateTrust_NotFound(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -354,7 +354,7 @@ func TestRegistry_UpdateTrust_NotFound(t *testing.T) {
 
 func TestRegistry_UpdateTrust_RecencyDecay(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}
@@ -516,7 +516,7 @@ func TestRegistry_CheckCapability(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newInMemoryStore()
-			reg, _ := NewRegistry(store)
+			reg, _ := NewRegistry(context.Background(), store)
 			ctx := context.Background()
 
 			identity := &ActorIdentity{
@@ -542,7 +542,7 @@ func TestRegistry_CheckCapability(t *testing.T) {
 
 func TestRegistry_CheckCapability_NotFound(t *testing.T) {
 	store := newInMemoryStore()
-	reg, _ := NewRegistry(store)
+	reg, _ := NewRegistry(context.Background(), store)
 
 	allowed, reason := reg.CheckCapability(context.Background(), "nobody@team", "plan", "all", 0.0)
 	if allowed {
@@ -555,7 +555,7 @@ func TestRegistry_CheckCapability_NotFound(t *testing.T) {
 
 func TestRegistry_ConcurrentAccess(t *testing.T) {
 	store := newInMemoryStore()
-	reg, err := NewRegistry(store)
+	reg, err := NewRegistry(context.Background(), store)
 	if err != nil {
 		t.Fatalf("NewRegistry() error = %v", err)
 	}

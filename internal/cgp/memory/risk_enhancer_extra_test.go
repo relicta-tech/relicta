@@ -157,9 +157,13 @@ func TestTimeOfDayApplies(t *testing.T) {
 		wantTrue  bool // whether we expect it to match current time
 	}{
 		{
+			// Windows are half-open [start, end), matching how detectTimePatterns
+			// buckets outcomes (its "evening" period is 18-24). A full day is
+			// therefore 0-24; end_hour 23 would exclude the 23:00 hour and make
+			// this case fail for one hour every day.
 			name:      "full day range",
 			startHour: 0,
-			endHour:   23,
+			endHour:   24,
 			wantTrue:  true,
 		},
 		{
