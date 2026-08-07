@@ -66,7 +66,12 @@ func NewService(opts ...ServiceOption) (*ServiceImpl, error) {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to get absolute path")
 	}
 
-	repo, err := git.PlainOpen(absPath)
+	// DetectDotGit walks up from absPath to find the repository root, so relicta
+	// works from any subdirectory the way git itself does. Plain PlainOpen only
+	// looks at absPath, which made every git-backed command fail below the root
+	// while `relicta health` (which shells out to `git rev-parse`) still reported
+	// the repository as present.
+	repo, err := git.PlainOpenWithOptions(absPath, &git.PlainOpenOptions{DetectDotGit: true})
 	if err != nil {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to open repository")
 	}

@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 var (
@@ -117,7 +119,7 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 	repo := historyRepo
 	if repo == "" {
 		// Try to determine repository from git
-		repo = getRepositoryName()
+		repo = getRepositoryName(ctx)
 	}
 
 	if repo == "" {
@@ -232,7 +234,7 @@ func runHistoryRisk(cmd *cobra.Command, args []string) error {
 
 	repo := historyRepo
 	if repo == "" {
-		repo = getRepositoryName()
+		repo = getRepositoryName(ctx)
 	}
 
 	if repo == "" {
@@ -295,63 +297,29 @@ func getMemoryStore() (memory.Store, error) {
 	return memory.NewFileStore(storeDir)
 }
 
-func getRepositoryName() string {
-	// Try to get from git remote
-	cwd, err := os.Getwd()
+// getRepositoryName resolves the current repository as "owner/name".
+//
+// It goes through the same git adapter that plan, health and the rest of the
+// CLI use, rather than parsing .git/config by hand. The previous hand-rolled
+// version never resolved anything: git config indents its keys with a tab, so
+// stripping the "url = " prefix left the key in place and the URL failed every
+// scheme check downstream. It also only looked at ./.git, so it could not work
+// from a subdirectory of the repository.
+func getRepositoryName(ctx context.Context) string {
+	svc, err := gitservice.NewService()
 	if err != nil {
 		return ""
 	}
 
-	// Look for .git directory
-	gitDir := filepath.Join(cwd, ".git")
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+	info, err := gitservice.NewAdapter(svc).GetInfo(ctx)
+	if err != nil || info.Name == "" {
 		return ""
 	}
 
-	// Try to read the remote URL
-	configPath := filepath.Join(gitDir, "config")
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		return ""
+	if info.Owner != "" {
+		return info.Owner + "/" + info.Name
 	}
-
-	// Simple parsing to extract remote URL
-	lines := strings.Split(string(content), "\n")
-	for i, line := range lines {
-		if strings.Contains(line, "[remote \"origin\"]") && i+1 < len(lines) {
-			for j := i + 1; j < len(lines) && !strings.HasPrefix(lines[j], "["); j++ {
-				if strings.Contains(lines[j], "url = ") {
-					url := strings.TrimSpace(strings.TrimPrefix(lines[j], "url = "))
-					return extractRepoFromURL(url)
-				}
-			}
-		}
-	}
-
-	return ""
-}
-
-func extractRepoFromURL(url string) string {
-	// Handle SSH format: git@github.com:owner/repo.git
-	if strings.HasPrefix(url, "git@") {
-		parts := strings.SplitN(url, ":", 2)
-		if len(parts) == 2 {
-			repo := strings.TrimSuffix(parts[1], ".git")
-			return repo
-		}
-	}
-
-	// Handle HTTPS format: https://github.com/owner/repo.git
-	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
-		parts := strings.Split(url, "/")
-		if len(parts) >= 2 {
-			owner := parts[len(parts)-2]
-			repo := strings.TrimSuffix(parts[len(parts)-1], ".git")
-			return owner + "/" + repo
-		}
-	}
-
-	return ""
+	return info.Name
 }
 
 func getOutcomeSymbol(outcome memory.ReleaseOutcome) string {
