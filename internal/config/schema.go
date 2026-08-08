@@ -135,7 +135,85 @@ type VersioningConfig struct {
 	// BumpFrom specifies where to read the current version from (tag, file, package.json).
 	BumpFrom string `mapstructure:"bump_from" json:"bump_from"`
 	// VersionFile is the file to update with the new version (if BumpFrom is "file").
+	//
+	// Deprecated: use VersionFiles, which supports several manifests in different
+	// formats. This field is still honored and is treated as a one-entry
+	// VersionFiles list, so existing configs keep working unchanged.
 	VersionFile string `mapstructure:"version_file" json:"version_file,omitempty"`
+	// VersionFiles lists every version-bearing manifest to update, each with its
+	// own format. Projects routinely carry more than one — a package manifest
+	// plus a platform manifest that mandates a different shape — and writing
+	// only some of them ships an inconsistent build (issue #195).
+	VersionFiles []VersionTarget `mapstructure:"version_files" json:"version_files,omitempty"`
+}
+
+// VersionFileFormat names how a version is rendered into a file.
+type VersionFileFormat string
+
+const (
+	// VersionFormatSemver writes the plain semantic version: 2.7.15.
+	VersionFormatSemver VersionFileFormat = "semver"
+	// VersionFormatSemverBuild writes a four-part version: 2.7.15.0. Required by
+	// platforms such as Stream Deck and Windows that mandate four components.
+	VersionFormatSemverBuild VersionFileFormat = "semver.build"
+	// VersionFormatInteger writes a monotonic integer, as Android's versionCode
+	// requires. Used with StrategyIncrement.
+	VersionFormatInteger VersionFileFormat = "integer"
+	// VersionFormatTemplate renders Template, the escape hatch for shapes not
+	// enumerated above.
+	VersionFormatTemplate VersionFileFormat = "template"
+)
+
+// VersionFileStrategy names how a value is derived rather than rendered.
+type VersionFileStrategy string
+
+const (
+	// StrategyReplace overwrites the target with the rendered version. Default.
+	StrategyReplace VersionFileStrategy = "replace"
+	// StrategyIncrement adds one to the target's existing integer value, for
+	// build numbers that must rise without tracking the semantic version.
+	StrategyIncrement VersionFileStrategy = "increment"
+)
+
+// VersionTarget describes one version-bearing manifest to update.
+type VersionTarget struct {
+	// Path is the file to update, relative to the repository root.
+	Path string `mapstructure:"path" json:"path"`
+
+	// Format is how the version is rendered. Defaults to "semver".
+	Format VersionFileFormat `mapstructure:"format" json:"format,omitempty"`
+
+	// Key addresses the field to write inside a structured file (JSON, YAML,
+	// TOML). Required for those formats rather than guessed: guessing suits
+	// package.json and would quietly write the wrong field in a platform
+	// manifest, or pick "version" where "appVersion" was meant.
+	//
+	// A key beginning with "/" is an RFC 6901 JSON Pointer, so keys containing
+	// dots or slashes stay expressible ("/a~1b" addresses the key "a/b").
+	// Anything else is a dotted path: "package.version".
+	Key string `mapstructure:"key" json:"key,omitempty"`
+
+	// Strategy is how the value is derived. Defaults to "replace".
+	Strategy VersionFileStrategy `mapstructure:"strategy" json:"strategy,omitempty"`
+
+	// Template renders the version when Format is "template". Supports
+	// ${major}, ${minor}, ${patch}, ${prerelease} and ${build}.
+	Template string `mapstructure:"template" json:"template,omitempty"`
+}
+
+// ResolvedVersionFiles returns the version targets to write, folding the
+// deprecated single VersionFile into the list so callers handle one shape.
+func (v *VersioningConfig) ResolvedVersionFiles() []VersionTarget {
+	if len(v.VersionFiles) > 0 {
+		return v.VersionFiles
+	}
+	if v.VersionFile == "" {
+		return nil
+	}
+	return []VersionTarget{{
+		Path:   v.VersionFile,
+		Format: VersionFormatSemver,
+	}}
 }
 
 // GitConfig configures git operations and authentication.

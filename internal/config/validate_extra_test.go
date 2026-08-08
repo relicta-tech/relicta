@@ -196,3 +196,121 @@ func TestValidator_PluginValidation(t *testing.T) {
 		t.Errorf("expected slack webhook error, got %q", err.Error())
 	}
 }
+
+// TestValidateVersionFiles covers the config errors worth catching at load time
+// rather than partway through a release (issue #195).
+func TestValidateVersionFiles(t *testing.T) {
+	tests := []struct {
+		name    string
+		targets []VersionTarget
+		wantErr string
+	}{
+		{
+			name:    "valid semver entry",
+			targets: []VersionTarget{{Path: "package.json", Key: "version"}},
+		},
+		{
+			name: "valid multi-format set",
+			targets: []VersionTarget{
+				{Path: "package.json", Format: VersionFormatSemver, Key: "version"},
+				{Path: "manifest.json", Format: VersionFormatSemverBuild, Key: "Version"},
+				{Path: "app.json", Format: VersionFormatInteger, Key: "versionCode", Strategy: StrategyIncrement},
+			},
+		},
+		{
+			name:    "missing path",
+			targets: []VersionTarget{{Key: "version"}},
+			wantErr: "path: required",
+		},
+		{
+			name:    "unknown format",
+			targets: []VersionTarget{{Path: "f.json", Format: "nonsense", Key: "v"}},
+			wantErr: "format: must be one of",
+		},
+		{
+			name:    "unknown strategy",
+			targets: []VersionTarget{{Path: "f.json", Strategy: "sideways", Key: "v"}},
+			wantErr: "strategy: must be one of",
+		},
+		{
+			name:    "template format without template",
+			targets: []VersionTarget{{Path: "f.json", Format: VersionFormatTemplate, Key: "v"}},
+			wantErr: "template: required",
+		},
+		{
+			name:    "template without template format",
+			targets: []VersionTarget{{Path: "f.json", Key: "v", Template: "${major}"}},
+			wantErr: "only applies when format is 'template'",
+		},
+		{
+			name:    "increment without integer format",
+			targets: []VersionTarget{{Path: "f.json", Key: "v", Strategy: StrategyIncrement}},
+			wantErr: "'increment' requires format 'integer'",
+		},
+		{
+			// Two entries for the same path and key means the second silently wins.
+			name: "duplicate path and key",
+			targets: []VersionTarget{
+				{Path: "f.json", Key: "v"},
+				{Path: "f.json", Key: "v"},
+			},
+			wantErr: "duplicates entry 0",
+		},
+		{
+			// Same file, different keys is legitimate (Chart.yaml version + appVersion).
+			name: "same path different keys is allowed",
+			targets: []VersionTarget{
+				{Path: "Chart.yaml", Key: "version"},
+				{Path: "Chart.yaml", Key: "appVersion"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.AI.Enabled = false
+			cfg.Versioning.VersionFiles = tt.targets
+
+			err := Validate(cfg)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate() error = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate() should have reported %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %v, want it to contain %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// bump_from: file must accept either the deprecated single key or the list.
+func TestValidate_BumpFromFileAcceptsEitherForm(t *testing.T) {
+	single := DefaultConfig()
+	single.AI.Enabled = false
+	single.Versioning.BumpFrom = "file"
+	single.Versioning.VersionFile = "VERSION"
+	if err := Validate(single); err != nil {
+		t.Errorf("Validate() with version_file error = %v, want nil", err)
+	}
+
+	list := DefaultConfig()
+	list.AI.Enabled = false
+	list.Versioning.BumpFrom = "file"
+	list.Versioning.VersionFiles = []VersionTarget{{Path: "package.json", Key: "version"}}
+	if err := Validate(list); err != nil {
+		t.Errorf("Validate() with version_files error = %v, want nil", err)
+	}
+
+	neither := DefaultConfig()
+	neither.AI.Enabled = false
+	neither.Versioning.BumpFrom = "file"
+	if err := Validate(neither); err == nil {
+		t.Error("Validate() should require a version file when bump_from is 'file'")
+	}
+}

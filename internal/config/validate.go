@@ -117,12 +117,60 @@ func (v *Validator) validateVersioning(cfg VersioningConfig) {
 		v.errors.Addf("versioning.bump_from: must be one of %v, got %q", validBumpFrom, cfg.BumpFrom)
 	}
 
-	// If bump_from is file, version_file must be specified
-	if cfg.BumpFrom == "file" && cfg.VersionFile == "" {
-		v.errors.Addf("versioning.version_file: required when bump_from is 'file'")
+	// If bump_from is file, a version file must be specified — either the
+	// deprecated single version_file or the version_files list.
+	if cfg.BumpFrom == "file" && len(cfg.ResolvedVersionFiles()) == 0 {
+		v.errors.Addf("versioning.version_files: required when bump_from is 'file'")
 	}
 
+	v.validateVersionFiles(cfg.VersionFiles)
+
 	// Note: Empty tag_prefix is valid (some repos use tags without prefix)
+}
+
+// validateVersionFiles checks each version target. Catching these at load time
+// matters more than usual: the alternative is discovering a bad format or a
+// missing key partway through a release.
+func (v *Validator) validateVersionFiles(targets []VersionTarget) {
+	validFormats := []string{
+		string(VersionFormatSemver),
+		string(VersionFormatSemverBuild),
+		string(VersionFormatInteger),
+		string(VersionFormatTemplate),
+	}
+	validStrategies := []string{string(StrategyReplace), string(StrategyIncrement)}
+
+	seen := make(map[string]int, len(targets))
+
+	for i, t := range targets {
+		field := fmt.Sprintf("versioning.version_files[%d]", i)
+
+		if t.Path == "" {
+			v.errors.Addf("%s.path: required", field)
+		} else if prev, dup := seen[t.Path+"\x00"+t.Key]; dup {
+			// The same path+key twice means the second write silently wins.
+			v.errors.Addf("%s: duplicates entry %d (same path and key)", field, prev)
+		} else {
+			seen[t.Path+"\x00"+t.Key] = i
+		}
+
+		if t.Format != "" && !slices.Contains(validFormats, string(t.Format)) {
+			v.errors.Addf("%s.format: must be one of %v, got %q", field, validFormats, t.Format)
+		}
+		if t.Strategy != "" && !slices.Contains(validStrategies, string(t.Strategy)) {
+			v.errors.Addf("%s.strategy: must be one of %v, got %q", field, validStrategies, t.Strategy)
+		}
+
+		if t.Format == VersionFormatTemplate && t.Template == "" {
+			v.errors.Addf("%s.template: required when format is 'template'", field)
+		}
+		if t.Template != "" && t.Format != VersionFormatTemplate {
+			v.errors.Addf("%s.template: only applies when format is 'template'", field)
+		}
+		if t.Strategy == StrategyIncrement && t.Format != VersionFormatInteger {
+			v.errors.Addf("%s.strategy: 'increment' requires format 'integer'", field)
+		}
+	}
 }
 
 // validateChangelog validates changelog configuration.
