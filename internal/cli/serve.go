@@ -29,56 +29,12 @@ var (
 	serverOriginsOverride []string
 )
 
-var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Start the dashboard web server",
-	Long: `Start the self-hosted dashboard web server.
-
-The dashboard provides a web UI for:
-  - Release pipeline visualization
-  - Governance analytics and risk trends
-  - Team performance metrics
-  - Approval workflow management
-  - Audit trail exploration
-
-The server can be configured via:
-  - Command-line flags (--port, --address)
-  - Configuration file (dashboard section)
-  - Environment variables (RELICTA_DASHBOARD_*)
-
-Examples:
-  # Start on default port 8080
-  relicta serve
-
-  # Start on custom port
-  relicta serve --port 3000
-
-  # Start on specific address
-  relicta serve --address localhost:9000
-
-Authentication:
-  Authentication mode is configured in .relicta.yaml.
-  For production, use API key authentication:
-
-    dashboard:
-      enabled: true
-      auth:
-        mode: api_key
-        api_keys:
-          - key: ${RELICTA_DASHBOARD_KEY}
-            name: "Admin"
-            roles: ["admin"]`,
-	RunE: runServe,
-}
-
-func init() {
-	rootCmd.AddCommand(serveCmd)
-
-	serveCmd.Flags().StringVarP(&servePort, "port", "p", "", "Port to listen on (default: 8080)")
-	serveCmd.Flags().StringVarP(&serveAddress, "address", "a", "", "Address to listen on (e.g., localhost:8080)")
-	serveCmd.Flags().StringVarP(&serveAPIKey, "api-key", "k", "", "API key for dashboard authentication (enables API key mode)")
-	serveCmd.Flags().BoolVarP(&serveNoAuth, "no-auth", "n", false, "Disable authentication (not recommended for production)")
-}
+// The dashboard server is a single command, `relicta server`, with `serve` kept
+// as an alias. There used to be two top-level commands one letter apart:
+// `server`'s own help called it "an enhanced alias for 'relicta serve'", its
+// flags bound the same variables, and runServer only set two overrides before
+// calling runServe. Two names for one thing, differing by a letter, is a trap
+// with nothing to gain. runServe stays here as the implementation.
 
 func runServe(cmd *cobra.Command, args []string) error {
 	ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)

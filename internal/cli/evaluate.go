@@ -15,7 +15,7 @@ import (
 
 var evaluateCmd = &cobra.Command{
 	Use:   "evaluate",
-	Short: "Evaluate release risk and governance decision",
+	Short: "Evaluate release risk and governance decision (not the AI harness, see 'eval')",
 	Long: `Evaluate the current release against CGP governance rules.
 
 This command runs policy evaluation and risk assessment for the active
