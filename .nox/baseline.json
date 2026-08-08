@@ -1435,6 +1435,48 @@
       "file_path": "internal/mcp/server_tools.go",
       "severity": "medium",
       "created_at": "2026-06-13T21:45:00Z"
+    },
+    {
+      "fingerprint": "1808a04eff956a28942d099a2b3c53a2846cdaa19f7437ff8c32395f1af81a0b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "d747ecadcf0cc1fe2af712d19351293b4f17400474433751b5fc66982ba0e913",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "869c6c75faf6a0807504670482b94f695f5f8c893e7e36a848a1747732e0ac32",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "96bd461724ecfd89105212c5b33cbb22f141ed63eac649e0c057bc1f37384e63",
+      "rule_id": "SEC-163",
+      "file_path": "internal/config/validate.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "a427d89174c8e797c4d6ee489a54701ba91f3c7a82ca1ea7be92dcfff0cdb246",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/schema.go",
+      "severity": "high",
+      "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "cf951ba426de351baa214b50fa4f1412ce14d72673025280a01ae6f5a861f472",
+      "rule_id": "SEC-569",
+      "file_path": "internal/config/validate.go",
+      "severity": "high",
+      "created_at": "2026-08-08T07:20:43.286198Z"
     }
   ]
 }
