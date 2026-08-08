@@ -15,9 +15,16 @@ updates:
     commit-message:
       prefix: "deps"
     groups:
+      # Majors are excluded so they arrive as individual PRs. A grouped major is
+      # a trap: tailwindcss 3->4 blocked 21 unrelated web updates in #215, and a
+      # go-anthropic major blocked 15 Go updates in #188. Breaking changes need
+      # individual attention; minors and patches do not.
       go-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
         exclude-patterns:
           - "github.com/sashabaranov/go-openai"
       openai:
@@ -42,6 +49,9 @@ updates:
       github-actions:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Docker
   - package-ecosystem: "docker"
@@ -83,6 +93,9 @@ updates:
       web-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # npm — app
   #
@@ -109,3 +122,6 @@ updates:
       app-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
