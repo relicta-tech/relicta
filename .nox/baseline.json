@@ -1477,6 +1477,27 @@
       "file_path": "internal/config/validate.go",
       "severity": "high",
       "created_at": "2026-08-08T07:20:43.286198Z"
+    },
+    {
+      "fingerprint": "22ff92bd9a28ba818aa3622ca0599307fe5f0dcdc3b24e3992c4f2a25ecdb9a2",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T08:51:50.214Z"
+    },
+    {
+      "fingerprint": "75cfe39d3600873999372bdfebae2785846105770cd9e43fc10d3e490c2a858b",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T08:51:50.214Z"
+    },
+    {
+      "fingerprint": "ff6055373cd4c10933c8520b518981570e6ee9ad3c105b5586945b7b854284e6",
+      "rule_id": "SEC-163",
+      "file_path": "internal/application/versioning/version_files.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T08:51:50.214Z"
     }
   ]
 }

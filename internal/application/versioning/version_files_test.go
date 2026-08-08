@@ -288,7 +288,7 @@ func TestApply_Rejections(t *testing.T) {
 			target:  config.VersionTarget{Path: "VERSION", Key: "version"},
 			file:    "VERSION",
 			content: "1.0.0\n",
-			wantErr: "keys apply to json, yaml and toml",
+			wantErr: "keys apply to json, yaml, toml and gradle",
 		},
 		{
 			name:    "template format without a template",
@@ -391,4 +391,212 @@ func TestResolvedVersionFiles_BackwardCompatible(t *testing.T) {
 	if got := (&config.VersioningConfig{}).ResolvedVersionFiles(); got != nil {
 		t.Errorf("ResolvedVersionFiles() = %+v, want nil when nothing is configured", got)
 	}
+}
+
+// TestApply_GradleAndroidShape covers the Android case from #195 that the first
+// version of version_files did not handle: build.gradle keeps versionName and
+// versionCode as Groovy assignments, not as data-format fields.
+func TestApply_GradleAndroidShape(t *testing.T) {
+	dir := t.TempDir()
+	path := write(t, dir, "android/app/build.gradle", `android {
+    defaultConfig {
+        applicationId "com.example.app"
+        versionCode 41
+        versionName "2.7.14"
+    }
+}
+`)
+
+	targets := []config.VersionTarget{
+		{Path: "android/app/build.gradle", Key: "versionName", Format: config.VersionFormatSemver},
+		{Path: "android/app/build.gradle", Key: "versionCode", Format: config.VersionFormatInteger, Strategy: config.StrategyIncrement},
+	}
+
+	if _, err := NewVersionFileWriter(dir).Apply(targets, mustVersion(t, "2.7.15")); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+
+	got := read(t, path)
+	if !strings.Contains(got, `versionName "2.7.15"`) {
+		t.Errorf("build.gradle = %s\nwant versionName \"2.7.15\" with quoting preserved", got)
+	}
+	if !strings.Contains(got, "versionCode 42") {
+		t.Errorf("build.gradle = %s\nwant versionCode incremented to 42, unquoted", got)
+	}
+	// Surrounding script must be untouched.
+	for _, want := range []string{"android {", "defaultConfig {", `applicationId "com.example.app"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("build.gradle lost %q", want)
+		}
+	}
+	if !strings.Contains(got, "        versionName") {
+		t.Error("indentation was not preserved")
+	}
+}
+
+func TestApply_GradleAssignmentStyles(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		key     string
+		want    string
+	}{
+		{
+			name:    "groovy double quotes",
+			content: "    versionName \"1.0.0\"\n",
+			key:     "versionName",
+			want:    "    versionName \"2.0.0\"\n",
+		},
+		{
+			name:    "groovy single quotes",
+			content: "    versionName '1.0.0'\n",
+			key:     "versionName",
+			want:    "    versionName '2.0.0'\n",
+		},
+		{
+			name:    "kotlin dsl assignment",
+			content: "    versionName = \"1.0.0\"\n",
+			key:     "versionName",
+			want:    "    versionName = \"2.0.0\"\n",
+		},
+		{
+			name:    "unquoted value",
+			content: "    versionName 1.0.0\n",
+			key:     "versionName",
+			want:    "    versionName 2.0.0\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := write(t, dir, "build.gradle", tt.content)
+
+			target := config.VersionTarget{Path: "build.gradle", Key: tt.key}
+			if _, err := NewVersionFileWriter(dir).Apply([]config.VersionTarget{target}, mustVersion(t, "2.0.0")); err != nil {
+				t.Fatalf("Apply() error = %v", err)
+			}
+			if got := read(t, path); got != tt.want {
+				t.Errorf("build.gradle = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// A script assigning the same property twice (per flavor, say) needs a human
+// decision; guessing which one to update would silently ship a wrong version.
+func TestApply_GradleAmbiguousAssignment(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "build.gradle", `productFlavors {
+    free {
+        versionName "1.0.0"
+    }
+    paid {
+        versionName "1.0.0"
+    }
+}
+`)
+
+	_, err := NewVersionFileWriter(dir).Apply(
+		[]config.VersionTarget{{Path: "build.gradle", Key: "versionName"}},
+		mustVersion(t, "2.0.0"),
+	)
+	if err == nil {
+		t.Fatal("Apply() should refuse a script that assigns the property twice")
+	}
+	if !strings.Contains(err.Error(), "assigned 2 times") {
+		t.Errorf("error = %v, want it to report the ambiguity", err)
+	}
+}
+
+func TestApply_GradleRejections(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "build.gradle", "    versionName \"1.0.0\"\n")
+
+	// No key.
+	_, err := NewVersionFileWriter(dir).Apply(
+		[]config.VersionTarget{{Path: "build.gradle"}}, mustVersion(t, "2.0.0"))
+	if err == nil || !strings.Contains(err.Error(), "key is required for gradle") {
+		t.Errorf("error = %v, want it to require a key", err)
+	}
+
+	// Unknown property.
+	_, err = NewVersionFileWriter(dir).Apply(
+		[]config.VersionTarget{{Path: "build.gradle", Key: "nope"}}, mustVersion(t, "2.0.0"))
+	if err == nil || !strings.Contains(err.Error(), "no assignment for") {
+		t.Errorf("error = %v, want it to report the missing assignment", err)
+	}
+}
+
+// .kts scripts are Kotlin DSL and use the same handling.
+func TestApply_GradleKotlinScript(t *testing.T) {
+	dir := t.TempDir()
+	path := write(t, dir, "build.gradle.kts", "    versionName = \"1.0.0\"\n")
+
+	if _, err := NewVersionFileWriter(dir).Apply(
+		[]config.VersionTarget{{Path: "build.gradle.kts", Key: "versionName"}},
+		mustVersion(t, "2.0.0"),
+	); err != nil {
+		t.Fatalf("Apply() error = %v", err)
+	}
+	if got := read(t, path); !strings.Contains(got, `versionName = "2.0.0"`) {
+		t.Errorf("build.gradle.kts = %q, want versionName = \"2.0.0\"", got)
+	}
+}
+
+// TestApply_TwoTargetsOneFileCompose is the regression test for a bug in the
+// first version of version_files: every target was rendered against the on-disk
+// content and then all were written, so for two targets on one path the last
+// write won and the other was silently lost.
+//
+// Validate deliberately allows the same path with different keys, so this was
+// reachable through supported config — Chart.yaml's version and appVersion, and
+// Android's versionName and versionCode.
+func TestApply_TwoTargetsOneFileCompose(t *testing.T) {
+	t.Run("yaml chart version and appVersion", func(t *testing.T) {
+		dir := t.TempDir()
+		path := write(t, dir, "Chart.yaml", "name: mychart\nversion: 0.1.0\nappVersion: 1.0.0\n")
+
+		targets := []config.VersionTarget{
+			{Path: "Chart.yaml", Key: "version"},
+			{Path: "Chart.yaml", Key: "appVersion"},
+		}
+		written, err := NewVersionFileWriter(dir).Apply(targets, mustVersion(t, "2.0.0"))
+		if err != nil {
+			t.Fatalf("Apply() error = %v", err)
+		}
+		// One path, written once, even though two targets addressed it.
+		if len(written) != 1 || written[0] != "Chart.yaml" {
+			t.Errorf("written = %v, want exactly [Chart.yaml]", written)
+		}
+
+		got := read(t, path)
+		if !strings.Contains(got, "version: 2.0.0") {
+			t.Errorf("Chart.yaml = %s\nwant version: 2.0.0", got)
+		}
+		if !strings.Contains(got, "appVersion: 2.0.0") {
+			t.Errorf("Chart.yaml = %s\nwant appVersion: 2.0.0 - the second target overwrote the first", got)
+		}
+	})
+
+	t.Run("json two keys", func(t *testing.T) {
+		dir := t.TempDir()
+		path := write(t, dir, "app.json", "{\n  \"version\": \"1.0.0\",\n  \"buildVersion\": \"1.0.0.0\"\n}\n")
+
+		targets := []config.VersionTarget{
+			{Path: "app.json", Key: "version", Format: config.VersionFormatSemver},
+			{Path: "app.json", Key: "buildVersion", Format: config.VersionFormatSemverBuild},
+		}
+		if _, err := NewVersionFileWriter(dir).Apply(targets, mustVersion(t, "2.7.15")); err != nil {
+			t.Fatalf("Apply() error = %v", err)
+		}
+
+		got := read(t, path)
+		if !strings.Contains(got, `"version": "2.7.15"`) {
+			t.Errorf("app.json = %s\nwant version 2.7.15", got)
+		}
+		if !strings.Contains(got, `"buildVersion": "2.7.15.0"`) {
+			t.Errorf("app.json = %s\nwant buildVersion 2.7.15.0", got)
+		}
+	})
 }
