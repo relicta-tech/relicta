@@ -36,8 +36,12 @@ func init() {
 }
 
 var evalCmd = &cobra.Command{
-	Use:   "eval",
-	Short: "AI evaluation harness (model regression gate)",
+	Use: "eval",
+	// Named one letter from `evaluate`, which does something unrelated. The
+	// grouping now separates them (this one is Inspect & Report, `evaluate` is
+	// Governance), but a reader scanning `--help` sees Short strings, so each
+	// says what the other is not.
+	Short: "AI model regression harness — not release risk, see 'evaluate'",
 	Long: `Run the Relicta AI evaluation harness against a corpus of golden cases.
 
 The harness is a non-negotiable gate for any model bump on a governance product.

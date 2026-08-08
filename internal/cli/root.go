@@ -85,12 +85,27 @@ func SetVersionInfo(version, commit, date string) {
 	versionInfo.Version = version
 	versionInfo.Commit = commit
 	versionInfo.Date = date
+
+	// Setting rootCmd.Version is what makes `relicta --version` work. Without it
+	// Cobra registers no such flag, so the near-universal first thing anyone
+	// types at a new CLI failed with "unknown flag: --version" while only the
+	// `version` subcommand worked — and `-v` is already --verbose, so the
+	// shorthand guess failed too.
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("relicta {{.Version}}\n")
 }
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "relicta",
 	Short: "The governance layer for software change",
+
+	// Present from declaration so Cobra always registers --version. Setting it
+	// only inside SetVersionInfo would make the flag's existence depend on main
+	// remembering to call that, and its absence is invisible until someone types
+	// `relicta --version` and gets "unknown flag". SetVersionInfo overwrites this
+	// placeholder with the real build version.
+	Version: "dev",
 	Long: `Relicta is the governance layer for software change.
 
 As AI agents and CI systems generate more code, deciding what should ship
@@ -192,21 +207,43 @@ func init() {
 	cancelCmd.GroupID = "lifecycle"
 	resetCmd.GroupID = "lifecycle"
 
+	// Every command needs a group, or Cobra files it under "Additional Commands".
+	// Only 17 of 32 were assigned, so that bucket had grown to hold `status`,
+	// `evaluate`, `health`, `history`, `verify` and `rollback` — the commands
+	// people reach for most — alongside `completion` and `demo`, while
+	// "Governance:" listed `policy` alone. The grouping was doing the opposite of
+	// its stated job.
+	rollbackCmd.GroupID = "lifecycle"
+
 	// Inspect & report: read-only views and compliance bundles.
+	statusCmd.GroupID = "inspect"
+	historyCmd.GroupID = "inspect"
+	blastCmd.GroupID = "inspect"
+	analyticsCmd.GroupID = "inspect"
 	reportCmd.GroupID = "inspect"
+	communicateCmd.GroupID = "inspect"
 	evalCmd.GroupID = "inspect"
 
 	// Governance: policy authoring, evaluation, audit.
 	policyCmd.GroupID = "governance"
+	evaluateCmd.GroupID = "governance"
+	verifyCmd.GroupID = "governance"
+	groupCmd.GroupID = "governance"
 
 	// Extend: agent integrations and headless servers.
 	mcpCmd.GroupID = "extend"
+	pluginCmd.GroupID = "extend"
+	serverCmd.GroupID = "extend"
+	metricsCmd.GroupID = "extend"
 
 	// Integrations: third-party GRC + evidence push.
 	integrationsCmd.GroupID = "integrations"
 
-	// Ops: meta commands.
+	// Ops: meta and housekeeping.
 	versionCmd.GroupID = "ops"
+	healthCmd.GroupID = "ops"
+	cleanCmd.GroupID = "ops"
+	demoCmd.GroupID = "ops"
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initCmd)

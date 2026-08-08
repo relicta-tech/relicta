@@ -15,12 +15,12 @@ var (
 )
 
 var serverCmd = &cobra.Command{
-	Use:   "server",
-	Short: "Start the dashboard API server with deployment mode control",
+	Use:     "server",
+	Aliases: []string{"serve"},
+	Short:   "Start the dashboard server (web UI and API)",
 	Long: `Start the dashboard server with explicit control over the deployment mode.
 
-This is an enhanced alias for 'relicta serve' that adds deployment mode flags
-for separating the frontend from the backend API.
+Also available as 'relicta serve', which is an alias for this command.
 
 Modes:
   embedded  (default) Serves the embedded frontend alongside the API.
