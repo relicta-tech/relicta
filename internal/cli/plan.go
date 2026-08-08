@@ -1071,13 +1071,13 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 		// Only an explicit `--force` discards a run that already exists for
 		// these exact commits — see PlanReleaseInput.DiscardExisting.
 		DiscardExisting: planForce,
-		ChangeSet:      output.ChangeSet,
-		CurrentVersion: &output.CurrentVersion,
-		NextVersion:    &output.NextVersion,
-		BumpKind:       &bumpKind,
-		Confidence:     1.0, // Legacy analysis is authoritative
-		TagPushMode:    opts.TagPushMode,
-		TagName:        opts.TagName,
+		ChangeSet:       output.ChangeSet,
+		CurrentVersion:  &output.CurrentVersion,
+		NextVersion:     &output.NextVersion,
+		BumpKind:        &bumpKind,
+		Confidence:      1.0, // Legacy analysis is authoritative
+		TagPushMode:     opts.TagPushMode,
+		TagName:         opts.TagName,
 	}
 
 	planOutput, err := services.PlanRelease.Execute(ctx, input)

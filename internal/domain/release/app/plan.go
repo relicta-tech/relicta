@@ -216,7 +216,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		}
 		for _, stale := range activeRuns {
 			if stale.ID() == run.ID() {
-				// Same run we are about to write. Cancelling it here would put a
+				// Same run we are about to write. Canceling it here would put a
 				// spurious cancellation in the audit trail for a plan that is
 				// simply being refreshed.
 				continue
