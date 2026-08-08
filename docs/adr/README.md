@@ -16,6 +16,7 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-006](006-mcp-protocol.md) | Model Context Protocol for AI Agent Integration | Accepted | 2024-06 |
 | [ADR-007](007-interface-service-layer.md) | All Interfaces Must Use Application Services Layer | Accepted | 2025-01 |
 | [ADR-008](008-nox-style-plugin-distribution.md) | Nox-style Plugin Distribution, Trust, and Safety Model | Accepted | 2026-06 |
+| [ADR-009](009-deterministic-recommendation-artifact.md) | Relicta Emits a Deterministic Recommendation, Not Prose | Proposed | 2026-08 |
 
 ## ADR Template
 
