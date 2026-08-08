@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 var statusCmd = &cobra.Command{
@@ -51,6 +53,16 @@ type StatusOutput struct {
 	CommitCount      int        `json:"commit_count,omitempty"`
 	Message          string     `json:"message,omitempty"`
 	NextSteps        []string   `json:"next_steps,omitempty"`
+
+	// Stale reports that the stored run no longer describes the repository.
+	//
+	// status used to print whatever the `latest` pointer named, with no check
+	// against reality. On this repository that meant reporting "Current: 4.0.3,
+	// Next: 4.1.0" from a run planned two months earlier while the repository was
+	// already at 4.2.0 — and then advising `relicta bump`, which would have
+	// produced a version that had already shipped.
+	Stale        bool     `json:"stale"`
+	StaleReasons []string `json:"stale_reasons,omitempty"`
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
@@ -106,14 +118,93 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		output.CreatedAt = &createdAt
 		output.UpdatedAt = &updatedAt
 
-		output.NextSteps = getNextSteps(run.State())
-		output.Message = getStateMessage(run.State())
+		output.StaleReasons = detectRunStaleness(ctx, gitAdapter, run, cfg.Versioning.TagPrefix)
+		output.Stale = len(output.StaleReasons) > 0
+
+		if output.Stale {
+			// The stored next-step is derived from the run's state, and for a stale
+			// run that advice is actively wrong: a `planned` run whose baseline has
+			// since been released would tell you to bump to a version that already
+			// exists. Re-planning is the only safe move.
+			output.NextSteps = []string{"relicta plan"}
+			output.Message = "This run no longer matches the repository; re-plan before continuing."
+		} else {
+			output.NextSteps = getNextSteps(run.State())
+			output.Message = getStateMessage(run.State())
+		}
 	}
 
 	if outputJSON {
 		return outputStatusJSON(output)
 	}
 	return outputStatusText(output)
+}
+
+// detectRunStaleness reports the ways a stored run has stopped describing the
+// repository. An empty result means the run is still current.
+//
+// Two independent signals, because they mean different things:
+//
+//   - the baseline moved: a release happened since this run was planned, so its
+//     version numbers are wrong rather than merely incomplete
+//   - HEAD moved: the plan does not cover the newest commits
+//
+// Failures to read git are deliberately not reported as staleness. Claiming a
+// run is stale because a tag lookup failed would be a worse error than saying
+// nothing, so an unreadable repository leaves the run reported as-is.
+func detectRunStaleness(ctx context.Context, gitAdapter sourcecontrol.GitRepository, run *domain.ReleaseRun, tagPrefix string) []string {
+	var reasons []string
+
+	if latest := latestVersionTag(ctx, gitAdapter, tagPrefix); latest != nil {
+		planned := run.VersionCurrent()
+		if !planned.IsZero() && latest.GreaterThan(planned) {
+			reasons = append(reasons, fmt.Sprintf(
+				"planned against %s, but the repository is now at %s", planned.String(), latest.String()))
+		}
+	}
+
+	// GetLatestCommit takes a branch; "" asks for the checked-out one.
+	if head, err := gitAdapter.GetLatestCommit(ctx, ""); err == nil && head != nil {
+		headSHA := string(head.Hash())
+		plannedSHA := string(run.HeadSHA())
+		if plannedSHA != "" && headSHA != "" && headSHA != plannedSHA {
+			detail := fmt.Sprintf("planned at %s, but HEAD is now %s",
+				shortSHA(plannedSHA), shortSHA(headSHA))
+			if commits, cErr := gitAdapter.GetCommitsBetween(ctx, plannedSHA, headSHA); cErr == nil && len(commits) > 0 {
+				detail += fmt.Sprintf(" (%d commit(s) since)", len(commits))
+			}
+			reasons = append(reasons, detail)
+		}
+	}
+
+	return reasons
+}
+
+// latestVersionTag returns the highest version tag matching prefix, or nil when
+// there are none or git cannot be read.
+func latestVersionTag(ctx context.Context, gitAdapter sourcecontrol.GitRepository, prefix string) *version.SemanticVersion {
+	tags, err := gitAdapter.GetTags(ctx)
+	if err != nil {
+		return nil
+	}
+	var latest *version.SemanticVersion
+	for _, t := range tags.FilterByPrefix(prefix).VersionTags() {
+		v := t.Version()
+		if v == nil {
+			continue
+		}
+		if latest == nil || v.GreaterThan(*latest) {
+			latest = v
+		}
+	}
+	return latest
+}
+
+func shortSHA(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
+	}
+	return sha
 }
 
 func loadLatestReleaseRun(ctx context.Context, app cliApp, repoRoot string) (*domain.ReleaseRun, error) {
@@ -202,6 +293,17 @@ func outputStatusText(output *StatusOutput) error {
 	fmt.Printf("  Release ID: %s\n", output.ReleaseID)
 	fmt.Printf("  State:      %s\n", formatState(output.State))
 	fmt.Println()
+
+	// Before the version numbers, not after: those numbers are the thing that is
+	// wrong, and a reader who has already believed them has taken the wrong
+	// action by the time a footnote arrives.
+	if output.Stale {
+		printWarning("This run no longer matches the repository")
+		for _, reason := range output.StaleReasons {
+			fmt.Printf("    %s\n", reason)
+		}
+		fmt.Println()
+	}
 
 	if output.CurrentVersion != "" || output.NextVersion != "" {
 		fmt.Println("Version:")
