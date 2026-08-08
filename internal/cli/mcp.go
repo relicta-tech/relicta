@@ -267,5 +267,9 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 		opts = append(opts, mcp.WithAIService(app.AI()))
 	}
 
+	// Report the real version in recommendation provenance, so an artifact can be
+	// attributed to the binary that produced it.
+	opts = append(opts, mcp.WithToolVersion(versionInfo.Version))
+
 	return mcp.NewAdapter(opts...)
 }

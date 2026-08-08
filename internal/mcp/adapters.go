@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/application/blast"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -28,6 +30,11 @@ type Adapter struct {
 	releaseRepo     domainrelease.Repository
 	blastService    blast.Service
 	aiService       ai.Service
+
+	// toolVersion is reported in recommendation provenance. Held on the adapter
+	// rather than in a package variable so concurrent servers cannot disagree,
+	// and so provenance is honest about not knowing when it is unset.
+	toolVersion string
 
 	// repoRoot caches the repository root path for use cases.
 	// Protected by repoMu since it is set dynamically via ensureRepoPath.
@@ -83,6 +90,14 @@ func WithGovernanceService(svc *governance.Service) AdapterOption {
 func WithAdapterRepo(repo domainrelease.Repository) AdapterOption {
 	return func(a *Adapter) {
 		a.releaseRepo = repo
+	}
+}
+
+// WithToolVersion sets the Relicta version reported in recommendation
+// provenance. Unset, provenance reports "unknown" rather than a wrong version.
+func WithToolVersion(v string) AdapterOption {
+	return func(a *Adapter) {
+		a.toolVersion = v
 	}
 }
 
@@ -150,6 +165,12 @@ type PlanOutput struct {
 	HasFeatures    bool
 	HasFixes       bool
 	Commits        []CommitInfo // Populated when analyze=true
+
+	// Recommendation is the deterministic artifact (ADR-009): the facts an agent
+	// needs to write release notes itself, plus provenance. Populated always,
+	// because the point is that a calling agent should not need a second round
+	// trip — or a second model call inside Relicta — to get the material.
+	Recommendation *recommendation.Artifact
 }
 
 // Plan executes the plan release use case via MCP.
@@ -181,6 +202,7 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 		CurrentVersion: output.CurrentVersion.String(),
 		NextVersion:    output.NextVersion.String(),
 		ReleaseType:    string(output.ReleaseType),
+		Recommendation: a.buildRecommendation(output),
 	}
 
 	if output.ChangeSet != nil {
@@ -1330,4 +1352,42 @@ func (a *Adapter) ValidateRelease(ctx context.Context, input ValidateReleaseInpu
 	}
 
 	return output, nil
+}
+
+// buildRecommendation assembles the deterministic recommendation artifact from
+// an analysis result (ADR-009).
+//
+// Governance is not run on the MCP plan path, so Assessment and Verdict are
+// omitted rather than guessed — relicta_evaluate is the tool that produces those.
+// The artifact still carries the facts, which is what a calling agent needs to
+// write notes without a second round trip.
+func (a *Adapter) buildRecommendation(output *servicerelease.AnalyzeOutput) *recommendation.Artifact {
+	if output == nil {
+		return nil
+	}
+
+	version := a.toolVersion
+	if version == "" {
+		version = "unknown"
+	}
+
+	in := recommendation.BuildInput{
+		Now:            time.Now(),
+		ToolVersion:    version,
+		Repository:     output.RepositoryName,
+		Branch:         output.Branch,
+		CurrentVersion: output.CurrentVersion.String(),
+		NextVersion:    output.NextVersion.String(),
+		ReleaseType:    string(output.ReleaseType),
+		ChangeSet:      output.ChangeSet,
+	}
+
+	// The digest claims to cover HEAD, so it has to be populated.
+	if output.ChangeSet != nil {
+		if commits := output.ChangeSet.Commits(); len(commits) > 0 && commits[0] != nil {
+			in.HeadSHA = commits[0].Hash()
+		}
+	}
+
+	return recommendation.Build(in)
 }
