@@ -32,7 +32,7 @@ permissions:
   actions: read
 
 env:
-  NOX_VERSION: '1.1.2'
+  NOX_VERSION: '1.26.0'
 
 jobs:
   nox-scan:
