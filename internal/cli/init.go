@@ -112,14 +112,18 @@ func runInitQuick() error {
 		if wf, found := detectTagTriggeredWorkflow(); found {
 			printWarning(fmt.Sprintf("%s publishes a release on tag push, and the github plugin publishes one too", wf))
 			printSubtle("  Enabling both will create two releases for the same tag.")
-			printSubtle("  Disable one: set plugins.github.enabled=false, or drop the tag trigger in the workflow.")
+			// plugins is a list of entries, not a map keyed by name, so
+			// "plugins.github.enabled" is a path that does not exist in the file
+			// this command just wrote.
+			printSubtle("  Disable one: set enabled: false on the github entry under plugins,")
+			printSubtle("  or drop the tag trigger in the workflow.")
 		}
 	}
 
 	// gitpush is off by default; be explicit that the tag stops locally, so
 	// nobody concludes publish is broken when no release appears.
 	if cfg.Versioning.GitTag && !cfg.Versioning.GitPush {
-		printSubtle("  versioning.gitpush is false: 'relicta publish' tags locally and does not push.")
+		printSubtle("  versioning.git_push is false: 'relicta publish' tags locally and does not push.")
 	}
 
 	// Surface any tokens the detected config will need, so the user isn't
