@@ -38,6 +38,7 @@ var (
 	planDisableAI      bool
 	planSkipCognitive  bool
 	planChronosThreads int
+	planForce          bool
 )
 
 func init() {
@@ -51,6 +52,7 @@ func init() {
 	planCmd.Flags().BoolVar(&planDisableAI, "no-ai", false, "disable AI classification")
 	planCmd.Flags().BoolVar(&planSkipCognitive, "skip-cognitive", false, "skip Mnemos & Chronos cognitive backends")
 	planCmd.Flags().IntVar(&planChronosThreads, "chronos-threads", 0, "max concurrent Chronos ingest requests (overrides config)")
+	planCmd.Flags().BoolVar(&planForce, "force", false, "discard an existing release run for these same commits, including its approval")
 }
 
 // runPlan implements the plan command.
@@ -146,9 +148,9 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Persist release run for subsequent commands (bump, notes, approve, publish)
-	var releaseID string
+	var persisted persistedRun
 	if !dryRun {
-		releaseID, err = persistReleaseRun(ctx, app, output, repoInfo)
+		persisted, err = persistReleaseRun(ctx, app, output, repoInfo)
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
@@ -162,10 +164,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	// Output results
 	if outputJSON {
-		return outputPlanJSON(output, releaseID, riskPreview)
+		return outputPlanJSON(output, persisted, riskPreview)
 	}
 
-	return outputPlanText(output, releaseID, planShowAll, planMinimal, riskPreview)
+	return outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview)
 }
 
 func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bool) {
@@ -251,10 +253,12 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	// Use tag-push mode to transition directly to versioned state
 	var releaseID string
 	if !dryRun {
-		releaseID, err = persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{
+		var persisted persistedRun
+		persisted, err = persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{
 			TagPushMode: true,
 			TagName:     tagName,
 		})
+		releaseID = persisted.ID
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
@@ -411,12 +415,14 @@ func runPlanReview(ctx context.Context, app cliApp, input servicerelease.Analyze
 	}
 
 	// Persist release run for subsequent commands
-	var releaseID string
+	var persisted persistedRun
 	if !dryRun {
+		var releaseID string
 		releaseID, err = persistReleaseRunFromApp(ctx, app, output)
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
+		persisted = persistedRun{ID: releaseID}
 	}
 
 	var riskPreview *governanceRiskPreview
@@ -425,10 +431,10 @@ func runPlanReview(ctx context.Context, app cliApp, input servicerelease.Analyze
 	}
 
 	if outputJSON {
-		return outputPlanJSON(output, releaseID, riskPreview)
+		return outputPlanJSON(output, persisted, riskPreview)
 	}
 
-	return outputPlanText(output, releaseID, planShowAll, planMinimal, riskPreview)
+	return outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview)
 }
 
 func outputAnalysisJSON(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) error {
@@ -660,10 +666,10 @@ type governanceRiskPreview struct {
 }
 
 // outputPlanJSON outputs the plan as JSON.
-func outputPlanJSON(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
+func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun, riskPreview *governanceRiskPreview) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
-		"release_id":      releaseID,
+		"release_id":      persisted.ID,
 		"current_version": output.CurrentVersion.String(),
 		"next_version":    output.NextVersion.String(),
 		"release_type":    output.ReleaseType.String(),
@@ -698,7 +704,7 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, releaseID string, risk
 }
 
 // outputPlanText outputs the plan as text.
-func outputPlanText(output *servicerelease.AnalyzeOutput, releaseID string, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
+func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
 	// Summary
 	printTitle("Summary")
 	fmt.Println()
@@ -797,14 +803,34 @@ func outputPlanText(output *servicerelease.AnalyzeOutput, releaseID string, show
 	// Next steps
 	printTitle("Next Steps")
 	fmt.Println()
-	fmt.Printf("  1. Run 'relicta bump' to bump to %s\n", output.NextVersion.String())
-	fmt.Println("  2. Run 'relicta notes' to generate release notes")
-	fmt.Println("  3. Run 'relicta approve' to review and approve")
-	fmt.Println("  4. Run 'relicta publish' to execute the release")
+	if persisted.AlreadyExisted {
+		// The run is mid-flight, so the fixed bump/notes/approve/publish list is
+		// wrong — it would tell someone holding an approved release to start over.
+		// getNextSteps is what `status` uses, so both commands give the same
+		// answer for the same state.
+		for i, step := range getNextSteps(persisted.ExistingState) {
+			fmt.Printf("  %d. %s\n", i+1, step)
+		}
+	} else {
+		fmt.Printf("  1. Run 'relicta bump' to bump to %s\n", output.NextVersion.String())
+		fmt.Println("  2. Run 'relicta notes' to generate release notes")
+		fmt.Println("  3. Run 'relicta approve' to review and approve")
+		fmt.Println("  4. Run 'relicta publish' to execute the release")
+	}
 	fmt.Println()
 
-	if !dryRun && releaseID != "" {
-		printSuccess(fmt.Sprintf("Release plan saved with ID: %s", releaseID))
+	if !dryRun && persisted.ID != "" {
+		if persisted.AlreadyExisted {
+			// Nothing was written. Saying "saved" here is how an in-progress
+			// release used to get quietly overwritten without anyone noticing.
+			printSuccess(fmt.Sprintf("Existing release run %s is already at %s — nothing changed",
+				persisted.ID, persisted.ExistingState))
+			fmt.Println()
+			fmt.Printf("  This plan matches that run exactly, so it was left untouched.\n")
+			fmt.Printf("  Continue it with 'relicta status', or discard it with 'relicta cancel'.\n")
+		} else {
+			printSuccess(fmt.Sprintf("Release plan saved with ID: %s", persisted.ID))
+		}
 	}
 
 	return nil
@@ -989,7 +1015,8 @@ func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *servicere
 		return "", fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	return persistReleaseRun(ctx, app, output, repoInfo)
+	persisted, err := persistReleaseRun(ctx, app, output, repoInfo)
+	return persisted.ID, err
 }
 
 // persistReleaseRunOptions contains optional parameters for persistReleaseRun.
@@ -1000,23 +1027,34 @@ type persistReleaseRunOptions struct {
 
 // persistReleaseRun stores the release run with pre-computed analysis data.
 // This enables subsequent commands (bump, notes, approve, publish) to operate on the release.
-func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (string, error) {
+// persistedRun describes what persisting the plan actually did.
+//
+// It carries more than the run ID because "saved a new plan" and "found the run
+// you already have, mid-release" need different words. Returning only the ID
+// made those indistinguishable, so plan reported success either way.
+type persistedRun struct {
+	ID             string
+	AlreadyExisted bool
+	ExistingState  domain.RunState
+}
+
+func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (persistedRun, error) {
 	return persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{})
 }
 
 // persistReleaseRunWithOptions stores the release run with optional tag-push mode support.
-func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo, opts persistReleaseRunOptions) (string, error) {
+func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo, opts persistReleaseRunOptions) (persistedRun, error) {
 	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
-		return "", fmt.Errorf("failed to initialize release services: %w", err)
+		return persistedRun{}, fmt.Errorf("failed to initialize release services: %w", err)
 	}
 
 	if !app.HasReleaseServices() {
-		return "", fmt.Errorf("release services not available")
+		return persistedRun{}, fmt.Errorf("release services not available")
 	}
 
 	services := app.ReleaseServices()
 	if services == nil || services.PlanRelease == nil {
-		return "", fmt.Errorf("PlanRelease use case not available")
+		return persistedRun{}, fmt.Errorf("PlanRelease use case not available")
 	}
 
 	bumpKind := convertReleaseTypeToBumpKind(output.ReleaseType)
@@ -1029,7 +1067,10 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 			Type: "user",
 			ID:   actorID,
 		},
-		Force:          true, // Force to replace any existing run from legacy
+		Force: true, // supersede stale runs whose plan hash no longer matches
+		// Only an explicit `--force` discards a run that already exists for
+		// these exact commits — see PlanReleaseInput.DiscardExisting.
+		DiscardExisting: planForce,
 		ChangeSet:      output.ChangeSet,
 		CurrentVersion: &output.CurrentVersion,
 		NextVersion:    &output.NextVersion,
@@ -1041,9 +1082,13 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 
 	planOutput, err := services.PlanRelease.Execute(ctx, input)
 	if err != nil {
-		return "", err
+		return persistedRun{}, err
 	}
-	return string(planOutput.RunID), nil
+	return persistedRun{
+		ID:             string(planOutput.RunID),
+		AlreadyExisted: planOutput.AlreadyExisted,
+		ExistingState:  planOutput.ExistingState,
+	}, nil
 }
 
 // convertReleaseTypeToBumpKind converts ReleaseType to the domain BumpKind.
