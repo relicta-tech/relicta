@@ -1,3 +1,5 @@
+//go:build relicta_gemini || relicta_all_ai || !relicta_minimal
+
 // Package ai provides AI-powered content generation for Relicta.
 package ai
 
