@@ -21,6 +21,16 @@ type PlanReleaseInput struct {
 	Actor          ports.ActorInfo
 	Force          bool // Force planning even if there's an active run
 
+	// DiscardExisting allows re-planning to overwrite a run that already exists
+	// for these exact inputs, throwing away whatever state it had reached.
+	//
+	// Separate from Force on purpose. Force means "supersede stale runs because
+	// HEAD moved" (issue #128) and the CLI sets it unconditionally; reusing it
+	// here would make every plan destructive again. This one answers a different
+	// question — "I know there is an approved release for these commits, discard
+	// it" — and is wired to an explicit `relicta plan --force`.
+	DiscardExisting bool
+
 	// Optional pre-computed data from commit analysis
 	// If provided, these bypass the basic commit resolution and enable full release planning
 	ChangeSet      *changes.ChangeSet       // Pre-computed changeset from analysis
@@ -46,6 +56,16 @@ type PlanReleaseOutput struct {
 	BumpKind       domain.BumpKind
 	RiskScore      float64
 	ChangeSet      *changes.ChangeSet
+
+	// AlreadyExisted reports that a run for these exact inputs was already
+	// present and was returned untouched, rather than a new plan being created.
+	// Callers should say so: reporting "plan saved" when nothing was written
+	// hides that an in-progress release is waiting.
+	AlreadyExisted bool
+
+	// ExistingState is the state that run had reached. Only meaningful when
+	// AlreadyExisted is true.
+	ExistingState domain.RunState
 }
 
 // PlanReleaseUseCase handles the plan release use case.
@@ -78,25 +98,6 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	// Validate tag-push mode requirements
 	if input.TagPushMode && input.NextVersion == nil {
 		return nil, ErrTagPushMissingVersion
-	}
-
-	// Check for existing active run. With Force, re-planning supersedes any
-	// active runs: cancel them so they don't linger as "active" forever and
-	// so the audit trail records why they ended (issue #128 — after HEAD
-	// moves, re-planning is the recovery path; the stale run must not block
-	// or shadow the fresh one).
-	if activeRuns, findErr := uc.repo.FindActive(ctx, input.RepoRoot); findErr == nil && len(activeRuns) > 0 {
-		if !input.Force {
-			return nil, fmt.Errorf("active release run exists: %s (use --clean to clear, or 'relicta cancel' to abort)", activeRuns[0].ID())
-		}
-		for _, stale := range activeRuns {
-			if cancelErr := stale.Cancel("superseded by re-plan", input.Actor.ID); cancelErr != nil {
-				continue // already published or otherwise terminal — leave as-is
-			}
-			if saveErr := uc.repo.Save(ctx, stale); saveErr != nil {
-				return nil, fmt.Errorf("failed to cancel superseded run %s: %w", stale.ID(), saveErr)
-			}
-		}
 	}
 
 	// Get current HEAD SHA
@@ -144,6 +145,90 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		input.ConfigHash,
 		input.PluginPlanHash,
 	)
+
+	// Re-planning identical inputs must not undo work already done.
+	//
+	// A run's ID is derived from its plan hash (see domain.ReleaseRun.recomputeID),
+	// so planning the same commits against the same base produces the same ID —
+	// and Save then overwrites the stored run with this fresh, freshly-Planned
+	// one. Before this check, running `relicta plan` while a release sat at
+	// approved silently reset it to planned and discarded the state-machine
+	// history that recorded the bump, the notes and the approval. For a tool
+	// whose product is the audit trail, that is the worst possible failure: no
+	// error, no warning, and the evidence of the approval simply gone.
+	//
+	// Keyed on the run ID, not the plan hash. FindByPlanHash exists for this and
+	// looks like the obvious tool, but it does not work here: the aggregate
+	// recomputes its plan hash when the changeset and the version proposal are
+	// set (run.go:663, run.go:749) while the ID keeps the value derived at
+	// construction. So a stored run reaches `approved` with an ID of
+	// run-b715bb72... and a plan_hash of 998dbac9... — the two no longer agree,
+	// and a hash lookup misses the very run whose ID is about to collide. The ID
+	// is what collides, so the ID is what to look up.
+	//
+	// Force still supersedes, because re-planning is the documented recovery
+	// path once HEAD has moved (issue #128). The difference is that discarding an
+	// approval now requires asking for it.
+	// LoadBatch, not Load: Load(ctx, runID) resolves the run by scanning repo
+	// roots it has already seen in this process, and a fresh CLI invocation has
+	// seen none — it returns "release run not found" for a run sitting on disk.
+	// LoadBatch takes the root explicitly, so it works on the first call.
+	existingRuns, _ := uc.repo.LoadBatch(ctx, input.RepoRoot, []domain.RunID{run.ID()})
+	if existing := existingRuns[run.ID()]; existing != nil {
+		if !input.DiscardExisting && existing.State() != domain.StateDraft {
+			// Keep `latest` pointing at it so status/notes/approve continue to
+			// operate on the run the caller just asked about.
+			if err := uc.repo.SetLatest(ctx, input.RepoRoot, existing.ID()); err != nil {
+				return nil, fmt.Errorf("failed to set latest run: %w", err)
+			}
+			return &PlanReleaseOutput{
+				RunID:          existing.ID(),
+				HeadSHA:        existing.HeadSHA(),
+				Commits:        existing.Commits(),
+				PlanHash:       existing.PlanHash(),
+				CurrentVersion: existing.VersionCurrent(),
+				VersionNext:    existing.VersionNext(),
+				BumpKind:       existing.BumpKind(),
+				RiskScore:      existing.RiskScore(),
+				ChangeSet:      input.ChangeSet,
+
+				// Lets the caller say "this already exists, at this state"
+				// instead of reporting a plan it did not actually create.
+				AlreadyExisted: true,
+				ExistingState:  existing.State(),
+			}, nil
+		}
+	}
+
+	// Supersede active runs whose plan no longer matches.
+	//
+	// Deliberately after the identical-plan check above: this loop cancels every
+	// active run, so running first would cancel the very run that check exists to
+	// protect — the approved release would be gone before we looked for it. Now it
+	// only sees runs that genuinely describe a different plan, which is the
+	// case issue #128 is about (HEAD moved, re-planning is the recovery path).
+	if activeRuns, findErr := uc.repo.FindActive(ctx, input.RepoRoot); findErr == nil && len(activeRuns) > 0 {
+		// DiscardExisting also satisfies this: someone who explicitly asked to
+		// throw away an in-progress run should not then be refused because a run
+		// is in progress.
+		if !input.Force && !input.DiscardExisting {
+			return nil, fmt.Errorf("active release run exists: %s (run 'relicta cancel' to abort it, or 'relicta plan --force' to supersede it)", activeRuns[0].ID())
+		}
+		for _, stale := range activeRuns {
+			if stale.ID() == run.ID() {
+				// Same run we are about to write. Canceling it here would put a
+				// spurious cancellation in the audit trail for a plan that is
+				// simply being refreshed.
+				continue
+			}
+			if cancelErr := stale.Cancel("superseded by re-plan", input.Actor.ID); cancelErr != nil {
+				continue // already published or otherwise terminal — leave as-is
+			}
+			if saveErr := uc.repo.Save(ctx, stale); saveErr != nil {
+				return nil, fmt.Errorf("failed to cancel superseded run %s: %w", stale.ID(), saveErr)
+			}
+		}
+	}
 
 	// Set actor
 	run.SetActor(input.Actor.Type, input.Actor.ID)
