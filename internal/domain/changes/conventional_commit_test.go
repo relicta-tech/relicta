@@ -437,3 +437,71 @@ func TestIsFooterToken(t *testing.T) {
 		})
 	}
 }
+
+// TestSubjectFromMessage covers the bug where a commit classified outside
+// ParseConventionalCommit ended up with the type duplicated into its subject:
+// Type() == "fix" alongside Subject() == "fix: y".
+func TestSubjectFromMessage(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{"type only", "fix: y", "y"},
+		{"type and scope", "feat(cli): add a thing", "add a thing"},
+		{"breaking marker", "feat(api)!: drop the endpoint", "drop the endpoint"},
+		{"breaking without scope", "feat!: change everything", "change everything"},
+		{"extra whitespace", "fix:    padded   ", "padded"},
+		{"multi-line takes the first line", "fix: y\n\nbody text here", "y"},
+		{
+			// Not a conventional commit: there is no prefix to strip, so the
+			// first line survives intact rather than being mangled.
+			name:    "non-conventional message",
+			message: "just a plain commit message",
+			want:    "just a plain commit message",
+		},
+		{
+			// The parser deliberately allows unknown types ("Allow unknown types
+			// but mark them"), and the regex accepts any \w+ before the colon.
+			// So "WIP" is treated as a type and stripped — which is the point:
+			// this helper must agree with the parser, not second-guess it.
+			name:    "unknown type is still a type",
+			message: "WIP: something",
+			want:    "something",
+		},
+		{
+			// A first word that cannot be a type keeps the line intact.
+			name:    "no type-like prefix",
+			message: "hotfix for the thing",
+			want:    "hotfix for the thing",
+		},
+		{"empty", "", ""},
+		{"subject containing a colon", "fix: handle a:b correctly", "handle a:b correctly"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SubjectFromMessage(tt.message); got != tt.want {
+				t.Errorf("SubjectFromMessage(%q) = %q, want %q", tt.message, got, tt.want)
+			}
+		})
+	}
+}
+
+// The helper must agree with the parser, which is the whole point of sharing it.
+func TestSubjectFromMessage_AgreesWithParser(t *testing.T) {
+	for _, msg := range []string{
+		"fix: y",
+		"feat(cli): add a thing",
+		"feat(api)!: drop the endpoint",
+		"chore(deps): bump something",
+	} {
+		parsed := ParseConventionalCommit("abc1234", msg)
+		if parsed == nil {
+			t.Fatalf("ParseConventionalCommit(%q) returned nil", msg)
+		}
+		if got, want := SubjectFromMessage(msg), parsed.Subject(); got != want {
+			t.Errorf("SubjectFromMessage(%q) = %q but parser says %q", msg, got, want)
+		}
+	}
+}
