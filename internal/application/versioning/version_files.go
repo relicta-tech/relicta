@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -41,34 +42,63 @@ type pendingWrite struct {
 	value   string
 }
 
-// Apply writes v to every target. It returns the targets it wrote, in order.
+// Apply writes v to every target. It returns the paths it wrote, in the order
+// they were first mentioned.
 func (w *VersionFileWriter) Apply(targets []config.VersionTarget, v version.SemanticVersion) ([]string, error) {
 	if len(targets) == 0 {
 		return nil, nil
 	}
 
 	// Phase 1: render everything, touching nothing.
-	pending := make([]pendingWrite, 0, len(targets))
-	for i, t := range targets {
-		p, err := w.render(t, v)
-		if err != nil {
-			return nil, fmt.Errorf("version_files[%d] (%s): %w", i, t.Path, err)
-		}
-		pending = append(pending, *p)
+	//
+	// Targets sharing a path compose rather than compete: each is rendered
+	// against the result of the previous one, and the path is written once at the
+	// end. Rendering every target against the on-disk content instead would make
+	// the last write win and silently drop the others — which is exactly what
+	// Android needs (versionName and versionCode in one build.gradle) and what
+	// Helm needs (Chart.yaml's version and appVersion).
+	staged, order, err := w.stage(targets, v)
+	if err != nil {
+		return nil, err
 	}
 
 	// Phase 2: commit. Rendering is where the failures live — bad format, missing
 	// key, unparseable file — so by here the remaining risk is I/O only.
-	written := make([]string, 0, len(pending))
-	for _, p := range pending {
+	written := make([]string, 0, len(order))
+	for _, rel := range order {
+		p := staged[rel]
 		if err := fileutil.AtomicWriteFile(p.path, p.content, p.mode); err != nil {
-			return written, fmt.Errorf("writing %s (%d of %d targets already written): %w",
-				p.target.Path, len(written), len(pending), err)
+			return written, fmt.Errorf("writing %s (%d of %d files already written): %w",
+				rel, len(written), len(order), err)
 		}
-		written = append(written, p.target.Path)
+		written = append(written, rel)
 	}
 
 	return written, nil
+}
+
+// stage renders every target in order, accumulating changes per path, and
+// returns the staged content by path plus the order paths were first seen.
+func (w *VersionFileWriter) stage(targets []config.VersionTarget, v version.SemanticVersion) (map[string]pendingWrite, []string, error) {
+	staged := make(map[string]pendingWrite, len(targets))
+	order := make([]string, 0, len(targets))
+
+	for i, t := range targets {
+		var prior []byte
+		if existing, ok := staged[t.Path]; ok {
+			prior = existing.content
+		} else {
+			order = append(order, t.Path)
+		}
+
+		p, err := w.renderFrom(t, v, prior)
+		if err != nil {
+			return nil, nil, fmt.Errorf("version_files[%d] (%s): %w", i, t.Path, err)
+		}
+		staged[t.Path] = *p
+	}
+
+	return staged, order, nil
 }
 
 // Plan renders every target and reports what would be written, without writing.
@@ -106,8 +136,15 @@ func (w *VersionFileWriter) format(t config.VersionTarget) config.VersionFileFor
 	return t.Format
 }
 
-// render reads a target and produces its new content without writing it.
+// render reads a target from disk and produces its new content without writing.
 func (w *VersionFileWriter) render(t config.VersionTarget, v version.SemanticVersion) (*pendingWrite, error) {
+	return w.renderFrom(t, v, nil)
+}
+
+// renderFrom produces a target's new content. When prior is non-nil it is used
+// instead of the file's on-disk content, so several targets on one path build on
+// each other.
+func (w *VersionFileWriter) renderFrom(t config.VersionTarget, v version.SemanticVersion, prior []byte) (*pendingWrite, error) {
 	if t.Path == "" {
 		return nil, fmt.Errorf("path is required")
 	}
@@ -128,9 +165,12 @@ func (w *VersionFileWriter) render(t config.VersionTarget, v version.SemanticVer
 	}
 	mode := info.Mode().Perm()
 
-	data, err := os.ReadFile(abs) //nolint:gosec // abs is confined to repoRoot by resolve
-	if err != nil {
-		return nil, err
+	data := prior
+	if data == nil {
+		data, err = os.ReadFile(abs) //nolint:gosec // abs is confined to repoRoot by resolve
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	kind := structuredKind(t.Path)
@@ -143,9 +183,19 @@ func (w *VersionFileWriter) render(t config.VersionTarget, v version.SemanticVer
 	}
 
 	var content []byte
-	if kind == kindPlain {
+	switch kind {
+	case kindGradle:
+		if t.Key == "" {
+			return nil, fmt.Errorf("key is required for gradle files; name the property to update, e.g. versionName")
+		}
+		content, err = setGradle(data, t.Key, value)
+		if err != nil {
+			return nil, err
+		}
+
+	case kindPlain:
 		if t.Key != "" {
-			return nil, fmt.Errorf("key %q given for a plain-text file; keys apply to json, yaml and toml targets", t.Key)
+			return nil, fmt.Errorf("key %q given for a plain-text file; keys apply to json, yaml, toml and gradle targets", t.Key)
 		}
 		// Preserve a trailing newline if the file had one.
 		if strings.HasSuffix(string(data), "\n") {
@@ -153,7 +203,8 @@ func (w *VersionFileWriter) render(t config.VersionTarget, v version.SemanticVer
 		} else {
 			content = []byte(value)
 		}
-	} else {
+
+	default:
 		if t.Key == "" {
 			return nil, fmt.Errorf("key is required for %s files; naming the field avoids writing the wrong one", kind)
 		}
@@ -238,9 +289,16 @@ func renderTemplate(tmpl string, v version.SemanticVersion) string {
 func incrementInteger(data []byte, key string, kind fileKind) (string, error) {
 	var current string
 
-	if kind == kindPlain {
+	switch kind {
+	case kindPlain:
 		current = strings.TrimSpace(string(data))
-	} else {
+	case kindGradle:
+		got, err := getGradle(data, key)
+		if err != nil {
+			return "", err
+		}
+		current = got
+	default:
 		got, err := getStructured(kind, data, key)
 		if err != nil {
 			return "", err
@@ -263,10 +321,11 @@ func incrementInteger(data []byte, key string, kind fileKind) (string, error) {
 type fileKind string
 
 const (
-	kindJSON  fileKind = "json"
-	kindYAML  fileKind = "yaml"
-	kindTOML  fileKind = "toml"
-	kindPlain fileKind = "plain"
+	kindJSON   fileKind = "json"
+	kindYAML   fileKind = "yaml"
+	kindTOML   fileKind = "toml"
+	kindGradle fileKind = "gradle"
+	kindPlain  fileKind = "plain"
 )
 
 // structuredKind infers a file's kind from its extension. Anything unrecognized
@@ -279,9 +338,56 @@ func structuredKind(path string) fileKind {
 		return kindYAML
 	case ".toml":
 		return kindTOML
+	case ".gradle", ".kts":
+		// Gradle build scripts are Groovy/Kotlin, not a data format: the version
+		// lives in an assignment such as `versionName "2.7.15"`. Handled by
+		// targeted line rewriting rather than parsing the script.
+		return kindGradle
 	default:
 		return kindPlain
 	}
+}
+
+// gradleAssignment matches the assignment for a named Gradle property, capturing
+// everything before the value and the value itself, so the rewrite preserves the
+// original indentation, assignment style and quoting.
+//
+// Covers the four forms that appear in practice:
+//
+//	versionName "2.7.15"      versionName '2.7.15'
+//	versionName = "2.7.15"    versionCode 42
+func gradleAssignment(key string) *regexp.Regexp {
+	return regexp.MustCompile(`(?m)^(\s*` + regexp.QuoteMeta(key) + `\s*(?:=\s*)?)(["']?)([^"'\r\n]*)(["']?)(\s*)$`)
+}
+
+// getGradle reads the current value of a Gradle property.
+func getGradle(data []byte, key string) (string, error) {
+	m := gradleAssignment(key).FindSubmatch(data)
+	if m == nil {
+		return "", fmt.Errorf("no assignment for %q found in the gradle script", key)
+	}
+	return strings.TrimSpace(string(m[3])), nil
+}
+
+// setGradle rewrites the value of a Gradle property, keeping the surrounding
+// syntax byte-for-byte. Exactly one assignment must match: a build script that
+// sets the same property in two places (say per flavor) needs a decision this
+// code should not make silently.
+func setGradle(data []byte, key, value string) ([]byte, error) {
+	re := gradleAssignment(key)
+
+	matches := re.FindAllSubmatchIndex(data, -1)
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("no assignment for %q found in the gradle script", key)
+	case 1:
+	default:
+		return nil, fmt.Errorf("%q is assigned %d times in the gradle script; "+
+			"relicta will not guess which one to update", key, len(matches))
+	}
+
+	out := re.ReplaceAll(data, []byte("${1}${2}"+value+"${4}${5}"))
+	return out, nil
 }
 
 // splitKey turns a key into path segments. A leading "/" selects RFC 6901 JSON
