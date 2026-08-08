@@ -6,9 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 
 	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
@@ -569,13 +572,37 @@ func WriteConfig(cfg *Config, path string) error {
 
 	v := viper.New()
 
-	// Set all values from config
-	v.Set("versioning", cfg.Versioning)
-	v.Set("changelog", cfg.Changelog)
-	v.Set("ai", cfg.AI)
-	v.Set("plugins", cfg.Plugins)
-	v.Set("workflow", cfg.Workflow)
-	v.Set("output", cfg.Output)
+	// Convert each section to a map keyed by its mapstructure tags before
+	// handing it to viper.
+	//
+	// Passing the structs directly wrote Go field names lowercased — `tagprefix`,
+	// `apikey`, `includecommithash` — because viper's writer never consults
+	// mapstructure tags, while the loader reads nothing else. 51 of the 74 keys
+	// `relicta init` produced did not match the schema, so almost everything a
+	// user configured was silently ignored: `tag_prefix: "rel-"` was honored and
+	// `tagprefix: "rel-"`, the form init itself wrote, was not.
+	//
+	// mapstructure.Decode reads the same tags the loader does, which keeps one
+	// source of truth rather than adding a parallel set of yaml tags to 354
+	// fields that could drift.
+	sections := []struct {
+		key   string
+		value any
+	}{
+		{"versioning", cfg.Versioning},
+		{"changelog", cfg.Changelog},
+		{"ai", cfg.AI},
+		{"plugins", cfg.Plugins},
+		{"workflow", cfg.Workflow},
+		{"output", cfg.Output},
+	}
+	for _, section := range sections {
+		encoded, err := encodeSection(section.value)
+		if err != nil {
+			return rperrors.ConfigWrap(err, op, "failed to encode "+section.key+" section")
+		}
+		v.Set(section.key, encoded)
+	}
 
 	// Write to file
 	if err := v.WriteConfigAs(path); err != nil {
@@ -595,6 +622,87 @@ func WriteConfig(cfg *Config, path string) error {
 	return nil
 }
 
+// encodeSection converts a config section into a value keyed by its mapstructure
+// tags, so the written file uses the same names the loader reads.
+//
+// Sections are not uniformly structs — cfg.Plugins is a []PluginConfig — so this
+// dispatches on kind rather than assuming a struct and failing on the one section
+// that is a slice.
+//
+// Durations are rendered as strings ("30s") rather than the integer nanoseconds a
+// plain encode produces: the file is meant to be edited by hand, and
+// 30000000000 is not something anyone should have to recognize. The loader
+// already accepts both, via viper's StringToTimeDurationHookFunc.
+func encodeSection(section any) (any, error) {
+	rv := reflect.ValueOf(section)
+	for rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return nil, nil
+		}
+		rv = rv.Elem()
+	}
+
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		out := make([]any, 0, rv.Len())
+		for i := range rv.Len() {
+			encoded, err := encodeSection(rv.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, encoded)
+		}
+		return out, nil
+
+	case reflect.Struct:
+		if d, ok := rv.Interface().(time.Duration); ok {
+			return d.String(), nil
+		}
+		var out map[string]any
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{Result: &out})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(rv.Interface()); err != nil {
+			return nil, err
+		}
+		return stringifyDurations(out), nil
+
+	default:
+		if d, ok := rv.Interface().(time.Duration); ok {
+			return d.String(), nil
+		}
+		return rv.Interface(), nil
+	}
+}
+
+// stringifyDurations rewrites time.Duration values to their String() form,
+// recursively through nested maps and slices.
+func stringifyDurations(value any) map[string]any {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	for k, val := range m {
+		switch typed := val.(type) {
+		case time.Duration:
+			m[k] = typed.String()
+		case map[string]any:
+			stringifyDurations(typed)
+		case []any:
+			for i, item := range typed {
+				if nested, isMap := item.(map[string]any); isMap {
+					stringifyDurations(nested)
+				} else if d, isDur := item.(time.Duration); isDur {
+					typed[i] = d.String()
+				}
+			}
+		}
+	}
+	return m
+}
+
 // configAnnotations maps a config key to the comment explaining what it does at
 // publish time. Keys are matched on their own line regardless of nesting, and a
 // key that is absent is simply skipped, so this cannot break when the schema
@@ -603,10 +711,16 @@ var configAnnotations = []struct {
 	key   string
 	lines []string
 }{
-	{"gittag", []string{
-		"Create a git tag for the release. Local only; see gitpush below.",
+	// Keys are the mapstructure names, which are what the writer now emits. They
+	// used to be "gittag"/"gitpush", matching the lowercased Go field names the
+	// writer produced before it was taught to use mapstructure tags — and when
+	// that changed these silently stopped matching, dropping the irreversibility
+	// warning from every generated config. TestGeneratedConfigCarriesSafetyNotes
+	// exists so a future rename cannot do that again.
+	{"git_tag", []string{
+		"Create a git tag for the release. Local only; see git_push below.",
 	}},
-	{"gitpush", []string{
+	{"git_push", []string{
 		"Push the tag to the remote. THIS IS IRREVERSIBLE and, in any",
 		"repository whose release workflow triggers on tag push, it starts a",
 		"real public release. Leave false to tag locally and push yourself.",
