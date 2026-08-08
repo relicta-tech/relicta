@@ -44,20 +44,6 @@
       "created_at": "2026-06-11T10:34:53.402889Z"
     },
     {
-      "fingerprint": "f87561db981095963155e0a041012f47d728048c8725e18e4ade44c767569297",
-      "rule_id": "CONT-001",
-      "file_path": "Dockerfile",
-      "severity": "medium",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
-      "fingerprint": "a8c460542adf2109bf09ee1230cb624e4f267fe46201638b21b22e5104a72384",
-      "rule_id": "CONT-001",
-      "file_path": "Dockerfile",
-      "severity": "medium",
-      "created_at": "2026-06-11T10:34:53.402889Z"
-    },
-    {
       "fingerprint": "8ab3848267c20187c97731d2856a016eece2a392804869b71a66b861b4247716",
       "rule_id": "DATA-001",
       "file_path": "SECURITY.md",
