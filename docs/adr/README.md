@@ -17,6 +17,8 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-007](007-interface-service-layer.md) | All Interfaces Must Use Application Services Layer | Accepted | 2025-01 |
 | [ADR-008](008-nox-style-plugin-distribution.md) | Nox-style Plugin Distribution, Trust, and Safety Model | Accepted | 2026-06 |
 | [ADR-009](009-deterministic-recommendation-artifact.md) | Relicta Emits a Deterministic Recommendation, Not Prose | Proposed | 2026-08 |
+||||||| parent of 96b6832 (docs(adr): decide that AI providers leave the CLI)
+| [ADR-010](010-ai-providers-leave-the-cli.md) | AI Providers Leave the CLI | Proposed | 2026-08 |
 
 ## ADR Template
 
