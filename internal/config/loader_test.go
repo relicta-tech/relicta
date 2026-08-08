@@ -340,3 +340,77 @@ func TestWriteConfig_JSONIsNotAnnotated(t *testing.T) {
 		t.Error("JSON config contains a '#' comment, which makes it invalid")
 	}
 }
+
+// TestResolveConfigFile_MatchesLoader is the guard for issue #199: any second
+// way of asking "which config applies?" drifts from the loader. This checks the
+// resolver agrees with Load from a subdirectory, which is where they diverged.
+func TestResolveConfigFile_MatchesLoader(t *testing.T) {
+	repoRoot := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(repoRoot); err == nil {
+		repoRoot = resolved
+	}
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o750); err != nil {
+		t.Fatalf("MkdirAll(.git) error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, ".relicta.yaml"),
+		[]byte("versioning:\n  tag_prefix: \"rel-\"\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	nested := filepath.Join(repoRoot, "services", "api")
+	if err := os.MkdirAll(nested, 0o750); err != nil {
+		t.Fatalf("MkdirAll(nested) error = %v", err)
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	if err := os.Chdir(nested); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+
+	// The resolver must find it...
+	got, err := ResolveConfigFile()
+	if err != nil {
+		t.Fatalf("ResolveConfigFile() error = %v; the loader finds a config here, so this must too", err)
+	}
+	if !strings.HasSuffix(got, ".relicta.yaml") {
+		t.Errorf("ResolveConfigFile() = %q, want the repository-root config", got)
+	}
+
+	// ...and the loader must actually apply that config.
+	cfg, err := NewLoader().Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Versioning.TagPrefix != "rel-" {
+		t.Errorf("TagPrefix = %q, want %q - resolver and loader disagree", cfg.Versioning.TagPrefix, "rel-")
+	}
+
+	// FindConfigFile with no arguments must agree too.
+	found, err := FindConfigFile()
+	if err != nil {
+		t.Fatalf("FindConfigFile() error = %v, want it to agree with the loader", err)
+	}
+	if found != got {
+		t.Errorf("FindConfigFile() = %q, ResolveConfigFile() = %q; they must agree", found, got)
+	}
+}
+
+func TestResolveConfigFile_NoneOutsideRepo(t *testing.T) {
+	dir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+
+	if got, err := ResolveConfigFile(); err == nil {
+		t.Errorf("ResolveConfigFile() = %q, want an error outside a repository with no config", got)
+	}
+}
