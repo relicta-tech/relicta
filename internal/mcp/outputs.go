@@ -1,6 +1,9 @@
 package mcp
 
-import cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+import (
+	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
+	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+)
 
 // Structured tool outputs.
 //
@@ -49,6 +52,12 @@ type PlanToolOutput struct {
 	HasFeatures    bool             `json:"has_features"`
 	HasFixes       bool             `json:"has_fixes"`
 	Commits        []PlanCommitInfo `json:"commits,omitempty"`
+
+	// Recommendation is the deterministic artifact (ADR-009): the facts needed to
+	// write release notes, plus the provenance to verify them. Present so a
+	// calling agent can write the prose itself rather than having Relicta call a
+	// second model with less context than the agent already has.
+	Recommendation *recommendation.Artifact `json:"recommendation,omitempty"`
 }
 
 // InferVersionToolOutput is the structured output for relicta_infer_version.
