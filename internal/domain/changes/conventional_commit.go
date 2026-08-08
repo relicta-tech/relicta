@@ -324,3 +324,28 @@ func (c *ConventionalCommit) String() string {
 	sb.WriteString(c.subject)
 	return sb.String()
 }
+
+// SubjectFromMessage extracts the subject from a commit message, stripping the
+// conventional-commit prefix when there is one.
+//
+// This exists so that callers which classify commits themselves — rather than
+// going through ParseConventionalCommit — still agree with the parser about
+// where the type ends and the subject begins. Without it, a commit "fix: y"
+// could end up with Type() == "fix" and Subject() == "fix: y", duplicating the
+// type into the subject.
+//
+// Messages that are not conventional commits keep their first line unchanged,
+// since there is no prefix to remove.
+func SubjectFromMessage(message string) string {
+	if message == "" {
+		return ""
+	}
+
+	firstLine := strings.TrimSpace(strings.SplitN(strings.TrimSpace(message), "\n", 2)[0])
+
+	matches := conventionalCommitRegex.FindStringSubmatch(firstLine)
+	if matches == nil {
+		return firstLine
+	}
+	return strings.TrimSpace(matches[4])
+}

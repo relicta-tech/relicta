@@ -440,7 +440,7 @@ func classificationToCommit(commit *sourcecontrol.Commit, classification *analys
 	return changes.NewConventionalCommit(
 		string(commit.Hash()),
 		commitType,
-		getSubject(commit.Message()),
+		changes.SubjectFromMessage(commit.Message()),
 		opts...,
 	)
 }
