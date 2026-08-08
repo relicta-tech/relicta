@@ -7,6 +7,23 @@ import (
 	"time"
 )
 
+// requireProvider skips when a provider is not compiled into this build.
+//
+// The provider set is build-tag dependent: a relicta_minimal binary registers
+// none, and NewService then correctly reports "not available in this build".
+// Skipping keeps the rest of this file — including the coverage of that error
+// path — running under every tag combination, rather than tagging the whole file
+// out of the minimal build.
+func requireProvider(t *testing.T, name string) {
+	t.Helper()
+	for _, p := range ListProviders() {
+		if p == name {
+			return
+		}
+	}
+	t.Skipf("provider %q is not compiled into this build (available: %v)", name, ListProviders())
+}
+
 func TestToneConstants(t *testing.T) {
 	tests := []struct {
 		tone Tone
@@ -217,6 +234,8 @@ func TestNewService_UnsupportedProvider(t *testing.T) {
 }
 
 func TestNewService_OllamaWithOptions(t *testing.T) {
+	requireProvider(t, "ollama")
+
 	svc, err := NewService(
 		WithProvider("ollama"),
 		WithModel("llama3.2"),
@@ -231,6 +250,8 @@ func TestNewService_OllamaWithOptions(t *testing.T) {
 }
 
 func TestNewService_WithAllOptions(t *testing.T) {
+	requireProvider(t, "openai")
+
 	svc, err := NewService(
 		WithProvider("openai"),
 		WithAPIKey("sk-1234567890abcdef1234567890abcdef"),
@@ -254,6 +275,8 @@ func TestNewService_WithAllOptions(t *testing.T) {
 }
 
 func TestNewService_AzureOpenAI(t *testing.T) {
+	requireProvider(t, "azure-openai")
+
 	key := strings.Repeat("a", 32)
 	svc, err := NewService(
 		WithProvider("azure-openai"),
