@@ -100,21 +100,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "23c6f278df6d1bade467fa00603c069513e8a60894f2d1dde42be8db47cdf05a",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "b1231beee5ff0712a06474b662c39bf05122ff5f62afe9742ea7af9c3387f83b",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "1f568fbfa0a0fbf296c8a6a7b32dc6d2aca2745e80b02ffed02e1c5980ee322f",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "23c6f278df6d1bade467fa00603c069513e8a60894f2d1dde42be8db47cdf05a",
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/attribution/detector.go",
       "severity": "medium",
@@ -128,16 +121,16 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "dcfadcd8f3704c5eacedf3085c529f20a279fbb21a1f06a94556debf81263345",
+      "fingerprint": "b1231beee5ff0712a06474b662c39bf05122ff5f62afe9742ea7af9c3387f83b",
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/attribution/detector.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "94e4b758f8d380c4f74077c4e5b14665a28b76e9445268940e7f539507ede761",
+      "fingerprint": "dcfadcd8f3704c5eacedf3085c529f20a279fbb21a1f06a94556debf81263345",
       "rule_id": "DATA-001",
-      "file_path": "internal/cgp/attribution/detector_test.go",
+      "file_path": "internal/cgp/attribution/detector.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
@@ -149,7 +142,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "f84592e11fba0fa35623a0dcecedd829b02eb8cec710d78cfba4a0d5999a1580",
+      "fingerprint": "49f6cbd311aa8da8a736727bea461dd5848f39e11b0a5e7780bfd051741822cb",
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/attribution/detector_test.go",
       "severity": "medium",
@@ -163,7 +156,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "49f6cbd311aa8da8a736727bea461dd5848f39e11b0a5e7780bfd051741822cb",
+      "fingerprint": "94e4b758f8d380c4f74077c4e5b14665a28b76e9445268940e7f539507ede761",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/attribution/detector_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "f84592e11fba0fa35623a0dcecedd829b02eb8cec710d78cfba4a0d5999a1580",
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/attribution/detector_test.go",
       "severity": "medium",
@@ -184,6 +184,20 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "a073ba5b26ae8a2013909d6b6ac9507d423dec2d88866e5386eff90033c9c5b8",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "a073ba5b26ae8a2013909d6b6ac9507d423dec2d88866e5386eff90033c9c5b8",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "f6cce8e823a0ffdc25c789251e4b95c3ddaa1f2f14867c8e66cd8fca12402ca9",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init.go",
@@ -191,49 +205,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "a073ba5b26ae8a2013909d6b6ac9507d423dec2d88866e5386eff90033c9c5b8",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "a073ba5b26ae8a2013909d6b6ac9507d423dec2d88866e5386eff90033c9c5b8",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "5b2f6f6d6b3a2c6d8d7fb18814dcb3ab627aff3c43c97e8127a2831d82bf0adf",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
-      "rule_id": "DATA-001",
-      "file_path": "internal/cli/init_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "5b2f6f6d6b3a2c6d8d7fb18814dcb3ab627aff3c43c97e8127a2831d82bf0adf",
+      "fingerprint": "229a601c9e1c1a1fc7b7ee6271676ab26679faf1d1d0580728790068c24f450a",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init_test.go",
       "severity": "medium",
@@ -254,6 +226,20 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "5b2f6f6d6b3a2c6d8d7fb18814dcb3ab627aff3c43c97e8127a2831d82bf0adf",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "5b2f6f6d6b3a2c6d8d7fb18814dcb3ab627aff3c43c97e8127a2831d82bf0adf",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init_test.go",
@@ -261,7 +247,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "229a601c9e1c1a1fc7b7ee6271676ab26679faf1d1d0580728790068c24f450a",
+      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cli/init_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "c27a5651e7ec09bceb5694e9cc739c72a7d25f0a4bc433bc588fc3db6bba35a5",
       "rule_id": "DATA-001",
       "file_path": "internal/cli/init_test.go",
       "severity": "medium",
@@ -289,21 +289,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "f18b78b289528cd65685c88d630c5f86cba54778122f27a0302265a51e28406e",
-      "rule_id": "DATA-001",
-      "file_path": "internal/config/config_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "f18b78b289528cd65685c88d630c5f86cba54778122f27a0302265a51e28406e",
-      "rule_id": "DATA-001",
-      "file_path": "internal/config/config_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "ee4d50f4dde3a7dd73d08dd9533063e04545d57adbdc1eda67ecf5728503b006",
+      "rule_id": "DATA-001",
+      "file_path": "internal/config/config_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "f18b78b289528cd65685c88d630c5f86cba54778122f27a0302265a51e28406e",
+      "rule_id": "DATA-001",
+      "file_path": "internal/config/config_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "f18b78b289528cd65685c88d630c5f86cba54778122f27a0302265a51e28406e",
       "rule_id": "DATA-001",
       "file_path": "internal/config/config_test.go",
       "severity": "medium",
@@ -338,27 +338,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "bf439af4ec416e8fd5ab09b171410f1224f670319d191fb4f7f82fe4a40442a3",
-      "rule_id": "DATA-001",
-      "file_path": "internal/domain/sourcecontrol/commit_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "bf439af4ec416e8fd5ab09b171410f1224f670319d191fb4f7f82fe4a40442a3",
-      "rule_id": "DATA-001",
-      "file_path": "internal/domain/sourcecontrol/commit_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d2beaaef118045e18f6250fbcec012147795a2de50cc0fc07d8ee46bf07abd21",
-      "rule_id": "DATA-001",
-      "file_path": "internal/domain/sourcecontrol/commit_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "af714749cf4b25896013727c4237eee4639cc61b29c65521f506464f6dc11f58",
       "rule_id": "DATA-001",
       "file_path": "internal/domain/sourcecontrol/commit_test.go",
@@ -380,6 +359,27 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "bf439af4ec416e8fd5ab09b171410f1224f670319d191fb4f7f82fe4a40442a3",
+      "rule_id": "DATA-001",
+      "file_path": "internal/domain/sourcecontrol/commit_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "bf439af4ec416e8fd5ab09b171410f1224f670319d191fb4f7f82fe4a40442a3",
+      "rule_id": "DATA-001",
+      "file_path": "internal/domain/sourcecontrol/commit_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "d2beaaef118045e18f6250fbcec012147795a2de50cc0fc07d8ee46bf07abd21",
+      "rule_id": "DATA-001",
+      "file_path": "internal/domain/sourcecontrol/commit_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "813f8bf44728e1529048a8cd00868fa8f0905b8cbb9eec364252e36a7dc1b3c9",
       "rule_id": "DATA-001",
       "file_path": "internal/infrastructure/git/adapter.go",
@@ -387,7 +387,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "7bd01fc93878267371f58b62432de82e7efb3ddc4b01cbc6cb7c826f9028df5c",
+      "fingerprint": "0c401fef34bcdf9146fe66e3b55ff75178599a45033153b9979956f88e7806e3",
       "rule_id": "DATA-001",
       "file_path": "internal/infrastructure/git/adapter_test.go",
       "severity": "medium",
@@ -401,14 +401,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e18e6aadc7eb91f1c270a3914b953c5419d25580c0cd09bee704f7eeb0cf477f",
+      "fingerprint": "7bd01fc93878267371f58b62432de82e7efb3ddc4b01cbc6cb7c826f9028df5c",
       "rule_id": "DATA-001",
       "file_path": "internal/infrastructure/git/adapter_test.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "0c401fef34bcdf9146fe66e3b55ff75178599a45033153b9979956f88e7806e3",
+      "fingerprint": "e18e6aadc7eb91f1c270a3914b953c5419d25580c0cd09bee704f7eeb0cf477f",
       "rule_id": "DATA-001",
       "file_path": "internal/infrastructure/git/adapter_test.go",
       "severity": "medium",
@@ -422,20 +422,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "fbf6bf762879010e8e68049187d7fa600646afabbef815de7c80a122b324dce1",
-      "rule_id": "DATA-001",
-      "file_path": "internal/mcp/server_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "fbf6bf762879010e8e68049187d7fa600646afabbef815de7c80a122b324dce1",
-      "rule_id": "DATA-001",
-      "file_path": "internal/mcp/server_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "3a00eefb280c8b2cb714d73029c19430d963786efd161675e877d393b6e668cf",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server_test.go",
@@ -450,7 +436,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "ceaff424c2e559c77b198eb192d1d884fe15eccede4f1edb632b63da9ab38272",
+      "fingerprint": "fbf6bf762879010e8e68049187d7fa600646afabbef815de7c80a122b324dce1",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "fbf6bf762879010e8e68049187d7fa600646afabbef815de7c80a122b324dce1",
+      "rule_id": "DATA-001",
+      "file_path": "internal/mcp/server_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "06c57230f5ef4f7d0ffaf4780a725937844a419f932c8a5f1bb11ffd10c5f9e9",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server_tools.go",
       "severity": "medium",
@@ -471,7 +471,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "06c57230f5ef4f7d0ffaf4780a725937844a419f932c8a5f1bb11ffd10c5f9e9",
+      "fingerprint": "ceaff424c2e559c77b198eb192d1d884fe15eccede4f1edb632b63da9ab38272",
       "rule_id": "DATA-001",
       "file_path": "internal/mcp/server_tools.go",
       "severity": "medium",
@@ -499,6 +499,13 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "1dcc63f0706d7d80c6fbe503fc862880e16414c35fe75edcacd0f6be21b6f46f",
+      "rule_id": "IAC-123",
+      "file_path": "Dockerfile",
+      "severity": "low",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "3cb0974f40120543f0df690f71c1d81ba34e1efdd237fbd52c767033afb736b5",
       "rule_id": "IAC-123",
       "file_path": "Dockerfile",
@@ -513,21 +520,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "1dcc63f0706d7d80c6fbe503fc862880e16414c35fe75edcacd0f6be21b6f46f",
-      "rule_id": "IAC-123",
-      "file_path": "Dockerfile",
-      "severity": "low",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "b5aa6a5bc8cf9431fd98bc316077b1ef5066541712d31e8d37e7ef9142c50850",
-      "rule_id": "IAC-123",
-      "file_path": "web/docker/Dockerfile",
-      "severity": "low",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e5049fb382823d4c18806e1001ec37c8b3e38ff051343af9cc00983562f3c88b",
+      "fingerprint": "9fa3d34ce84f36e6b52a00d423e09989ef8521f1747db79be2e2ecb82ad5af2c",
       "rule_id": "IAC-123",
       "file_path": "web/docker/Dockerfile",
       "severity": "low",
@@ -541,7 +534,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "9fa3d34ce84f36e6b52a00d423e09989ef8521f1747db79be2e2ecb82ad5af2c",
+      "fingerprint": "b5aa6a5bc8cf9431fd98bc316077b1ef5066541712d31e8d37e7ef9142c50850",
+      "rule_id": "IAC-123",
+      "file_path": "web/docker/Dockerfile",
+      "severity": "low",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e5049fb382823d4c18806e1001ec37c8b3e38ff051343af9cc00983562f3c88b",
       "rule_id": "IAC-123",
       "file_path": "web/docker/Dockerfile",
       "severity": "low",
@@ -646,20 +646,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
-      "rule_id": "IAC-254",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
-      "rule_id": "IAC-254",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "267c5f750faa7db7005c74fa52cd9d188446cf9b65b7a52a3efd633398e22243",
       "rule_id": "IAC-254",
       "file_path": "plugins/registry.yaml",
@@ -674,7 +660,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
+      "fingerprint": "267c5f750faa7db7005c74fa52cd9d188446cf9b65b7a52a3efd633398e22243",
       "rule_id": "IAC-254",
       "file_path": "plugins/registry.yaml",
       "severity": "critical",
@@ -702,7 +688,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "267c5f750faa7db7005c74fa52cd9d188446cf9b65b7a52a3efd633398e22243",
+      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
+      "rule_id": "IAC-254",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8d7e584a1233def4dbc812e01382a34d42f85e9ef9e27ac3e0701b687d55b9d5",
       "rule_id": "IAC-254",
       "file_path": "plugins/registry.yaml",
       "severity": "critical",
@@ -835,84 +835,49 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "95f3cf6eaf05f1dbfed2d06557284b4a774eab51d131fcf6be5da574586a5116",
-      "rule_id": "IAC-351",
-      "file_path": "plugins/registry.yaml",
-      "severity": "critical",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "3a1f744ab38b9a7b66ea312497a7282ba1f55ff2e13b4d5f36c52a971d71a6c5",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4d69258465e33cdb1a175891c1429ad0ffddaacf921c0e37c336392c5c99f9cf",
       "rule_id": "IAC-351",
       "file_path": "plugins/registry.yaml",
       "severity": "critical",
@@ -926,7 +891,42 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "95f3cf6eaf05f1dbfed2d06557284b4a774eab51d131fcf6be5da574586a5116",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "b0eea6cb02a3d5520d47217ced203546ead86a9004f8768adc9fac8449c1781d",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
+      "rule_id": "IAC-351",
+      "file_path": "plugins/registry.yaml",
+      "severity": "critical",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "d9388c650d8ea0050495bad72af018e9393d2743b46bbc825e25689524b6b19a",
       "rule_id": "IAC-351",
       "file_path": "plugins/registry.yaml",
       "severity": "critical",
@@ -947,6 +947,20 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "13dda49a4a1c3fd3b8b3183967b616f1195cd74565795c928c8174f33832c9aa",
+      "rule_id": "SEC-003",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "13dda49a4a1c3fd3b8b3183967b616f1195cd74565795c928c8174f33832c9aa",
+      "rule_id": "SEC-003",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "d4c8f6a80ac99efdd7d4f1fec0bbf26375825b3d8231a64d3510d45776f83d58",
       "rule_id": "SEC-003",
       "file_path": "internal/errors/errors_test.go",
@@ -954,20 +968,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "13dda49a4a1c3fd3b8b3183967b616f1195cd74565795c928c8174f33832c9aa",
-      "rule_id": "SEC-003",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "13dda49a4a1c3fd3b8b3183967b616f1195cd74565795c928c8174f33832c9aa",
-      "rule_id": "SEC-003",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "57bb7483a451fc33ecdd70afd4d6148e2724663a420edb5798a6dbc35309de25",
       "rule_id": "SEC-003",
       "file_path": "internal/security/masker_test.go",
@@ -1136,7 +1136,42 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "71e00669199cf24746d35993a0f8c2a9cc0cac8b0c732616fa82de7f1cb99fd8",
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "rule_id": "SEC-007",
+      "file_path": "internal/infrastructure/ai/gemini_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "rule_id": "SEC-007",
+      "file_path": "internal/infrastructure/ai/gemini_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "rule_id": "SEC-007",
+      "file_path": "internal/infrastructure/ai/gemini_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "rule_id": "SEC-007",
+      "file_path": "internal/infrastructure/ai/gemini_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "rule_id": "SEC-007",
+      "file_path": "internal/infrastructure/ai/gemini_test.go",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
       "rule_id": "SEC-007",
       "file_path": "internal/infrastructure/ai/gemini_test.go",
       "severity": "high",
@@ -1157,42 +1192,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
-      "rule_id": "SEC-007",
-      "file_path": "internal/infrastructure/ai/gemini_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
-      "rule_id": "SEC-007",
-      "file_path": "internal/infrastructure/ai/gemini_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
-      "rule_id": "SEC-007",
-      "file_path": "internal/infrastructure/ai/gemini_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
-      "rule_id": "SEC-007",
-      "file_path": "internal/infrastructure/ai/gemini_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
-      "rule_id": "SEC-007",
-      "file_path": "internal/infrastructure/ai/gemini_test.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4b12775dbe04874b9f14f254c42c5822330f9688e65e4f5f8a613c5d3ad25048",
+      "fingerprint": "71e00669199cf24746d35993a0f8c2a9cc0cac8b0c732616fa82de7f1cb99fd8",
       "rule_id": "SEC-007",
       "file_path": "internal/infrastructure/ai/gemini_test.go",
       "severity": "high",
@@ -1227,21 +1227,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "a7f36011ec3c21704f32784abd8836388109929d13102cdfa0c06c67b8fe8472",
-      "rule_id": "SEC-080",
-      "file_path": "internal/httpserver/handlers/auth_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "a7f36011ec3c21704f32784abd8836388109929d13102cdfa0c06c67b8fe8472",
-      "rule_id": "SEC-080",
-      "file_path": "internal/httpserver/handlers/auth_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "275c0c97db7cdf4160be3559f1bd74fadf73b0b2d602dc88896233b060d2ddeb",
+      "rule_id": "SEC-080",
+      "file_path": "internal/httpserver/handlers/auth_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "a7f36011ec3c21704f32784abd8836388109929d13102cdfa0c06c67b8fe8472",
+      "rule_id": "SEC-080",
+      "file_path": "internal/httpserver/handlers/auth_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "a7f36011ec3c21704f32784abd8836388109929d13102cdfa0c06c67b8fe8472",
       "rule_id": "SEC-080",
       "file_path": "internal/httpserver/handlers/auth_test.go",
       "severity": "medium",
@@ -1269,6 +1269,41 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
+      "rule_id": "SEC-161",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
+      "rule_id": "SEC-161",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
+      "rule_id": "SEC-161",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
+      "rule_id": "SEC-161",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
+      "rule_id": "SEC-161",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "abdffc4f8ed7a3b227c9e44f04642b281a42bb5204f6ec69a1184eb3dad61224",
       "rule_id": "SEC-161",
       "file_path": "internal/errors/errors_test.go",
@@ -1276,27 +1311,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
-      "rule_id": "SEC-161",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
-      "rule_id": "SEC-161",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
-      "rule_id": "SEC-161",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "abdffc4f8ed7a3b227c9e44f04642b281a42bb5204f6ec69a1184eb3dad61224",
       "rule_id": "SEC-161",
       "file_path": "internal/errors/errors_test.go",
@@ -1305,20 +1319,6 @@
     },
     {
       "fingerprint": "abdffc4f8ed7a3b227c9e44f04642b281a42bb5204f6ec69a1184eb3dad61224",
-      "rule_id": "SEC-161",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
-      "rule_id": "SEC-161",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "49bc6d1d18dc81f21f4682804590dcf5679182146dcafdfa55d6724d5d556a81",
       "rule_id": "SEC-161",
       "file_path": "internal/errors/errors_test.go",
       "severity": "medium",
@@ -1353,14 +1353,28 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
+      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
       "rule_id": "SEC-161",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
+      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
+      "rule_id": "SEC-161",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
+      "rule_id": "SEC-161",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
       "rule_id": "SEC-161",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
@@ -1374,7 +1388,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
+      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
+      "rule_id": "SEC-161",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
       "rule_id": "SEC-161",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
@@ -1395,20 +1416,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
-      "rule_id": "SEC-161",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
-      "rule_id": "SEC-161",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
       "rule_id": "SEC-161",
       "file_path": "internal/security/masker_test.go",
@@ -1423,16 +1430,23 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "218733cfcb1392c1166d56087a06264516048a7ad606b5eef263cd9434e75017",
+      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
       "rule_id": "SEC-161",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e58bd44c6a255bffff0970c03dc51077e885aebf1478b213936a159b62b1727a",
-      "rule_id": "SEC-161",
-      "file_path": "internal/security/masker_test.go",
+      "fingerprint": "a2862969fc8f93080a784c23cc05605cb0be0c2cd5957d46d736ffa89bb1f55d",
+      "rule_id": "SEC-162",
+      "file_path": "internal/errors/errors_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "a2862969fc8f93080a784c23cc05605cb0be0c2cd5957d46d736ffa89bb1f55d",
+      "rule_id": "SEC-162",
+      "file_path": "internal/errors/errors_test.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
@@ -1458,30 +1472,9 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "a2862969fc8f93080a784c23cc05605cb0be0c2cd5957d46d736ffa89bb1f55d",
-      "rule_id": "SEC-162",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "cce6a9cb7a51d2becb60b277f94c600bca31db89f69dde79f5136a6c79a50c56",
       "rule_id": "SEC-162",
       "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "a2862969fc8f93080a784c23cc05605cb0be0c2cd5957d46d736ffa89bb1f55d",
-      "rule_id": "SEC-162",
-      "file_path": "internal/errors/errors_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "518b4d4b233ee0bb4026fa226de81b42a92ef5364c76ad1faab789cb08a21864",
-      "rule_id": "SEC-162",
-      "file_path": "internal/infrastructure/ai/openai_test.go",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
@@ -1493,6 +1486,13 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "518b4d4b233ee0bb4026fa226de81b42a92ef5364c76ad1faab789cb08a21864",
+      "rule_id": "SEC-162",
+      "file_path": "internal/infrastructure/ai/openai_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
       "rule_id": "SEC-162",
       "file_path": "internal/security/masker_test.go",
@@ -1501,6 +1501,62 @@
     },
     {
       "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
+      "rule_id": "SEC-162",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
       "rule_id": "SEC-162",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
@@ -1508,62 +1564,6 @@
     },
     {
       "fingerprint": "fbff8ed1f2930de06ebbbf842458556afde919ec50fab5f800b94f5c02375d43",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e49f1d537fa54c919d816410343491b681b077c42ed7d68af5d1f53fac59d9f6",
-      "rule_id": "SEC-162",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "8744d5b310680b49810bf38aa4fbe15855caf70d9ea0bbadd2f3cee934291afa",
       "rule_id": "SEC-162",
       "file_path": "internal/security/masker_test.go",
       "severity": "medium",
@@ -1633,7 +1633,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "ce73e0fc4e674deaae18c99e8fbd3c9f35459ba3d59533081ac0c07cfd1be918",
+      "fingerprint": "38c14f4c2ada29d829e6c38679ef90d979990d6aa5b866873363b3fe33897187",
       "rule_id": "SEC-163",
       "file_path": "internal/errors/errors_test.go",
       "severity": "medium",
@@ -1654,7 +1654,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "38c14f4c2ada29d829e6c38679ef90d979990d6aa5b866873363b3fe33897187",
+      "fingerprint": "ce73e0fc4e674deaae18c99e8fbd3c9f35459ba3d59533081ac0c07cfd1be918",
       "rule_id": "SEC-163",
       "file_path": "internal/errors/errors_test.go",
       "severity": "medium",
@@ -1745,6 +1745,62 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
+      "rule_id": "SEC-163",
+      "file_path": "internal/security/masker_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
       "rule_id": "SEC-163",
       "file_path": "internal/security/masker_test.go",
@@ -1766,62 +1822,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "e9e3da76502b3376470f37040186192edc7f550f8a9e8cfa6095a75dda70631d",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "4c182a0f8be5beff48b79ff64a01491a6f52537285de49976293812218301f69",
-      "rule_id": "SEC-163",
-      "file_path": "internal/security/masker_test.go",
-      "severity": "medium",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "ddebf7f3bf9e5632661ac7eadd2e95a1149eb64b8eeb6c01ad045291100f93f3",
       "rule_id": "SEC-437",
       "file_path": "internal/security/masker_test.go",
@@ -1829,21 +1829,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "f122ca175f8d241c34ef57f40de5fae0f725c690f8f4d7b95efe5cea01913cbc",
-      "rule_id": "SEC-505",
-      "file_path": "plugins/index.json",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "8fa779335a549bfb153344ffc9e7434ef7654b7bafb1af1af47b9a72415d2e00",
-      "rule_id": "SEC-505",
-      "file_path": "plugins/index.json",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "d0171ad2439ca301e28cc7283f30ca908c30e693e60ee8009be04688477f7244",
       "rule_id": "SEC-505",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1857,7 +1843,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "b60ea0ab86d312619c996661ebedba26007c8463fe58e3db58567919fa09557c",
+      "fingerprint": "d0171ad2439ca301e28cc7283f30ca908c30e693e60ee8009be04688477f7244",
+      "rule_id": "SEC-505",
+      "file_path": "plugins/index.json",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "f122ca175f8d241c34ef57f40de5fae0f725c690f8f4d7b95efe5cea01913cbc",
+      "rule_id": "SEC-505",
+      "file_path": "plugins/index.json",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "0ee6ea66a26c7737cc8bfcd890599ea2e89cfeea518b8970cf597293f99175c3",
       "rule_id": "SEC-506",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1871,7 +1871,7 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "a4eade018d31f25805a679114963fa87223b63ed922728a0330de36e5b391079",
+      "fingerprint": "6e04a826568d317f94bfe2b53de05ff8f98fec1a850f66c66ee21438321e5bb3",
       "rule_id": "SEC-506",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1885,14 +1885,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "0ee6ea66a26c7737cc8bfcd890599ea2e89cfeea518b8970cf597293f99175c3",
+      "fingerprint": "a4eade018d31f25805a679114963fa87223b63ed922728a0330de36e5b391079",
       "rule_id": "SEC-506",
       "file_path": "plugins/index.json",
       "severity": "high",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "6e04a826568d317f94bfe2b53de05ff8f98fec1a850f66c66ee21438321e5bb3",
+      "fingerprint": "b60ea0ab86d312619c996661ebedba26007c8463fe58e3db58567919fa09557c",
       "rule_id": "SEC-506",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1913,21 +1913,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
+      "fingerprint": "435611498e383f89957a89b0570cf3cc0c050fa1b4ff088f0d96cf2f11312609",
+      "rule_id": "SEC-546",
+      "file_path": "plugins/index.json",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
       "fingerprint": "4c6af6eba892df6e6007d000e317f459b487fb0e3cbb649861f7e981f91fa6a2",
-      "rule_id": "SEC-546",
-      "file_path": "plugins/index.json",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "c924a17434af8401b2482ddfb261fa6cdeca6f20657bee72cb2e42f6479d228d",
-      "rule_id": "SEC-546",
-      "file_path": "plugins/index.json",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "840d91eaff294b70ae2bcde7f6a04de87fa83777ebafbc20628bb7294681b16e",
       "rule_id": "SEC-546",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1941,14 +1934,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "b52513182c7af015ff3443941f5e279c15d6f9000d4d2e41ae3443fbc6d30028",
+      "fingerprint": "840d91eaff294b70ae2bcde7f6a04de87fa83777ebafbc20628bb7294681b16e",
       "rule_id": "SEC-546",
       "file_path": "plugins/index.json",
       "severity": "high",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "435611498e383f89957a89b0570cf3cc0c050fa1b4ff088f0d96cf2f11312609",
+      "fingerprint": "b52513182c7af015ff3443941f5e279c15d6f9000d4d2e41ae3443fbc6d30028",
       "rule_id": "SEC-546",
       "file_path": "plugins/index.json",
       "severity": "high",
@@ -1962,14 +1955,21 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "e98c9f607aba8b00b4a0fd44775aafe0a88d811b256b622624093cb7f69cad72",
+      "fingerprint": "c924a17434af8401b2482ddfb261fa6cdeca6f20657bee72cb2e42f6479d228d",
+      "rule_id": "SEC-546",
+      "file_path": "plugins/index.json",
+      "severity": "high",
+      "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "9be3e1501ef9acf1ab293bf9ef0080735034accf6848d70ccd9da966aba82134",
       "rule_id": "SLOP-001",
       "file_path": "app/src/apps/approval.ts",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "9be3e1501ef9acf1ab293bf9ef0080735034accf6848d70ccd9da966aba82134",
+      "fingerprint": "e98c9f607aba8b00b4a0fd44775aafe0a88d811b256b622624093cb7f69cad72",
       "rule_id": "SLOP-001",
       "file_path": "app/src/apps/approval.ts",
       "severity": "medium",
@@ -2018,14 +2018,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "43dcc45ced99199bbdf139f3532ba3e12859ab09e3639c928312fc97d1877a11",
+      "fingerprint": "3c6f594dbbf03889208da6ab5de4bb89147ac32aa85846c55c9ef1fe04f6cb78",
       "rule_id": "SLOP-001",
       "file_path": "app/src/apps/risk.ts",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "3c6f594dbbf03889208da6ab5de4bb89147ac32aa85846c55c9ef1fe04f6cb78",
+      "fingerprint": "43dcc45ced99199bbdf139f3532ba3e12859ab09e3639c928312fc97d1877a11",
       "rule_id": "SLOP-001",
       "file_path": "app/src/apps/risk.ts",
       "severity": "medium",
@@ -2067,14 +2067,14 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "b3fc84a0d2e21daa72baf74bc645f1ae4f900c9c9e2d94854f417d1821568524",
+      "fingerprint": "0eac5dcba054cb6148cc12e3d5a979108f706abc789fb61d3cd3fabc8cedb0ed",
       "rule_id": "SLOP-001",
       "file_path": "web/src/stores/releases.ts",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "0eac5dcba054cb6148cc12e3d5a979108f706abc789fb61d3cd3fabc8cedb0ed",
+      "fingerprint": "b3fc84a0d2e21daa72baf74bc645f1ae4f900c9c9e2d94854f417d1821568524",
       "rule_id": "SLOP-001",
       "file_path": "web/src/stores/releases.ts",
       "severity": "medium",
@@ -2093,6 +2093,13 @@
       "file_path": "go.mod",
       "severity": "info",
       "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "4ae4b58676795e3e826a4f21f341612c52dfbedd392ba766d189e49b162791b3",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-08T09:04:53.000000Z"
     },
     {
       "fingerprint": "afb7223be89ca407c769f3c063ca13f2654ac3625aeae43e02854b965d16405f",
