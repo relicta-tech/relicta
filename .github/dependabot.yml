@@ -57,3 +57,55 @@ updates:
       - "docker"
     commit-message:
       prefix: "docker"
+
+  # npm — web
+  #
+  # Without an explicit entry these directories received only Dependabot
+  # *security* updates, which GitHub raises automatically for known advisories.
+  # Routine version updates never happened, so they drifted until a CVE forced
+  # a multi-version jump under time pressure (issue #198).
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "felixgeelhaar"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Grouped deliberately: two npm directories at a limit of 5 each could
+      # otherwise add ten PRs a week on top of the Go ones.
+      web-dependencies:
+        patterns:
+          - "*"
+
+  # npm — app
+  #
+  # Without an explicit entry these directories received only Dependabot
+  # *security* updates, which GitHub raises automatically for known advisories.
+  # Routine version updates never happened, so they drifted until a CVE forced
+  # a multi-version jump under time pressure (issue #198).
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "felixgeelhaar"
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Grouped deliberately: two npm directories at a limit of 5 each could
+      # otherwise add ten PRs a week on top of the Go ones.
+      app-dependencies:
+        patterns:
+          - "*"
