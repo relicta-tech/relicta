@@ -19,6 +19,10 @@ on:
 env:
   GO_VERSION: '1.25'
   GOTOOLCHAIN: local
+  # Pinned explicitly rather than "latest": the baseline is fingerprint-matched
+  # against a specific rule set, so an unannounced nox upgrade would re-report
+  # accepted findings as new. Bump deliberately, re-baselining in the same PR.
+  NOX_VERSION: '1.26.0'
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
@@ -174,7 +178,7 @@ jobs:
 
       - name: Install nox
         run: |
-          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v1.1.2/nox_1.1.2_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
+          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
           nox version
 
       # nox is the single security scanner: secrets, IaC/workflow hygiene,
