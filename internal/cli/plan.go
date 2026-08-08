@@ -9,11 +9,13 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/v4/internal/analysis"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -641,12 +643,20 @@ func trimList(items []string, limit int) []string {
 }
 
 // governanceRiskPreview holds the risk assessment preview for the plan.
+//
+// RiskFactors is pre-formatted for text output. The structured fields below it
+// carry the same data unflattened, because the recommendation artifact needs the
+// categories, scores and severities that formatting discards (ADR-009).
 type governanceRiskPreview struct {
 	RiskScore      float64
 	Severity       string
 	Decision       string
 	CanAutoApprove bool
 	RiskFactors    []string
+
+	Factors         []cgp.RiskFactor
+	Rationale       []string
+	RequiredActions []cgp.RequiredAction
 }
 
 // outputPlanJSON outputs the plan as JSON.
@@ -666,6 +676,9 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, releaseID string, risk
 			"fixes":            len(cats.Fixes),
 			"breaking_changes": len(cats.Breaking),
 		},
+		// The deterministic recommendation artifact (ADR-009). Emitted alongside
+		// the flattened keys above so existing consumers keep working.
+		"recommendation": buildRecommendationArtifact(output, riskPreview),
 	}
 
 	// Add governance risk preview if available
@@ -908,6 +921,10 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		Decision:       string(result.Decision),
 		CanAutoApprove: result.CanAutoApprove,
 		RiskFactors:    riskFactors,
+
+		Factors:         result.RiskFactors,
+		Rationale:       result.Rationale,
+		RequiredActions: result.RequiredActions,
 	}
 }
 
@@ -1041,4 +1058,55 @@ func convertReleaseTypeToBumpKind(rt changes.ReleaseType) domain.BumpKind {
 	default:
 		return domain.BumpNone
 	}
+}
+
+// buildRecommendationArtifact assembles the deterministic recommendation
+// artifact for JSON output (ADR-009).
+//
+// It is emitted alongside the existing keys rather than replacing them, so
+// nothing consuming today's output breaks. Whether it eventually replaces the
+// flattened fields is a separate decision.
+func buildRecommendationArtifact(
+	output *servicerelease.AnalyzeOutput,
+	riskPreview *governanceRiskPreview,
+) *recommendation.Artifact {
+	in := recommendation.BuildInput{
+		Now:            time.Now(),
+		ToolVersion:    versionInfo.Version,
+		Repository:     output.RepositoryName,
+		Branch:         output.Branch,
+		CurrentVersion: output.CurrentVersion.String(),
+		NextVersion:    output.NextVersion.String(),
+		ReleaseType:    output.ReleaseType.String(),
+		ChangeSet:      output.ChangeSet,
+	}
+
+	// The digest claims to cover HEAD, so it has to be populated — otherwise two
+	// different HEADs would share a digest and the determinism claim would be
+	// false. The newest commit in the change set identifies what was analyzed;
+	// ChangeSet.ToRef may be a symbolic name like "HEAD" rather than a SHA.
+	if output.ChangeSet != nil {
+		if commits := output.ChangeSet.Commits(); len(commits) > 0 && commits[0] != nil {
+			in.HeadSHA = commits[0].Hash()
+		}
+	}
+
+	if cfg != nil {
+		in.Thresholds = &cfg.Governance
+		in.PolicySource = cfg.Governance.PolicyDir
+	}
+
+	if riskPreview != nil {
+		in.Governance = &recommendation.GovernanceInput{
+			Decision:        riskPreview.Decision,
+			RiskScore:       riskPreview.RiskScore,
+			Severity:        riskPreview.Severity,
+			RiskFactors:     riskPreview.Factors,
+			Rationale:       riskPreview.Rationale,
+			RequiredActions: riskPreview.RequiredActions,
+			CanAutoApprove:  riskPreview.CanAutoApprove,
+		}
+	}
+
+	return recommendation.Build(in)
 }
