@@ -8,10 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 // HealthStatus represents the overall health status.
@@ -145,6 +149,13 @@ func checkGit(ctx context.Context) ComponentHealth {
 	return health
 }
 
+// checkRepository reports repository health using the same git service every
+// command uses, rather than its own `git rev-parse` subprocess.
+//
+// The two disagreed: `git rev-parse` walks up to the repository root, while the
+// service did not, so from a subdirectory health reported the repository as OK
+// while every real command failed to open it. #197 fixed the service; asking it
+// directly is what stops the two drifting apart again (issue #199).
 func checkRepository(ctx context.Context) ComponentHealth {
 	start := time.Now()
 	health := ComponentHealth{
@@ -152,42 +163,35 @@ func checkRepository(ctx context.Context) ComponentHealth {
 		Details: make(map[string]string),
 	}
 
-	// Check if we're in a git repository
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir")
-	_, err := cmd.Output()
-	health.Latency = time.Since(start)
-
+	svc, err := gitservice.NewService()
 	if err != nil {
+		health.Latency = time.Since(start)
 		health.Status = HealthStatusDegraded
 		health.Message = "not in a git repository"
 		return health
 	}
 
-	// Get current branch
-	cmd = exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
-	branchOutput, err := cmd.Output()
-	if err == nil {
-		health.Details["branch"] = strings.TrimSpace(string(branchOutput))
+	info, err := gitservice.NewAdapter(svc).GetInfo(ctx)
+	health.Latency = time.Since(start)
+	if err != nil {
+		health.Status = HealthStatusDegraded
+		health.Message = fmt.Sprintf("git repository could not be read: %v", err)
+		return health
 	}
 
-	// Get latest commit
-	cmd = exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD")
-	commitOutput, err := cmd.Output()
-	if err == nil {
-		health.Details["commit"] = strings.TrimSpace(string(commitOutput))
+	// Report the resolved root: a boolean hid the divergence that caused #193
+	// and #199, whereas a path makes it visible at a glance.
+	health.Details["root"] = info.Path
+	if info.CurrentBranch != "" {
+		health.Details["branch"] = info.CurrentBranch
 	}
-
-	// Check for uncommitted changes
-	cmd = exec.CommandContext(ctx, "git", "status", "--porcelain")
-	statusOutput, _ := cmd.Output()
-	if len(statusOutput) > 0 {
-		health.Details["uncommitted_changes"] = "true"
-	} else {
-		health.Details["uncommitted_changes"] = "false"
+	if info.Owner != "" && info.Name != "" {
+		health.Details["repository"] = info.Owner + "/" + info.Name
 	}
+	health.Details["uncommitted_changes"] = strconv.FormatBool(info.IsDirty)
 
 	health.Status = HealthStatusHealthy
-	health.Message = "git repository detected"
+	health.Message = fmt.Sprintf("git repository detected at %s", info.Path)
 	return health
 }
 
@@ -198,34 +202,23 @@ func checkConfig(ctx context.Context) ComponentHealth {
 		Details: make(map[string]string),
 	}
 
-	// Check if config file exists
-	// Only .relicta.{yaml,yml,json,toml} is supported (Go ecosystem convention)
-	configFiles := []string{
-		".relicta.yaml",
-		".relicta.yml",
-		".relicta.json",
-		".relicta.toml",
-	}
-
-	found := false
-	for _, f := range configFiles {
-		if _, err := os.Stat(f); err == nil {
-			health.Details["config_file"] = f
-			found = true
-			break
-		}
-	}
-
+	// Ask the loader which config applies, rather than stat-ing a hardcoded list
+	// in the working directory. The old list also drifted from the loader's own
+	// names, which are derived from ConfigFileNames x ConfigFileExtensions.
+	configFile, err := config.ResolveConfigFile()
 	health.Latency = time.Since(start)
 
-	if !found {
+	if err != nil {
 		health.Status = HealthStatusDegraded
-		health.Message = "no configuration file found (run 'relicta init' to create one)"
+		health.Message = "no configuration file found (run 'relicta init' to create one); built-in defaults apply"
 		return health
 	}
 
+	// Report the path rather than a boolean: from a subdirectory the applicable
+	// config lives at the repository root, and "found" alone hid that.
+	health.Details["config_file"] = configFile
 	health.Status = HealthStatusHealthy
-	health.Message = "configuration file found"
+	health.Message = fmt.Sprintf("configuration file found: %s", configFile)
 	return health
 }
 

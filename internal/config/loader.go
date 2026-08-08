@@ -683,7 +683,10 @@ func MustLoad() *Config {
 // FindConfigFile searches for a config file and returns its path.
 func FindConfigFile(searchPaths ...string) (string, error) {
 	if len(searchPaths) == 0 {
-		searchPaths = []string{"."}
+		// No explicit paths: resolve exactly as loading does, which includes
+		// walking up to the repository root. Without this, callers checking
+		// "is there a config?" disagreed with the loader that then found one.
+		return ResolveConfigFile()
 	}
 
 	for _, searchPath := range searchPaths {
@@ -698,6 +701,28 @@ func FindConfigFile(searchPaths ...string) (string, error) {
 	}
 
 	return "", rperrors.NotFound("config.FindConfigFile", "no config file found")
+}
+
+// ResolveConfigFile returns the config file that Load would use, or an error if
+// there is none. This is the single answer to "which config applies here?" —
+// callers that ask the question a different way end up disagreeing with the
+// loader, which is what made `relicta health` report "no configuration file
+// found" from a subdirectory while every command loaded one (issue #199).
+func ResolveConfigFile() (string, error) {
+	for _, name := range ConfigFileNames {
+		for _, ext := range ConfigFileExtensions {
+			candidate := name + "." + ext
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate, nil
+			}
+		}
+	}
+
+	if found := findConfigInAncestors(); found != "" {
+		return found, nil
+	}
+
+	return "", rperrors.NotFound("config.ResolveConfigFile", "no config file found")
 }
 
 // ConfigExists returns true if a config file exists in the given directory.
