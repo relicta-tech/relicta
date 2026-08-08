@@ -2,13 +2,16 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
 	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
@@ -1867,4 +1870,51 @@ func TestCompleteReleaseWorkflow(t *testing.T) {
 		assert.Equal(t, "1.1.0", rel.VersionNext().String())
 		assert.True(t, rel.IsApproved())
 	})
+}
+
+// TestBuildRecommendation_ProvenanceHonesty covers the case where the version was
+// never injected: provenance must say "unknown" rather than claim a version the
+// adapter does not have.
+func TestBuildRecommendation_ProvenanceHonesty(t *testing.T) {
+	a := NewAdapter()
+	if got := a.toolVersion; got != "" {
+		t.Fatalf("expected no version by default, got %q", got)
+	}
+
+	// A nil analysis must not panic and must not fabricate an artifact.
+	if art := a.buildRecommendation(nil); art != nil {
+		t.Errorf("buildRecommendation(nil) = %+v, want nil", art)
+	}
+}
+
+func TestWithToolVersion(t *testing.T) {
+	a := NewAdapter(WithToolVersion("4.3.0"))
+	if a.toolVersion != "4.3.0" {
+		t.Errorf("toolVersion = %q, want 4.3.0", a.toolVersion)
+	}
+}
+
+// The artifact must reach structuredContent under the key agents expect, and
+// must be absent rather than null when there is nothing to report.
+func TestPlanToolOutput_RecommendationKey(t *testing.T) {
+	empty, err := json.Marshal(PlanToolOutput{})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if strings.Contains(string(empty), "recommendation") {
+		t.Errorf("nil recommendation should be omitted, got %s", empty)
+	}
+
+	populated, err := json.Marshal(PlanToolOutput{
+		Recommendation: &recommendation.Artifact{SchemaVersion: recommendation.SchemaVersion},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if !strings.Contains(string(populated), `"recommendation":`) {
+		t.Errorf("populated recommendation missing from JSON: %s", populated)
+	}
+	if !strings.Contains(string(populated), `"schema_version":"1.0.0"`) {
+		t.Errorf("artifact schema_version not surfaced: %s", populated)
+	}
 }

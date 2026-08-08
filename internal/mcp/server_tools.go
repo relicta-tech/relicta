@@ -255,6 +255,7 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (any, erro
 			HasBreaking:    output.HasBreaking,
 			HasFeatures:    output.HasFeatures,
 			HasFixes:       output.HasFixes,
+			Recommendation: output.Recommendation,
 		}
 
 		// Include commit details when analyze=true
