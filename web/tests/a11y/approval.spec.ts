@@ -90,12 +90,58 @@ test.describe('ApprovalWorkflow a11y', () => {
     ).toEqual([])
   })
 
-  test('high-contrast mode passes color-contrast checks', async ({ page }) => {
-    await page.emulateMedia({ colorScheme: 'dark', forcedColors: 'active' })
+  // These two cases were previously one test that emulated dark mode *and*
+  // forced-colors together and asserted zero color-contrast violations. That
+  // conflated two different questions and answered neither reliably: it failed
+  // on macOS and passed on Linux CI (issue #226), because `forced-colors:
+  // active` makes Chromium substitute *system* colors for author colors, and
+  // which pair it picks is platform-dependent. The assertion was measuring
+  // Chromium's palette rather than this stylesheet.
+  //
+  // Split so each case tests something we control:
+  //   - dark mode without forced colors  -> our contrast, platform-independent
+  //   - forced colors                    -> content survives, which is the
+  //                                         point of the mode
+
+  test('dark mode passes color-contrast checks', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' })
     await page.goto('/approvals')
+
+    // Tailwind is configured `darkMode: 'class'`, so the dark palette applies
+    // only once useTheme has added `.dark` to <html> in response to the media
+    // query. Without this assertion the test would silently check the *light*
+    // palette if theme detection ever broke — passing while measuring nothing
+    // it claims to measure.
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/)
 
     const results = await new AxeBuilder({ page })
       .withTags(['cat.color'])
+      .analyze()
+
+    expect(
+      results.violations,
+      formatAxeViolations(results.violations),
+    ).toEqual([])
+  })
+
+  test('forced-colors mode keeps content present and operable', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark', forcedColors: 'active' })
+    await page.goto('/approvals')
+
+    // What forced-colors can actually break is content becoming invisible —
+    // `background-image` used to convey state, transparent borders, text
+    // hidden behind a substituted background. Asserting the content is still
+    // there catches that; asserting its contrast ratio does not, because the
+    // colors are no longer ours.
+    await expect(page.getByRole('heading', { name: 'Pending Approvals' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Recent Decisions' })).toBeVisible()
+
+    // Structural checks still hold under forced colors, and a renderer that
+    // drops content shows up here. cat.color is deliberately excluded — see
+    // the comment above.
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .disableRules(['color-contrast'])
       .analyze()
 
     expect(
