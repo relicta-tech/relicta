@@ -12,7 +12,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-chi/cors v1.2.2
-	github.com/go-git/go-git/v5 v5.19.1
+	github.com/go-git/go-git/v5 v5.19.2
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -38,7 +38,7 @@ require (
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.44.0
-	golang.org/x/text v0.38.0
+	golang.org/x/text v0.39.0
 	google.golang.org/genai v1.59.0
 	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
