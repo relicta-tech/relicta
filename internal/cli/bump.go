@@ -220,10 +220,20 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	// Dry run - skip actual changes but still output JSON if requested
 	if dryRun {
+		if err := reportVersionFilePlan(ctx, app, nextVersion); err != nil {
+			return err
+		}
 		if outputJSON {
 			return outputBumpJSON(calcOutput.CurrentVersion, nextVersion, calcOutput.BumpType, calcOutput.AutoDetected)
 		}
 		return nil
+	}
+
+	// Write the configured version files before touching release state: if a
+	// manifest cannot be written we want to fail with nothing changed, rather
+	// than record a version the files do not carry.
+	if err := applyVersionFiles(ctx, app, nextVersion); err != nil {
+		return err
 	}
 
 	// Update release state if there's an active release
@@ -420,4 +430,74 @@ func outputSetVersionJSON(output *versioning.SetVersionOutput) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(result)
+}
+
+// applyVersionFiles writes the new version into every configured manifest.
+//
+// Writes happen before release state is updated, so a manifest that cannot be
+// written fails the bump with nothing changed rather than recording a version
+// the files do not carry (issue #195).
+func applyVersionFiles(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
+	targets := cfg.Versioning.ResolvedVersionFiles()
+	if len(targets) == 0 {
+		return nil
+	}
+
+	repoRoot, err := versionFileRoot(ctx, app)
+	if err != nil {
+		return err
+	}
+
+	written, err := versioning.NewVersionFileWriter(repoRoot).Apply(targets, ver)
+	if err != nil {
+		return fmt.Errorf("failed to update version files: %w", err)
+	}
+
+	if !outputJSON {
+		for _, path := range written {
+			printSuccess(fmt.Sprintf("Updated %s", path))
+		}
+	}
+	return nil
+}
+
+// reportVersionFilePlan shows what a bump would write, without writing it. It
+// also surfaces config errors during --dry-run, which is where they are cheapest
+// to find.
+func reportVersionFilePlan(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
+	targets := cfg.Versioning.ResolvedVersionFiles()
+	if len(targets) == 0 {
+		return nil
+	}
+
+	repoRoot, err := versionFileRoot(ctx, app)
+	if err != nil {
+		return err
+	}
+
+	planned, err := versioning.NewVersionFileWriter(repoRoot).Plan(targets, ver)
+	if err != nil {
+		return fmt.Errorf("failed to plan version file updates: %w", err)
+	}
+
+	if !outputJSON {
+		for _, p := range planned {
+			if p.Key != "" {
+				printInfo(fmt.Sprintf("Would set %s %s = %s", p.Path, p.Key, p.Value))
+			} else {
+				printInfo(fmt.Sprintf("Would set %s = %s", p.Path, p.Value))
+			}
+		}
+	}
+	return nil
+}
+
+// versionFileRoot resolves the repository root that version file paths are
+// relative to.
+func versionFileRoot(ctx context.Context, app cliApp) (string, error) {
+	repoInfo, err := app.GitAdapter().GetInfo(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get repository info: %w", err)
+	}
+	return repoInfo.Path, nil
 }
