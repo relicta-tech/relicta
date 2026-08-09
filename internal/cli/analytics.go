@@ -54,7 +54,7 @@ func runAnalytics(cmd *cobra.Command, args []string) error {
 
 	svc := app.Analytics()
 	if svc == nil {
-		return fmt.Errorf("analytics unavailable: enable governance (governance.enabled) to capture analytics")
+		return governanceDisabled()
 	}
 
 	agg := analytics.NewCachedAggregator(svc, 0)

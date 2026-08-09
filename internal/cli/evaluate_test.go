@@ -13,6 +13,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/v4/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 func TestOutputEvaluateJSON(t *testing.T) {
@@ -63,11 +64,19 @@ func TestRunEvaluateJSON(t *testing.T) {
 	cfg.Governance.Enabled = true
 	outputJSON = true
 
+	// evaluate loads through the release services' repository now, not
+	// app.ReleaseRepository() — the latter is a second, lossy implementation that
+	// drops the changeset and made evaluate fail on every real release. The fake
+	// has to supply the same path the command takes, or the test passes against a
+	// repository the command no longer reads.
+	rel := newTestReleaseWithCommits(t, "eval-1")
+	portsRepo := &portsReleaseRepoStub{run: rel}
 	app := commandTestApp{
-		gitRepo:     stubGitRepo{},
-		releaseRepo: testReleaseRepo{latest: newTestReleaseWithCommits(t, "eval-1")},
-		govSvc:      governance.NewService(evaluator.New()),
-		hasGov:      true,
+		gitRepo:         stubGitRepo{},
+		releaseRepo:     testReleaseRepo{latest: rel},
+		releaseServices: &domainrelease.Services{Repository: portsRepo},
+		govSvc:          governance.NewService(evaluator.New()),
+		hasGov:          true,
 	}
 	withStubContainerApp(t, app)
 
