@@ -16,6 +16,11 @@ type ApproveReleaseInput struct {
 	Actor       ports.ActorInfo
 	AutoApprove bool // CI/--yes mode
 	Force       bool // Force approval even if HEAD changed
+
+	// Justification records why this approval was granted. It is the audit
+	// trail's only account of a governance override, so it is persisted with the
+	// approval rather than merely logged.
+	Justification string
 }
 
 // ApproveReleaseOutput contains the output from approving a release.
@@ -95,8 +100,17 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 		uc.ensureAttestationStep(run)
 	}
 
-	// Approve the release
-	if err := run.Approve(input.Actor.ID, input.AutoApprove); err != nil {
+	// ApproveWithOptions rather than Approve: the latter takes no justification,
+	// so an override's reason was dropped on the floor. Both the Approval struct
+	// and the file repository already carry the field; only the input did not.
+	// Derived from the actor the caller named, not from AutoApprove. AutoApprove
+	// reflects --yes, which a human also passes, so keying on it recorded
+	// pipeline approvals as human ones and vice versa.
+	approverType := input.Actor.Type
+	if approverType == "" {
+		approverType = domain.ActorHuman
+	}
+	if err := run.ApproveWithOptions(input.Actor.ID, input.AutoApprove, approverType, input.Justification); err != nil {
 		return nil, fmt.Errorf("failed to approve: %w", err)
 	}
 

@@ -617,7 +617,15 @@ func ReportError(err error) {
 }
 
 func printWarning(msg string) {
+	// In JSON mode the warning moves to stderr rather than disappearing.
+	//
+	// Suppressing it outright was wrong, and cost real information: when
+	// governance evaluation failed during `relicta approve --ci`, the only signal
+	// that the release was proceeding ungoverned was a warning, and JSON mode
+	// swallowed it. stdout still carries nothing but the document; stderr is
+	// where a diagnostic belongs.
 	if humanOutputSuppressed() {
+		fmt.Fprintln(os.Stderr, styles.Warning.Render("⚠ "+security.Mask(msg)))
 		return
 	}
 	fmt.Println(styles.Warning.Render("⚠ " + security.Mask(msg)))
