@@ -166,10 +166,19 @@ func (e *Engine) Evaluate(ctx context.Context, proposal *cgp.ChangeProposal, ana
 		RuleTrace:         []RuleTrace{},
 	}
 
-	// If no policies, use defaults
+	// No policies means this engine has nothing to contribute, not that the
+	// release is approved.
+	//
+	// The rationale used to read "No policies configured, defaulting to approved",
+	// which appears in the audit trail as the first line of the reasoning — so a
+	// release whose recorded decision was approval_required carried "defaulting to
+	// approved" above the rule that required review. The verdict is the caller's
+	// to compose from this and the built-in rules; this line now says only what
+	// this engine did.
 	if len(e.policies) == 0 {
 		result.Decision = cgp.DecisionApproved
-		result.Rationale = append(result.Rationale, "No policies configured, defaulting to approved")
+		result.Rationale = append(result.Rationale,
+			"No policy rules configured; built-in governance rules apply")
 		return result, nil
 	}
 
