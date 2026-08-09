@@ -373,10 +373,15 @@ func (a *NotesGeneratorAdapter) mapAudience(preset string) ai.Audience {
 
 // PublisherAdapter adapts the plugin executor to the ports.Publisher interface.
 type PublisherAdapter struct {
-	executor          integration.PluginExecutor
-	gitAdapter        *git.Adapter
-	tagCreator        ports.TagCreator
-	skipPush          bool // Skip pushing tags (useful for dry-run or local testing)
+	executor   integration.PluginExecutor
+	gitAdapter *git.Adapter
+	tagCreator ports.TagCreator
+	// pushTags gates the one irreversible action in a release. Phrased
+	// positively so the zero value is the safe one: a publisher built without
+	// options tags locally and pushes nothing. The previous field was skipPush,
+	// whose zero value meant "push", and since the option that set it was never
+	// called, every publish pushed regardless of configuration.
+	pushTags          bool
 	attestationConfig *config.AttestationConfig
 	auditChain        *audit.Chain
 }
@@ -384,10 +389,12 @@ type PublisherAdapter struct {
 // PublisherAdapterOption configures the PublisherAdapter.
 type PublisherAdapterOption func(*PublisherAdapter)
 
-// WithSkipPush configures the PublisherAdapter to skip pushing tags.
-func WithSkipPush(skip bool) PublisherAdapterOption {
+// WithPushTags enables pushing tags to the remote. Off unless asked for,
+// because pushing a tag starts a public release in any repository whose
+// workflows trigger on it.
+func WithPushTags(enabled bool) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
-		a.skipPush = skip
+		a.pushTags = enabled
 	}
 }
 
@@ -517,8 +524,8 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 
 	output := fmt.Sprintf("Created tag %s", tagName)
 
-	// Push the tag unless skipPush is set
-	if !a.skipPush {
+	// Push only when explicitly enabled.
+	if a.pushTags {
 		if err := a.tagCreator.PushTag(ctx, tagName, "origin"); err != nil {
 			return &ports.StepResult{
 				Success: false,

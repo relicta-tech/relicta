@@ -482,7 +482,18 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 
 	// Create port adapters
 	notesGenerator := NewNotesGeneratorAdapter(c.aiService, c.gitAdapter)
-	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator)
+	// Honor versioning.git_push. WithSkipPush existed and was called from
+	// nowhere, so skipPush stayed false and executeTagStep pushed the tag on
+	// every publish — including when the config said not to. `relicta publish`
+	// printed "Push: false", reported "push_tag": false in --json, and pushed
+	// anyway, which is the one action that cannot be undone and the specific
+	// thing this setting is for.
+	//
+	// The CLI's --skip-push folds into the same field before the container is
+	// built, so there is one answer to "should this push" rather than a flag and
+	// a setting that can disagree.
+	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator,
+		WithPushTags(c.config.Versioning.GitPush))
 	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
 
 	// Configure release services

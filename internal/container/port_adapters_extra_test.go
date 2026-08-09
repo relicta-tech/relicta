@@ -105,7 +105,7 @@ func TestNewPublisherAdapter_WithOptions(t *testing.T) {
 	chain := audit.NewChain()
 
 	adapter := NewPublisherAdapter(nil, nil, nil,
-		WithSkipPush(true),
+		WithPushTags(true),
 		WithAttestationConfig(cfg),
 		WithAuditChain(chain),
 	)
@@ -113,8 +113,8 @@ func TestNewPublisherAdapter_WithOptions(t *testing.T) {
 	if adapter == nil {
 		t.Fatal("expected non-nil adapter")
 	}
-	if !adapter.skipPush {
-		t.Error("expected skipPush to be true")
+	if !adapter.pushTags {
+		t.Error("expected pushTags to be true")
 	}
 	if adapter.attestationConfig != cfg {
 		t.Error("expected attestation config to be set")

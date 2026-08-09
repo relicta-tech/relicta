@@ -134,6 +134,15 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		printDryRunBanner()
 	}
 
+	// Fold --skip-push into the config before the container reads it, so the
+	// flag and the setting cannot disagree about whether to push. The publisher
+	// is configured from cfg.Versioning.GitPush at construction; without this the
+	// flag would only affect what gets printed, which is how it behaved before:
+	// "Push: false" on screen, tag pushed regardless.
+	if publishSkipPush {
+		cfg.Versioning.GitPush = false
+	}
+
 	// Initialize container
 	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
