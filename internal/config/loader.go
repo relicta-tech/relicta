@@ -595,6 +595,13 @@ func WriteConfig(cfg *Config, path string) error {
 		{"plugins", cfg.Plugins},
 		{"workflow", cfg.Workflow},
 		{"output", cfg.Output},
+
+		// Governance is written even though it is off by default, because it is the
+		// capability the product exists for and it was undiscoverable: `relicta
+		// evaluate` said "enable governance in .relicta.yaml" about a section the
+		// generated file did not contain, leaving the reader to guess both the key
+		// and its nesting.
+		{"governance", cfg.Governance},
 	}
 	for _, section := range sections {
 		encoded, err := encodeSection(section.value)
@@ -725,6 +732,14 @@ var configAnnotations = []struct {
 		"repository whose release workflow triggers on tag push, it starts a",
 		"real public release. Leave false to tag locally and push yourself.",
 	}},
+	{"governance.enabled", []string{
+		"Turn on the Change Governance Protocol: risk scoring, policy",
+		"evaluation, and approval gates. With this off, relicta versions and",
+		"publishes but does not govern — 'relicta evaluate' and",
+		"'relicta analytics' are unavailable and 'relicta approve' asks nothing.",
+		"With it on, a breaking or security-related change requires human",
+		"approval before publish; see require_human_for_breaking below.",
+	}},
 	{"plugins", []string{
 		"Plugins run at publish time. The github plugin creates a GitHub",
 		"release; if your CI already publishes one on tag push, enabling both",
@@ -751,12 +766,32 @@ func annotateConfigFile(path string) error {
 		"",
 	)
 
+	// section is the top-level key currently being emitted, so an annotation can
+	// be scoped to one. Without this, a key like "enabled" matched in every
+	// section that has one: the governance explanation was inserted under ai: and
+	// plugins: as well, three copies of the same paragraph in one file.
+	section := ""
+
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
+
+		// A top-level key is unindented and ends the previous section.
+		if line != "" && line[0] != ' ' && line[0] != '\t' && line[0] != '#' &&
+			strings.HasSuffix(trimmed, ":") {
+			section = strings.TrimSuffix(trimmed, ":")
+		}
+
 		for _, ann := range configAnnotations {
-			// Match "<key>:" exactly, so "gitpush" does not also match a key
-			// that merely starts with it.
-			if trimmed == ann.key+":" || strings.HasPrefix(trimmed, ann.key+": ") {
+			key := ann.key
+			// "governance.enabled" applies only inside governance:. An unqualified
+			// key still matches wherever it appears.
+			if dot := strings.IndexByte(key, '.'); dot >= 0 {
+				if section != key[:dot] {
+					continue
+				}
+				key = key[dot+1:]
+			}
+			if trimmed == key+":" || strings.HasPrefix(trimmed, key+": ") {
 				indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 				for _, c := range ann.lines {
 					out = append(out, indent+"# "+c)

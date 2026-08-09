@@ -138,7 +138,14 @@ func TestGeneratedConfigCarriesSafetyNotes(t *testing.T) {
 
 	// Every annotation must land, not just the one checked above.
 	for _, ann := range configAnnotations {
-		if !strings.Contains(content, ann.key+":") {
+		// Keys may be section-qualified ("governance.enabled") so a common word
+		// like "enabled" annotates one section rather than all of them. Only the
+		// key itself appears in the file.
+		key := ann.key
+		if dot := strings.IndexByte(key, '.'); dot >= 0 {
+			key = key[dot+1:]
+		}
+		if !strings.Contains(content, key+":") {
 			t.Errorf("annotation keyed on %q matches nothing in the generated file", ann.key)
 			continue
 		}
@@ -181,4 +188,56 @@ func firstMatchingLine(content, needle string) string {
 		}
 	}
 	return "(no matching line)"
+}
+
+// TestAnnotationsAreScopedToTheirSection guards against a paragraph appearing in
+// every section that happens to share a key name.
+//
+// Annotations match on key, and "enabled" exists under ai, governance and each
+// plugins entry. Keying the governance explanation on the bare word inserted it
+// three times in one file — the same over-broad match that makes a careless
+// find-and-replace dangerous.
+func TestAnnotationsAreScopedToTheirSection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".relicta.yaml")
+	if err := WriteDefaultConfig(path); err != nil {
+		t.Fatalf("WriteDefaultConfig: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	content := string(data)
+
+	for _, ann := range configAnnotations {
+		first := "# " + ann.lines[0]
+		if got := strings.Count(content, first); got != 1 {
+			t.Errorf("annotation for %q appears %d times, want exactly 1 — a bare key "+
+				"matches every section that has one", ann.key, got)
+		}
+	}
+}
+
+// Governance is written even though it is off by default: it is the capability
+// the product exists for, and `relicta evaluate` used to tell people to enable it
+// in a file that had no such section.
+func TestGeneratedConfigContainsGovernance(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".relicta.yaml")
+	if err := WriteDefaultConfig(path); err != nil {
+		t.Fatalf("WriteDefaultConfig: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "\ngovernance:\n") {
+		t.Error("generated config has no governance section; the setting that gates " +
+			"risk scoring and approval must be discoverable in the file")
+	}
+	for _, key := range []string{"require_human_for_breaking", "auto_approve_threshold"} {
+		if !strings.Contains(content, key) {
+			t.Errorf("governance section is missing %q", key)
+		}
+	}
 }
