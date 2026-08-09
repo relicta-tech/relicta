@@ -257,6 +257,15 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 		opts = append(opts, mcp.WithGovernanceService(svc))
 	}
 
+	// Adapter.Evaluate needs the repository to find the run by ID, and refuses
+	// with "release repository not configured" without it. WithAdapterRepo was
+	// defined and called from nowhere, so relicta_evaluate could not run on any
+	// repository — and because tool errors were being redacted, an agent saw only
+	// "internal error" and never learned why.
+	if repo := app.ReleaseRepository(); repo != nil {
+		opts = append(opts, mcp.WithAdapterRepo(repo))
+	}
+
 	// Wire blast radius service for monorepo analysis
 	if app.HasBlastService() {
 		opts = append(opts, mcp.WithBlastService(app.BlastService()))

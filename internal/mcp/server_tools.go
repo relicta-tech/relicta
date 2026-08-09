@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"go.klarlabs.de/mcp"
@@ -336,7 +337,7 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string,
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return "", fmt.Errorf("no active release: %w", err)
+			return "", userError(errors.New("no active release to generate notes for — run relicta_plan first"))
 		}
 
 		// Report progress
@@ -384,14 +385,18 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string,
 }
 
 func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (string, error) {
-	// Ensure consistent repository path (fixes issue #35)
-	s.ensureRepoPath(ctx)
+	// Ensure consistent repository path (fixes issue #35). The return value is
+	// the resolved root, and it is needed below: governance validates that a
+	// proposal names a repository, and EvaluateInput.Repository was left empty,
+	// so every relicta_evaluate call failed with "repository is required". The
+	// CLI passes repoInfo.Path for the same field.
+	repoPath := s.ensureRepoPath(ctx)
 
 	// Use adapter for full governance evaluation if available (GetStatus uses releaseServices)
 	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return "", fmt.Errorf("no active release: %w", err)
+			return "", userError(errors.New("no active release to evaluate — run relicta_plan first"))
 		}
 
 		// Report progress
@@ -402,6 +407,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (s
 
 		evalInput := EvaluateInput{
 			ReleaseID:      status.ReleaseID,
+			Repository:     repoPath,
 			IncludeHistory: true,
 		}
 
@@ -473,7 +479,7 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return "", fmt.Errorf("no active release: %w", err)
+			return "", userError(errors.New("no active release to approve — run relicta_plan first"))
 		}
 
 		// Enforce actor autonomy budget before privileged operation.
@@ -536,7 +542,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		status, err := s.adapter.GetStatus(ctx)
 		if err != nil {
-			return "", fmt.Errorf("no active release: %w", err)
+			return "", userError(errors.New("no active release to publish — run relicta_plan first"))
 		}
 
 		// Enforce actor autonomy budget before publish.

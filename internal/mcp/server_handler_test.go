@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -404,7 +405,7 @@ func TestHandleNotesWithAdapterPath_NoActiveRelease(t *testing.T) {
 	ctx := context.Background()
 	_, err := ts.server.handleNotes(ctx, NotesToolInput{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no active release")
+	assert.Contains(t, strings.ToLower(err.Error()), "no active release")
 }
 
 func TestHandleApproveWithAdapterPath_NoActiveRelease(t *testing.T) {
@@ -414,7 +415,7 @@ func TestHandleApproveWithAdapterPath_NoActiveRelease(t *testing.T) {
 	ctx := context.Background()
 	_, err := ts.server.handleApprove(ctx, ApproveToolInput{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no active release")
+	assert.Contains(t, strings.ToLower(err.Error()), "no active release")
 }
 
 func TestHandlePublishWithAdapterPath_NoActiveRelease(t *testing.T) {
@@ -424,7 +425,7 @@ func TestHandlePublishWithAdapterPath_NoActiveRelease(t *testing.T) {
 	ctx := context.Background()
 	_, err := ts.server.handlePublish(ctx, PublishToolInput{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no active release")
+	assert.Contains(t, strings.ToLower(err.Error()), "no active release")
 }
 
 func TestHandleCancelWithAdapterPath(t *testing.T) {

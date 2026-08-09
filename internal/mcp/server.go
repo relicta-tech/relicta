@@ -170,7 +170,22 @@ func userError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%s", relictaerrors.FormatUserError(err))
+	// Wrapped as a ToolInputError so the message actually reaches the caller.
+	//
+	// The MCP library replaces any ordinary error from a tool with a generic
+	// -32603 "internal error" before it leaves the process — deliberately, since
+	// such messages can embed paths, state or secret-adjacent detail. Only a
+	// mcp.ToolInputError becomes an isError result carrying its text (SEP-1303).
+	//
+	// So every message this function formatted was discarded: an agent calling
+	// relicta_evaluate on a repository with no release received "internal error"
+	// and could not tell a missing release from a crash. The reason was
+	// recoverable nowhere, because the audit middleware runs after redaction and
+	// logged the redacted text too.
+	//
+	// FormatUserError exists precisely to produce something safe to show a
+	// person, which is what makes it safe to show a caller.
+	return &mcp.ToolInputError{Message: relictaerrors.FormatUserError(err)}
 }
 
 // toJSONString converts a map to a JSON string for MCP text content.
@@ -186,7 +201,10 @@ func toJSONString(m map[string]any) string {
 // ..."} made agents treat a no-op as a completed operation (issue #128 —
 // reset reported a confusing hint while resetting nothing).
 func errNotConfigured(tool string) error {
-	return fmt.Errorf("%s is unavailable: release services are not configured on this MCP server — start it with 'relicta mcp serve' from an initialized repository ('relicta init')", tool)
+	// A ToolInputError for the same reason as userError: this sentence is written
+	// for the caller and is useless if the transport replaces it.
+	return &mcp.ToolInputError{Message: fmt.Sprintf(
+		"%s is unavailable: release services are not configured on this MCP server — start it with 'relicta mcp serve' from an initialized repository ('relicta init')", tool)}
 }
 
 // Tool input types with JSON Schema generation via struct tags.
@@ -415,14 +433,35 @@ type slogAuditLogger struct {
 }
 
 func (l *slogAuditLogger) LogEvent(_ context.Context, event mcpmw.AuditEvent) {
-	l.logger.Info("mcp audit",
+	attrs := []any{
 		"method", event.Method,
 		"action", event.Action,
 		"status", event.Status,
 		"duration", event.Duration,
 		"actor", event.Actor,
 		"correlation_id", event.CorrelationID,
-	)
+	}
+
+	// event.Error was being dropped, which made a failed tool call
+	// undiagnosable from outside the process. The MCP library deliberately
+	// redacts internal error detail from the client — a tool failure reaches the
+	// caller as -32603 "internal error" so that paths and state cannot leak — so
+	// this log was the only remaining place the reason could appear, and it did
+	// not appear. `relicta_evaluate` failing left an operator with
+	// status="error" and nothing else.
+	//
+	// Logged at Error level so it is visible without turning on debug, and only
+	// when there is something to say.
+	if event.Error != "" {
+		attrs = append(attrs, "error", event.Error)
+		if event.Resource != "" {
+			attrs = append(attrs, "resource", event.Resource)
+		}
+		l.logger.Error("mcp audit", attrs...)
+		return
+	}
+
+	l.logger.Info("mcp audit", attrs...)
 }
 
 // ServeStdio starts the MCP server on stdio transport with middleware.
