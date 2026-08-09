@@ -94,6 +94,20 @@ func runInitQuick() error {
 
 	cfg := config.DefaultConfig()
 
+	// New projects are governed (ADR-011).
+	//
+	// The schema default stays false, so upgrading an existing project changes
+	// nothing: a pipeline that runs `relicta approve --ci` today keeps working. A
+	// project created from here on gets risk scoring and the breaking-change gate
+	// without having to discover a setting — which is the difference between "the
+	// governance layer for software change" and a versioning tool with an optional
+	// extra.
+	//
+	// Written explicitly into the file rather than left to a default, so reading
+	// the config still tells the truth about what this project does. That is what
+	// keeps the split between generated and default values honest.
+	cfg.Governance.Enabled = true
+
 	if err := detectRepoSettings(cfg); err != nil && verbose {
 		printWarning(fmt.Sprintf("Could not detect repository settings: %v", err))
 	}

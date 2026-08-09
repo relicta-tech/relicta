@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted — Option C (new projects only), 2026-08-09
 
 ## Date
 
@@ -57,8 +57,16 @@ and `require_human_for_security`, both true by default, and
 
 ## Decision
 
-**Not taken here.** This ADR sets out the options and the cost of each; the choice
-belongs to the product owner.
+**Option C: `relicta init` writes `governance.enabled: true`; the schema default
+stays `false`.**
+
+New projects are governed from their first release. Existing projects are
+unchanged by an upgrade — a pipeline running `relicta approve --ci` today keeps
+working — so nobody's behavior changes under their feet.
+
+Option A remains the intended end state, behind a config schema version once
+there is evidence from projects created under C. The options and their costs are
+kept below because that later decision needs them.
 
 ### Option A — on by default
 
@@ -100,7 +108,7 @@ the schema default gets the wrong answer about what their colleague's project
 does. It also does nothing for the projects most likely to want governance —
 established ones with real release risk.
 
-## Recommendation
+## Why C
 
 Option C first, then A behind a schema version.
 
