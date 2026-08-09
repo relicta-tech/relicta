@@ -276,6 +276,14 @@ func removePlugin(cfg *config.Config, name string) {
 // on tag push, which is what makes an unattended `relicta publish` able to start
 // a real release. It returns the workflow's path for use in the warning.
 //
+// It also checks that the workflow looks like it publishes a release, rather than
+// merely running on a tag. Without that, the scan returned whichever
+// tag-triggered workflow sorted first and asserted it "publishes a release" —
+// on this repository that named docker.yaml, which only pushes a container
+// image, while release.yaml, the workflow that actually runs GoReleaser, was
+// never mentioned. A warning that names the wrong file sends the reader to edit
+// something harmless and leaves the real conflict in place.
+//
 // Deliberately a cheap textual check rather than a YAML parse: it only drives a
 // warning, and the shapes in the wild vary ("tags:", "tags-ignore:", branch and
 // tag filters combined). A false negative costs a missing warning; parsing every
@@ -301,12 +309,34 @@ func detectTagTriggeredWorkflow() (string, bool) {
 			continue
 		}
 
-		if hasTagPushTrigger(string(data)) {
+		if hasTagPushTrigger(string(data)) && publishesRelease(string(data)) {
 			return path, true
 		}
 	}
 
 	return "", false
+}
+
+// releasePublishers are the ways a workflow creates a GitHub release. Pushing a
+// container image or uploading build artifacts is not one of them, which is the
+// distinction that matters here: only a workflow that creates a release can
+// collide with the github plugin.
+var releasePublishers = []string{
+	"goreleaser", // goreleaser/goreleaser-action, or a direct invocation
+	"softprops/action-gh-release",
+	"gh release create",
+	"actions/create-release",
+	"ncipollo/release-action",
+}
+
+func publishesRelease(content string) bool {
+	lower := strings.ToLower(content)
+	for _, marker := range releasePublishers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasTagPushTrigger looks for a `tags:` key inside a `push:` block, ignoring
