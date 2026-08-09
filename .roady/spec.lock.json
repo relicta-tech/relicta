@@ -14,7 +14,8 @@
           "description": "Create a token service that issues signed JWTs with configurable\nexpiry, refresh tokens, and revocation via a deny list. Use\nHMAC-SHA256 with a server-generated secret or RSA key pair.\n",
           "priority": "high",
           "estimate": "3d",
-          "depends_on": []
+          "depends_on": [],
+          "source": {}
         },
         {
           "id": "session-auth-middleware",
@@ -24,7 +25,8 @@
           "estimate": "2d",
           "depends_on": [
             "jwt-token-service"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "login-logout-endpoints",
@@ -34,7 +36,8 @@
           "estimate": "2d",
           "depends_on": [
             "jwt-token-service"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "session-auth-tests",
@@ -45,9 +48,11 @@
           "depends_on": [
             "session-auth-middleware",
             "login-logout-endpoints"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "oidc-sso-integration",
@@ -60,7 +65,8 @@
           "description": "Extend DashboardAuthConfig with OIDC fields: issuer URL,\nclient ID, client secret, redirect URI, scopes, and claim\nmappings. Support discovery via .well-known/openid-configuration.\n",
           "priority": "high",
           "estimate": "2d",
-          "depends_on": []
+          "depends_on": [],
+          "source": {}
         },
         {
           "id": "oidc-auth-flow",
@@ -71,7 +77,8 @@
           "depends_on": [
             "oidc-provider-config",
             "session-auth-middleware"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "oidc-claim-role-mapping",
@@ -81,7 +88,8 @@
           "estimate": "2d",
           "depends_on": [
             "oidc-auth-flow"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "oidc-tests-and-docs",
@@ -91,9 +99,11 @@
           "estimate": "3d",
           "depends_on": [
             "oidc-claim-role-mapping"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "database-persistence",
@@ -106,7 +116,8 @@
           "description": "Extract a clean port interface from the file event store adapter.\nBoth file-based and PostgreSQL adapters implement the same interface.\nUse the repository pattern from the existing hexagonal architecture.\n",
           "priority": "high",
           "estimate": "2d",
-          "depends_on": []
+          "depends_on": [],
+          "source": {}
         },
         {
           "id": "postgres-adapter",
@@ -116,7 +127,8 @@
           "estimate": "4d",
           "depends_on": [
             "persistence-port-interface"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "schema-migrations",
@@ -126,7 +138,8 @@
           "estimate": "3d",
           "depends_on": [
             "postgres-adapter"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "persistence-config",
@@ -136,7 +149,8 @@
           "estimate": "2d",
           "depends_on": [
             "postgres-adapter"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "persistence-tests",
@@ -147,9 +161,11 @@
           "depends_on": [
             "schema-migrations",
             "persistence-config"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "analytics-persistence",
@@ -164,7 +180,8 @@
           "estimate": "3d",
           "depends_on": [
             "persistence-port-interface"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "analytics-query-api",
@@ -174,7 +191,8 @@
           "estimate": "3d",
           "depends_on": [
             "analytics-event-capture"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "analytics-aggregation",
@@ -184,7 +202,8 @@
           "estimate": "3d",
           "depends_on": [
             "analytics-query-api"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "analytics-tests",
@@ -194,9 +213,11 @@
           "estimate": "2d",
           "depends_on": [
             "analytics-aggregation"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "api-hardening",
@@ -209,7 +230,8 @@
           "description": "Prefix all API routes with /api/v1/. Add version negotiation\nvia Accept header. Document versioning policy (additive changes\nin minor, breaking changes in major).\n",
           "priority": "high",
           "estimate": "2d",
-          "depends_on": []
+          "depends_on": [],
+          "source": {}
         },
         {
           "id": "pagination-filtering",
@@ -219,7 +241,8 @@
           "estimate": "3d",
           "depends_on": [
             "api-versioning"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "openapi-spec",
@@ -230,7 +253,8 @@
           "depends_on": [
             "api-versioning",
             "pagination-filtering"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "structured-errors",
@@ -240,7 +264,8 @@
           "estimate": "2d",
           "depends_on": [
             "api-versioning"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "api-tests",
@@ -251,9 +276,11 @@
           "depends_on": [
             "openapi-spec",
             "structured-errors"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "webhook-hardening",
@@ -266,7 +293,8 @@
           "description": "Queue webhook deliveries for async processing. Persist pending\ndeliveries so they survive restarts. Process in order per\nendpoint with configurable concurrency.\n",
           "priority": "medium",
           "estimate": "3d",
-          "depends_on": []
+          "depends_on": [],
+          "source": {}
         },
         {
           "id": "webhook-retry-backoff",
@@ -276,7 +304,8 @@
           "estimate": "2d",
           "depends_on": [
             "webhook-delivery-queue"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "webhook-delivery-log",
@@ -286,7 +315,8 @@
           "estimate": "2d",
           "depends_on": [
             "webhook-retry-backoff"
-          ]
+          ],
+          "source": {}
         },
         {
           "id": "webhook-tests",
@@ -296,219 +326,277 @@
           "estimate": "2d",
           "depends_on": [
             "webhook-delivery-log"
-          ]
+          ],
+          "source": {}
         }
-      ]
+      ],
+      "source": {}
     },
     {
       "id": "monorepo-workspace-orchestration",
       "title": "Monorepo Workspace Orchestration",
       "description": "Add first-class monorepo support for governing changes across multiple packages in a single repository. Detect workspace structure (Go modules, npm workspaces, Cargo workspaces), analyze per-package changes independently, support independent versioning per package, and coordinate cross-package releases. This addresses the PRD's \"Monorepo support gaps\" risk (rated High) and is critical for enterprise adoption where monorepos are standard.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "cgp-protocol-wire-format",
       "title": "CGP Protocol Wire Format",
       "description": "Formalize the Change Governance Protocol (CGP) wire format as described in PRD Section 17. Implement CGP message types (change.proposal, change.decision, change.execution_authorized) as structured JSON with versioning. Add CGP endpoints to the MCP server so AI agents can propose changes via the protocol. Create a CGP SDK package that other tools can import to become CGP-compliant. This positions Relicta as the reference implementation of an open governance standard.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "audience-aware-release-communication",
       "title": "Audience-Aware Release Communication",
       "description": "Implement the stakeholder communication layer from PRD Section 11. Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation. This moves Relicta from \"output\" (changelogs) to \"outcomes\" (stakeholder communication).",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "release-memory-and-learning",
       "title": "Release Memory and Learning",
       "description": "Build the historical context system from PRD Section 16.4. Track past incidents, rollbacks, and their root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring so future evaluations improve over time. Store release memory in the persistence layer (file or PostgreSQL). Surface insights via the dashboard analytics. This enables Relicta to continuously improve beyond what stateless tools can achieve.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "dashboard-frontend-separation",
       "title": "Dashboard Frontend Separation",
       "description": "Extract the embedded Vue dashboard into a standalone deployable frontend as described in PRD Section 14.1. Support CDN-friendly deployment (Vercel, CloudFront, S3). Add real-time updates via WebSocket for release progress, approval notifications, and analytics. Build dashboard views for the new analytics data (risk trends, decision distribution, team metrics). The Go backend serves as a standalone API service alongside the CLI.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "pre-release-and-release-channel-support",
       "title": "Pre-release and Release Channel Support",
       "description": "Add pre-release versioning (alpha, beta, rc) and release channels (stable, canary, next). Support promoting pre-releases through channels with governance gates at each stage. Track channel-specific policies (e.g., canary requires lower approval threshold than stable). This addresses the PRD's \"Missing critical workflows (pre-release)\" gap identified in the product strategy review.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "multi-repository-governance",
       "title": "Multi-Repository Governance",
       "description": "Coordinate release governance across multiple separate repositories that form a product or platform. Define repository groups with dependency relationships, synchronize version constraints across repos, enforce cross-repo release policies (e.g., \"service-api must release before service-client\"), and provide a unified view of multi-repo release state. Support both centralized governance (one Relicta instance governs all repos) and federated governance (each repo has Relicta, coordinated via CGP messages). Integrate with the existing CGP protocol for cross-repo proposal/decision exchange.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "runtime-observability-integration",
       "title": "Runtime Observability Integration",
       "description": "Connect post-deployment outcomes back to the release memory system for continuous learning. Integrate with observability platforms (Prometheus, Datadog, PagerDuty, Sentry) to automatically detect incidents, error rate spikes, and rollbacks that correlate with specific releases. Auto-record outcomes in the release memory when deployment metrics cross configured thresholds. Surface deployment health in the dashboard with release-correlated metrics. This closes the feedback loop so Relicta's risk scoring improves with real production data rather than relying solely on code analysis.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "eu-ai-act-article-12-evidence-pack",
       "title": "EU AI Act Article 12 Evidence Pack",
       "description": "Extend `relicta report --type` to emit `eu-ai-act-article-12` log bundle from existing CGP audit chain. Maps governance events to Article 12 logging requirements: start/end timestamps per use, reference databases, input data leading to match, identification of natural persons verifying results. Output formats: JSON Lines (machine), Markdown summary (auditor), CSV (regulator). Retention metadata: 6-month minimum log retention enforced via persistence layer config. Files to extend: `internal/cli/report.go`, `internal/compliance/report.go`, `internal/compliance/article12.go` (new). Source: hash-chained audit at `internal/cgp/audit/`. Forcing function: August 2026 EU AI Act high-risk provisions.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "eu-ai-act-annex-iv-technical-documentation-generator",
       "title": "EU AI Act Annex IV Technical Documentation Generator",
       "description": "New `relicta report --type ai-act-annex-iv` produces section-by-section Annex IV technical documentation from CGP risk + audit + memory data. Sections: general description, detailed description of system elements, monitoring/functioning/control, risk management system (maps to risk calculator output), data and data governance (maps to actor attribution), accuracy/robustness/cybersecurity (maps to attestation chain), human oversight (maps to approval records). Output: Markdown + PDF. 10-year retention metadata. This is the differentiator Microsoft AGT does not generate. Files: `internal/compliance/annex_iv.go` (new), templates in `internal/compliance/templates/annex_iv/`. Required for €60-80K fintech/healthtech buyer in EU.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "agent-autonomy-profiles-(per-actor-governance-budgets)",
       "title": "Agent Autonomy Profiles (per-actor governance budgets)",
       "description": "Extend `internal/cgp/policy/` with `actor_budget.go` defining per-actor budgets: max_blast_radius, max_risk_score, max_dollar_cost_usd, requires_cosign list, allowed_tools/denied_tools whitelist, time-window limits. Schema in `.relicta/actor-budgets.yaml` keyed on actor_type + actor_id glob. Enforcement at `internal/mcp/server.go` tool dispatch — pre-flight checks resolve actor from MCP session metadata, reject with structured error if violated. Extend `ActorType` enum at `internal/domain/release/domain/run.go:49` with ActorID string. Audit chain records every budget check. Default profile: refuse `--yes` on agent-actor + risk\u003e=0.4 + no policy file. Killer differentiator over GitHub Required Reviewers (no actor-typed concept) and Microsoft AGT (runtime, not release).",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "security-gate-hardening",
       "title": "Security Gate Hardening",
       "description": "Remove `|| true` from `Makefile:520-525` security-scan target. Run `nox baseline_add` against current 280 findings (1 critical, 170 high, 100 medium, 11 low) — triage and either fix or baseline with justification. SEC-435 (.env.example, docs) likely false positive — baseline with rationale. SEC-436/437 in `internal/errors/errors.go:475-477` need real review (error message disclosure?). AI-007 already baselined. Add `make security-scan-strict` to `check-ci` as failing target. CI gate: zero NEW high+ findings on PR. Non-negotiable for any regulated-buyer demo.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "claude.md-reality-sync",
       "title": "CLAUDE.md Reality Sync",
       "description": "Fix architecture documentation drift in both repos. CLI: `relicta/CLAUDE.md` claims `internal/state/` (does not exist), claims `internal/service/{git,version,ai,template}` (actually under `internal/infrastructure/`). Update to reflect 23 real internal dirs: analysis, analytics, application, benchmark, cgp, cli, compliance, config, container, domain, errors, fileutil, httpserver, infrastructure, mcp, observability, plugin, security, service, ui, version. Hub: `relicta-hub/CLAUDE.md` claims stdlib `net/http` routing (uses Gin), claims \"Hub imports domain logic from CLI\" (zero CLI imports verified). Replace with honest description of skeleton state + alpha banner. Trust leak in enterprise security review until fixed.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "vanta-api-integration-(evidence-push)",
       "title": "Vanta API Integration (Evidence Push)",
       "description": "Push Relicta attestation events to Vanta as evidence artifacts via Vanta REST API. New plugin `plugins/vanta/` (Go, gRPC plugin pattern matching existing plugin architecture). Triggered on PostPublish hook. Maps Relicta events to Vanta evidence types: governance decisions → custom evidence, audit chain entries → control evidence, actor attestations → access reviews. Configurable framework mapping (SOC2 CC6.1/CC7.1/CC7.4 already in `enterprise-soc2` template). Vanta released MCP server April 15 2026 — explicit partnership angle, not competitive. Sarah persona: \"Vanta partnership = non-negotiable.\" Files: `plugins/vanta/main.go`, `plugins/vanta/client.go`, `plugins/vanta/mapping.go`. Drata follows same pattern as P1.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "plugin-registry-cull",
       "title": "Plugin Registry Cull",
       "description": "`plugins/registry.yaml` lists 39 named plugins (github, gitlab, slack, jira, npm, homebrew, docker, etc.) but `plugins/` has zero `.go` files — each entry references separate repo. Most likely don't exist. Security review red flag: every empty plugin = credibility leak. Cull registry to 5-7 plugins actually owned, tested, and shipped (recommended: github, gitlab, slack, jira, npm). Remove other 32+ entries. Add `make plugin-verify` target validating each registry entry resolves to working binary at advertised checksum. Alternative: keep registry but mark unverified entries as `status: community` with disclaimer. Position decision: \"registry of vapor\" vs \"small registry of real\" — pick small/real.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "reposition-readme-and-tagline",
       "title": "Reposition README and Tagline",
       "description": "Rewrite README hero from \"The governance layer for software change\" (vague, overlaps Vanta+MS AGT) to \"Cryptographically-attested release governance for AI-native engineering. EU AI Act Annex IV ready.\" Differentiator stack: (1) hash-chained audit chain (CGP) 99.1% test coverage, (2) actor-typed governance Human/CI/Agent, (3) Article 12 + Annex IV from existing audit data (Microsoft AGT does not), (4) pushes evidence to Vanta/Drata (partner not replace). Add comparison matrix vs Vanta (different surface: ex-ante decision attestation vs ex-post posture scan), Microsoft AGT (release-time vs runtime), GitHub Required Reviewers (gate vs prove). Update brand assets reference. Files: `README.md`, `docs/positioning.md` (new).",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "ai-2026-model-migration",
       "title": "AI 2026 Model Migration",
       "description": "Bump default models from 2024-vintage to 2026 across providers. Anthropic at `anthropic.go:27`: `claude-sonnet-4-20250514` → `claude-sonnet-4-6` default, `claude-opus-4-7` for high-stakes release narratives, `claude-haiku-4-5` for diff summaries. OpenAI at `service.go:138`: `gpt-4` → `gpt-5` default, `gpt-5-mini` for narrative. Gemini at `gemini.go:26`: `gemini-2.0-flash-exp` → `gemini-2.5-flash`. Add per-use-case override config: `ai.model_overrides.{release_notes, risk_narrative, communicate, summarize_diff}`. Add `WithModel(string)` option in `service.go`. Update `docs/ai-providers.md` table (currently cites GPT-4o/3.5, Claude 3.5 Sonnet/3 Opus, Gemini 2.0 Flash/1.5 Pro — all pre-2026). Risk: prompts tuned for old models may regress — gate bump on eval harness V0.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "anthropic-prompt-caching",
       "title": "Anthropic Prompt Caching",
       "description": "Implement `cache_control: ephemeral` blocks on Anthropic API calls. Currently zero `cache_control` hits in `internal/` and `pkg/`. Prime targets: long stable system prompts in `internal/infrastructure/ai/prompts.go` (281 LOC), repo context blocks (commit list, file globs, codebase summary) re-tokenized every release. Expected impact: 5-10x cost reduction on repeated governance evaluations + release-notes path. Cache key strategy: hash repo context block, invalidate on detected schema change. Files to extend: `internal/infrastructure/ai/anthropic.go`, `internal/infrastructure/ai/prompts.go`. Cost discipline = enterprise procurement requirement.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "structured-outputs-and-json-schema-mode",
       "title": "Structured Outputs and JSON Schema Mode",
       "description": "Replace regex-parsing of LLM output with provider-native structured outputs. Currently zero `response_format`/`ResponseFormat` hits across codebase. OpenAI: `response_format: json_schema` with strict mode for `GovernanceDecision`, `RiskNarrative`, `ReleaseNotes`, `AudienceNarrative` types. Anthropic: tool-use with structured output schema. Define schemas in `internal/infrastructure/ai/schemas/`. Eliminates parse failures and \"model returned malformed JSON\" runtime errors that LLM-as-content-generator-for-governance cannot tolerate. Files: `openai.go`, `anthropic.go`, `gemini.go`, new `schemas/` dir. Reliability requirement for governance product.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "ai-eval-harness-v0",
       "title": "AI Eval Harness V0",
       "description": "Build LLM evaluation harness — currently absent. New `internal/infrastructure/ai/evals/`. 150 golden YAML examples across categories: release-notes (60), risk-narrative (40), communicate-cmd (30), diff-summary (20). Each: input, context, rubric (factuality, governance-alignment, terseness, no-hallucination, structured-output-valid), optional reference. Judge model: `claude-opus-4-7` LLM-as-judge with structured output (1-5 per criterion + rationale). Cross-check 10% with `gpt-5` for judge bias. CI gate `make ai-eval`: fail if mean \u003c 4.0 or factuality \u003c 3 or structured-output-valid \u003c 5. Run on AI-touching PRs only via path filter. Cost ~$2/full run. Files: `evals/runner.go`, `evals/judge.go`, `evals/golden/*.yaml`, `.github/workflows/ai-eval.yml`. **Blocks model bump merges.** Non-negotiable for governance-grade AI prose.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "postgres-adapter-test-coverage-0%-to-70%",
       "title": "Postgres Adapter Test Coverage 0% to 70%",
       "description": "`internal/infrastructure/persistence/postgres/` ships at 0.0% test coverage. `store.go` 294, `migrator.go` 308, `pool.go` 32 — all untested. README claims \"PostgreSQL persistence\" — claim becomes true at 70%+ coverage. Add `testcontainers-go` integration suite. Test scenarios: connection pool lifecycle, migration up/down idempotency, concurrent writes (event store), failover to file-based when DB unreachable, transaction isolation, JSONB query correctness. Add migrations 002-005 covering aggregates beyond events (releases, approvals, audit_chain projections, attestations). Single events table with JSONB without projections is event-store-as-database antipattern. Block release until coverage gate.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "reverse-mcp-resources-(governance-as-context)",
       "title": "Reverse MCP Resources (governance-as-context)",
       "description": "MCP server at `internal/mcp/server.go` (2362 LOC) exposes governance tools to AI agents. Add MCP resources (readable context, complement to tools) so coding agents (Claude Code, Cursor, Devin) plan WITH governance context — shift-left from post-facto governance. Resources to expose: `relicta://policy/current` (active CGP policy as JSON), `relicta://risk-budget/{actor_id}` (remaining budget), `relicta://recent-incidents?days=30` (postmortem feed), `relicta://blast-radius/{service}` (dependency/impact graph), `relicta://release-history/{service}?limit=10` (prior runs + outcomes), `relicta://compliance-frameworks` (active frameworks). Verify first whether `resources/list` handler exists in `server.go`; if absent, add. Turns Relicta into context provider for any MCP-aware coding agent. Differentiation moat against Vanta MCP (different scope: compliance posture vs governance context).",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "drata-api-integration-(evidence-push)",
       "title": "Drata API Integration (Evidence Push)",
       "description": "Mirror Vanta integration for Drata. New plugin `plugins/drata/`. Drata API focused on extracting compliance data and programmatically uploading evidence types. Push Relicta attestations as evidence artifacts. Drata 170+ integrations covers AWS/GitHub/Okta/Workspace — Relicta becomes upstream provenance source for AI-attributed releases that Drata cannot generate from CI/Git data alone. Same gRPC plugin architecture as Vanta plugin. Files: `plugins/drata/main.go`, `plugins/drata/client.go`, `plugins/drata/mapping.go`. Sequencing: ship after Vanta validates pattern.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "cobra-command-groups",
       "title": "Cobra Command Groups",
       "description": "30+ flat top-level commands violate Hick's + Miller's 7±2. `relicta --help` is wall of unstructured commands. Use `cobra.Group` (Cobra 1.6+) to organize. Group IDs: `lifecycle` (init/plan/bump/notes/approve/publish/release/promote/rollback/cancel), `inspect` (status/blast/history/evaluate/report), `multi` (group/* multirepo), `extend` (plugin*/mcp/serve/server), `ops` (db/health/metrics/clean/verify). Set `cmd.GroupID` on every `AddCommand` in `internal/cli/root.go`. Zero behavior change, ~40 LOC. XS effort, high UX leverage.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "approval-card-shared-schema",
       "title": "Approval Card Shared Schema",
       "description": "Three approval surfaces drift: TUI (`internal/cli/approve.go:469-510` tabwriter plain text), web (`web/src/views/ApprovalWorkflow.vue`), MCP server tool dispatch. Risk score formatted three ways. Define `ApprovalCardSchema` JSON contract in `internal/governance/` (or `pkg/cgp/approval_card.go`). Generate Vue prop types via `openapi-typescript` from the schema. Mirror lipgloss render in TUI from same struct. Single source of truth for: risk score, factors list, diff summary, actor, required actions ordering, rationale display. Jakob's Law banked across surfaces. Files: schema definition, TUI renderer extraction, Vue component refactor.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "risk-display-lipgloss-visualization",
       "title": "Risk Display lipgloss Visualization",
       "description": "`internal/cli/approve.go:455-511` displays risk as plain `Risk Score: 47.0% (MEDIUM)` text alongside other fields in tabwriter. Highest-leverage decision input given lowest visual weight. Charmbracelet lipgloss already imported. Render risk: bordered lipgloss block, `lipgloss.Color(\"196\"/\"214\"/\"34\")` for HIGH/MEDIUM/LOW, horizontal `progress.Model` bar, top-3 risk factors above release metadata. APCA-compliant pairs with `▲▲▲` glyph for color-blind / `NO_COLOR` env. Same struct exposed via Approval Card Schema for web consumption (see related feature). Files: `internal/cli/approve.go`, new `internal/ui/risk.go` for reusable component.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "init-quick-mode",
       "title": "Init Quick Mode",
       "description": "Current `relicta init` 8-step wizard violates Goal-Gradient + Doherty Threshold. New `relicta init --quick` infers from git remote + `package.json`/`go.mod`/`Cargo.toml` → 1-confirm screen with detected defaults. Existing wizard becomes `relicta init --guided`. Show progress `[3/8]` via `progress.Model`. Collapse advanced (channels, OIDC, plugins) behind `--advanced` flag. Init wizard should also write a starter governance policy file by default (sensible: require approval for major, auto-approve patch \u003c0.3 risk, block on security factors) — first governed release achievable without policy authoring. Files: `internal/cli/init.go`, `internal/config/templates/`.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "policy.go-god-file-split",
       "title": "policy.go God File Split",
       "description": "`internal/cli/policy.go` is 2318 LOC with 57 functions mixing validate/list/scaffold/test/matrix/explain. Highest contributor-friction file in repo. Split by verb into 6 files: `policy_validate.go`, `policy_list.go`, `policy_scaffold.go`, `policy_test.go`, `policy_matrix.go`, `policy_explain.go`. Each delegates to existing `internal/application/policy/` (already exists, underused). Same pattern for `internal/mcp/server.go` (2362 LOC) — split by tool category. Domain layer is clean — don't touch what works. PR review time drops from hours to minutes. Unblocks parallel feature work. Plan/approve/release CLI files (under 1100 LOC each) tolerable for now — defer.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "architecture-fitness-functions",
       "title": "Architecture Fitness Functions",
       "description": "Zero fitness/architecture tests. `find . -name 'arch_test.go'` empty. Add two as priority. **FF#1 Hexagonal boundary** at `internal/architecture/layering_test.go`: assert packages under `internal/cli/` MUST NOT import `internal/infrastructure/*` except via `internal/application/*`. Tool: `go list -deps -json ./internal/cli/...` filtered. Catches policy.go-style rot at PR time. **FF#2 CGP protocol stability** at `pkg/cgp/compat_test.go`: assert golden JSON envelopes from `testdata/v0.1/*.json` MUST round-trip through current Marshal/Unmarshal byte-identical. `//go:embed testdata`, deep-equal. Protects external CGP consumers from silent breakage — critical because CGP positioned as protocol with public SDK.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "web-dashboard-accessibility-ci-gate",
       "title": "Web Dashboard Accessibility CI Gate",
       "description": "Web dashboard at `relicta/web/` has 11 Vue views shipped, a11y unverified. Tailwind defaults rarely hit AAA contrast on risk colors (red/amber/green = APCA failure pattern). Risk pages = highest stakes. Compliance/Security Officer persona uses screen readers in regulated industries — literal target buyer. Add `@axe-core/playwright` to existing test setup. CI gate: zero violations on `ApprovalWorkflow.vue`, `ReleaseDetail.vue`, `GovernanceAnalytics.vue`. Replace red/green-only state encoding with APCA-compliant pair + redundant icon (shape+color). Add `aria-live=\"polite\"` on approval state changes. Files: `web/playwright.config.ts`, `web/tests/a11y/*.spec.ts`, audit pass on Vue components.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "plugin-sandbox-honesty",
       "title": "Plugin Sandbox Honesty",
       "description": "`internal/plugin/sandbox/sandbox_darwin.go:14-28` self-documents that RLIMIT_AS unenforced on Apple Silicon, no `sandbox-exec` profile, CPU limits absent. README markets sandboxing as security boundary. Two paths: (a) ship `sandbox-exec` profile generation on darwin + seccomp-bpf on linux + plugin signature verification (currently missing entirely from `manager.go`), or (b) downgrade marketing — rename to `ResourceAdvisor`, surface \"best-effort\" loudly at config-load time, require explicit `--allow-untrusted-plugins` flag for non-signed plugins. Pick (a) for enterprise credibility OR (b) for honest minimal viable. Either way: honesty before next major release.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "cgp-protocol-wire-format",
       "title": "CGP Protocol Wire Format",
       "description": "Formalize the Change Governance Protocol (CGP) wire format as structured JSON with versioning. Implement CGP message types (change.proposal, change.decision, change.execution_authorized). Add CGP endpoints to the MCP server. Create CGP SDK package (pkg/cgp) for other tools to become CGP-compliant.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "audience-aware-release-communication",
       "title": "Audience-Aware Release Communication",
       "description": "Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "release-memory-with-mnemos-integration",
       "title": "Release Memory with Mnemos Integration",
       "description": "Build historical context system using Mnemos as optional memory backend. Track past incidents, rollbacks, and root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring. Support file-based (default) and Mnemos HTTP API backends.",
-      "requirements": []
+      "requirements": [],
+      "source": {}
     },
     {
       "id": "learning-with-chronos-pattern-detection",
       "title": "Learning with Chronos Pattern Detection",
       "description": "Integrate Chronos for time-series pattern detection on release metrics. Detect trends, spikes, stalls, anomalies in risk scores, deployment frequency, CFR, MTTR. Feed Chronos signals back into risk scoring for continuous improvement. Support multiple backends (memory, SQLite, PostgreSQL).",
-      "requirements": []
+      "requirements": [],
+      "source": {}
+    },
+    {
+      "id": "consolidate-the-two-file-based-release-repositories",
+      "title": "Consolidate the two file-based release repositories",
+      "description": "There are two independent file-based implementations of the ReleaseRun aggregate, with incompatible on-disk schemas, and commands disagree about which to use.\n\nWHAT THEY ARE\n\n1. internal/domain/release/adapters/FileReleaseRunRepository — wired by internal/domain/release/factory.go:60 and used by the release services (plan, bump, notes, approve, publish) and by `relicta status`. Writes the changeset at the top level of the run JSON and restores it on load.\n\n2. internal/infrastructure/persistence/FileReleaseRepository — wired at internal/container/container.go:169, returned by app.ReleaseRepository(), and used by the governance paths. Expects the changeset nested under plan.changeset, and reconstructs runs lossily.\n\nTHE CONSEQUENCE, OBSERVED\n\n`relicta evaluate` failed on every release, in every repository, with:\n\n  governance evaluation failed: failed to evaluate proposal: invalid proposal:\n  invalid scope: either commitRange or commits is required\n\n`plan` wrote the run with (1); `evaluate` read it with (2); (2) found no changeset because it looks in a different place, so governance had no commit range and refused the proposal. A core command — the one that computes the risk score and policy verdict the product is built around — could not succeed at all.\n\nWHAT (2) LOSES ON LOAD (internal/infrastructure/persistence/release_repository.go:739-741)\n\n  BaseRef  \u003c- dto.Branch      (the branch, not the base ref)\n  HeadSHA  \u003c- \"\"              (empty)\n  Commits  \u003c- nil             (dropped)\n  ChangeSet                   (not found: different schema location)\n\nSo a run loaded through (2) cannot support anything that needs commits, HEAD, or the base ref — which is most of governance.\n\nIMMEDIATE MITIGATION ALREADY LANDED\n\ngetLatestReleaseForEvaluate now loads through the release services' repository, the same one status reads and plan wrote. That makes evaluate work without touching the duplication. It is a redirect, not a fix: app.ReleaseRepository() still returns the lossy implementation and other callers still use it.\n\nWHY THIS IS NOT A SMALL CHANGE\n\n- app.ReleaseRepository() has other callers that would need auditing for the same class of bug\n- the two schemas differ, so consolidating means deciding whether to migrate existing .relicta/releases/*.json or read both shapes during a transition\n- domainrelease.Repository and ports.ReleaseRunRepository are different interfaces over the same concept, so consolidation is an interface decision as well as an implementation one\n- publish and approve both take governance paths that would change behaviour\n\nSUGGESTED APPROACH\n\n1. Inventory every caller of app.ReleaseRepository() and record which are affected by the lossy load\n2. Decide the single owning implementation — (1) is the better candidate: it is the writer, it round-trips the changeset, and the release services already depend on it\n3. Give the surviving type the union of the two interfaces, or narrow callers to the interface they actually need\n4. Handle existing on-disk runs: either read both schema shapes for a release or two, or migrate on load\n5. Delete the loser, and add a test that a run written by the release services round-trips with commits, HEAD SHA, base ref and changeset intact — the absence of that test is why this survived\n\nACCEPTANCE\n\nOne implementation. A round-trip test proving commits, head_sha, base_ref and changeset all survive save/load. evaluate, approve and publish all read runs through it.",
+      "requirements": [],
+      "source": {}
+    },
+    {
+      "id": "make-versioning-tag-prefix-work-for-non-v-prefixes",
+      "title": "Make versioning.tag_prefix work for non-\"v\" prefixes",
+      "description": "Tracked on GitHub as relicta-tech/relicta#231; logged here so it stays in the backlog.\n\nversioning.tag_prefix is configurable, TagList.FilterByPrefix exists, and monorepo docs describe app-v1.2.3 style tags. But a tag with any prefix other than \"v\" is never recognised as a version tag, so the setting has no effect beyond its default.\n\nCAUSE\n\nsourcecontrol.NewTag (internal/domain/sourcecontrol/tag.go:23) decides version-ness by parsing the whole tag name, and version.Parse accepts only bare semver or a leading \"v\":\n\n  Parse(\"1.5.0\")         -\u003e 1.5.0\n  Parse(\"v1.5.0\")        -\u003e 1.5.0\n  Parse(\"release-1.5.0\") -\u003e invalid semantic version\n  Parse(\"rel/1.5.0\")     -\u003e invalid semantic version\n  Parse(\"app-v1.5.0\")    -\u003e invalid semantic version\n\nSuch tags are dropped by TagList.VersionTags() BEFORE FilterByPrefix can be applied — the usual call order is FilterByPrefix(prefix).VersionTags(), and the second step discards what the first selected.\n\nCONSEQUENCES for any project not using \"v\"\n\n- plan cannot find the previous version tag, so it computes a baseline of \"no previous release\" and a changeset spanning the whole history\n- status cannot detect that a release happened since a run was planned\n- monorepo-style prefixes do not work at all, though app-v1.2.3 is the documented pattern for blast and workspace versioning\n\nThe failure is silent: nothing reports that the prefix was ignored, so the project simply appears to have no releases.\n\nRELATED\n\ninternal/domain/release/app/plan.go:131 separately hardcodes the prefix:\n\n  tag, err := uc.repoInspector.GetLatestVersionTag(ctx, \"v\")\n\neven though cfg.Versioning.TagPrefix is threaded into the CLI's AnalyzeInput elsewhere. Both need fixing; that line alone would still hit the parse limitation.\n\nWHY IT NEEDS A DECISION FIRST\n\nThe right shape depends on what a monorepo tag is meant to be: \"prefix app-v plus semver\", or a component-qualified tag with its own type carrying component and version separately. blast and workspace versioning both depend on the answer, so deciding that comes before implementing.\n\nSUGGESTED APPROACH\n\n1. Decide the monorepo tag model (plain prefix vs component-qualified type)\n2. Teach the tag domain to strip a configured prefix before parsing, or add a prefix-aware constructor\n3. Pass cfg.Versioning.TagPrefix in plan.go instead of \"v\"\n4. Revisit detectRunStaleness in internal/cli/status.go, which currently cannot see non-\"v\" releases\n\nEXISTING TEST\n\nTestDetectRunStaleness_NonVTagPrefixesAreNotDetected (internal/cli/status_staleness_test.go) pins the current behavior and FAILS once this is fixed, as a prompt to revisit the staleness detector at the same time.",
+      "requirements": [],
+      "source": {}
+    },
+    {
+      "id": "decide-what-relicta-init-should-write-and-make-error-messages",
+      "title": "Decide what relicta init should write, and make error messages match",
+      "description": "`relicta init` writes 6 of the schema's 21 top-level config sections, so error messages that tell a user to edit a setting frequently name a key the generated file does not contain.\n\nWRITTEN: versioning, changelog, ai, plugins, workflow, output\n\nMISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks\n\nMESSAGES THAT POINT AT ABSENT KEYS\n\n  internal/cli/evaluate.go   \"enable governance in .relicta.yaml\"        (governance absent)\n  internal/cli/multirepo.go  \"defined in .relicta.yaml under 'repository_groups'\"  (absent)\n  internal/cli/serve.go      \"configure api_keys in .relicta.yaml\"       (dashboard absent)\n\nA user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.\n\nMITIGATION ALREADY LANDED\n\nThe governance case now returns errGovernanceDisabled (internal/cli/governance_disabled.go), which prints the YAML to add rather than naming a key:\n\n  Add this to .relicta.yaml:\n\n    governance:\n      enabled: true\n\nVerified end to end: adding exactly that makes `relicta evaluate` work. The multirepo and dashboard messages have not been given the same treatment.\n\nTHE DECISION THIS NEEDS\n\nWriting all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:\n\n1. Keep a curated subset, and require every \"configure X in .relicta.yaml\" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.\n2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.\n3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.\n\nWhichever is chosen, the invariant worth enforcing with a test is: no user-facing message names a config key unless that key (or a commented example of it) appears in what init writes.\n\nSUGGESTED APPROACH\n\n1. Pick 1, 2 or 3\n2. If 1: audit every message mentioning .relicta.yaml and give it a snippet, following errGovernanceDisabled\n3. Add a test that scans CLI strings for \".relicta.yaml\" references and checks the named section appears in WriteDefaultConfig output\n4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find",
+      "requirements": null,
+      "source": {}
     }
   ],
   "constraints": [

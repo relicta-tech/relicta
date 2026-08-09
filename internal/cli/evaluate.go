@@ -55,7 +55,7 @@ func runEvaluate(cmd *cobra.Command, args []string) error {
 	defer closeApp(app)
 
 	if !app.HasGovernance() || app.GovernanceService() == nil {
-		return fmt.Errorf("governance service not available - enable governance in .relicta.yaml")
+		return governanceDisabled()
 	}
 
 	rel, err := getLatestReleaseForEvaluate(ctx, app)
@@ -72,7 +72,8 @@ func runEvaluate(cmd *cobra.Command, args []string) error {
 		return outputEvaluateJSON(string(rel.ID()), result)
 	}
 
-	printTitle("Governance Evaluation")
+	// displayGovernanceResult prints this heading itself; printing it here too
+	// showed "Governance Evaluation" twice.
 	fmt.Println()
 	displayGovernanceResult(result)
 	printEvaluateNextStep(result)
@@ -120,8 +121,23 @@ func getLatestReleaseForEvaluate(ctx context.Context, app cliApp) (*release.Rele
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	releaseRepo := app.ReleaseRepository()
-	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
+	// Load through the release services' repository, the same one `status` reads
+	// and the one `plan` wrote with.
+	//
+	// app.ReleaseRepository() is a second, lossy implementation of the same
+	// aggregate: it looks for the changeset nested under plan.changeset while the
+	// writer stores it top-level, and it reconstructs runs with HeadSHA "",
+	// Commits nil and BaseRef set to the branch. Governance then had no commit
+	// range to evaluate, so `relicta evaluate` failed on every release with
+	// "invalid scope: either commitRange or commits is required" — a core command
+	// that could not succeed at all.
+	//
+	// Consolidating the two repositories is the real fix and is tracked
+	// separately; reading from the one that has the data makes evaluate work now.
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return nil, fmt.Errorf("failed to initialize release services: %w", err)
+	}
+	rel, err := loadLatestReleaseRun(ctx, app, repoInfo.Path)
 	if err != nil {
 		return nil, fmt.Errorf("no release state found: %w", err)
 	}
