@@ -716,7 +716,17 @@ func (s *Server) ensureCGPService() error {
 		return nil
 	}
 
-	return fmt.Errorf("CGP protocol service not configured")
+	// A ToolInputError so the caller sees the reason. The three cgp_* tools are
+	// advertised in tools/list, so an agent will try them; before this it received
+	// "internal error" and could not tell an unconfigured server from a crash.
+	//
+	// Neither WithCGPService nor WithEvaluator is wired by `relicta mcp serve`, so
+	// this is the path every real call takes. Supplying an evaluator would make
+	// the tools work, but a bare one would evaluate against different policy than
+	// the CLI's configured governance service — a correctness question, tracked in
+	// roady rather than guessed at here.
+	return &mcp.ToolInputError{Message: "CGP protocol tools are not available on this server: " +
+		"no evaluator is configured. Use relicta_evaluate for release governance."}
 }
 
 // timeNowUTC returns the current time in UTC. Extracted for testability.
