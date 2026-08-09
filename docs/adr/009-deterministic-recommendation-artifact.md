@@ -42,7 +42,7 @@ The second kind is already optional and already off by default:
 | Setting | Default |
 |---|---|
 | `ai.enabled` | `false` |
-| `relicta notes --ai` | `false` |
+| `relicta notes --ai` | `false` — flag removed 2026-08-09; AI notes now follow `ai.enabled` |
 | Deterministic fallback (`generateBasicNotes`) | exists, used whenever AI is off |
 | Build tags to compile providers out (`relicta_minimal`) | exist |
 
