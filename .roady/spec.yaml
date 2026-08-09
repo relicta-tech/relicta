@@ -604,6 +604,47 @@ features:
         3. Add a test that scans CLI strings for ".relicta.yaml" references and checks the named section appears in WriteDefaultConfig output
         4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find
       requirements: []
+    - id: wire-or-withdraw-the-cgp-mcp-tools
+      title: Wire or withdraw the cgp_* MCP tools
+      description: |-
+        The three CGP protocol tools are advertised in tools/list and cannot work. An agent enumerates them, calls one, and gets a failure on every attempt.
+
+          cgp_propose
+          cgp_authorize
+          cgp_status
+
+        CAUSE
+
+        handleCGP* calls ensureCGPService (internal/mcp/server.go:708), which needs either s.cgpService or s.evaluator. `relicta mcp serve` wires neither: WithCGPService and WithEvaluator are both defined and called only from tests. So ensureCGPService always takes its error path.
+
+        Found by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.
+
+        MITIGATION ALREADY LANDED
+
+        The failure now returns a ToolInputError explaining that no evaluator is configured and pointing at relicta_evaluate, instead of the redacted "internal error" an agent used to receive. The tools still do not work.
+
+        THE DECISION THIS NEEDS
+
+        Supplying `evaluator.New()` in createMCPServer would make the tools respond, and that is what the tests do. But a bare evaluator is not the same as the CLI's governance service: the container builds that from cfg.Governance — thresholds, policies, freeze periods, trusted actors, reputation. An agent evaluating a proposal through cgp_* would get a different verdict than a human running `relicta evaluate` on the same change, which for a governance tool is worse than the tool being absent.
+
+        Three options:
+
+        1. Expose the container's configured evaluator (or the governance service's) and wire that. Correct, and makes agent and CLI agree. Needs an accessor the container does not currently have, and a decision about whether the CGP protocol path should share governance's configuration or have its own.
+
+        2. Withdraw the three tools from tools/list until they can be wired. Honest, and stops agents wasting calls. Loses the CGP protocol surface, which pkg/cgp exists to expose.
+
+        3. Keep them advertised but make the unconfigured response a documented, structured "not available here" that an agent can branch on. Cheapest; currently implemented as an isError, which is close.
+
+        Option 1 is the real answer if the CGP protocol surface is meant to be part of the product. Option 2 is right if it is not.
+
+        ACCEPTANCE
+
+        Either the three tools return real results computed with the same configuration the CLI uses, or they are not advertised. A test should assert whichever is chosen, since the current state — advertised and non-functional — is what nothing was checking.
+
+        RELATED
+
+        Other Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.
+      requirements: []
 constraints:
     - id: file-backend-default
       description: File-based persistence remains the default. PostgreSQL is opt-in via config.

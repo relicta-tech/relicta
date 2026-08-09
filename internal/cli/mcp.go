@@ -127,6 +127,17 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 			mcpLogger.Warn("failed to initialize container, tools will return stubs", "error", err)
 		} else {
 			opts = append(opts, mcp.WithAdapter(adapter))
+
+			// ensureRepoPath resolves the repository root through this service and
+			// falls back to "." without it. WithGitService was never called, so the
+			// fallback was always taken: started from a subdirectory, the MCP server
+			// reported "No active release found" for a repository that had a planned
+			// release — silently wrong rather than an error. The comment on
+			// ensureRepoPath cites issue #35 as fixed, and it was, apart from the
+			// service it depends on never being supplied.
+			if gitSvc := app.Git(); gitSvc != nil {
+				opts = append(opts, mcp.WithGitService(gitSvc))
+			}
 		}
 	}
 
