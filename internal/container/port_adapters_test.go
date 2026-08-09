@@ -99,14 +99,14 @@ func TestNewPublisherAdapter(t *testing.T) {
 	}
 }
 
-func TestNewPublisherAdapter_WithSkipPush(t *testing.T) {
+func TestNewPublisherAdapter_WithPushTags(t *testing.T) {
 	mockTC := &mockTagCreator{}
-	adapter := NewPublisherAdapter(nil, nil, mockTC, WithSkipPush(true))
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(true))
 	if adapter == nil {
 		t.Fatal("NewPublisherAdapter should return non-nil adapter")
 	}
-	if !adapter.skipPush {
-		t.Error("skipPush should be true")
+	if !adapter.pushTags {
+		t.Error("pushTags should be true")
 	}
 }
 
@@ -208,7 +208,9 @@ func TestPublisherAdapter_ExecuteStep_TagStep_PushTagError(t *testing.T) {
 		tagExistsValue: false,
 		pushTagErr:     expectedErr,
 	}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	// Pushing is off by default now, and this case is about what happens when a
+	// push fails, so it has to be enabled explicitly.
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -233,7 +235,8 @@ func TestPublisherAdapter_ExecuteStep_TagStep_PushTagError(t *testing.T) {
 
 func TestPublisherAdapter_ExecuteStep_TagStep_Success(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: false}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	// Asserts "Created and pushed", so pushing must be on.
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -262,9 +265,9 @@ func TestPublisherAdapter_ExecuteStep_TagStep_Success(t *testing.T) {
 	}
 }
 
-func TestPublisherAdapter_ExecuteStep_TagStep_SkipPush(t *testing.T) {
+func TestPublisherAdapter_ExecuteStep_TagStep_PushDisabled(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: false}
-	adapter := NewPublisherAdapter(nil, nil, mockTC, WithSkipPush(true))
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(false))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
