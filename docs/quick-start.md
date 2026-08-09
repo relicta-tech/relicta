@@ -157,7 +157,7 @@ Then generate notes:
 
 ```bash
 relicta notes -a     # Short form
-relicta notes --ai   # Long form
+relicta notes        # AI notes come from ai.enabled in .relicta.yaml
 ```
 
 ### Enable the GitHub Plugin
@@ -461,7 +461,7 @@ Shows:
 | `--verbose` | `-v` | Enable verbose output |
 | `--dry-run` | | Preview without changes |
 | `--yes` | `-y` | Auto-approve (approve, release) |
-| `--ai` | `-a` | Use AI for notes generation |
+| _(removed)_ | | `--ai` is gone; set `ai.enabled: true` in `.relicta.yaml` instead |
 | `--analyze` | `-a` | Include detailed analysis (plan) |
 | `--keep` | `-k` | Keep last N runs (clean) |
 

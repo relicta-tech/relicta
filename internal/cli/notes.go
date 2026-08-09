@@ -20,7 +20,6 @@ var (
 	notesAudience     string
 	notesIncludeEmoji bool
 	notesLanguage     string
-	notesUseAI        bool
 )
 
 func init() {
@@ -29,7 +28,6 @@ func init() {
 	notesCmd.Flags().StringVarP(&notesAudience, "audience", "a", "", "target audience (developers, users, public, stakeholders)")
 	notesCmd.Flags().BoolVar(&notesIncludeEmoji, "emoji", false, "include emojis in output")
 	notesCmd.Flags().StringVarP(&notesLanguage, "language", "l", "English", "output language")
-	notesCmd.Flags().BoolVar(&notesUseAI, "ai", false, "use AI to generate notes (requires an AI provider key: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, or OLLAMA_HOST)")
 }
 
 // buildNotesInputForServices creates the input for the GenerateNotes use case.
@@ -39,8 +37,17 @@ func buildNotesInputForServices(repoRoot string, hasAI bool) releaseapp.Generate
 		Options: ports.NotesOptions{
 			AudiencePreset: notesAudience,
 			TonePreset:     notesTone,
-			UseAI:          notesUseAI && hasAI,
-			RepositoryURL:  cfg.Changelog.RepositoryURL,
+			// Follows ai.enabled in config, the same rule `relicta release` uses.
+			//
+			// The --ai flag is gone (ADR-009, ADR-010). ADR-009's position is that
+			// relicta emits the structured material and the caller writes the prose,
+			// so an ad-hoc "generate prose this once" switch works against the grain
+			// of the deterministic path — and it defaulted to false, so it was
+			// opt-in on top of an opt-in. Configuration remains the way to ask for
+			// AI notes, which keeps notes and release consistent: they disagreed
+			// before, one reading a flag and the other the config.
+			UseAI:         cfg.AI.Enabled && hasAI,
+			RepositoryURL: cfg.Changelog.RepositoryURL,
 		},
 		Actor: ports.ActorInfo{
 			Type: "user",

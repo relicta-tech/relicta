@@ -41,8 +41,10 @@ the module.
 
 Five methods, all prose: changelog, release notes, marketing blurb, summary, raw
 completion. Nothing in `internal/cgp`, `internal/application/governance` or
-`internal/domain/release` imports a provider. `ai.enabled` and `notes --ai` both
-default to false, and a deterministic fallback already exists.
+`internal/domain/release` imports a provider. `ai.enabled` defaults to false and a
+deterministic fallback already exists. (`notes --ai` was removed on 2026-08-09;
+AI notes are requested through `ai.enabled`, which also resolved the "not decided
+here" question below.)
 
 The one command where a model earns its place is `relicta communicate`:
 audience-aware narratives are a language task a template cannot fake.
@@ -137,11 +139,13 @@ escape hatch exists for them.
 - Anyone currently using `notes --ai` needs the plugin or Hub. Given the flag
   defaults to false this is likely a small population, but it is not empty.
 
-### Not decided here
+### Decided since
 
-Whether `relicta notes --ai` is removed or redirected to the plugin. Removing it
-is cleaner; redirecting keeps the command working for existing users. That is a
-compatibility judgement worth making with usage evidence rather than in advance.
+`relicta notes --ai` is **removed** (2026-08-09). Removing rather than redirecting:
+the flag defaulted to false, so it was an opt-in on top of an opt-in, and it left
+`notes` and `release` disagreeing — one read a flag, the other read `ai.enabled`.
+AI notes are now requested one way, through configuration, which is also the thing
+a plugin or Hub can take over later without another flag change.
 
 ## Guardrail, restated from ADR-009
 

@@ -353,7 +353,7 @@ relicta notes  # Uses conventional commit format only
 
 **Solution**:
 1. Wait a few minutes and retry
-2. Use `--ai=false` to disable AI features
+2. Set `ai.enabled: false` in `.relicta.yaml` to disable AI features
 3. Upgrade OpenAI API plan for higher limits
 
 ### "OpenAI API error: ..."
@@ -364,7 +364,8 @@ relicta notes  # Uses conventional commit format only
 
 ```bash
 # Disable AI and use basic changelog
-relicta notes --ai=false
+# ai.enabled: false in .relicta.yaml
+relicta notes
 
 # Or set in config
 changelog:

@@ -37,18 +37,14 @@ func TestBuildNotesInputForServices(t *testing.T) {
 	defer func() { cfg = origCfg }()
 	cfg = config.DefaultConfig()
 
-	t.Run("with AI enabled", func(t *testing.T) {
-		// Save and restore global vars
-		oldNotesUseAI := notesUseAI
-		oldNotesAudience := notesAudience
-		oldNotesTone := notesTone
-		defer func() {
-			notesUseAI = oldNotesUseAI
-			notesAudience = oldNotesAudience
-			notesTone = oldNotesTone
-		}()
+	// AI notes follow ai.enabled in config now; the --ai flag is gone (ADR-009,
+	// ADR-010). The three cases below are the same three as before, driven by the
+	// setting that replaced the flag.
+	t.Run("AI enabled in config", func(t *testing.T) {
+		oldAudience, oldTone := notesAudience, notesTone
+		defer func() { notesAudience, notesTone = oldAudience, oldTone }()
 
-		notesUseAI = true
+		cfg.AI.Enabled = true
 		notesAudience = "technical"
 		notesTone = "professional"
 
@@ -62,25 +58,17 @@ func TestBuildNotesInputForServices(t *testing.T) {
 		assert.Equal(t, "cli", input.Actor.ID)
 	})
 
-	t.Run("with AI disabled by flag", func(t *testing.T) {
-		oldNotesUseAI := notesUseAI
-		defer func() {
-			notesUseAI = oldNotesUseAI
-		}()
-
-		notesUseAI = false
+	t.Run("AI disabled in config", func(t *testing.T) {
+		cfg.AI.Enabled = false
 
 		input := buildNotesInputForServices("/test/repo", true)
 		assert.False(t, input.Options.UseAI)
 	})
 
-	t.Run("with AI disabled by capability", func(t *testing.T) {
-		oldNotesUseAI := notesUseAI
-		defer func() {
-			notesUseAI = oldNotesUseAI
-		}()
-
-		notesUseAI = true
+	// Configuration asking for AI cannot conjure a provider: without one the
+	// deterministic path is used rather than failing.
+	t.Run("AI enabled but no provider available", func(t *testing.T) {
+		cfg.AI.Enabled = true
 
 		input := buildNotesInputForServices("/test/repo", false) // hasAI = false
 		assert.False(t, input.Options.UseAI)

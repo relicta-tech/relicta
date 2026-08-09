@@ -628,11 +628,19 @@ func TestNotesCommand_Flags(t *testing.T) {
 	// Test that notes command has expected flags
 	flags := notesCmd.Flags()
 
-	expectedFlags := []string{"output", "tone", "audience", "emoji", "language", "ai"}
+	expectedFlags := []string{"output", "tone", "audience", "emoji", "language"}
 	for _, name := range expectedFlags {
 		if flags.Lookup(name) == nil {
 			t.Errorf("Missing flag: %s", name)
 		}
+	}
+
+	// --ai was removed (ADR-009, ADR-010): relicta emits the structured material
+	// and the caller writes the prose, so an ad-hoc "generate prose this once"
+	// switch works against the deterministic path. AI notes are requested through
+	// ai.enabled in config, the same way `relicta release` has always done it.
+	if flags.Lookup("ai") != nil {
+		t.Error("--ai should be gone; AI notes are configured via ai.enabled")
 	}
 }
 
