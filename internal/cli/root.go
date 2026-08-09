@@ -560,7 +560,31 @@ This command performs all the release actions including:
 // Helper functions for output
 // All print functions mask sensitive data when masking is enabled.
 
+// humanOutputSuppressed reports whether prose belongs on stdout right now.
+//
+// With --json, stdout is a JSON document and nothing else may share it. That was
+// not enforced, so `relicta plan --json` emitted a "Release Plan" heading before
+// its object and produced output no parser accepts:
+//
+//	$ relicta plan --json | jq .
+//	parse error: Invalid numeric literal at line 1, column 8
+//
+// Guarding each call site was the other option and it does not hold: the next
+// printTitle someone adds silently breaks the contract again, in a command whose
+// tests probably never parse its output. Suppressing at the helper makes the rule
+// structural — decorative output cannot reach stdout in JSON mode, wherever it is
+// called from.
+//
+// Errors are exempt. printError already writes to stderr, which is the right
+// place for diagnostics whether or not stdout is machine-readable.
+func humanOutputSuppressed() bool {
+	return outputJSON
+}
+
 func printSuccess(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Success.Render("✓ " + security.Mask(msg)))
 }
 
@@ -576,6 +600,9 @@ func printError(msg string) {
 // line is part of the command's output — not for top-level diagnostics, which
 // belong on stderr via printError.
 func printErrorResult(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Error.Render("✗ " + security.Mask(msg)))
 }
 
@@ -590,23 +617,38 @@ func ReportError(err error) {
 }
 
 func printWarning(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Warning.Render("⚠ " + security.Mask(msg)))
 }
 
 func printInfo(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Info.Render("ℹ " + security.Mask(msg)))
 }
 
 func printDryRunBanner() {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Warning.Render("⚠ DRY RUN MODE - no changes will be made"))
 	fmt.Println()
 }
 
 func printTitle(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Title.Render(security.Mask(msg)))
 }
 
 func printSubtle(msg string) {
+	if humanOutputSuppressed() {
+		return
+	}
 	fmt.Println(styles.Subtle.Render(security.Mask(msg)))
 }
 
