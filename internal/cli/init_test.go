@@ -724,9 +724,30 @@ func TestDetectTagTriggeredWorkflow(t *testing.T) {
 		t.Error("detectTagTriggeredWorkflow() = true for a branches-only workflow")
 	}
 
-	// Add one that does trigger on tags.
+	// A workflow that runs on tags but publishes nothing — a container build is
+	// the common case, and this repository's own docker.yaml is exactly it. It
+	// cannot collide with the github plugin, so flagging it sends the reader to
+	// edit a harmless file.
+	//
+	// Sorts before release.yml, so before publishesRelease existed the scan
+	// returned this one and asserted it "publishes a release" while never
+	// mentioning the workflow that actually does.
+	docker := filepath.Join(".github", "workflows", "docker.yml")
+	dockerYAML := "on:\n  push:\n    tags:\n      - 'v*'\n" +
+		"jobs:\n  docker:\n    steps:\n      - uses: docker/build-push-action@v5\n"
+	if err := os.WriteFile(docker, []byte(dockerYAML), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if path, found := detectTagTriggeredWorkflow(); found {
+		t.Errorf("detectTagTriggeredWorkflow() = %q for a tag-triggered workflow that "+
+			"only builds an image; it publishes no release and cannot double-publish", path)
+	}
+
+	// Add one that triggers on tags and does publish a release.
 	rel := filepath.Join(".github", "workflows", "release.yml")
-	if err := os.WriteFile(rel, []byte("on:\n  push:\n    tags:\n      - 'v*'\n"), 0o600); err != nil {
+	relYAML := "on:\n  push:\n    tags:\n      - 'v*'\n" +
+		"jobs:\n  release:\n    steps:\n      - uses: goreleaser/goreleaser-action@v6\n"
+	if err := os.WriteFile(rel, []byte(relYAML), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	path, found := detectTagTriggeredWorkflow()
@@ -734,6 +755,37 @@ func TestDetectTagTriggeredWorkflow(t *testing.T) {
 		t.Fatal("detectTagTriggeredWorkflow() = false, want true")
 	}
 	if !strings.Contains(path, "release.yml") {
-		t.Errorf("path = %q, want it to name release.yml", path)
+		t.Errorf("path = %q, want the workflow that actually publishes, not merely the "+
+			"first that triggers on a tag", path)
+	}
+}
+
+// TestPublishesRelease covers the markers directly, since the distinction
+// decides whether a warning names the right file.
+func TestPublishesRelease(t *testing.T) {
+	publishes := map[string]string{
+		"goreleaser action": "steps:\n  - uses: goreleaser/goreleaser-action@v6\n",
+		"goreleaser direct": "run: goreleaser release --clean\n",
+		"softprops":         "steps:\n  - uses: softprops/action-gh-release@v2\n",
+		"gh cli":            "run: gh release create v1.0.0\n",
+		"actions/create":    "steps:\n  - uses: actions/create-release@v1\n",
+		"ncipollo":          "steps:\n  - uses: ncipollo/release-action@v1\n",
+		"case insensitive":  "steps:\n  - uses: GoReleaser/goreleaser-action@v6\n",
+	}
+	for name, content := range publishes {
+		if !publishesRelease(content) {
+			t.Errorf("%s should count as publishing a release: %q", name, content)
+		}
+	}
+
+	doesNot := map[string]string{
+		"docker build":    "steps:\n  - uses: docker/build-push-action@v5\n",
+		"artifact upload": "steps:\n  - uses: actions/upload-artifact@v4\n",
+		"plain test run":  "run: go test ./...\n",
+	}
+	for name, content := range doesNot {
+		if publishesRelease(content) {
+			t.Errorf("%s must not count as publishing a release: %q", name, content)
+		}
 	}
 }
