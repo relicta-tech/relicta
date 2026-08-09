@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/v4/internal/ui"
 	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
@@ -60,16 +62,22 @@ const (
 )
 
 var (
-	approveYes         bool
-	approveEdit        bool
-	approveEditor      string
-	approveInteractive bool
+	approveYes            bool
+	approveOverride       bool
+	approveOverrideReason string
+	approveEdit           bool
+	approveEditor         string
+	approveInteractive    bool
 )
 
 var runApprovalTUI = ui.RunApprovalTUI
 
 func init() {
 	approveCmd.Flags().BoolVarP(&approveYes, "yes", "y", false, "automatically approve without prompting")
+	approveCmd.Flags().BoolVar(&approveOverride, "override-governance", false,
+		"approve despite governance requiring human review; requires --reason and is recorded as an override")
+	approveCmd.Flags().StringVar(&approveOverrideReason, "reason", "",
+		"why governance is being overridden (required with --override-governance)")
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
 	approveCmd.Flags().StringVarP(&approveEditor, "editor", "E", "", "editor to use (default: $EDITOR or vim)")
 	approveCmd.Flags().BoolVarP(&approveInteractive, "interactive", "i", false, "use interactive TUI for approval")
@@ -83,8 +91,20 @@ func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, err
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
 
-	releaseRepo := app.ReleaseRepository()
-	rel, err := releaseRepo.FindLatest(ctx, repoInfo.Path)
+	// Load through the release services' repository, the same one plan wrote with.
+	//
+	// app.ReleaseRepository() is a second implementation of the same aggregate
+	// that reconstructs runs without commits, HEAD or a changeset, so governance
+	// could not evaluate them: `relicta approve --ci` loaded a run reporting
+	// commit_count 0 and current_version 0.0.0, governance failed with "either
+	// commitRange or commits is required", and — because that failure is only a
+	// warning outside strict mode — the release was approved with no governance
+	// applied at all. Consolidating the two is tracked in roady; reading from the
+	// one that has the data is what makes the gate able to run.
+	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+		return nil, fmt.Errorf("failed to initialize release services: %w", err)
+	}
+	rel, err := loadLatestReleaseRun(ctx, app, repoInfo.Path)
 	if err != nil {
 		printError("No release in progress")
 		printInfo("Run 'relicta plan' to start a new release")
@@ -262,11 +282,17 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 		RepoRoot: repoPath,
 		RunID:    rel.ID(),
 		Actor: ports.ActorInfo{
-			Type: "user",
+			Type: approverActorType(),
 			ID:   getApproverName(),
 		},
 		AutoApprove: approveYes,
 		Force:       true, // Force since we've already validated state
+
+		// An override's reason is the audit trail's only record of why a
+		// governance gate was bypassed, so it is marked as such. Without this it
+		// was printed to the terminal and persisted nowhere — the approval looked
+		// like any other.
+		Justification: approvalJustification(),
 	}
 
 	out, err := services.ApproveRelease.Execute(ctx, input)
@@ -290,6 +316,17 @@ func printApproveNextSteps() {
 // runApprove implements the approve command.
 func runApprove(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// An override with no reason is worthless in an audit trail: six months later
+	// the record would say a governance gate was bypassed and not why. Refuse it
+	// up front rather than accept an empty justification.
+	if approveOverride && strings.TrimSpace(approveOverrideReason) == "" {
+		return errors.New("--override-governance requires --reason explaining why " +
+			"the governance gate is being bypassed; it is recorded in the audit trail")
+	}
+	if !approveOverride && strings.TrimSpace(approveOverrideReason) != "" {
+		return errors.New("--reason only applies with --override-governance")
+	}
 
 	if !outputJSON {
 		printTitle("Release Approval")
@@ -410,9 +447,34 @@ func runApprove(cmd *cobra.Command, args []string) error {
 				return nil
 			}
 
-			// Explain why auto-approval isn't available when --yes was passed
-			if approveYes && !govResult.CanAutoApprove {
-				displayAutoApprovalBlocked(govResult)
+			// Governance said a human must look at this. Refuse to self-approve.
+			//
+			// Before this, displayAutoApprovalBlocked printed "Auto-approval not
+			// available" and execution fell through to promptForApproval, which
+			// returns true for --ci and --yes. So a release governance had marked
+			// approval_required with can_auto_approve=false was approved anyway, by
+			// automation, with no human involved — and the audit trail recorded it
+			// as a normal approval attributed to whoever's git identity was
+			// configured. The gate reported itself and did not gate, which is worse
+			// than having no gate at all: a pipeline believes it is governed.
+			//
+			// Interactive runs still prompt, because a human being present is
+			// exactly the condition governance is asking for. Only non-interactive
+			// self-approval is refused.
+			if !govResult.CanAutoApprove && (ciMode || approveYes) {
+				if !approveOverride {
+					if !outputJSON {
+						displayAutoApprovalBlocked(govResult)
+					}
+					return errApprovalRequiresHuman(govResult)
+				}
+
+				// An override is a governance event in its own right, so it is
+				// recorded with its reason rather than passed off as an approval.
+				printWarning(fmt.Sprintf("Governance override: %s", approveOverrideReason))
+				if !outputJSON {
+					printSubtle("  Recorded in the audit trail as an override, not an approval.")
+				}
 			}
 		}
 	}
@@ -1110,4 +1172,55 @@ func runInteractiveApproval(ctx context.Context, app cliApp, rel *release.Releas
 
 	printApproveNextSteps()
 	return nil
+}
+
+// errApprovalRequiresHuman explains that automation may not approve this release
+// and what to do about it.
+//
+// The message lists governance's own reasons rather than a generic refusal,
+// because the operator's next step depends on which of them applies: a risk score
+// over the threshold is a different conversation from a breaking change needing
+// review.
+func errApprovalRequiresHuman(result *governance.EvaluateReleaseOutput) error {
+	var b strings.Builder
+	b.WriteString("governance requires human approval for this release\n")
+
+	if len(result.RequiredActions) > 0 {
+		b.WriteString("\nRequired before release:\n")
+		for _, action := range result.RequiredActions {
+			fmt.Fprintf(&b, "  - %s\n", action.Description)
+		}
+	}
+
+	b.WriteString("\nEither approve it interactively:\n")
+	b.WriteString("  relicta approve\n")
+	b.WriteString("\nor override deliberately, which is recorded in the audit trail:\n")
+	b.WriteString("  relicta approve --override-governance --reason \"...\"\n")
+
+	return errors.New(b.String())
+}
+
+// approvalJustification returns the text recorded with the approval.
+//
+// Only an override produces one today. It is prefixed so a reader of the audit
+// trail can tell a bypass from a normal note, without having to know which flag
+// was passed.
+func approvalJustification() string {
+	if approveOverride && strings.TrimSpace(approveOverrideReason) != "" {
+		return "governance override: " + strings.TrimSpace(approveOverrideReason)
+	}
+	return ""
+}
+
+// approverActorType reports whether a human or automation is approving.
+//
+// It was hardcoded to "user", so an approval made by a pipeline was recorded as a
+// human decision attributed to whatever $USER the runner happened to use. For a
+// tool whose product is the audit trail that is a falsehood in the record: asked
+// later who approved a release, it would name a person who was not involved.
+func approverActorType() domain.ActorType {
+	if ciMode {
+		return domain.ActorCI
+	}
+	return domain.ActorHuman
 }

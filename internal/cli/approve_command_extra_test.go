@@ -145,9 +145,11 @@ func TestRunApproveDryRunAutoApprove(t *testing.T) {
 	ciMode = false
 
 	rel := newNotesReadyRelease(t, "approve-dry")
+	portsRepo := &portsReleaseRepoStub{run: rel}
 	app := testCLIApp{
-		gitRepo:     stubGitRepo{},
-		releaseRepo: testReleaseRepo{latest: rel},
+		gitRepo:         stubGitRepo{},
+		releaseRepo:     testReleaseRepo{latest: rel},
+		releaseServices: &domainrelease.Services{Repository: portsRepo},
 	}
 	withStubContainerApp(t, app)
 
@@ -328,9 +330,11 @@ func TestRunApproveJSONWithoutCIRefusesToPrompt(t *testing.T) {
 	ciMode = false
 
 	rel := newNotesReadyRelease(t, "approve-json-prompt")
+	portsRepo := &portsReleaseRepoStub{run: rel}
 	app := testCLIApp{
-		gitRepo:     stubGitRepo{},
-		releaseRepo: testReleaseRepo{latest: rel},
+		gitRepo:         stubGitRepo{},
+		releaseRepo:     testReleaseRepo{latest: rel},
+		releaseServices: &domainrelease.Services{Repository: portsRepo},
 	}
 	withStubContainerApp(t, app)
 
