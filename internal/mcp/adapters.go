@@ -426,19 +426,47 @@ type EvaluateOutput struct {
 }
 
 // Evaluate executes the CGP evaluation via MCP.
-func (a *Adapter) Evaluate(ctx context.Context, input EvaluateInput) (*EvaluateOutput, error) {
-	if a.governanceSvc == nil {
-		return nil, fmt.Errorf("governance service not configured")
+// loadRunForGovernance resolves a run by ID, preferring the repository that
+// round-trips the changeset. See the note in Evaluate for why the choice matters.
+func (a *Adapter) loadRunForGovernance(ctx context.Context, id domainrelease.RunID) (*domainrelease.ReleaseRun, error) {
+	if a.releaseServices != nil && a.releaseServices.Repository != nil {
+		runs, err := a.releaseServices.Repository.LoadBatch(ctx, a.repoRoot, []domainrelease.RunID{id})
+		if err == nil {
+			if run := runs[id]; run != nil {
+				return run, nil
+			}
+		}
 	}
 
 	if a.releaseRepo == nil {
 		return nil, fmt.Errorf("release repository not configured")
 	}
-
-	// Find the release
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	run, err := a.releaseRepo.FindByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find release: %w", err)
+	}
+	return run, nil
+}
+
+func (a *Adapter) Evaluate(ctx context.Context, input EvaluateInput) (*EvaluateOutput, error) {
+	if a.governanceSvc == nil {
+		return nil, fmt.Errorf("governance service not configured")
+	}
+
+	// Load through the release services' repository when it is available, and
+	// only fall back to releaseRepo otherwise.
+	//
+	// The two are different implementations of the same aggregate with
+	// incompatible on-disk schemas: the services' one is what plan wrote with and
+	// restores the changeset, while releaseRepo looks for it in another place and
+	// rebuilds runs without commits, HEAD or a usable base ref. Governance needs
+	// a commit range, so loading through releaseRepo failed every evaluation with
+	// "either commitRange or commits is required" — the same bug the CLI had
+	// (fixed in the commit that redirected getLatestReleaseForEvaluate).
+	// Consolidating the two is tracked in roady.
+	rel, err := a.loadRunForGovernance(ctx, domainrelease.RunID(input.ReleaseID))
+	if err != nil {
+		return nil, err
 	}
 
 	actor := cgp.Actor{
@@ -653,14 +681,20 @@ type CancelOutput struct {
 
 // Cancel cancels an in-progress release.
 func (a *Adapter) Cancel(ctx context.Context, input CancelInput) (*CancelOutput, error) {
-	if a.releaseRepo == nil {
-		return nil, fmt.Errorf("release repository not configured")
-	}
-
-	// Find the release
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	// Load through the release services' repository when it is available, and
+	// only fall back to releaseRepo otherwise.
+	//
+	// The two are different implementations of the same aggregate with
+	// incompatible on-disk schemas: the services' one is what plan wrote with and
+	// restores the changeset, while releaseRepo looks for it in another place and
+	// rebuilds runs without commits, HEAD or a usable base ref. Governance needs
+	// a commit range, so loading through releaseRepo failed every evaluation with
+	// "either commitRange or commits is required" — the same bug the CLI had
+	// (fixed in the commit that redirected getLatestReleaseForEvaluate).
+	// Consolidating the two is tracked in roady.
+	rel, err := a.loadRunForGovernance(ctx, domainrelease.RunID(input.ReleaseID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to find release: %w", err)
+		return nil, err
 	}
 
 	previousState := rel.State().String()
