@@ -131,13 +131,17 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get release history: %w", err)
 	}
 
+	// The empty case has to answer in the caller's language too. Printing prose
+	// here meant `relicta history --json` emitted "No release history found for
+	// <repo>" on stdout, so a consumer could not tell an empty history from a
+	// broken command — both were unparseable.
+	if outputJSON {
+		return printJSONOutput(history)
+	}
+
 	if len(history) == 0 {
 		fmt.Println("No release history found for", repo)
 		return nil
-	}
-
-	if outputJSON {
-		return printJSONOutput(history)
 	}
 
 	fmt.Printf("Release History for %s\n", repo)
