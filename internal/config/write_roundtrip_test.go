@@ -241,3 +241,15 @@ func TestGeneratedConfigContainsGovernance(t *testing.T) {
 		}
 	}
 }
+
+// ADR-011 splits the governance default deliberately: `relicta init` writes
+// enabled: true so new projects are governed, while the schema default stays
+// false so upgrading an existing project changes nothing. Both halves matter, and
+// a well-meaning "make the default consistent" change would break one of them.
+func TestGovernanceSchemaDefaultStaysOff(t *testing.T) {
+	if DefaultConfig().Governance.Enabled {
+		t.Error("the schema default must stay false: flipping it would enable the " +
+			"approval gate for every existing project on upgrade, which ADR-011 " +
+			"deliberately avoids. `relicta init` sets true for new projects instead.")
+	}
+}

@@ -790,7 +790,11 @@ func DefaultConfig() *Config {
 			},
 		},
 		Governance: GovernanceConfig{
-			Enabled:                 false, // Disabled by default, opt-in for CGP
+			// False here, but `relicta init` writes true (ADR-011): new projects are
+			// governed, existing ones are unchanged by an upgrade. Reading a
+			// generated config tells the truth about that project, because the value
+			// is written explicitly rather than inherited from here.
+			Enabled:                 false,
 			StrictMode:              false, // Advisory mode by default
 			AutoApproveThreshold:    0.3,   // Auto-approve changes with risk < 30%
 			MaxAutoApproveRisk:      0.5,   // Never auto-approve risk > 50%

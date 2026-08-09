@@ -637,6 +637,18 @@ func displayGovernanceResult(result *governance.EvaluateReleaseOutput) {
 	fmt.Print(ui.RenderRisk(result.RiskScore, factors))
 
 	fmt.Printf("  Severity:       %s\n", result.Severity)
+
+	// Name the strongest factor when it is materially worse than the aggregate.
+	//
+	// The overall score is a weighted blend, so a breaking authentication change
+	// showed "Risk 18.0% — LOW" while carrying a security_impact factor at 50%.
+	// The arithmetic is fine and the reading is wrong: a person scanning that line
+	// concludes the change is low risk. The aggregate drives the decision and stays
+	// where it is; this says which factor is doing the work.
+	if top, ok := dominantRiskFactor(result.RiskFactors, result.RiskScore); ok {
+		fmt.Printf("  Driven by:      %s at %.0f%% (%s)\n",
+			top.Category, top.Score*100, top.Description)
+	}
 	fmt.Printf("  Decision:       %s\n", result.Decision)
 	fmt.Printf("  Auto-Approve:   %v\n", result.CanAutoApprove)
 
@@ -1223,4 +1235,24 @@ func approverActorType() domain.ActorType {
 		return domain.ActorCI
 	}
 	return domain.ActorHuman
+}
+
+// dominantRiskFactorThreshold is how far above the aggregate a single factor has
+// to sit before it is called out. Set so a factor merely in line with the overall
+// score stays quiet, and one that the blend has flattened does not.
+const dominantRiskFactorThreshold = 0.2
+
+// dominantRiskFactor returns the highest-scoring factor when it exceeds the
+// aggregate by enough to be worth naming, and reports whether there is one.
+func dominantRiskFactor(factors []cgp.RiskFactor, aggregate float64) (cgp.RiskFactor, bool) {
+	var top cgp.RiskFactor
+	for _, f := range factors {
+		if f.Score > top.Score {
+			top = f
+		}
+	}
+	if top.Score-aggregate < dominantRiskFactorThreshold {
+		return cgp.RiskFactor{}, false
+	}
+	return top, true
 }

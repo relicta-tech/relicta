@@ -115,3 +115,45 @@ func TestApproverActorType_DistinguishesCIFromHuman(t *testing.T) {
 		t.Errorf("an interactive approval must be recorded as %q, got %q", domain.ActorHuman, got)
 	}
 }
+
+// A blended score can hide the factor that matters. A breaking authentication
+// change showed "Risk 18.0% — LOW" while carrying a security_impact factor at
+// 50%: the arithmetic is right and the reading is wrong, because a person
+// scanning that line concludes the change is low risk.
+//
+// The aggregate still drives the decision. These cases cover only whether the
+// strongest factor gets named alongside it.
+func TestDominantRiskFactor(t *testing.T) {
+	security := cgp.RiskFactor{Category: "security_impact", Description: "1 security-related changes", Score: 0.5}
+	blast := cgp.RiskFactor{Category: "blast_radius", Description: "1 files", Score: 0.1}
+	trust := cgp.RiskFactor{Category: "actor_trust", Description: "trusted", Score: 0.1}
+
+	t.Run("names a factor the blend flattened", func(t *testing.T) {
+		got, ok := dominantRiskFactor([]cgp.RiskFactor{blast, trust, security}, 0.18)
+		if !ok {
+			t.Fatal("a 50% factor under an 18% aggregate must be named")
+		}
+		if got.Category != "security_impact" {
+			t.Errorf("named %q; the highest factor is security_impact", got.Category)
+		}
+	})
+
+	t.Run("stays quiet when factors match the aggregate", func(t *testing.T) {
+		if _, ok := dominantRiskFactor([]cgp.RiskFactor{blast, trust}, 0.1); ok {
+			t.Error("no factor exceeds the aggregate, so there is nothing to add")
+		}
+	})
+
+	t.Run("stays quiet with no factors", func(t *testing.T) {
+		if _, ok := dominantRiskFactor(nil, 0.0); ok {
+			t.Error("nothing to report when there are no factors")
+		}
+	})
+
+	// A high aggregate already tells the story; repeating it adds noise.
+	t.Run("stays quiet when the aggregate is already high", func(t *testing.T) {
+		if _, ok := dominantRiskFactor([]cgp.RiskFactor{security}, 0.45); ok {
+			t.Error("a 50% factor under a 45% aggregate is not a hidden risk")
+		}
+	})
+}
