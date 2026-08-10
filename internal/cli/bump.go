@@ -196,15 +196,30 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		spinner.Start()
 	}
 
-	calcInput := buildCalculateVersionInput(bumpType, auto)
-	calcOutput, err := app.CalculateVersion().Execute(ctx, calcInput)
+	// Apply the version `plan` recorded, when there is one to apply. bump used to
+	// answer this question itself and force the result onto the run, which is how
+	// the two came to disagree — see plannedVersionToApply.
+	var calcOutput *versioning.CalculateVersionOutput
+	if planned := plannedVersionToApply(ctx, app,
+		bumpRequestIsExplicit(bumpLevel, bumpPrerelease, bumpBuild, bumpForce, bumpChannel)); planned != nil {
+		calcOutput = planned.asCalculateOutput()
+		if spinner != nil {
+			spinner.Stop()
+		}
+		if !outputJSON {
+			printInfo(fmt.Sprintf("Applying the planned version from %s", shortenID(string(planned.RunID))))
+		}
+	} else {
+		calcInput := buildCalculateVersionInput(bumpType, auto)
+		calcOutput, err = app.CalculateVersion().Execute(ctx, calcInput)
 
-	if spinner != nil {
-		spinner.Stop()
-	}
+		if spinner != nil {
+			spinner.Stop()
+		}
 
-	if err != nil {
-		return fmt.Errorf("failed to calculate version: %w", err)
+		if err != nil {
+			return fmt.Errorf("failed to calculate version: %w", err)
+		}
 	}
 
 	// Apply build metadata if provided
