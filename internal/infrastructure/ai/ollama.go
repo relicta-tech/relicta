@@ -1,5 +1,3 @@
-//go:build relicta_ollama || relicta_openai || relicta_all_ai || !relicta_minimal
-
 // Package ai provides AI-powered content generation for Relicta.
 // Ollama uses the OpenAI-compatible API, so it shares the openai build constraint.
 package ai

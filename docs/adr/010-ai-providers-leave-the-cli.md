@@ -18,9 +18,14 @@ This ADR decides that.
 
 ### Build tags are not a removal mechanism
 
-`internal/infrastructure/ai` is guarded by build tags, so a `relicta_minimal`
-binary links none of it. That is worth having, and ADR-009's companion work fixed
-the tags so they are testable. But it does not remove anything from the supply
+**Superseded 2026-08-10: the AI build tags have been removed. Relicta ships one
+binary with every provider compiled in.** The measurements below are why that cost
+nothing worth keeping, and they are the reason "compile it out" was never the
+answer to "remove it". The rest of this ADR — the SDKs leaving the module — is
+unaffected.
+
+`internal/infrastructure/ai` was guarded by build tags, so a `relicta_minimal`
+binary linked none of it. But that did not remove anything from the supply
 chain:
 
 | | Result |
@@ -29,13 +34,20 @@ chain:
 | `sbom-source.cdx.json` | all three SDKs present |
 | `sbom-binary.cdx.json` | all three SDKs present |
 
-A minimal build still declares `go-openai`, `go-anthropic` and `genai`, still
-lists them in both SBOMs, still receives Dependabot PRs for them, and still fails
-CI on their CVEs. The measured effect of the tags is 54 fewer linked packages and
+A minimal build still declared `go-openai`, `go-anthropic` and `genai`, still
+listed them in both SBOMs, still received Dependabot PRs for them, and still failed
+CI on their CVEs. The measured effect of the tags was 54 fewer linked packages and
 4 MB of binary — not a smaller dependency surface.
 
 So "compile it out" was never the answer to "remove it". The code has to leave
-the module.
+the module, which is what the decision below says.
+
+Keeping the tags for 4 MB was not worth their cost: 11 files carrying build
+constraints, a CI step building and testing four combinations, and — discovered
+when they were removed — a set of compile-time interface assertions that
+`//go:build relicta_anthropic && relicta_openai` excluded from every configuration,
+so they had never been checked once despite a comment claiming the default build
+exercised them. One binary is simpler and, in that respect, better tested.
 
 ### What the provider code is actually for
 
