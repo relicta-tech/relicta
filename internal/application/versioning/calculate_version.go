@@ -58,7 +58,9 @@ func (uc *CalculateVersionUseCase) Execute(ctx context.Context, input CalculateV
 	versionDiscovery := sourcecontrol.NewVersionDiscovery(tagPrefix)
 	currentVersion, err := versionDiscovery.DiscoverCurrentVersion(ctx, uc.gitRepo)
 	if err != nil {
-		currentVersion = version.Initial
+		// Same reasoning as DiscoverCurrentVersion's own no-tag case: a failure to
+		// discover a released version is not evidence that 0.1.0 was released.
+		currentVersion = version.Zero
 	}
 
 	var bumpType version.BumpType

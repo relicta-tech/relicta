@@ -190,7 +190,16 @@ func (vd *VersionDiscovery) DiscoverCurrentVersion(ctx context.Context, repo Git
 	}
 
 	if tag == nil || tag.Version() == nil {
-		return version.Initial, nil
+		// Zero, not Initial. Initial is 0.1.0 — "the first version to publish" — and
+		// returning it here answered "what has shipped?" with a version that has not.
+		// `relicta bump` then bumped from 0.1.0 and produced 0.2.0 for a first
+		// release, while `relicta plan` reported 0.0.0 and predicted 0.1.0 for the
+		// same repository: the plan output could not be read as a preview of the
+		// bump, and 0.1.0 was never actually produced.
+		//
+		// Zero means nothing has shipped, which is the truth this function is asked
+		// for. A minor bump from it lands on 0.1.0, which is what plan already says.
+		return version.Zero, nil
 	}
 
 	return *tag.Version(), nil

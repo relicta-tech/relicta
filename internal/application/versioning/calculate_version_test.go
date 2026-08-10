@@ -171,6 +171,18 @@ func createTestCommit(hash, message string) *sourcecontrol.Commit {
 	)
 }
 
+// These expectations changed when "no release yet" stopped meaning 0.1.0.
+//
+// DiscoverCurrentVersion returned version.Initial (0.1.0) when a repository had no
+// tags, so a first minor bump produced 0.2.0 while `relicta plan` predicted 0.1.0
+// for the same repository — the plan was not a preview of the bump, and 0.1.0 was
+// never produced. Zero (0.0.0) is now the answer to "what has shipped", and these
+// values follow from it.
+//
+// Note the fixes-only case: 0.0.0 + patch is 0.0.1. That is semver-legal and it
+// matches what plan reports. If a first release should never be below 0.1.0, that
+// floor belongs in the bump calculation where it can be seen, not in
+// current-version discovery where it hid.
 func TestCalculateVersionUseCase_Execute(t *testing.T) {
 	ctx := context.Background()
 
@@ -199,7 +211,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.2.0", // version.Initial is 0.1.0, minor bump -> 0.2.0
+			wantVersion:    "0.1.0", // no release yet is 0.0.0, minor bump -> 0.1.0
 			wantBumpType:   version.BumpMinor,
 			wantAutoDetect: true,
 		},
@@ -233,7 +245,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.1.1", // version.Initial is 0.1.0, patch bump -> 0.1.1
+			wantVersion:    "0.0.1", // no release yet is 0.0.0, patch bump -> 0.0.1
 			wantBumpType:   version.BumpPatch,
 			wantAutoDetect: true,
 		},
@@ -263,7 +275,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.2.0", // version.Initial is 0.1.0, minor bump -> 0.2.0
+			wantVersion:    "0.1.0", // no release yet is 0.0.0, minor bump -> 0.1.0
 			wantBumpType:   version.BumpMinor,
 			wantAutoDetect: false,
 		},
@@ -278,7 +290,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.1.1", // version.Initial is 0.1.0, patch bump -> 0.1.1
+			wantVersion:    "0.0.1", // no release yet is 0.0.0, patch bump -> 0.0.1
 			wantBumpType:   version.BumpPatch,
 			wantAutoDetect: false,
 		},
@@ -320,7 +332,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.1.1", // version.Initial is 0.1.0, patch bump -> 0.1.1
+			wantVersion:    "0.0.1", // no release yet is 0.0.0, patch bump -> 0.0.1
 			wantBumpType:   version.BumpPatch,
 			wantAutoDetect: false,
 		},
@@ -336,7 +348,7 @@ func TestCalculateVersionUseCase_Execute(t *testing.T) {
 			},
 			versionCalc:    &mockVersionCalculator{},
 			wantErr:        false,
-			wantVersion:    "0.2.0-alpha.1", // version.Initial is 0.1.0, minor bump -> 0.2.0
+			wantVersion:    "0.1.0-alpha.1", // no release yet is 0.0.0, minor bump -> 0.1.0
 			wantBumpType:   version.BumpMinor,
 			wantAutoDetect: false,
 		},
