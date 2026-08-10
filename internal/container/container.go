@@ -56,7 +56,7 @@ type App struct {
 
 	// Infrastructure layer
 	gitAdapter         *git.Adapter
-	releaseRepo        *persistence.FileReleaseRepository
+	releaseRepo        domainrelease.Repository
 	baseEventPublisher *persistence.InMemoryEventPublisher
 	eventPublisher     domainrelease.EventPublisher // Composed publisher chain
 	unitOfWorkFactory  *persistence.FileUnitOfWorkFactory
@@ -177,14 +177,19 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	//
 	// Falling back to the relative path keeps this working outside a repository,
 	// where commands that do not need a release store still construct the container.
-	repoPath := ".relicta/releases"
-	if root, rootErr := c.gitService.GetRepositoryRoot(ctx); rootErr == nil && root != "" {
-		repoPath = filepath.Join(root, ".relicta", "releases")
+	// One store. The bridge exposes the release services' repository through the
+	// interface the CLI commands already use, so `cancel`, `clean`, `rollback`,
+	// `bump` and `approve` read the same runs `plan` wrote — see
+	// release_repo_bridge.go for why there were two.
+	repoRoot, rootErr := c.gitService.GetRepositoryRoot(ctx)
+	if rootErr != nil || repoRoot == "" {
+		// Outside a repository. Commands that do not need a release store still
+		// construct the container, and the bridge's methods will fail with a clear
+		// error if one is reached, rather than reading some directory relative to
+		// the caller's cwd.
+		repoRoot = ""
 	}
-	c.releaseRepo, err = persistence.NewFileReleaseRepository(repoPath)
-	if err != nil {
-		return errors.StateWrap(err, "initInfrastructure", "failed to initialize release repository")
-	}
+	c.releaseRepo = newReleaseRepoBridge(repoRoot)
 
 	// Initialize event publisher chain:
 	// OutcomeTracker → WebhookPublisher → InMemoryEventPublisher

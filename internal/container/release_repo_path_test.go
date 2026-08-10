@@ -31,21 +31,31 @@ func TestReleaseRepositoryPathIsAnchoredToTheRepoRoot(t *testing.T) {
 	}
 	s := string(source)
 
-	// The root has to come from git, not from the caller's cwd.
+	// The root still has to come from git rather than the caller's cwd. The
+	// mechanism changed when the two stores were consolidated — the bridge is
+	// handed the repository root and the underlying store appends
+	// .relicta/releases itself — but the property is the same one.
 	if !strings.Contains(s, "c.gitService.GetRepositoryRoot(ctx)") {
-		t.Error("the release repository path must be derived from the repository root; " +
-			"without it, running from a subdirectory addresses a different store and " +
-			"creates a stray .relicta/releases there")
+		t.Error("the release store must be anchored to the repository root; without it, " +
+			"running from a subdirectory addresses a different store and creates a " +
+			"stray .relicta/releases there")
 	}
 
-	// And it has to be joined onto that root.
-	if !strings.Contains(s, `filepath.Join(root, ".relicta", "releases")`) {
-		t.Error("expected the repository root to be joined with .relicta/releases")
+	if !strings.Contains(s, "newReleaseRepoBridge(repoRoot)") {
+		t.Error("expected the release store to be the bridge over the services " +
+			"repository, constructed with the resolved root")
+	}
+
+	// The old construction addressed the store by a path relative to the process
+	// working directory. Its absence is the fix.
+	if strings.Contains(s, `persistence.NewFileReleaseRepository(`) {
+		t.Error("container.go still constructs the second release store; the point of " +
+			"the bridge is that there is one")
 	}
 
 	// Deliberately not counting occurrences of the literal ".relicta/releases":
 	// the first version of this test did, and failed on correct code because the
-	// explanatory comment above the fix contains the same string. Counting text
-	// that appears in prose is a test that breaks when someone documents the
-	// thing it guards.
+	// explanatory comment above the fix contains that string. Counting text that
+	// appears in prose is a test that breaks when someone documents the thing it
+	// guards.
 }
