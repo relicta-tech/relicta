@@ -19,10 +19,7 @@ func TestFileUnitOfWork_BasicOperations(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	eventPublisher := NewInMemoryEventPublisher()
 	factory := NewFileUnitOfWorkFactory(baseRepo, eventPublisher)
@@ -178,10 +175,7 @@ func TestFileUnitOfWork_EventCollection(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	eventPublisher := NewInMemoryEventPublisher()
 	factory := NewFileUnitOfWorkFactory(baseRepo, eventPublisher)
@@ -220,11 +214,7 @@ func TestFileUnitOfWork_EventCollection(t *testing.T) {
 }
 
 func TestFileUnitOfWork_FindByStateActiveAndSpec(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, NewInMemoryEventPublisher())
 	ctx := context.Background()
@@ -304,10 +294,7 @@ func TestFileUnitOfWork_IndependentTransactions(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -363,10 +350,7 @@ func TestFileUnitOfWork_ContextCancellation(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 
@@ -412,10 +396,7 @@ func TestFileUnitOfWork_FindLatest(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -465,10 +446,7 @@ func TestFileUnitOfWork_FindByState(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -508,10 +486,7 @@ func TestFileUnitOfWork_FindActive(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -550,10 +525,7 @@ func TestFileUnitOfWork_AddEvents(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	eventPublisher := NewInMemoryEventPublisher()
 	factory := NewFileUnitOfWorkFactory(baseRepo, eventPublisher)
@@ -593,11 +565,7 @@ func TestFileUnitOfWork_AddEvents(t *testing.T) {
 }
 
 func TestFileUnitOfWork_List(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -635,11 +603,7 @@ func TestFileUnitOfWork_List(t *testing.T) {
 }
 
 func TestFileUnitOfWork_SaveOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -649,18 +613,14 @@ func TestFileUnitOfWork_SaveOnInactiveUoW(t *testing.T) {
 
 	repo := uow.ReleaseRepository()
 	rel := release.NewReleaseRunForTest("inactive-save", "main", "/repo")
-	err = repo.Save(ctx, rel)
+	err := repo.Save(ctx, rel)
 	if err == nil {
 		t.Error("expected error saving on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_DeleteOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -669,18 +629,14 @@ func TestFileUnitOfWork_DeleteOnInactiveUoW(t *testing.T) {
 	_ = uow.Commit(ctx)
 
 	repo := uow.ReleaseRepository()
-	err = repo.Delete(ctx, "any-id")
+	err := repo.Delete(ctx, "any-id")
 	if err == nil {
 		t.Error("expected error deleting on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_FindBySpecificationOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -689,18 +645,14 @@ func TestFileUnitOfWork_FindBySpecificationOnInactiveUoW(t *testing.T) {
 	_ = uow.Commit(ctx)
 
 	repo := uow.ReleaseRepository()
-	_, err = repo.FindBySpecification(ctx, release.ByRepositoryPath("/repo"))
+	_, err := repo.FindBySpecification(ctx, release.ByRepositoryPath("/repo"))
 	if err == nil {
 		t.Error("expected error on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_FindByStateOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -709,18 +661,14 @@ func TestFileUnitOfWork_FindByStateOnInactiveUoW(t *testing.T) {
 	_ = uow.Commit(ctx)
 
 	repo := uow.ReleaseRepository()
-	_, err = repo.FindByState(ctx, release.StateDraft)
+	_, err := repo.FindByState(ctx, release.StateDraft)
 	if err == nil {
 		t.Error("expected error on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_FindActiveOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -729,18 +677,14 @@ func TestFileUnitOfWork_FindActiveOnInactiveUoW(t *testing.T) {
 	_ = uow.Commit(ctx)
 
 	repo := uow.ReleaseRepository()
-	_, err = repo.FindActive(ctx)
+	_, err := repo.FindActive(ctx)
 	if err == nil {
 		t.Error("expected error on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_FindLatestOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -749,18 +693,14 @@ func TestFileUnitOfWork_FindLatestOnInactiveUoW(t *testing.T) {
 	_ = uow.Commit(ctx)
 
 	repo := uow.ReleaseRepository()
-	_, err = repo.FindLatest(ctx, "/repo")
+	_, err := repo.FindLatest(ctx, "/repo")
 	if err == nil {
 		t.Error("expected error on inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_CommitOnInactiveUoW(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
@@ -768,18 +708,14 @@ func TestFileUnitOfWork_CommitOnInactiveUoW(t *testing.T) {
 	uow, _ := factory.Begin(ctx)
 	_ = uow.Commit(ctx)
 
-	err = uow.Commit(ctx)
+	err := uow.Commit(ctx)
 	if err == nil {
 		t.Error("expected error committing inactive uow")
 	}
 }
 
 func TestFileUnitOfWork_FindLatestPendingNewerThanBase(t *testing.T) {
-	tempDir := t.TempDir()
-	baseRepo, err := NewFileReleaseRepository(tempDir)
-	if err != nil {
-		t.Fatalf("failed to create base repo: %v", err)
-	}
+	baseRepo := newMemReleaseRepo()
 
 	factory := NewFileUnitOfWorkFactory(baseRepo, nil)
 	ctx := context.Background()
