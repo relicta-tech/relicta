@@ -147,20 +147,30 @@ func TestCalculateReleaseStats(t *testing.T) {
 	}
 }
 
-// TestGetRepositoryName_ResolvesRemote covers the case the previous tests
-// missed: that a real checkout with a real remote actually resolves. Every
-// existing case asserted the empty result, so a getRepositoryName that never
-// resolved anything passed the whole suite.
+// TestGetRepositoryName_ResolvesRemote covers the case the earlier tests missed:
+// that a real checkout with a real remote actually resolves. Every case before it
+// asserted the empty result, so a getRepositoryName that never resolved anything
+// passed the whole suite.
+//
+// It then pinned the wrong answer. It asserted owner-from-the-remote joined to
+// the checkout directory's name, which is what the function did — and which
+// belongs to no repository: a clone of github.com/owner/repo into /tmp/001 was
+// identified as "owner/001". Governance outcomes were recorded under the checkout
+// path meanwhile, so `relicta history` looked up a third string again and was
+// empty in every repository.
+//
+// The identity is now derived from the remote alone, so it is the same wherever
+// the repository is checked out.
 func TestGetRepositoryName_ResolvesRemote(t *testing.T) {
 	tests := []struct {
 		name      string
 		remoteURL string
-		wantOwner string
+		want      string
 	}{
-		{"https with .git suffix", "https://github.com/owner/repo.git", "owner"},
-		{"https without suffix", "https://github.com/owner/repo", "owner"},
-		{"ssh scp-like", "git@github.com:owner/repo.git", "owner"},
-		{"gitlab https", "https://gitlab.com/org/project.git", "org"},
+		{"https with .git suffix", "https://github.com/owner/repo.git", "owner/repo"},
+		{"https without suffix", "https://github.com/owner/repo", "owner/repo"},
+		{"ssh scp-like", "git@github.com:owner/repo.git", "owner/repo"},
+		{"gitlab https", "https://gitlab.com/org/project.git", "org/project"},
 	}
 
 	for _, tt := range tests {
@@ -178,11 +188,11 @@ func TestGetRepositoryName_ResolvesRemote(t *testing.T) {
 
 			got := getRepositoryName(context.Background())
 
-			// Name comes from the repository root directory, owner from the
-			// remote URL, matching how plan and health resolve it.
-			want := tt.wantOwner + "/" + filepath.Base(repoDir)
-			if got != want {
-				t.Errorf("getRepositoryName() = %q, want %q", got, want)
+			// Deliberately independent of repoDir: the identity must not change with
+			// the checkout location, or a second clone and a CI runner each start with
+			// no governance history while the store looks healthy.
+			if got != tt.want {
+				t.Errorf("getRepositoryName() = %q, want %q", got, tt.want)
 			}
 		})
 	}

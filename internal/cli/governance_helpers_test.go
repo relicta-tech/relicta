@@ -112,7 +112,13 @@ func TestEvaluateGovernanceForPublishError(t *testing.T) {
 	}
 }
 
-func TestRecordReleaseOutcomeAndPublishOutcome(t *testing.T) {
+// Approval no longer records a release outcome, so only the publish path does.
+//
+// The removed call recorded a successful release at approval time, alongside the
+// one publish records — so a single release appeared twice in `relicta history`,
+// and a change approved but never published counted as a successful release in the
+// data calibration and reputation are built from.
+func TestRecordPublishOutcome(t *testing.T) {
 	origCfg := cfg
 	defer func() { cfg = origCfg }()
 	cfg = config.DefaultConfig()
@@ -132,6 +138,5 @@ func TestRecordReleaseOutcomeAndPublishOutcome(t *testing.T) {
 		t.Fatalf("setup governance failed: %v", err)
 	}
 
-	recordReleaseOutcome(ctx, app, rel, govResult, true)
 	recordPublishOutcome(ctx, app, rel, govResult, true, 0)
 }

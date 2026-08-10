@@ -292,9 +292,12 @@ func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.
 	actor := createCGPActor()
 
 	input := governance.EvaluateReleaseInput{
-		Release:        rel,
-		Actor:          actor,
-		Repository:     repoInfo.Path,
+		Release: rel,
+		Actor:   actor,
+		// This one reads history as well as evaluating, so keying it by the checkout
+		// path meant it asked for the history of a directory rather than of the
+		// repository — and found none, whatever had been recorded.
+		Repository:     repoInfo.GovernanceID(),
 		IncludeHistory: cfg.Governance.MemoryEnabled,
 	}
 
@@ -340,8 +343,12 @@ func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.ReleaseR
 	}
 
 	input := governance.RecordOutcomeInput{
-		ReleaseID:       rel.ID(),
-		Repository:      repoInfo.Path,
+		ReleaseID: rel.ID(),
+		// The canonical governance identity, not the checkout path. Recording under
+		// the path meant the outcome was invisible to every reader that asked by
+		// name or remote — `relicta history` was empty in every repository, and
+		// earned trust never found the history it escalates on.
+		Repository:      repoInfo.GovernanceID(),
 		Version:         rel.Summary().VersionNext,
 		Actor:           actor,
 		RiskScore:       riskScore,
