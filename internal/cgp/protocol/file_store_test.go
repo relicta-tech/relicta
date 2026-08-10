@@ -230,3 +230,25 @@ func TestCorruptRecordIsNotReportedAsMissing(t *testing.T) {
 func TestFileStoreSatisfiesProposalStore(t *testing.T) {
 	var _ ProposalStore = NewFileProposalStore(t.TempDir())
 }
+
+// decisionFor and authorizationFor build the sibling records for a proposal.
+func decisionFor(proposalID string) *cgpsdk.GovernanceDecision {
+	return &cgpsdk.GovernanceDecision{
+		CGPVersion: cgpsdk.ProtocolVersion,
+		Type:       cgpsdk.TypeGovernanceDecision,
+		ID:         "dec_" + proposalID,
+		ProposalID: proposalID,
+		Decision:   "approved",
+		RiskScore:  0.1,
+	}
+}
+
+func authorizationFor(proposalID string) *cgpsdk.ExecutionAuthorization {
+	return &cgpsdk.ExecutionAuthorization{
+		CGPVersion: cgpsdk.ProtocolVersion,
+		Type:       cgpsdk.TypeExecutionAuthorization,
+		ID:         "auth_" + proposalID,
+		ProposalID: proposalID,
+		DecisionID: "dec_" + proposalID,
+	}
+}
