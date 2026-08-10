@@ -20,7 +20,10 @@ func NewCompiler(file *PolicyFile) *Compiler {
 // Compile converts the AST to a Policy.
 func (c *Compiler) Compile(name string) (*policy.Policy, error) {
 	p := policy.NewPolicy(name)
-	p.Description = "Policy compiled from DSL"
+	// Left empty when the file declares none, rather than filled with a constant.
+	// An absent description reads as absent; "Policy compiled from DSL" reads as an
+	// answer and is not one.
+	p.Description = c.file.Description
 
 	// Compile defaults
 	if c.file.Defaults != nil {

@@ -61,9 +61,23 @@ For full setup and run instructions, see [Cognitive Backends](cognitive-backends
 
 ### Create Your First Policy
 
-Create `.relicta/policies/default.policy`:
+Let relicta write one, so you start from working DSL rather than a blank file:
+
+```bash
+relicta policy init            # writes a basic risk-based policy, already active
+relicta policy init --list     # other starting points included in the binary
+relicta policy list            # confirm it loaded and see its rules
+```
+
+The starters ship inside the binary, so this works on any machine that has relicta
+installed — no checkout required. Read them before editing; they are the shortest
+introduction to the DSL.
+
+Or write one by hand — `.relicta/policies/default.policy`:
 
 ```
+description = "What this policy is for"
+
 rule "require-approval-for-major" {
     description = "Major versions need human approval"
 
@@ -91,6 +105,22 @@ relicta evaluate
 
 Policies are written in Relicta's declarative DSL with `rule` blocks containing `when` conditions and `then` actions.
 
+### File Structure
+
+A policy file may declare what it is for, followed by its rules and defaults:
+
+```
+description = "Governance for regulated environments"   # optional
+
+rule "..." { ... }
+
+defaults { ... }
+```
+
+The file-level `description` is what `relicta policy list` shows for the policy, and
+what an auditor reads first. It is optional, and separate from the `description` a
+rule gives for itself.
+
 ### Rule Structure
 
 ```
@@ -110,6 +140,13 @@ rule "rule-name" {
 
 ### Available Conditions
 
+**`relicta policy fields` prints this list from the evaluator itself.** Prefer it over
+this table, which can fall behind. A condition on a field the evaluator does not
+provide makes its rule silently unmatchable, so `relicta policy validate` reports
+any it finds and `--strict` turns that into a failure.
+
+Top level:
+
 | Condition | Type | Description |
 |-----------|------|-------------|
 | `risk_score` | float | Overall risk score (0.0 - 1.0) |
@@ -118,11 +155,39 @@ rule "rule-name" {
 | `commit_count` | int | Number of commits in release |
 | `files_changed` | int | Number of files modified |
 | `lines_changed` | int | Lines added + removed |
-| `scope` | string | Primary scope from commits |
-| `actor_type` | string | "human", "agent", "ci" |
+| `actor_type` | string | "human", "agent", "ci", "system" |
 | `actor_id` | string | Actor identifier |
 | `day_of_week` | int | 0=Sunday, 1=Monday, ... 6=Saturday |
 | `hour` | int | Hour of day (0-23) |
+
+Grouped contexts — note these are camelCase:
+
+| Condition | Type | Description |
+|-----------|------|-------------|
+| `risk.score` | float | Same value as `risk_score` |
+| `change.breaking` / `.security` / `.features` / `.fixes` / `.dependencies` / `.other` | int | Commit counts by category |
+| `change.total` | int | All categorized commits |
+| `change.hasAPIChange` | bool | True if an API change was detected |
+| `scope.repository` / `.branch` / `.commitRange` | string | Where the release comes from |
+| `scope.files` | list | Paths of changed files — use with `contains` |
+| `scope.fileCount` | int | How many files changed |
+| `blastRadius.score` / `.filesChanged` / `.linesChanged` | number | Blast radius metrics |
+| `intent.summary` / `.suggestedBump` | string | The proposer's stated intent |
+| `intent.hasBreaking` | bool | Intent declares breaking changes |
+| `intent.confidence` | float | Confidence in the intent |
+| `actor.kind` / `.id` / `.name` | string | Who is releasing |
+| `actor.teams` / `.roles` | list | Team and role names — use with `contains` |
+| `actor.canApprove` / `.canPublish` / `.isTeamLead` | bool | Permissions from team configuration |
+| `time.hour` / `.dayOfMonth` / `.month` | int | Clock and calendar |
+| `time.weekday` / `.monthName` | string | Capitalized, e.g. "Friday" |
+| `time.weekdayNum` | int | 0=Sunday … 6=Saturday |
+| `time.isBusinessHours` / `.isWeekend` / `.isEndOfWeek` / `.isEndOfMonth` / `.isEndOfQuarter` | bool | Release-window checks |
+| `time.hoursUntilEOD` | number | Hours until end of the business day |
+| `time.freeze.active` / `.isSoft` / `.isHard` | bool | Whether a freeze period applies now |
+| `time.freeze.name` / `.reason` / `.severity` | string | Which freeze applies |
+| `team.teamCount` / `.roleCount` | int | Size of the team configuration |
+| `team.canApprove` / `.canPublish` / `.isTeamLead` | bool | This actor's permissions |
+| `team.teams.<name>.*` / `team.roles.<name>.*` | — | Your configured teams and roles |
 
 ### Comparison Operators
 
@@ -133,7 +198,25 @@ risk_score < 0.3        # Less than
 risk_score <= 0.3       # Less than or equal
 bump_type == "major"    # Equal
 actor_type != "ci"      # Not equal
+
+scope.files contains "terraform/"   # Substring; on a list, matches any element
+intent.summary matches "^hotfix"    # Regular expression
 ```
+
+Conditions combine with `AND`, `OR` and `NOT`:
+
+```
+when {
+  change.breaking > 0 OR risk.score > 0.7
+}
+
+when {
+  time.weekday == "Friday" AND time.hour >= 15
+}
+```
+
+Within a rule, conditions on separate lines are `AND`-ed. Each side of an `OR` must
+hold in full, so `a AND b OR c` matches when both `a` and `b` hold, or when `c` does.
 
 ### Available Actions
 
@@ -242,6 +325,13 @@ relicta policy validate --file .relicta/policies/security.policy
 
 # Validate all policies in directory
 relicta policy validate --dir .relicta/policies
+
+# List the fields a condition can test, straight from the evaluator
+relicta policy fields
+
+# Fail if any condition names a field the evaluator does not provide, which would
+# make its rule silently unmatchable. Use this in CI.
+relicta policy validate --strict
 
 # List all loaded policies
 relicta policy list

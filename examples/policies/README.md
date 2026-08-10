@@ -1,19 +1,34 @@
 # CGP Policy Examples
 
-Example policies for the Change Governance Protocol (CGP). Copy these to `.relicta/policies/` to activate.
+Example policies for the Change Governance Protocol (CGP).
+
+Every policy here also ships **inside the relicta binary**, so you do not need this
+repository to use one — `relicta policy init` writes it for you. The copies here are
+for reading and diffing on the web; the embedded copies are what the command writes,
+and a test asserts the two never diverge.
 
 ## Quick Start
 
 ```bash
-# Create policies directory
-mkdir -p .relicta/policies
+# Write a starting policy into the first directory relicta searches
+relicta policy init
 
-# Copy a starter policy
-cp examples/policies/starter.policy .relicta/policies/
+# See the other starting points included in your binary
+relicta policy init --list
+relicta policy init --template enterprise
 
-# Verify policies load correctly
-relicta plan --dry-run
+# Confirm it loaded, and see the rules it contributes
+relicta policy list
+
+# See the decision it produces for the changes you have
+relicta evaluate
 ```
+
+Governance is active without any policy file — it runs on built-in defaults. A policy
+is how you add rules those defaults do not cover.
+
+Editing a policy? `relicta policy validate` checks it, and `relicta policy test
+--risk-score 0.6` shows what it decides before you rely on it.
 
 ## Available Policies
 
