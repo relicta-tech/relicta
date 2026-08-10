@@ -164,8 +164,23 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	// Create git adapter that implements domain interface
 	c.gitAdapter = git.NewAdapter(c.gitService)
 
-	// Initialize release repository
+	// Initialize release repository, anchored to the repository root.
+	//
+	// This was the relative path ".relicta/releases", resolved against the process
+	// working directory. Run from a subdirectory, it therefore pointed at a
+	// directory that did not exist, with two visible consequences: `relicta cancel`
+	// reported "No release run found" for a repository that had a planned run —
+	// while printing the correct root in the same message, because only the message
+	// resolved it — and NewFileReleaseRepository's MkdirAll created a stray
+	// .relicta/releases in whatever subdirectory the command ran from, so merely
+	// invoking relicta littered the working tree.
+	//
+	// Falling back to the relative path keeps this working outside a repository,
+	// where commands that do not need a release store still construct the container.
 	repoPath := ".relicta/releases"
+	if root, rootErr := c.gitService.GetRepositoryRoot(ctx); rootErr == nil && root != "" {
+		repoPath = filepath.Join(root, ".relicta", "releases")
+	}
 	c.releaseRepo, err = persistence.NewFileReleaseRepository(repoPath)
 	if err != nil {
 		return errors.StateWrap(err, "initInfrastructure", "failed to initialize release repository")
