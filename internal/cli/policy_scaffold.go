@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 )
 
@@ -277,6 +278,14 @@ func applyConditionToInput(in *policyTestInputData, cond policy.Condition, mode 
 		setScaffoldActorType(&in.ActorType, cond, mode)
 	case "actor.id", "actor_id":
 		setScaffoldString(&in.ActorID, cond, mode)
+	case "actor.trusted":
+		setScaffoldTrusted(&in.TrustLevel, cond, mode)
+	case "actor.trustlevel":
+		setScaffoldTrustLevel(&in.TrustLevel, cond, mode)
+	case "actor.reputation.overall":
+		setScaffoldReputation(in, cond, mode)
+	case "actor.reputation.samples":
+		setScaffoldReputationSamples(in, cond, mode)
 	case "scope.repository", "repository":
 		setScaffoldString(&in.Repository, cond, mode)
 	case "scope.branch", "branch":
@@ -400,6 +409,90 @@ func setScaffoldString(dst *string, cond policy.Condition, mode scaffoldSeedMode
 			return
 		}
 		*dst = value
+	}
+}
+
+// setScaffoldReputation seeds a reputation for a scenario whose rule reads one.
+// A scenario leaves reputation unset by default, which is correct — but a rule
+// that reads it then has no scenario that exercises it, so a condition naming it
+// has to bring the score into existence.
+func setScaffoldReputation(in *policyTestInputData, cond policy.Condition, mode scaffoldSeedMode) {
+	current := 0.8
+	if in.Reputation != nil {
+		current = *in.Reputation
+	}
+	setScaffoldFloat(&current, cond, mode)
+	in.Reputation = &current
+}
+
+// setScaffoldReputationSamples seeds the sample count, and the score alongside it:
+// samples without a score would leave the reputation branch absent and the
+// condition unresolvable.
+func setScaffoldReputationSamples(in *policyTestInputData, cond policy.Condition, mode scaffoldSeedMode) {
+	setScaffoldInt(&in.ReputationSamples, cond, mode)
+	if in.Reputation == nil {
+		score := 0.8
+		in.Reputation = &score
+	}
+}
+
+// setScaffoldTrusted seeds a trust level from a boolean condition on
+// actor.trusted, which is true at Trusted and above. Without this a scaffolded
+// scenario for "auto-approve low-risk changes from trusted actors" would leave
+// the actor Limited and the rule would never fire in its own generated test —
+// the fixture would document the rule as inert.
+func setScaffoldTrusted(dst *string, cond policy.Condition, mode scaffoldSeedMode) {
+	want := true
+	if b, ok := cond.Value.(bool); ok {
+		want = b
+	}
+	switch cond.Operator {
+	case policy.OperatorEqual, "":
+		// A bare `actor.trusted` compiles to an existence/truthy check with no
+		// value, which reads the same as `== true`.
+	case policy.OperatorNotEqual:
+		want = !want
+	default:
+		return
+	}
+	if mode == scaffoldSeedInverse {
+		want = !want
+	}
+	if want {
+		*dst = cgp.TrustLevelTrusted.String()
+		return
+	}
+	*dst = cgp.TrustLevelLimited.String()
+}
+
+// setScaffoldTrustLevel seeds a trust level named directly in a condition on
+// actor.trustLevel, ignoring names that are not trust levels.
+func setScaffoldTrustLevel(dst *string, cond policy.Condition, mode scaffoldSeedMode) {
+	value, ok := scaffoldStringValue(cond.Value)
+	if !ok {
+		return
+	}
+	level, ok := cgp.ParseTrustLevel(value)
+	if !ok {
+		return
+	}
+	inverse := cgp.TrustLevelLimited
+	if level == cgp.TrustLevelLimited {
+		inverse = cgp.TrustLevelFull
+	}
+	switch cond.Operator {
+	case policy.OperatorEqual, policy.OperatorIn, policy.OperatorContains, policy.OperatorMatches:
+		if mode == scaffoldSeedInverse {
+			*dst = inverse.String()
+			return
+		}
+		*dst = level.String()
+	case policy.OperatorNotEqual:
+		if mode == scaffoldSeedInverse {
+			*dst = level.String()
+			return
+		}
+		*dst = inverse.String()
 	}
 }
 

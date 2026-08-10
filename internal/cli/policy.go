@@ -134,6 +134,10 @@ var (
 	policyTestBumpType     string
 	policyTestActorType    string
 	policyTestActorID      string
+	policyTestTrustLevel   string
+	policyTestReputation   float64
+	policyTestRepSamples   int
+	policyTestRepTrend     string
 	policyTestRepository   string
 	policyTestBranch       string
 	policyTestBreaking     int
@@ -232,6 +236,21 @@ func init() {
 	policyTestCmd.Flags().StringVar(&policyTestBumpType, "bump-type", "patch", "suggested bump type: major, minor, patch")
 	policyTestCmd.Flags().StringVar(&policyTestActorType, "actor-type", "human", "actor type: human, agent, ci, system")
 	policyTestCmd.Flags().StringVar(&policyTestActorID, "actor-id", "human:policy-test", "actor identifier")
+	// Without this a rule conditioning on actor.trusted could be written and
+	// validated but never exercised: every test actor would be Limited, so the
+	// clause would silently evaluate false and the rule would look inert.
+	policyTestCmd.Flags().StringVar(&policyTestTrustLevel, "trust-level", "limited",
+		"actor trust level: untrusted, limited, trusted, full")
+	// Reputation has no default on purpose: unset means the scenario has no
+	// computed reputation, which is what a deployment without release history
+	// looks like. Passing the flag is how an author exercises a rule that reads it
+	// — otherwise the rule can only ever report a missing field.
+	policyTestCmd.Flags().Float64Var(&policyTestReputation, "reputation", 0,
+		"actor reputation 0.0-1.0 (unset: no reputation computed, as in a repo without history)")
+	policyTestCmd.Flags().IntVar(&policyTestRepSamples, "reputation-samples", 0,
+		"release records behind --reputation")
+	policyTestCmd.Flags().StringVar(&policyTestRepTrend, "reputation-trend", "stable",
+		"reputation trend for --reputation: improving, stable, declining")
 	policyTestCmd.Flags().StringVar(&policyTestRepository, "repository", "local/repo", "repository identifier")
 	policyTestCmd.Flags().StringVar(&policyTestBranch, "branch", "main", "branch name")
 	policyTestCmd.Flags().IntVar(&policyTestBreaking, "breaking", 0, "breaking change count")
@@ -256,19 +275,27 @@ func init() {
 // runPolicyScaffold is implemented in policy_scaffold.go.
 
 type policyTestInputData struct {
-	RiskScore    float64 `json:"risk_score" yaml:"risk_score"`
-	BumpType     string  `json:"bump_type" yaml:"bump_type"`
-	ActorType    string  `json:"actor_type" yaml:"actor_type"`
-	ActorID      string  `json:"actor_id" yaml:"actor_id"`
-	Repository   string  `json:"repository" yaml:"repository"`
-	Branch       string  `json:"branch" yaml:"branch"`
-	Breaking     int     `json:"breaking" yaml:"breaking"`
-	Security     int     `json:"security" yaml:"security"`
-	Features     int     `json:"features" yaml:"features"`
-	Fixes        int     `json:"fixes" yaml:"fixes"`
-	Dependencies int     `json:"dependencies" yaml:"dependencies"`
-	FilesChanged int     `json:"files_changed" yaml:"files_changed"`
-	LinesChanged int     `json:"lines_changed" yaml:"lines_changed"`
+	RiskScore  float64 `json:"risk_score" yaml:"risk_score"`
+	BumpType   string  `json:"bump_type" yaml:"bump_type"`
+	ActorType  string  `json:"actor_type" yaml:"actor_type"`
+	ActorID    string  `json:"actor_id" yaml:"actor_id"`
+	TrustLevel string  `json:"trust_level,omitempty" yaml:"trust_level,omitempty"`
+	// Reputation is a pointer because absent and 0.0 are different scenarios: 0.0
+	// is an actor with a demonstrably bad record, absent is a repository where
+	// nothing computes reputation. Collapsing them would make a rule on
+	// actor.reputation.* look like it fires everywhere.
+	Reputation        *float64 `json:"reputation,omitempty" yaml:"reputation,omitempty"`
+	ReputationSamples int      `json:"reputation_samples,omitempty" yaml:"reputation_samples,omitempty"`
+	ReputationTrend   string   `json:"reputation_trend,omitempty" yaml:"reputation_trend,omitempty"`
+	Repository        string   `json:"repository" yaml:"repository"`
+	Branch            string   `json:"branch" yaml:"branch"`
+	Breaking          int      `json:"breaking" yaml:"breaking"`
+	Security          int      `json:"security" yaml:"security"`
+	Features          int      `json:"features" yaml:"features"`
+	Fixes             int      `json:"fixes" yaml:"fixes"`
+	Dependencies      int      `json:"dependencies" yaml:"dependencies"`
+	FilesChanged      int      `json:"files_changed" yaml:"files_changed"`
+	LinesChanged      int      `json:"lines_changed" yaml:"lines_changed"`
 }
 
 type policyTestOutput struct {
@@ -517,6 +544,12 @@ func applyPolicyTestDefaults(in policyTestInputData) policyTestInputData {
 	}
 	if out.ActorID == "" {
 		out.ActorID = "human:policy-test"
+	}
+	// Limited is what a real invocation starts an actor at (see createCGPActor):
+	// may propose, may not auto-approve. Trust is never inferred, so the default
+	// here has to be the un-elevated one.
+	if out.TrustLevel == "" {
+		out.TrustLevel = cgp.TrustLevelLimited.String()
 	}
 	if out.Repository == "" {
 		out.Repository = "local/repo"

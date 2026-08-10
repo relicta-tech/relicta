@@ -20,6 +20,7 @@ import (
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/reputation"
 )
 
 func runPolicyTest(cmd *cobra.Command, args []string) error {
@@ -121,11 +122,22 @@ func evaluatePolicyScenario(ctx context.Context, policies []policy.Policy, input
 		return nil, err
 	}
 
+	trustLevel, ok := cgp.ParseTrustLevel(input.TrustLevel)
+	if !ok {
+		return nil, fmt.Errorf("invalid trust level %q (supported: untrusted, limited, trusted, full)", input.TrustLevel)
+	}
+
+	actorReputation, err := policyTestReputationContext(input)
+	if err != nil {
+		return nil, err
+	}
+
 	proposal := cgp.NewProposal(
 		cgp.Actor{
-			Kind: actorKind,
-			ID:   input.ActorID,
-			Name: input.ActorID,
+			Kind:       actorKind,
+			ID:         input.ActorID,
+			Name:       input.ActorID,
+			TrustLevel: trustLevel,
 		},
 		cgp.ProposalScope{
 			Repository:  input.Repository,
@@ -138,6 +150,9 @@ func evaluatePolicyScenario(ctx context.Context, policies []policy.Policy, input
 			Confidence:    1.0,
 		},
 	)
+	if actorReputation != nil {
+		proposal.Context = &cgp.ProposalContext{ActorReputation: actorReputation}
+	}
 
 	analysis := &cgp.ChangeAnalysis{
 		Features:     input.Features,
@@ -178,6 +193,58 @@ func evaluatePolicyScenario(ctx context.Context, policies []policy.Policy, input
 	}
 
 	return &out, nil
+}
+
+// policyTestReputationFlag returns the --reputation value only when it was
+// actually passed. A default value here would claim a reputation the scenario
+// never stated, which is the difference between "this actor has no record" and
+// "this actor has a perfect/terrible one".
+func policyTestReputationFlag(cmd *cobra.Command) *float64 {
+	if cmd == nil || !cmd.Flags().Changed("reputation") {
+		return nil
+	}
+	value := policyTestReputation
+	return &value
+}
+
+// policyTestReputationContext builds the reputation a scenario claims for its
+// actor, or nil when the scenario claims none.
+//
+// Nil is the honest default: `relicta policy test` has no memory store, so a
+// scenario that says nothing about reputation is a repository where reputation is
+// not computed, and a condition on actor.reputation.* must report itself as
+// missing there rather than comparing against a fabricated zero. The level is
+// derived from the same thresholds the reputation engine uses, so a scenario
+// cannot claim a score and a band that disagree.
+func policyTestReputationContext(input *policyTestInputData) (*cgp.ActorReputation, error) {
+	if input.Reputation == nil {
+		return nil, nil
+	}
+
+	overall := *input.Reputation
+	if overall < 0 || overall > 1 {
+		return nil, fmt.Errorf("reputation must be between 0.0 and 1.0, got %v", overall)
+	}
+	if input.ReputationSamples < 0 {
+		return nil, fmt.Errorf("reputation samples cannot be negative, got %d", input.ReputationSamples)
+	}
+
+	trend := reputation.Trend(strings.ToLower(strings.TrimSpace(input.ReputationTrend)))
+	switch trend {
+	case "":
+		trend = reputation.TrendStable
+	case reputation.TrendImproving, reputation.TrendStable, reputation.TrendDeclining:
+	default:
+		return nil, fmt.Errorf("invalid reputation trend %q (supported: improving, stable, declining)", input.ReputationTrend)
+	}
+
+	score := reputation.Score{Overall: overall, SampleSize: input.ReputationSamples, Trend: trend}
+	return &cgp.ActorReputation{
+		Overall:    score.Overall,
+		Level:      score.Level(),
+		SampleSize: score.SampleSize,
+		Trend:      string(score.Trend),
+	}, nil
 }
 
 func filterPolicyExplainTrace(trace []policy.RuleTrace, mode string) ([]policy.RuleTrace, error) {
@@ -245,19 +312,23 @@ func printPolicyTestText(out *policyTestOutput) {
 
 func resolvePolicyTestInput(cmd *cobra.Command) (*policyTestInputData, error) {
 	input := applyPolicyTestDefaults(policyTestInputData{
-		RiskScore:    policyTestRiskScore,
-		BumpType:     policyTestBumpType,
-		ActorType:    policyTestActorType,
-		ActorID:      policyTestActorID,
-		Repository:   policyTestRepository,
-		Branch:       policyTestBranch,
-		Breaking:     policyTestBreaking,
-		Security:     policyTestSecurity,
-		Features:     policyTestFeatures,
-		Fixes:        policyTestFixes,
-		Dependencies: policyTestDependencies,
-		FilesChanged: policyTestFilesChanged,
-		LinesChanged: policyTestLinesChanged,
+		RiskScore:         policyTestRiskScore,
+		BumpType:          policyTestBumpType,
+		ActorType:         policyTestActorType,
+		ActorID:           policyTestActorID,
+		TrustLevel:        policyTestTrustLevel,
+		Reputation:        policyTestReputationFlag(cmd),
+		ReputationSamples: policyTestRepSamples,
+		ReputationTrend:   policyTestRepTrend,
+		Repository:        policyTestRepository,
+		Branch:            policyTestBranch,
+		Breaking:          policyTestBreaking,
+		Security:          policyTestSecurity,
+		Features:          policyTestFeatures,
+		Fixes:             policyTestFixes,
+		Dependencies:      policyTestDependencies,
+		FilesChanged:      policyTestFilesChanged,
+		LinesChanged:      policyTestLinesChanged,
 	})
 
 	if policyTestInput == "" {
@@ -287,6 +358,18 @@ func resolvePolicyTestInput(cmd *cobra.Command) (*policyTestInputData, error) {
 	}
 	if cmd.Flags().Changed("actor-id") {
 		merged.ActorID = policyTestActorID
+	}
+	if cmd.Flags().Changed("trust-level") {
+		merged.TrustLevel = policyTestTrustLevel
+	}
+	if cmd.Flags().Changed("reputation") {
+		merged.Reputation = policyTestReputationFlag(cmd)
+	}
+	if cmd.Flags().Changed("reputation-samples") {
+		merged.ReputationSamples = policyTestRepSamples
+	}
+	if cmd.Flags().Changed("reputation-trend") {
+		merged.ReputationTrend = policyTestRepTrend
 	}
 	if cmd.Flags().Changed("repository") {
 		merged.Repository = policyTestRepository

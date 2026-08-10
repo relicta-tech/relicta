@@ -94,6 +94,25 @@ func (l TrustLevel) String() string {
 	}
 }
 
+// ParseTrustLevel parses a trust level name ("untrusted", "limited", "trusted",
+// "full") into a TrustLevel. Returns false for anything else — trust is never
+// guessed at, so an unrecognized name has to be rejected rather than folded into
+// the zero value, which would read as a deliberate "untrusted".
+func ParseTrustLevel(s string) (TrustLevel, bool) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "untrusted":
+		return TrustLevelUntrusted, true
+	case "limited":
+		return TrustLevelLimited, true
+	case "trusted":
+		return TrustLevelTrusted, true
+	case "full":
+		return TrustLevelFull, true
+	default:
+		return TrustLevelUntrusted, false
+	}
+}
+
 // CanAutoApprove returns true if this trust level allows auto-approval.
 func (l TrustLevel) CanAutoApprove() bool {
 	return l >= TrustLevelTrusted

@@ -1,8 +1,6 @@
 package governance
 
 import (
-	"context"
-
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/reputation"
 )
@@ -27,13 +25,12 @@ const (
 // changes downstream. It ONLY ever raises trust, never lowers it, and only from
 // stored release outcomes (non-spoofable). Returns the escalation info when an
 // escalation occurred, or nil otherwise.
-func (s *Service) applyEarnedTrust(ctx context.Context, repository string, proposal *cgp.ChangeProposal) *EarnedTrustInfo {
+//
+// The caller supplies the score: the same reputation is attached to the proposal
+// for policy conditions to read, and loading two hundred release records twice
+// per evaluation to reach the same number is waste, not caution.
+func (s *Service) applyEarnedTrust(proposal *cgp.ChangeProposal, score reputation.Score) *EarnedTrustInfo {
 	actor := proposal.Actor
-
-	score, ok := s.computeReputation(ctx, repository, actor.ID)
-	if !ok {
-		return nil
-	}
 
 	minSamples := s.earnedTrustMinSamples
 	if minSamples <= 0 {

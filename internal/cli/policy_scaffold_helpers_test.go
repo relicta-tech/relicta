@@ -78,6 +78,82 @@ func TestApplyConditionToInput(t *testing.T) {
 				}
 			},
 		},
+		// A scaffolded scenario for a rule on actor.trusted has to grant the trust,
+		// or the generated fixture documents the rule as one that never fires.
+		{
+			"actor.trusted eq true match",
+			"actor.trusted", policy.OperatorEqual, true, scaffoldSeedMatch,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.TrustLevel != "trusted" {
+					t.Errorf("TrustLevel = %q, want %q", in.TrustLevel, "trusted")
+				}
+			},
+		},
+		{
+			"actor.trusted eq true inverse",
+			"actor.trusted", policy.OperatorEqual, true, scaffoldSeedInverse,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.TrustLevel != "limited" {
+					t.Errorf("TrustLevel = %q, want %q", in.TrustLevel, "limited")
+				}
+			},
+		},
+		{
+			"actor.trustLevel eq full match",
+			"actor.trustLevel", policy.OperatorEqual, "full", scaffoldSeedMatch,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.TrustLevel != "full" {
+					t.Errorf("TrustLevel = %q, want %q", in.TrustLevel, "full")
+				}
+			},
+		},
+		// A rule on actor.reputation.* needs the scenario to state a reputation at
+		// all, or the scaffolded fixture exercises nothing.
+		{
+			"actor.reputation.overall lt match",
+			"actor.reputation.overall", policy.OperatorLessThan, 0.5, scaffoldSeedMatch,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.Reputation == nil {
+					t.Fatal("Reputation was left unset, so the condition cannot resolve")
+				}
+				if *in.Reputation >= 0.5 {
+					t.Errorf("Reputation = %v, expected < 0.5", *in.Reputation)
+				}
+			},
+		},
+		{
+			"actor.reputation.overall lt inverse",
+			"actor.reputation.overall", policy.OperatorLessThan, 0.5, scaffoldSeedInverse,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.Reputation == nil {
+					t.Fatal("Reputation was left unset, so the condition cannot resolve")
+				}
+				if *in.Reputation < 0.5 {
+					t.Errorf("Reputation = %v, expected >= 0.5", *in.Reputation)
+				}
+			},
+		},
+		{
+			"actor.reputation.samples brings a score with it",
+			"actor.reputation.samples", policy.OperatorGreaterOrEqual, 10, scaffoldSeedMatch,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.ReputationSamples < 10 {
+					t.Errorf("ReputationSamples = %d, expected >= 10", in.ReputationSamples)
+				}
+				if in.Reputation == nil {
+					t.Error("samples without a score leaves actor.reputation absent")
+				}
+			},
+		},
+		{
+			"actor.trustLevel ignores a name that is not a trust level",
+			"actor.trustLevel", policy.OperatorEqual, "platinum", scaffoldSeedMatch,
+			func(t *testing.T, in *policyTestInputData) {
+				if in.TrustLevel != "" {
+					t.Errorf("TrustLevel = %q, want it left alone", in.TrustLevel)
+				}
+			},
+		},
 		{
 			"scope.repository eq match",
 			"scope.repository", policy.OperatorEqual, "org/app", scaffoldSeedMatch,

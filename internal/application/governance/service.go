@@ -342,9 +342,21 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	if s.identityRegistry != nil {
 		identityTrust = s.applyIdentityTrust(ctx, proposal)
 	}
+	// Compute the governing actor's reputation once, before evaluation, and attach
+	// it to the proposal so policy conditions can read `actor.reputation.*`.
+	// Earned trust reuses the same score rather than loading the history a second
+	// time. Absent (nil) when no reputation was computed, which the evaluator
+	// surfaces as a missing field rather than as a zero score.
+	//
+	// The reputation guard below deliberately still computes its own: it judges the
+	// actor that initiated the release, and authorship detection may have replaced
+	// that actor here, so the two are not always the same score.
 	var earnedTrust *EarnedTrustInfo
-	if s.earnedTrustEnabled && s.memoryStore != nil {
-		earnedTrust = s.applyEarnedTrust(ctx, input.Repository, proposal)
+	if score, ok := s.governingActorReputation(ctx, input.Repository, proposal); ok {
+		attachActorReputation(proposal, score)
+		if s.earnedTrustEnabled {
+			earnedTrust = s.applyEarnedTrust(proposal, score)
+		}
 	}
 
 	// Evaluate the proposal

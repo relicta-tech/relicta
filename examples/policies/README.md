@@ -91,10 +91,17 @@ defaults {
 
 ### Actor
 - `actor.kind` - "human", "agent", "bot", "ci", "automation"
-- `actor.trusted` - Boolean, whether actor is trusted
-- `actor.team` - Team name
-- `actor.level` - "junior", "senior", "lead", etc.
-- `actor.is_member` - Boolean, organization member
+- `actor.trusted` - Boolean, true at trust level "trusted" or above
+- `actor.trustLevel` - "untrusted", "limited", "trusted", "full"
+- `actor.teams` / `actor.roles` - Lists from your team configuration (use with `contains`)
+- `actor.reputation.overall` / `.level` / `.samples` / `.trend` - The actor's computed
+  track record. Present only when governance computes reputation
+  (`governance.memory_enabled` plus `reputation_enabled` or `earned_trust_enabled`);
+  where it is absent a condition on it never matches.
+
+`actor.team`, `actor.level` and `actor.is_member` are NOT provided — run
+`relicta policy fields` for the list the evaluator actually resolves, and
+`relicta policy validate` to check a policy against it.
 
 ### Change
 - `change.breaking` - Boolean, breaking change detected

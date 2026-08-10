@@ -202,10 +202,12 @@ CONSEQUENCE: rules a team would reasonably want cannot be expressed. Specificall
 1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.
 2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains "junior"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.
 3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.
-4. `actor.trusted` — the reputation and calibration machinery exists in internal/cgp (earned trust, identity registry) and is not surfaced to policy conditions. This is probably the cheapest of the four and the most useful: it is the field that lets a policy say "auto-approve low-risk changes from actors who have earned it".
+4. ~~`actor.trusted`~~ — DONE. buildEvalContext now exposes `actor.trusted` and `actor.trustLevel` from proposal.Actor.TrustLevel (so it reflects whichever source granted the trust: the trusted_actors allowlist, an identity-registry grant, or earned trust), plus `actor.reputation.overall` / `.level` / `.samples` / `.trend` from the reputation the governance service computes. The clause is restored in agent-aware.policy. Two things worth carrying forward: `actor.reputation.*` is absent rather than zero when reputation is not being computed, because a zero score means a bad record and would have made every such rule fire; and `relicta policy test --trust-level` exists so a trust-conditioned rule can be exercised at all.
 5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for "this list is empty". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.
 
-OPTIONS: (4) first, since the data exists and only needs exposing in buildEvalContext plus a KnownFieldPaths entry. Then (5), which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.
+OPTIONS: (5) next, which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.
+
+STILL OPEN from (4): the shipped `trusted-human` rule takes no actions, so with agent-aware's `decision = "approve"` defaults, matching it changes the rationale but not the verdict. The rule that would pay for itself is the agent equivalent — a trusted agent skipping the human approval `agent-requires-human` demands — but that loosens a shipped template's governance, so it wants a deliberate decision rather than being folded into exposing the field.
 
 Whatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.
 
@@ -231,5 +233,24 @@ OPTIONS:
 3. Leave it in memory and say so in the tool descriptions, so an agent knows the handshake is session-scoped rather than discovering it through a "not found".
 
 Option 2 is where this should end up, because two parallel records of the same decision is the shape of defect this project keeps finding — the release store was consolidated for exactly that reason (PR #247). Option 3 is worth doing immediately regardless of which is chosen, since it costs a sentence and removes a misleading error.
+
+---
+
+## Correction: CGP proposals are not release runs
+
+Supersedes the recommendation in "CGP protocol proposals do not survive the session". That entry proposed, as its preferred option, routing CGP proposals through the ReleaseRun aggregate so there would be one governance record rather than two — by analogy to the duplicate release store consolidated in PR #247. I wrote that recommendation and it is wrong.
+
+WHY IT IS WRONG: a cgpsdk.ChangeProposal carries an actor, a scope, an intent and metadata. That is all. It has no version proposal, no changeset, no bump kind, and no release state machine. CGP governs change in general; not every proposal is a release. Mapping every proposal onto a ReleaseRun would force the aggregate to hold data it has no meaning for, and would require inventing release fields for proposals that are not releases.
+
+The #247 analogy only holds when two records describe the same thing. There, two stores held the same release run in different DTO shapes, and a run written by one came back from the other missing its changeset and HEAD. Here the two records describe different things, so having two is correct modeling rather than duplication.
+
+WHAT WAS DONE INSTEAD (PR #267): a durable FileProposalStore under .relicta/cgp/{proposals,decisions,authorizations}, wired through the WithStore option that already existed and had never been called outside tests. The handshake now survives across processes — verified across four separate `relicta mcp serve` invocations, ending at state "authorized" with the decision and authorization both readable.
+
+WHAT REMAINS, and is genuinely open:
+1. Nothing prunes .relicta/cgp/. Proposals accumulate indefinitely. Decide a retention rule, or decide deliberately that governance records are never deleted — which is a defensible position for an audit trail and should then be stated rather than left as an accident.
+2. The protocol records and the release audit trail are still separate views of governance activity. That is correct modeling, but a reader asking "what governed this change?" has to consult both. A read-side join — one command or endpoint that reports both — is the useful thing to build, and it does not require merging the aggregates.
+3. There is no CLI surface for the protocol records at all: they are reachable only over MCP. `relicta cgp status <id>` would let a person audit what an agent did, which is the point of recording it.
+
+Item 3 is the smallest and the most valuable of the three, because records nobody can read are only marginally better than records that do not exist.
 
 ---

@@ -186,6 +186,59 @@ func TestPathOwnershipRulesMatchChangedFiles(t *testing.T) {
 	})
 }
 
+// agent-aware.policy's "trusted-human" rule carried `actor.trusted == true`,
+// which the evaluator did not provide, so the clause was deleted to stop the rule
+// lying about what it checked (PR #249). With actor.trusted exposed the clause is
+// back, and this pins what it does: an actor who has earned trust reaches the
+// rule, an actor who has not falls through to the policy defaults instead. The
+// difference is visible in the recorded rationale, which is what an audit reads.
+func TestAgentAwarePolicyReadsEarnedTrust(t *testing.T) {
+	pol := loadEmbedded(t, "agent-aware")
+	engine := policy.NewEngine([]policy.Policy{pol}, nil)
+
+	evaluate := func(t *testing.T, level cgp.TrustLevel) *policy.Result {
+		t.Helper()
+		proposal, analysis := proposalAt("README.md")
+		proposal.Actor.TrustLevel = level
+		result, err := engine.Evaluate(context.Background(), proposal, analysis, 0.05)
+		if err != nil {
+			t.Fatalf("evaluate: %v", err)
+		}
+		return result
+	}
+
+	t.Run("an actor who has earned trust reaches the rule", func(t *testing.T) {
+		result := evaluate(t, cgp.TrustLevelTrusted)
+		if !matched(result, "trusted-human") {
+			t.Fatalf("a trusted human's low-risk change must match trusted-human; matched %v", result.MatchedRules)
+		}
+		for _, line := range result.Rationale {
+			if strings.Contains(line, "Applied default policy") {
+				t.Error("a matched rule must supply the rationale, not the defaults")
+			}
+		}
+	})
+
+	t.Run("an actor who has not earned trust does not", func(t *testing.T) {
+		result := evaluate(t, cgp.TrustLevelLimited)
+		if matched(result, "trusted-human") {
+			t.Fatalf("trusted-human must not match an actor that has not earned trust; matched %v", result.MatchedRules)
+		}
+		if len(result.MatchedRules) != 0 {
+			t.Fatalf("no rule should match a low-risk human patch; matched %v", result.MatchedRules)
+		}
+		var fellThrough bool
+		for _, line := range result.Rationale {
+			if strings.Contains(line, "Applied default policy") {
+				fellThrough = true
+			}
+		}
+		if !fellThrough {
+			t.Errorf("expected the defaults to decide; rationale was %v", result.Rationale)
+		}
+	})
+}
+
 // The guarantee behind `relicta policy init`: nothing it writes may contain a
 // condition the evaluator cannot resolve. This is the check that turns the class
 // of defect into a build failure rather than a surprise during a release.
