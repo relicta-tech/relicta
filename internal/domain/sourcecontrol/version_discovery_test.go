@@ -79,8 +79,12 @@ func TestDiscoverCurrentVersion_NilTag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != version.Initial {
-		t.Errorf("got %v, want Initial (%v)", got, version.Initial)
+	// Asserted Initial (0.1.0) until this changed deliberately. Answering "what
+	// version has shipped?" with 0.1.0 when nothing has shipped made `bump` produce
+	// 0.2.0 for a first release while `plan` predicted 0.1.0. Zero is the truthful
+	// answer, and it makes the two commands agree.
+	if got != version.Zero {
+		t.Errorf("got %v, want Zero (%v) — nothing has been released", got, version.Zero)
 	}
 }
 
