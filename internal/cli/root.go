@@ -229,6 +229,9 @@ func init() {
 	evaluateCmd.GroupID = "governance"
 	verifyCmd.GroupID = "governance"
 	groupCmd.GroupID = "governance"
+	// Reading the protocol records is governance inspection: what did the agents
+	// propose here, and what was decided.
+	cgpCmd.GroupID = "governance"
 
 	// Extend: agent integrations and headless servers.
 	mcpCmd.GroupID = "extend"
@@ -251,6 +254,7 @@ func init() {
 	rootCmd.AddCommand(bumpCmd)
 	rootCmd.AddCommand(notesCmd)
 	rootCmd.AddCommand(approveCmd)
+	rootCmd.AddCommand(cgpCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(releaseCmd)
 	rootCmd.AddCommand(cancelCmd)

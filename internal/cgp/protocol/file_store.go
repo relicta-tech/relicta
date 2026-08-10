@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 
 	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
 )
@@ -134,6 +136,55 @@ func (s *FileProposalStore) read(kind, id string, into any) error {
 		return fmt.Errorf("parse stored %s %s: %w", kind, id, err)
 	}
 	return nil
+}
+
+// ListProposals returns the recorded proposal IDs, newest first.
+//
+// Enumeration exists because records nobody can read are only marginally better
+// than records that do not exist. The handshake was made durable so a decision
+// made by an agent leaves evidence; evidence that can only be retrieved by
+// already knowing its ID is not auditable by a person.
+//
+// Newest first because that is the question actually asked — "what just
+// happened?" — and it matches how the release store orders its own listing.
+func (s *FileProposalStore) ListProposals(_ context.Context) ([]string, error) {
+	dir := filepath.Join(s.root, proposalsDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No directory means no proposals, which is an ordinary state for a
+			// repository where no agent has proposed anything. Not an error.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read proposals directory: %w", err)
+	}
+
+	type entry struct {
+		id      string
+		modTime time.Time
+	}
+	found := make([]entry, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
+			continue
+		}
+		info, infoErr := e.Info()
+		if infoErr != nil {
+			continue
+		}
+		found = append(found, entry{
+			id:      strings.TrimSuffix(e.Name(), ".json"),
+			modTime: info.ModTime(),
+		})
+	}
+
+	sort.Slice(found, func(i, j int) bool { return found[i].modTime.After(found[j].modTime) })
+
+	ids := make([]string, len(found))
+	for i, e := range found {
+		ids[i] = e.id
+	}
+	return ids, nil
 }
 
 func (s *FileProposalStore) SaveProposal(_ context.Context, proposal *cgpsdk.ChangeProposal) error {
