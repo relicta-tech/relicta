@@ -23,11 +23,28 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
+// ReloadedComponents carries everything a reload has to refresh.
+//
+// A struct rather than a widening return list, because this is the second thing
+// reload was found to be missing. It refreshed config and adapter and nothing
+// else, so the evaluator kept whatever value it had at startup — which, in the
+// case the reloader exists for, is nil: with no config file there is no
+// container, so no governance service and no evaluator. `relicta_init` then
+// reported "tools are now available" while the three cgp_* tools stayed exactly
+// as broken as before.
+//
+// Any field may be nil, meaning "initialization did not produce one"; the server
+// keeps what it had rather than clearing a working component.
+type ReloadedComponents struct {
+	Config    *config.Config
+	Adapter   *Adapter
+	Evaluator *evaluator.Evaluator
+}
+
 // ConfigReloader is called after relicta_init creates a config file mid-session.
-// It reloads the config and reinitializes the container/adapter so that
-// subsequent tool calls work without restarting the MCP server.
-// Returns the new config and adapter (adapter may be nil if initialization fails).
-type ConfigReloader func(ctx context.Context) (*config.Config, *Adapter, error)
+// It reloads the config and reinitializes the container so that subsequent tool
+// calls work without restarting the MCP server.
+type ConfigReloader func(ctx context.Context) (ReloadedComponents, error)
 
 // Server wraps the MCP server for Relicta.
 type Server struct {
