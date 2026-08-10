@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -200,5 +202,41 @@ func TestReloadKeepsTheExistingEvaluatorWhenNoneIsSupplied(t *testing.T) {
 		ActorID:     "agent:test",
 	}); err != nil {
 		t.Errorf("a reload that supplies no evaluator must keep the one already set: %v", err)
+	}
+}
+
+// The store the service gets must be the durable one. It defaulted to an
+// in-memory store and WithStore was called from nowhere outside tests, so a
+// decision made over the protocol did not survive the process that made it —
+// cgp_status answered "proposal not found" for a real earlier decision. A test of
+// the file store alone would not catch this: the defect was that nothing supplied
+// it.
+func TestCGPServiceGetsADurableStore(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	server, err := NewServer("test", WithEvaluator(evaluator.New()))
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	if _, err := server.handleCGPPropose(context.Background(), CGPProposeToolInput{
+		Repository:  "owner/repo",
+		CommitRange: "HEAD~1..HEAD",
+		Summary:     "a change",
+		ActorKind:   "human",
+		ActorID:     "human:dev",
+	}); err != nil {
+		t.Fatalf("cgp_propose: %v", err)
+	}
+
+	// Written to disk, not merely held: the point is that the next process finds it.
+	proposals := filepath.Join(dir, ".relicta", "cgp", "proposals")
+	entries, err := os.ReadDir(proposals)
+	if err != nil {
+		t.Fatalf("the proposal should have been written under %s: %v", proposals, err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("found %d stored proposals, want 1", len(entries))
 	}
 }
