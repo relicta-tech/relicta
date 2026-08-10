@@ -680,6 +680,9 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun
 		"repository_name": output.RepositoryName,
 		"branch":          output.Branch,
 		"ci_mode":         ciMode,
+		// A consumer needs this to read the commit count correctly: on a first
+		// release it covers the whole history, not the commits since a tag.
+		"first_release": persisted.FirstRelease,
 		"summary": map[string]int{
 			"total":            output.ChangeSet.CommitCount(),
 			"features":         len(cats.Features),
@@ -720,6 +723,13 @@ func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun
 	fmt.Fprintf(w, "  Total commits:\t%d\n", output.ChangeSet.CommitCount())
 	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
 	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
+	if persisted.FirstRelease {
+		// Names the baseline rather than leaving the reader to infer it from a
+		// current version of 0.0.0. Planning used to fail outright here, so this is
+		// also the line that says the situation was understood rather than guessed.
+		fmt.Fprintf(w, "  Baseline:\tno previous release — all %d commits\n",
+			output.ChangeSet.CommitCount())
+	}
 	_ = w.Flush() // Ignore flush error for stdout display
 
 	fmt.Println()
@@ -1076,6 +1086,12 @@ type persistedRun struct {
 	ID             string
 	AlreadyExisted bool
 	ExistingState  domain.RunState
+
+	// FirstRelease reports that no previous release was found, so the changeset is
+	// the whole history. Said out loud because it changes what the numbers mean: a
+	// reader who cannot tell this from an ordinary release sees a large commit count
+	// as unusual activity rather than as the baseline.
+	FirstRelease bool
 }
 
 func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (persistedRun, error) {
@@ -1158,6 +1174,7 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 		ID:             string(planOutput.RunID),
 		AlreadyExisted: planOutput.AlreadyExisted,
 		ExistingState:  planOutput.ExistingState,
+		FirstRelease:   planOutput.FirstRelease,
 	}, nil
 }
 
