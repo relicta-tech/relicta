@@ -84,6 +84,15 @@ type PlanReleaseOutput struct {
 	// ExistingState is the state that run had reached. Only meaningful when
 	// AlreadyExisted is true.
 	ExistingState domain.RunState
+
+	// FirstRelease reports that no previous release was found, so the changeset is
+	// the whole history rather than the commits since a tag.
+	//
+	// Reported because it changes what the numbers mean. A first release's commit
+	// count and version are derived from everything in the repository, and a caller
+	// that cannot tell this apart from an ordinary release reads a large changeset
+	// as unusual activity rather than as the baseline.
+	FirstRelease bool
 }
 
 // PlanReleaseUseCase handles the plan release use case.
@@ -124,13 +133,27 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		return nil, fmt.Errorf("failed to get HEAD SHA: %w", err)
 	}
 
-	// Get base ref if not provided
+	// Get base ref if not provided.
+	//
+	// An empty baseRef means "no previous release", and ResolveCommits reads it as
+	// "everything up to HEAD" — the first release. The comment here used to promise
+	// "initial commit or empty" and only the empty half existed, which was fine
+	// until it reached git: GetCommitsBetween resolved "" as a reference and failed,
+	// so planning was impossible in a repository with no version tags. Fixed in the
+	// git service, which now treats an empty from as all of history, matching what
+	// GetCommitsSince has always done.
+	//
+	// Two situations produce no tag and both are legitimately a first release: a
+	// repository with no tags at all, and one whose tags all carry a different
+	// prefix — a monorepo at its first `web-v` release while `app-v` tags already
+	// exist. Neither is an error.
 	baseRef := input.BaseRef
+	firstRelease := false
 	if baseRef == "" {
 		tag, err := uc.repoInspector.GetLatestVersionTag(ctx, input.tagPrefixOrDefault())
-		if err != nil {
-			// No previous version tag - use initial commit or empty
+		if err != nil || tag == "" {
 			baseRef = ""
+			firstRelease = true
 		} else {
 			baseRef = tag
 		}
@@ -322,5 +345,6 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		BumpKind:       run.BumpKind(),
 		RiskScore:      run.RiskScore(),
 		ChangeSet:      input.ChangeSet,
+		FirstRelease:   firstRelease,
 	}, nil
 }

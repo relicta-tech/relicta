@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -274,6 +275,24 @@ func (s *ServiceImpl) GetCommitsSince(ctx context.Context, ref string) ([]Commit
 func (s *ServiceImpl) GetCommitsBetween(ctx context.Context, from, to string) ([]Commit, error) {
 	const op = "git.GetCommitsBetween"
 
+	toHashForAll, err := s.resolveRef(to)
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve to reference %s", to))
+	}
+
+	// An empty `from` means "everything up to `to`" — the first release, where no
+	// earlier tag exists to measure from.
+	//
+	// This asked git to resolve "" as a reference and failed with "reference not
+	// found", so `relicta plan` could not run at all in a repository with no
+	// version tags: every project's first release. GetCommitsSince has always
+	// handled the same case by walking all of history, and getAllCommitsFromHead
+	// says in its own comment that it is "for first release scenarios" — it was
+	// simply unreachable from here. Making the two siblings agree is the fix.
+	if from == "" {
+		return s.getAllCommitsFromHead(ctx, toHashForAll)
+	}
+
 	fromHash, err := s.resolveRef(from)
 	if err != nil {
 		return nil, rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve from reference %s", from))
@@ -341,13 +360,20 @@ func (s *ServiceImpl) getAllCommitsFromHead(ctx context.Context, head plumbing.H
 	defer iter.Close()
 
 	commits := make([]Commit, 0, 100) // Reasonable initial capacity
+	truncated := false
 	err = iter.ForEach(func(c *object.Commit) error {
 		// Check for context cancellation during iteration
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
-		// Safety limit to prevent memory issues on huge repos
+		// Safety limit to prevent memory issues on huge repos.
+		//
+		// Reported rather than applied silently. This path is the first release,
+		// where the changeset is the whole history — so a truncation here decides
+		// the initial version and the release notes from a partial view of the
+		// repository, and every downstream number looks equally confident.
 		if len(commits) >= maxCommits {
+			truncated = true
 			return errStopIteration
 		}
 		commits = append(commits, *s.convertCommit(c))
@@ -358,6 +384,13 @@ func (s *ServiceImpl) getAllCommitsFromHead(ctx context.Context, head plumbing.H
 			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
 		}
 		return nil, rperrors.GitWrap(err, op, "failed to iterate commits")
+	}
+
+	if truncated {
+		slog.Default().Warn("history truncated while collecting commits for a first release",
+			"limit", maxCommits,
+			"consequence", "the version and release notes are derived from the most recent "+
+				"commits only; tag a baseline version to bound the range")
 	}
 
 	return commits, nil
