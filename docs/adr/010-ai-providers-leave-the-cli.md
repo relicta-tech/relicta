@@ -2,7 +2,23 @@
 
 ## Status
 
-Proposed
+Accepted (2026-08-10), execution phased.
+
+The direction is decided. The three steps below have prerequisites this ADR
+itself calls non-negotiable, so Accepted records the decision rather than the
+completion. Status of each, measured on this repository:
+
+| Step | State |
+|---|---|
+| 1. Deterministic artifact is the product surface | Done for `plan --json` and MCP `relicta_plan` (ADR-009). Not on the HTTP API. |
+| `notes --ai` removed from the CLI | Done — the flag generated prose the artifact already carried, and its removal was reversible, so it went first. |
+| 2. `communicate` becomes a Hub capability | **Blocked.** Hub still lacks metering, rate limiting, API keys, and tenancy, and its JWT auth fails open with no secret configured. Removing `communicate` before Hub can serve it would delete a feature with nothing to replace it. |
+| 3. `relicta-ai` gRPC plugin escape hatch | Not started. No prose hook exists yet; the plugin machinery (ADR-008) does. |
+| Provider SDKs leave the module | Not started. `go-anthropic` and `go-openai` remain direct dependencies, and `internal/infrastructure/ai` is still in the module. |
+
+The reversible parts were done first deliberately: they reduce surface without
+betting on Hub arriving. Nothing further should be removed from the CLI until
+step 2 or step 3 can serve what it replaced.
 
 ## Date
 

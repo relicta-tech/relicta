@@ -16,8 +16,8 @@ ADRs document significant architectural decisions made during the development of
 | ADR-006 | Model Context Protocol for AI Agent Integration | Accepted, not written up | 2024-06 |
 | [ADR-007](007-interface-service-layer.md) | All Interfaces Must Use Application Services Layer | Accepted | 2025-01 |
 | [ADR-008](008-nox-style-plugin-distribution.md) | Nox-style Plugin Distribution, Trust, and Safety Model | Accepted | 2026-06 |
-| [ADR-009](009-deterministic-recommendation-artifact.md) | Relicta Emits a Deterministic Recommendation, Not Prose | Proposed | 2026-08 |
-| [ADR-010](010-ai-providers-leave-the-cli.md) | AI Providers Leave the CLI | Proposed | 2026-08 |
+| [ADR-009](009-deterministic-recommendation-artifact.md) | Relicta Emits a Deterministic Recommendation, Not Prose | Accepted | 2026-08 |
+| [ADR-010](010-ai-providers-leave-the-cli.md) | AI Providers Leave the CLI | Accepted, execution phased | 2026-08 |
 | [ADR-011](011-governance-on-by-default.md) | Governance On By Default | Accepted (Option C) | 2026-08 |
 
 > **ADR-001 to ADR-006 have no document.** The decisions were made and are
