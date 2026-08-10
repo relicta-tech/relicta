@@ -151,7 +151,14 @@ func (s *Service) RecordAuthorization(ctx context.Context, auth *cgpsdk.Executio
 func (s *Service) GetStatus(ctx context.Context, proposalID string) (*ProposalStatus, error) {
 	proposal, err := s.store.GetProposal(ctx, proposalID)
 	if err != nil {
-		return nil, fmt.Errorf("proposal not found: %w", err)
+		// The store's error already says "proposal <id> not found", and it is
+		// returned unwrapped on purpose. FormatUserError reads the outermost
+		// wrapping segment as the operation being attempted and appends "failed",
+		// so wrapping this in "proposal not found" produced the message an agent
+		// actually received: "Proposal not found failed: proposal prop_x not
+		// found". The convention that formatter expects is `operation: cause`, and
+		// "proposal not found" is a cause.
+		return nil, err
 	}
 
 	status := &ProposalStatus{

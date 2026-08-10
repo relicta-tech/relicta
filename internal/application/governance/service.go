@@ -303,6 +303,21 @@ type HistoricalContext struct {
 	ReliabilityScore float64
 }
 
+// Evaluator returns the evaluator this service decides with.
+//
+// Exposed so the CGP protocol tools can decide the same way the rest of the tool
+// does. They are advertised over MCP and every call to them failed, because
+// neither WithCGPService nor WithEvaluator was ever wired by `relicta mcp serve`.
+// The fix is not simply to supply an evaluator: a freshly constructed one carries
+// default thresholds and no policies, so cgp_propose would have answered from
+// different rules than relicta_evaluate and `relicta approve` — two governance
+// verdicts for one change, with nothing indicating which was authoritative. This
+// is the evaluator built from configuration, with the config thresholds and the
+// policies loaded from .relicta/policies, so there is one set of rules.
+func (s *Service) Evaluator() *evaluator.Evaluator {
+	return s.evaluator
+}
+
 // EvaluateRelease evaluates a release against CGP governance rules.
 func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInput) (*EvaluateReleaseOutput, error) {
 	if input.Release == nil {
