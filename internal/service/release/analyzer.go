@@ -333,7 +333,7 @@ func (a *Analyzer) collectCommits(ctx context.Context, input AnalyzeInput) (*sou
 	fromRef := input.FromRef
 
 	if fromRef == "" {
-		versionTags := tags.FilterByPrefix(input.TagPrefix).VersionTags()
+		versionTags := tags.VersionTagsWithPrefix(input.TagPrefix)
 		if latestTag := versionTags.Latest(); latestTag != nil {
 			fromRef = latestTag.Name()
 			if v := latestTag.Version(); v != nil {

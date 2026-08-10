@@ -12,6 +12,16 @@ import (
 )
 
 // PlanReleaseInput contains the input for planning a release.
+// tagPrefixOrDefault returns the configured prefix, defaulting to "v" — the same
+// default config declares — so a caller that does not set it keeps the previous
+// behavior rather than searching for bare semver tags.
+func (in PlanReleaseInput) tagPrefixOrDefault() string {
+	if in.TagPrefix == "" {
+		return "v"
+	}
+	return in.TagPrefix
+}
+
 type PlanReleaseInput struct {
 	RepoRoot       string
 	RepoID         string
@@ -43,6 +53,14 @@ type PlanReleaseInput struct {
 	// This enables notes/approve/publish without running bump
 	TagPushMode bool   // If true, transition directly to versioned state
 	TagName     string // The existing tag name (required if TagPushMode is true)
+
+	// TagPrefix is the configured prefix for version tags.
+	//
+	// Baseline detection hardcoded "v", so a project configuring anything else got
+	// a baseline of "no previous release" and a changeset spanning its whole
+	// history — silently, since "no tags found" and "no tags with this prefix" were
+	// indistinguishable. Empty means the default, "v".
+	TagPrefix string
 }
 
 // PlanReleaseOutput contains the output from planning a release.
@@ -109,7 +127,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	// Get base ref if not provided
 	baseRef := input.BaseRef
 	if baseRef == "" {
-		tag, err := uc.repoInspector.GetLatestVersionTag(ctx, "v")
+		tag, err := uc.repoInspector.GetLatestVersionTag(ctx, input.tagPrefixOrDefault())
 		if err != nil {
 			// No previous version tag - use initial commit or empty
 			baseRef = ""

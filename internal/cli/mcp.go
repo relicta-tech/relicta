@@ -291,5 +291,8 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 	// attributed to the binary that produced it.
 	opts = append(opts, mcp.WithToolVersion(versionInfo.Version))
 
+	// Without this the MCP surface plans against "v" regardless of configuration.
+	opts = append(opts, mcp.WithTagPrefix(configuredTagPrefix()))
+
 	return mcp.NewAdapter(opts...)
 }

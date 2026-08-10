@@ -40,6 +40,13 @@ type Adapter struct {
 	// Protected by repoMu since it is set dynamically via ensureRepoPath.
 	repoMu   sync.RWMutex
 	repoRoot string
+
+	// tagPrefix is the configured version tag prefix. Neither the analyze input
+	// nor the plan input carried it, so an agent planning a release over MCP got
+	// baseline detection against "v" whatever the project had configured — the
+	// same defect as the CLI's, on a surface with no way for the caller to correct
+	// it. Empty means the default, "v".
+	tagPrefix string
 }
 
 // AdapterOption configures the Adapter.
@@ -60,6 +67,22 @@ func NewAdapter(opts ...AdapterOption) *Adapter {
 		opt(a)
 	}
 	return a
+}
+
+// WithTagPrefix sets the configured version tag prefix.
+func WithTagPrefix(prefix string) AdapterOption {
+	return func(a *Adapter) {
+		a.tagPrefix = prefix
+	}
+}
+
+// tagPrefixOrDefault returns the configured prefix, defaulting to the "v" that
+// config declares, so an adapter built without the option behaves as before.
+func (a *Adapter) tagPrefixOrDefault() string {
+	if a.tagPrefix == "" {
+		return "v"
+	}
+	return a.tagPrefix
 }
 
 // WithReleaseAnalyzer sets the release analyzer.
@@ -191,6 +214,7 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 		RepositoryPath: repoPath,
 		FromRef:        input.FromRef,
 		ToRef:          input.ToRef,
+		TagPrefix:      a.tagPrefixOrDefault(),
 	}
 
 	output, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)
@@ -242,7 +266,8 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 				Type: "agent",
 				ID:   "mcp-agent",
 			},
-			Force: true, // Allow re-planning
+			Force:     true, // Allow re-planning
+			TagPrefix: a.tagPrefixOrDefault(),
 		}
 
 		planOutput, err := a.releaseServices.PlanRelease.Execute(ctx, planInput)

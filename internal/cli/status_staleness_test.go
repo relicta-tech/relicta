@@ -182,31 +182,65 @@ func TestDetectRunStaleness_IgnoresTagsOutsidePrefix(t *testing.T) {
 	}
 }
 
-// TestDetectRunStaleness_NonVTagPrefixesAreNotDetected documents a limitation
-// that lives below this function, so the behavior is at least pinned.
+// TestDetectRunStaleness_NonVTagPrefixesAreDetected replaces a test that pinned
+// the opposite.
 //
-// sourcecontrol.NewTag decides whether a tag is a version tag by calling
-// version.Parse on the whole name, and version.Parse accepts only bare semver or
-// a leading "v" — "release-1.5.0", "rel/1.5.0" and "app-v1.5.0" all fail. Such
-// tags are therefore dropped by VersionTags() before any prefix filtering
-// happens, so `versioning.tag_prefix` cannot express them and this detector
-// cannot see a release made with one.
+// This detector could not see a release made with any prefix other than "v",
+// because sourcecontrol.NewTag decided version-ness by parsing the whole tag name
+// and version.Parse accepts only bare semver or a leading "v". Such tags were
+// dropped by VersionTags() before prefix filtering ran, so
+// FilterByPrefix(prefix).VersionTags() — the sequence used here and in six other
+// places — discarded exactly what the filter had selected.
 //
-// That makes baseline staleness undetectable for projects using a non-"v"
-// prefix, including the monorepo-style "app-v1.2.3" that FilterByPrefix and the
-// TagPrefix setting appear to promise. Fixing it means teaching the tag domain to
-// strip a configured prefix before parsing, which is a wider change than this
-// detector — tracked separately.
-func TestDetectRunStaleness_NonVTagPrefixesAreNotDetected(t *testing.T) {
+// The earlier test asserted that non-"v" prefixes were *not* detected and said so
+// in its name, deliberately failing once the limitation was lifted. It failed on
+// the change that lifted it, which is what it was for.
+func TestDetectRunStaleness_NonVTagPrefixesAreDetected(t *testing.T) {
+	ctx := context.Background()
+
+	// Each of these is a prefix a real project uses, and none of them worked.
+	cases := []struct {
+		prefix string
+		tag    string
+	}{
+		{"release-", "release-1.5.0"},
+		{"app-v", "app-v1.5.0"},
+		{"rel/", "rel/1.5.0"},
+		{"v", "v1.5.0"}, // the case that always worked, so it stays working
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.prefix, func(t *testing.T) {
+			run := planRunAt(t, "1.0.0", "aaaaaaaaaaaa")
+			git := stalenessGitRepo{
+				tags:    tagList(t, tc.tag),
+				headSHA: "aaaaaaaaaaaa",
+			}
+
+			reasons := detectRunStaleness(ctx, git, run, tc.prefix)
+			if len(reasons) == 0 {
+				t.Fatalf("a run planned against 1.0.0 is stale once %s exists, but nothing "+
+					"was reported", tc.tag)
+			}
+			if !strings.Contains(reasons[0], "1.5.0") {
+				t.Errorf("the reason should name the version now in the repository; got %q", reasons[0])
+			}
+		})
+	}
+}
+
+// A tag carrying a different prefix is not this project's release, and must not
+// be read as one. Without this, widening prefix support would make every
+// component's tags look like every other component's in a monorepo.
+func TestDetectRunStaleness_IgnoresOtherPrefixes(t *testing.T) {
 	ctx := context.Background()
 	run := planRunAt(t, "1.0.0", "aaaaaaaaaaaa")
 	git := stalenessGitRepo{
-		tags:    tagList(t, "release-1.5.0"),
+		tags:    tagList(t, "web-v9.9.9"),
 		headSHA: "aaaaaaaaaaaa",
 	}
 
-	if reasons := detectRunStaleness(ctx, git, run, "release-"); len(reasons) != 0 {
-		t.Errorf("behavior changed — non-v prefixes are now parsed, so this "+
-			"limitation may be fixed and the detector should be revisited: %v", reasons)
+	if reasons := detectRunStaleness(ctx, git, run, "app-v"); len(reasons) != 0 {
+		t.Errorf("web-v9.9.9 is not an app-v release; got %v", reasons)
 	}
 }
