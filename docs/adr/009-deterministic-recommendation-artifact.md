@@ -2,7 +2,21 @@
 
 ## Status
 
-Proposed
+Accepted (2026-08-10)
+
+The decision is settled and the artifact is the contract that ADR-010 and
+ADR-011 build on, so leaving it Proposed misrepresented it as still open.
+
+Implemented for `relicta plan --json` and the MCP `relicta_plan` tool, with
+tests asserting the two properties the decision rests on: `TestBuild_NoProseFields`
+and `TestBuild_IsDeterministic`, plus `TestDigest_StableAcrossCalls` for
+provenance.
+
+**Not yet on every interface.** The decision text says "CLI JSON output, MCP tool
+results, HTTP API"; the HTTP API does not emit the artifact. That is outstanding
+work against an accepted decision, not a reason to keep the decision provisional
+— but it does mean a Hub reading the HTTP API today gets a different shape than an
+agent reading MCP.
 
 ## Date
 
