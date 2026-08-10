@@ -16,6 +16,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
 )
 
 var policyCmd = &cobra.Command{
@@ -27,6 +28,12 @@ Policies define rules for evaluating release changes, determining
 risk levels, and requiring approvals based on configurable conditions.
 
 Examples:
+  # Write a starting policy (governance is on by default; this customizes it)
+  relicta policy init
+
+  # See the policy templates included in the binary
+  relicta policy init --list
+
   # Validate all policies in the default directory
   relicta policy validate
 
@@ -92,6 +99,7 @@ iterate by refining scenario expectations.`,
 var (
 	policyValidateDir               string
 	policyValidateFile              string
+	policyValidateStrict            bool
 	policyTestDir                   string
 	policyTestFile                  string
 	policyTestBaselineDir           string
@@ -144,13 +152,51 @@ var (
 	policyScaffoldMaxRuleScenarios int
 )
 
+var policyInitCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Write a starting policy",
+	Long: `Write one of the example policies included in this binary into your
+policy directory, so you have working DSL to edit rather than a blank file.
+
+Governance runs on built-in defaults without any policy file. A policy is how
+you encode rules those defaults do not cover — a longer freeze window, stricter
+handling of agent-authored changes, a team that reviews its own releases.
+
+The file is written to the first directory relicta searches, so it takes effect
+immediately. Use --list to see what is available and --template to choose.`,
+	RunE: runPolicyInit,
+}
+
+var policyFieldsCmd = &cobra.Command{
+	Use:   "fields",
+	Short: "List the fields a policy condition can test",
+	Long: `Print every field the policy evaluator can resolve, grouped by context.
+
+A condition on a field the evaluator does not provide makes its rule silently
+unmatchable — the rule loads, lists itself as enabled, and never fires. This is
+the list to write conditions against; 'relicta policy validate' checks a policy
+against the same list.`,
+	RunE: runPolicyFields,
+}
+
 func init() {
+	policyCmd.AddCommand(policyInitCmd)
+	policyCmd.AddCommand(policyFieldsCmd)
 	policyCmd.AddCommand(policyValidateCmd)
 	policyCmd.AddCommand(policyListCmd)
 	policyCmd.AddCommand(policyTestCmd)
 	policyCmd.AddCommand(policyScaffoldCmd)
 
+	policyInitCmd.Flags().StringVarP(&policyInitTemplate, "template", "t", templates.DefaultPolicyStarter,
+		"which included policy to write (see --list)")
+	policyInitCmd.Flags().StringVarP(&policyInitDir, "dir", "d", "",
+		"directory to write into (default: the first directory relicta searches)")
+	policyInitCmd.Flags().BoolVar(&policyInitForce, "force", false, "overwrite an existing policy file")
+	policyInitCmd.Flags().BoolVar(&policyInitList, "list", false, "list the policy templates included in this binary")
+
 	policyValidateCmd.Flags().StringVarP(&policyValidateDir, "dir", "d", "", "directory containing policy files")
+	policyValidateCmd.Flags().BoolVar(&policyValidateStrict, "strict", false,
+		"fail when a condition references a field the evaluator does not provide")
 	policyValidateCmd.Flags().StringVarP(&policyValidateFile, "file", "f", "", "specific policy file to validate")
 
 	policyTestCmd.Flags().StringVarP(&policyTestDir, "dir", "d", "", "directory containing policy files")

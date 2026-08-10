@@ -269,6 +269,27 @@ func (e *Engine) evaluateRuleWithTrace(ctx context.Context, rule Rule, evalCtx m
 			Operator: cond.Operator,
 			Expected: cond.Value,
 		}
+
+		// Composite conditions carry their operands in Value, not in Field, so
+		// there is no field to look up. Resolving "_or" as a field path is what
+		// made every rule containing OR or NOT silently unmatchable.
+		if isCompositeCondition(cond) {
+			matched, err := e.evaluateCondition(cond, evalCtx)
+			if err != nil {
+				conditionTrace.Error = err.Error()
+				trace.Conditions = append(trace.Conditions, conditionTrace)
+				trace.Matched = false
+				return false, trace, err
+			}
+			conditionTrace.Matched = matched
+			trace.Conditions = append(trace.Conditions, conditionTrace)
+			if !matched {
+				trace.Matched = false
+				return false, trace, nil
+			}
+			continue
+		}
+
 		fieldValue, ok := getNestedValue(evalCtx, cond.Field)
 		if !ok {
 			conditionTrace.Matched = false
@@ -298,14 +319,79 @@ func (e *Engine) evaluateRuleWithTrace(ctx context.Context, rule Rule, evalCtx m
 	return true, trace, nil
 }
 
+// isCompositeCondition reports whether a condition combines other conditions
+// rather than comparing a field.
+func isCompositeCondition(cond Condition) bool {
+	return cond.Field == compositeFieldOr || cond.Field == compositeFieldNot
+}
+
 // evaluateCondition checks a single condition.
+//
+// The DSL compiles `a OR b` into one condition with Field "_or" and the two sides
+// in Value, and `NOT a` into Field "_not" with the operand in Value. Nothing here
+// understood either, so both were looked up as field paths named "_or" and "_not",
+// found missing, and reported as not matched — the documented OR and NOT operators
+// produced rules that could never fire, in silence. Four of the five policies this
+// project ships used one or the other.
 func (e *Engine) evaluateCondition(cond Condition, evalCtx map[string]any) (bool, error) {
+	switch cond.Field {
+	case compositeFieldOr:
+		left, right := orOperands(cond.Value)
+		matched, err := e.evaluateConditionGroup(left, evalCtx)
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return true, nil
+		}
+		return e.evaluateConditionGroup(right, evalCtx)
+
+	case compositeFieldNot:
+		matched, err := e.evaluateConditionGroup(operandConditions(cond.Value), evalCtx)
+		if err != nil {
+			return false, err
+		}
+		return !matched, nil
+	}
+
 	fieldValue, ok := getNestedValue(evalCtx, cond.Field)
 	if !ok {
 		return false, nil // Field doesn't exist, condition doesn't match
 	}
 
 	return compareValues(fieldValue, cond.Operator, cond.Value)
+}
+
+// evaluateConditionGroup evaluates a group of conditions with AND semantics,
+// matching how a rule's own condition list is evaluated. Operands may themselves
+// be composite, so this recurses through evaluateCondition.
+//
+// An empty group does not match. It can only arise from a malformed composite,
+// and treating "no conditions" as vacuously true would make such a rule fire on
+// every release — the most dangerous possible reading of a broken policy.
+func (e *Engine) evaluateConditionGroup(conds []Condition, evalCtx map[string]any) (bool, error) {
+	if len(conds) == 0 {
+		return false, nil
+	}
+	for _, cond := range conds {
+		matched, err := e.evaluateCondition(cond, evalCtx)
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// orOperands splits an _or condition's Value into its two sides.
+func orOperands(value any) (left, right []Condition) {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return nil, nil
+	}
+	return operandConditions(m["left"]), operandConditions(m["right"])
 }
 
 // applyActions applies rule actions to the result.
@@ -527,6 +613,11 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 			"branch":      proposal.Scope.Branch,
 			"commitRange": proposal.Scope.CommitRange,
 			"fileCount":   len(proposal.Scope.Files),
+			// The paths themselves, not only how many. Only the count was exposed,
+			// so path-ownership rules — "infrastructure changes need the platform
+			// team" — were inexpressible, and the three shipped policies that write
+			// them as `change.files contains "terraform/"` matched nothing.
+			"files": proposal.Scope.Files,
 		}
 		ctx["commit_count"] = len(proposal.Scope.Commits)
 	}
@@ -712,16 +803,42 @@ func valueIn(fieldValue, listValue any) bool {
 }
 
 // valueContains checks if a string contains a substring.
+// valueContains supports both a string field and a list field.
+//
+// It handled only string-in-string, so `change.files contains "api/"` — the way
+// every path-ownership rule in the shipped example policies is written — returned
+// false for a list of changed files, silently. Lists are the natural shape for
+// the fields these conditions ask about (changed files, an actor's teams and
+// roles), so a `contains` that cannot read one is a `contains` that quietly fails
+// on its main use.
+//
+// For a list, the condition holds when any element contains the search string.
+// Substring rather than equality, to match the string case and because the
+// intent is `contains "api/"` against paths like "internal/api/handler.go".
 func valueContains(fieldValue, searchValue any) bool {
-	str, ok := fieldValue.(string)
-	if !ok {
-		return false
-	}
 	search, ok := searchValue.(string)
 	if !ok {
 		return false
 	}
-	return strings.Contains(str, search)
+
+	switch field := fieldValue.(type) {
+	case string:
+		return strings.Contains(field, search)
+	case []string:
+		for _, item := range field {
+			if strings.Contains(item, search) {
+				return true
+			}
+		}
+	case []any:
+		// The shape a policy takes after a JSON round trip.
+		for _, item := range field {
+			if s, isStr := item.(string); isStr && strings.Contains(s, search) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // valueMatches checks if a string matches a regex pattern.

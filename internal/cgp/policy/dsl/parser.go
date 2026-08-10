@@ -46,6 +46,24 @@ func (p *Parser) Parse() (*PolicyFile, error) {
 			}
 			file.Rules = append(file.Rules, rule)
 
+		// A file-level description. Without it the compiler stamped every policy
+		// with the constant "Policy compiled from DSL", which `relicta policy list`
+		// printed as the policy's description — a line that occupies the place an
+		// auditor looks for the policy's purpose and says nothing.
+		case TokenDescription:
+			p.advance()
+			if err := p.expect(TokenAssign); err != nil {
+				return nil, err
+			}
+			if p.current.Type != TokenString {
+				return nil, p.error("expected string for description, got %s", p.current.Type)
+			}
+			if file.Description != "" {
+				return nil, p.error("duplicate description")
+			}
+			file.Description = p.current.Value
+			p.advance()
+
 		case TokenDefaults:
 			if file.Defaults != nil {
 				return nil, p.error("duplicate defaults block")
@@ -57,7 +75,7 @@ func (p *Parser) Parse() (*PolicyFile, error) {
 			file.Defaults = defaults
 
 		default:
-			return nil, p.error("expected 'rule' or 'defaults', got %s", p.current.Type)
+			return nil, p.error("expected 'description', 'rule' or 'defaults', got %s", p.current.Type)
 		}
 	}
 

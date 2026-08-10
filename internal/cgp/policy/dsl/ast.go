@@ -7,8 +7,11 @@ type Node interface {
 
 // PolicyFile represents the root of a parsed DSL file.
 type PolicyFile struct {
-	Rules    []*RuleNode
-	Defaults *DefaultsNode
+	// Description states what the policy as a whole is for. Optional; rules carry
+	// their own descriptions, and this is the one for the file.
+	Description string
+	Rules       []*RuleNode
+	Defaults    *DefaultsNode
 }
 
 func (p *PolicyFile) node() {}

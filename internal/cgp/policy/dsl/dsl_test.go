@@ -639,7 +639,7 @@ func TestParser_ErrorInvalidToken(t *testing.T) {
 	parser := NewParser(tokens)
 	_, err = parser.Parse()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "expected 'rule' or 'defaults'")
+	assert.Contains(t, err.Error(), "expected 'description', 'rule' or 'defaults'")
 }
 
 func TestCompiler_AllComparisonOperators(t *testing.T) {

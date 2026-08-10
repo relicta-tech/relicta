@@ -64,12 +64,21 @@ func runPolicyList(cmd *cobra.Command, args []string) error {
 	}
 
 	if totalPolicies == 0 {
+		// This message used to name the directories and the file extensions and
+		// stop there. Both are true and neither is enough: policies are written in
+		// a DSL, so a reader who now knows where to put the file and what to call
+		// it still has no way to know what goes inside it. The command that writes
+		// a working one is the useful next step.
 		fmt.Println("No policies found.")
-		fmt.Println("\nCreate policy files in one of these directories:")
+		fmt.Println("\nGovernance is still active — it runs on built-in defaults.")
+		fmt.Println("Policies are how you add rules those defaults do not cover.")
+		fmt.Println("\nWrite one to start from:")
+		fmt.Println("  relicta policy init          # a basic risk-based policy")
+		fmt.Println("  relicta policy init --list   # other starting points")
+		fmt.Println("\nOr create .policy / .cgp files yourself in one of these directories:")
 		for _, dir := range dirs {
 			fmt.Printf("  - %s\n", dir)
 		}
-		fmt.Println("\nPolicy files should have .policy or .cgp extension.")
 		return nil
 	}
 
