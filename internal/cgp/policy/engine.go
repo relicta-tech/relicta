@@ -597,6 +597,7 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 			actorCtx["canPublish"] = teamCtx.CanPublish(actorID)
 			actorCtx["isTeamLead"] = teamCtx.isAnyTeamLead(actorID)
 		}
+		addActorTrust(actorCtx, proposal)
 		ctx["actor"] = actorCtx
 		ctx["actor_type"] = string(proposal.Actor.Kind)
 		ctx["actor_id"] = proposal.Actor.ID
@@ -646,6 +647,46 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 	}
 
 	return ctx
+}
+
+// addActorTrust exposes how much autonomy the actor holds, and the track record
+// behind it, to policy conditions.
+//
+// The trust machinery already existed and decided nothing a policy could see.
+// `actor.trusted` was written in this repository's own agent-aware policy — the
+// rule meant "auto-approve low-risk changes from actors who have earned it" — and
+// the evaluator provided no such field, so the clause was removed rather than
+// left looking active (see docs/backlog.md). Meanwhile three independent sources
+// raise an actor's trust before evaluation: the governance.trusted_actors
+// allowlist, an identity-registry grant, and earned trust from stored release
+// outcomes. All three land in proposal.Actor.TrustLevel, which is what this reads,
+// so a policy sees the effective trust rather than a fourth notion of it.
+//
+// trustLevel/trusted are always present: every actor carries a trust level (the
+// CLI starts one at Limited), so `trusted == false` means "has not earned or been
+// granted it", never "nobody looked".
+//
+// reputation is different and its absence is load-bearing. It is computed only
+// when a memory store is configured AND reputation guarding or earned trust is
+// enabled, so exposing 0 when it was not computed would read as a spotless
+// record's opposite — a rule like `actor.reputation.overall < 0.5` would fire on
+// every actor in a deployment that never computes reputation. The branch is
+// therefore omitted entirely, and a condition under it reports a missing field,
+// which `relicta policy test --explain` prints.
+func addActorTrust(actorCtx map[string]any, proposal *cgp.ChangeProposal) {
+	actorCtx["trustLevel"] = proposal.Actor.TrustLevel.String()
+	actorCtx["trusted"] = proposal.Actor.TrustLevel.CanAutoApprove()
+
+	if proposal.Context == nil || proposal.Context.ActorReputation == nil {
+		return
+	}
+	rep := proposal.Context.ActorReputation
+	actorCtx["reputation"] = map[string]any{
+		"overall": rep.Overall,
+		"level":   rep.Level,
+		"samples": rep.SampleSize,
+		"trend":   rep.Trend,
+	}
 }
 
 // getNestedValue retrieves a value from a nested map using dot notation.

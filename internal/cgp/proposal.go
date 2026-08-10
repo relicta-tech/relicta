@@ -112,6 +112,38 @@ type ProposalContext struct {
 
 	// Metadata contains arbitrary additional context.
 	Metadata map[string]any `json:"metadata,omitempty"`
+
+	// ActorReputation is the governing actor's computed track record, attached by
+	// the governance service before evaluation so policy conditions can read it.
+	// Nil when no reputation was computed — see ActorReputation.
+	ActorReputation *ActorReputation `json:"actorReputation,omitempty"`
+}
+
+// ActorReputation is an actor's track record, computed from stored release
+// outcomes and incidents by internal/cgp/reputation.
+//
+// It rides on the proposal because that is what reaches the policy evaluator:
+// the evaluator is constructed once from configuration and knows nothing about a
+// memory store, while reputation is per-actor and per-evaluation. A nil pointer
+// means reputation was NOT computed for this evaluation (no memory store, or
+// neither reputation guarding nor earned trust is enabled) — deliberately
+// distinguishable from a computed score of 0, which means a demonstrably bad
+// record. A policy author has to be able to tell "no track record here" from
+// "a terrible one".
+type ActorReputation struct {
+	// Overall is the composite reputation score in [0.0, 1.0].
+	Overall float64 `json:"overall"`
+
+	// Level is the qualitative band: trusted, reliable, probation, restricted.
+	Level string `json:"level"`
+
+	// SampleSize is the number of release records the score is based on. A score
+	// over a handful of releases is not the same claim as one over fifty, so the
+	// count travels with the score rather than being folded into it.
+	SampleSize int `json:"sampleSize"`
+
+	// Trend indicates improving, stable, or declining reputation.
+	Trend string `json:"trend"`
 }
 
 // IssueReference links to an external issue tracker.
