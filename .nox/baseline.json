@@ -2120,7 +2120,7 @@
       "rule_id": "DATA-001",
       "file_path": "internal/domain/sourcecontrol/governance_id_test.go",
       "severity": "medium",
-      "reason": "DATA-001 matches \"git@github.com\" in governance_id_test.go, which is the conventional SSH user for every git forge, not a person's address. The fixtures exercise scp-style remotes (git@host:owner/repo), which the parser must reduce to the same identity as the https form — that branch splits on the last colon and cannot be tested without the user@host shape. Rewriting the literal to dodge the pattern would make a test fixture stop resembling the remotes it stands for.",
+      "reason": "DATA-001 matches the SSH user in the scp-style git remotes used as test fixtures in governance_id_test.go. That user is the conventional one every git forge accepts, not a person's address. The fixtures exist because the parser must reduce an scp-style remote to the same identity as the https form, and that branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because an earlier version of this reason quoted one and the baseline file was then flagged by the same rule.",
       "created_at": "2026-08-10T19:59:54.52539Z"
     }
   ]
