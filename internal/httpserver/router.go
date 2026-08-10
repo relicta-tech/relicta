@@ -90,6 +90,12 @@ func (s *Server) setupRouter() chi.Router {
 				r.Get("/active", handlers.GetActiveRelease)
 				r.Get("/{id}", handlers.GetRelease)
 				r.Get("/{id}/events", handlers.GetReleaseEvents)
+
+				// The ADR-009 recommendation artifact for a run. ADR-009 names this
+				// API as one of the three interfaces that return the artifact, and it
+				// returned none — a Hub reading over HTTP got a different shape than an
+				// agent reading MCP for the same release.
+				r.Get("/{id}/recommendation", handlers.GetReleaseRecommendation)
 			})
 
 			// Governance endpoints

@@ -207,7 +207,13 @@ func RejectRelease(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load and cancel the run
-	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
+		return
+	}
+
+	run, err := loadRun(r.Context(), ctx.ReleaseServices.Repository, repoRoot, domain.RunID(runID))
 	if err != nil {
 		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
