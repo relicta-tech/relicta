@@ -159,7 +159,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
 	if app.HasGovernance() {
-		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.GovernanceID())
 	}
 
 	storeRecommendation(app, output, riskPreview, persisted, repoInfo.Path)
@@ -269,7 +269,7 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
 	if app.HasGovernance() {
-		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.GovernanceID())
 	}
 
 	storeRecommendation(app, output, riskPreview, persistedRun{ID: releaseID}, repoInfo.Path)
@@ -906,7 +906,7 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoURL string) *governanceRiskPreview {
+func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoID string) *governanceRiskPreview {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
@@ -946,20 +946,21 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 
 	// Evaluate.
 	//
-	// A CGP proposal requires a repository identifier, and this passed the git
-	// remote URL straight through. A repository with no remote therefore produced
+	// A CGP proposal requires a repository identifier, and this originally passed
+	// the git remote URL straight through — so a repository with no remote produced
 	// "invalid scope: repository is required", governance never ran, and the error
-	// was discarded — so every plan in a local-only repository came back with no
-	// risk assessment while governance was enabled and reporting nothing wrong.
+	// was discarded (#261). The fix then was a local fallback chain here, which made
+	// governance run and keyed it a third way: plan evaluated under the remote URL
+	// or a bare name while publish recorded outcomes under the checkout path, so the
+	// preview never saw the history it should have been learning from.
 	//
-	// The plan use case already has the convention for this: prefer the remote,
-	// fall back to the path. Same order here, with the repository name in between
-	// because it is the more readable identifier and is what the artifact's subject
-	// shows.
+	// The identity now comes from the caller and is the same one every governance
+	// write and read uses, with its own fallback for a repository that has no
+	// remote. One question, one answer.
 	input := governance.EvaluateReleaseInput{
 		Release:    rel,
 		Actor:      actor,
-		Repository: firstNonEmpty(repoURL, output.RepositoryName, "local"),
+		Repository: firstNonEmpty(repoID, "local:unknown"),
 	}
 
 	result, err := govService.EvaluateRelease(ctx, input)
