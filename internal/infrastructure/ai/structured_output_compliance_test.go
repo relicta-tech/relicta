@@ -1,14 +1,16 @@
-//go:build relicta_anthropic && relicta_openai && (relicta_gemini || relicta_all_ai || !relicta_minimal)
-
 package ai
 
 // Compile-time interface compliance checks. If any provider's
 // CompleteStructured method signature drifts from StructuredOutputService,
 // these break the build immediately rather than at runtime.
 //
-// Build-tag requires all three provider tags so the assertions only run when
-// the symbols are in scope. The default build (no tags) includes all three,
-// so this is exercised by the standard test sweep.
+// These now compile on every build. They did not before: the file carried
+// "//go:build relicta_anthropic && relicta_openai && (...)", which requires both
+// tags to be set explicitly, and nothing set them — not the default build, and
+// none of the four combinations CI exercised. Its own comment claimed the default
+// build included all three and that the sweep exercised it, and neither was true,
+// so these assertions were never checked once. Removing the AI build tags is what
+// made them real.
 
 var (
 	_ StructuredOutputService = (*openAIService)(nil)

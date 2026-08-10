@@ -60,18 +60,6 @@ jobs:
             --race \
             -v
 
-      # The AI provider build tags let operators compile providers out. Nothing
-      # verified those combinations, so the tags rotted: provider _test.go files
-      # carried no tags, and a relicta_minimal build failed to compile its own
-      # tests. Exercising the combinations here is what keeps them working.
-      - name: Verify AI provider build tag combinations
-        run: |
-          for tags in "relicta_minimal" "relicta_all_ai" "relicta_openai" "relicta_anthropic"; do
-            echo "::group::build and test with -tags $tags"
-            go build -tags "$tags" ./... || exit 1
-            go test -tags "$tags" ./internal/infrastructure/ai/... || exit 1
-            echo "::endgroup::"
-          done
 
   policy-gate:
     name: Policy Matrix Gate

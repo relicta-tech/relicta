@@ -7,13 +7,15 @@ import (
 	"time"
 )
 
-// requireProvider skips when a provider is not compiled into this build.
+// requireProvider asserts a provider is registered.
 //
-// The provider set is build-tag dependent: a relicta_minimal binary registers
-// none, and NewService then correctly reports "not available in this build".
-// Skipping keeps the rest of this file — including the coverage of that error
-// path — running under every tag combination, rather than tagging the whole file
-// out of the minimal build.
+// It used to skip. That made sense while the provider set was build-tag
+// dependent — a relicta_minimal binary registered none, and skipping kept the
+// rest of this file running under every combination. Relicta now ships one binary
+// with every provider compiled in, so a missing provider is a registration bug,
+// and a skip would let that bug pass as three quietly-skipped tests rather than a
+// failure. Same reasoning as elsewhere this week: a check that cannot fail is a
+// place for a regression to hide.
 func requireProvider(t *testing.T, name string) {
 	t.Helper()
 	for _, p := range ListProviders() {
@@ -21,7 +23,9 @@ func requireProvider(t *testing.T, name string) {
 			return
 		}
 	}
-	t.Skipf("provider %q is not compiled into this build (available: %v)", name, ListProviders())
+	t.Fatalf("provider %q is not registered (available: %v) — relicta ships a single "+
+		"binary with all providers compiled in, so this is a registration failure",
+		name, ListProviders())
 }
 
 func TestToneConstants(t *testing.T) {
