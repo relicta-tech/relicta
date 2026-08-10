@@ -10,7 +10,7 @@ completion. Status of each, measured on this repository:
 
 | Step | State |
 |---|---|
-| 1. Deterministic artifact is the product surface | Done for `plan --json` and MCP `relicta_plan` (ADR-009). Not on the HTTP API. |
+| 1. Deterministic artifact is the product surface | Done. `plan --json`, MCP `relicta_plan`, and `GET /api/v1/releases/{id}/recommendation` (ADR-009). |
 | `notes --ai` removed from the CLI | Done — the flag generated prose the artifact already carried, and its removal was reversible, so it went first. |
 | 2. `communicate` becomes a Hub capability | **Blocked.** Hub still lacks metering, rate limiting, API keys, and tenancy, and its JWT auth fails open with no secret configured. Removing `communicate` before Hub can serve it would delete a feature with nothing to replace it. |
 | 3. `relicta-ai` gRPC plugin escape hatch | Not started. No prose hook exists yet; the plugin machinery (ADR-008) does. |

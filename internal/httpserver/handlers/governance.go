@@ -41,12 +41,7 @@ func ListGovernanceDecisions(w http.ResponseWriter, r *http.Request) {
 
 	// Load runs and extract governance decisions
 	var decisions []dto.GovernanceDecisionDTO
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
-
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		// Create a governance decision from the release data
 		decision := dto.GovernanceDecisionDTO{
 			ID:        string(run.ID()) + "-decision",
@@ -127,12 +122,7 @@ func GetRiskTrends(w http.ResponseWriter, r *http.Request) {
 		count      int
 	})
 
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
-
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		if run.CreatedAt().Before(since) {
 			continue
 		}
@@ -183,12 +173,7 @@ func GetFactorDistribution(w http.ResponseWriter, r *http.Request) {
 	factorCounts := make(map[string]int)
 	totalFactors := 0
 
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
-
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		for _, reason := range run.Reasons() {
 			factorCounts[reason]++
 			totalFactors++

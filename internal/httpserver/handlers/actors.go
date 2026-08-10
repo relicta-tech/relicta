@@ -52,12 +52,7 @@ func ListActors(w http.ResponseWriter, r *http.Request) {
 
 	// Aggregate actor statistics
 	actorMap := make(map[string]*actorStats)
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
-
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		actorID := run.ActorID()
 		if actorID == "" {
 			actorID = "unknown"
@@ -158,12 +153,7 @@ func GetActor(w http.ResponseWriter, r *http.Request) {
 	// Aggregate statistics for this specific actor
 	var stats actorStats
 	found := false
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
-
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		runActorID := run.ActorID()
 		if runActorID == "" {
 			runActorID = "unknown"

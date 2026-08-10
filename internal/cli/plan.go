@@ -162,6 +162,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
 	}
 
+	storeRecommendation(app, output, riskPreview, persisted, repoInfo.Path)
+
 	// Output results
 	if outputJSON {
 		return outputPlanJSON(output, persisted, riskPreview)
@@ -269,6 +271,8 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	if app.HasGovernance() {
 		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
 	}
+
+	storeRecommendation(app, output, riskPreview, persistedRun{ID: releaseID}, repoInfo.Path)
 
 	// Output results
 	if outputJSON {
@@ -916,22 +920,45 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		dryRun,
 	)
 	if err := release.SetPlan(rel, plan); err != nil {
+		// Governance is enabled by default (ADR-011), so its absence from the output
+		// is a claim that needs a reason. Both failure paths here returned nil
+		// silently, which made "governance is disabled", "governance failed" and
+		// "governance found nothing" the same observable outcome: no governance
+		// section at all. A reader could not tell an ungoverned release from a
+		// governed one.
+		printWarning(fmt.Sprintf("governance preview unavailable: could not build a "+
+			"release to evaluate: %v", err))
 		return nil
 	}
 
 	// Create actor (similar to approve.go)
 	actor := createCGPActorForPlan()
 
-	// Evaluate
+	// Evaluate.
+	//
+	// A CGP proposal requires a repository identifier, and this passed the git
+	// remote URL straight through. A repository with no remote therefore produced
+	// "invalid scope: repository is required", governance never ran, and the error
+	// was discarded — so every plan in a local-only repository came back with no
+	// risk assessment while governance was enabled and reporting nothing wrong.
+	//
+	// The plan use case already has the convention for this: prefer the remote,
+	// fall back to the path. Same order here, with the repository name in between
+	// because it is the more readable identifier and is what the artifact's subject
+	// shows.
 	input := governance.EvaluateReleaseInput{
 		Release:    rel,
 		Actor:      actor,
-		Repository: repoURL,
+		Repository: firstNonEmpty(repoURL, output.RepositoryName, "local"),
 	}
 
 	result, err := govService.EvaluateRelease(ctx, input)
 	if err != nil {
-		// Don't fail the plan command if governance fails
+		// Still not fatal — a plan is useful without a risk preview, and failing the
+		// command would make governance a single point of failure for planning. But
+		// it is said out loud, on stderr, so a pipeline that believes it is governed
+		// finds out that this plan was not.
+		printWarning(fmt.Sprintf("governance preview unavailable: %v", err))
 		return nil
 	}
 
@@ -952,6 +979,19 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		Rationale:       result.Rationale,
 		RequiredActions: result.RequiredActions,
 	}
+}
+
+// firstNonEmpty returns the first non-empty string, or "" if all are empty.
+//
+// The final fallback matters: an identifier that is merely readable is better than
+// one that is absent, because absent means governance does not run at all.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // createCGPActorForPlan creates a CGP actor for plan preview.
@@ -1040,6 +1080,35 @@ type persistedRun struct {
 
 func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (persistedRun, error) {
 	return persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{})
+}
+
+// storeRecommendation writes the ADR-009 artifact next to the run it describes.
+//
+// Called after the governance preview rather than inside persistReleaseRun,
+// because the run is saved before governance runs and an artifact stored at that
+// point would carry no assessment — the lossy version this exists to avoid.
+//
+// A failure is reported and not fatal. The release is already planned and the
+// artifact is a record of it; refusing to continue because the record could not
+// be written would turn a storage problem into a blocked release. Silence would
+// be worse than either, since the HTTP endpoint would then 404 with no
+// explanation of why.
+func storeRecommendation(app cliApp, output *servicerelease.AnalyzeOutput,
+	riskPreview *governanceRiskPreview, persisted persistedRun, repoRoot string,
+) {
+	if persisted.ID == "" || !app.HasReleaseServices() {
+		return
+	}
+	services := app.ReleaseServices()
+	if services == nil || services.Repository == nil {
+		return
+	}
+
+	artifact := buildRecommendationArtifact(output, riskPreview)
+	if _, err := recommendation.Persist(services.Repository, repoRoot,
+		domain.RunID(persisted.ID), artifact); err != nil {
+		printWarning(fmt.Sprintf("recommendation artifact not stored: %v", err))
+	}
 }
 
 // persistReleaseRunWithOptions stores the release run with optional tag-push mode support.

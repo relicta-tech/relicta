@@ -45,11 +45,7 @@ func ListReleases(w http.ResponseWriter, r *http.Request) {
 	// Load all runs and convert to DTOs (applying optional state filter)
 	stateFilter := r.URL.Query().Get("state")
 	releases := make([]dto.ReleaseDTO, 0, len(runIDs))
-	for _, runID := range runIDs {
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
-		if err != nil {
-			continue
-		}
+	for _, run := range loadRuns(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runIDs) {
 		if stateFilter != "" && string(run.State()) != stateFilter {
 			continue
 		}
@@ -137,7 +133,13 @@ func GetRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
+		return
+	}
+
+	run, err := loadRun(r.Context(), ctx.ReleaseServices.Repository, repoRoot, domain.RunID(runID))
 	if err != nil {
 		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
@@ -160,7 +162,13 @@ func GetReleaseEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := ctx.ReleaseServices.Repository.Load(r.Context(), domain.RunID(runID))
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "failed to get working directory", nil)
+		return
+	}
+
+	run, err := loadRun(r.Context(), ctx.ReleaseServices.Repository, repoRoot, domain.RunID(runID))
 	if err != nil {
 		writeError(w, r, http.StatusNotFound, ErrCodeReleaseNotFound, "release not found", err.Error())
 		return
