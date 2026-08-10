@@ -945,7 +945,7 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 // Resource handlers
 
 func (s *Server) handleCGPPropose(ctx context.Context, input CGPProposeToolInput) (string, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return "", err
 	}
 
@@ -985,7 +985,7 @@ func (s *Server) handleCGPPropose(ctx context.Context, input CGPProposeToolInput
 }
 
 func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolInput) (string, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return "", err
 	}
 
@@ -1018,7 +1018,7 @@ func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolI
 }
 
 func (s *Server) handleCGPStatus(ctx context.Context, input CGPStatusToolInput) (CGPStatusToolOutput, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return CGPStatusToolOutput{}, err
 	}
 

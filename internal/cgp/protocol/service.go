@@ -114,13 +114,20 @@ func (s *Service) EvaluateProposal(ctx context.Context, proposal *cgpsdk.ChangeP
 // RecordAuthorization stores an execution authorization for a proposal.
 func (s *Service) RecordAuthorization(ctx context.Context, auth *cgpsdk.ExecutionAuthorization) error {
 	if err := cgpsdk.ValidateAuthorization(auth); err != nil {
-		return fmt.Errorf("invalid authorization: %w", err)
+		// Returned as the validation error itself. FormatUserError reads the
+		// outermost wrapping segment as the operation being attempted and appends
+		// "failed", so wrapping this produced "Invalid authorization failed:
+		// approvedBy.id is required" — the same garble GetStatus had. The convention
+		// that formatter expects is `operation: cause`, and "invalid authorization"
+		// is a cause.
+		return err
 	}
 
 	// Verify the proposal exists.
 	_, err := s.store.GetProposal(ctx, auth.ProposalID)
 	if err != nil {
-		return fmt.Errorf("proposal %s not found: %w", auth.ProposalID, err)
+		// The store's error already names the proposal and says it was not found.
+		return err
 	}
 
 	// Verify a decision exists for this proposal.
