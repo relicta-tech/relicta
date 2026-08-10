@@ -2099,7 +2099,7 @@
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-08T09:04:53.000000Z"
+      "created_at": "2026-08-08T09:04:53Z"
     },
     {
       "fingerprint": "afb7223be89ca407c769f3c063ca13f2654ac3625aeae43e02854b965d16405f",
@@ -2114,6 +2114,14 @@
       "file_path": "web/package-lock.json",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "fefbf43884c16766c5ff199b2118e0bfdc0ef156128ecbd4ed14d8210a565850",
+      "rule_id": "DATA-001",
+      "file_path": "internal/domain/sourcecontrol/governance_id_test.go",
+      "severity": "medium",
+      "reason": "DATA-001 matches \"git@github.com\" in governance_id_test.go, which is the conventional SSH user for every git forge, not a person's address. The fixtures exercise scp-style remotes (git@host:owner/repo), which the parser must reduce to the same identity as the https form — that branch splits on the last colon and cannot be tested without the user@host shape. Rewriting the literal to dodge the pattern would make a test fixture stop resembling the remotes it stands for.",
+      "created_at": "2026-08-10T19:59:54.52539Z"
     }
   ]
 }
