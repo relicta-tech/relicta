@@ -153,7 +153,69 @@ func (tl TagList) Latest() *Tag {
 	return latest
 }
 
+// VersionWithPrefix resolves the tag's version after removing a known prefix.
+//
+// Version() reflects what NewTag could parse from the whole tag name, and
+// version.Parse accepts only bare semver or a leading "v". So "app-v1.2.3" and
+// "release-1.5.0" are not version tags at all, and every caller that filtered by
+// a configured prefix and then asked for version tags got nothing: the second step
+// discarded exactly what the first step selected. Nothing reported that the
+// prefix had been ignored, so a project using one appeared to have no releases.
+//
+// Returns nil when the tag does not carry the prefix, or when what remains is not
+// a semantic version.
+func (t *Tag) VersionWithPrefix(prefix string) *version.SemanticVersion {
+	if !strings.HasPrefix(t.name, prefix) {
+		return nil
+	}
+	ver, err := version.Parse(strings.TrimPrefix(t.name, prefix))
+	if err != nil {
+		return nil
+	}
+	return &ver
+}
+
+// IsVersionTagWithPrefix reports whether the tag names a version under prefix.
+func (t *Tag) IsVersionTagWithPrefix(prefix string) bool {
+	return t.VersionWithPrefix(prefix) != nil
+}
+
+// withVersion returns a copy of the tag carrying a resolved version, so callers
+// reading Version() after a prefix-aware filter see the version that filter
+// matched on rather than the one NewTag guessed from the whole name.
+func (t *Tag) withVersion(ver *version.SemanticVersion) *Tag {
+	clone := *t
+	clone.version = ver
+	return &clone
+}
+
+// VersionTagsWithPrefix returns the tags that name a version under prefix, each
+// carrying its resolved version.
+//
+// This replaces FilterByPrefix(prefix).VersionTags(), which cannot work for any
+// prefix outside what version.Parse already accepts. Doing both steps together is
+// also the only way to keep them consistent: the prefix that selects a tag is the
+// prefix that must be removed to read its version.
+func (tl TagList) VersionTagsWithPrefix(prefix string) TagList {
+	result := make(TagList, 0, len(tl))
+	for _, t := range tl {
+		if ver := t.VersionWithPrefix(prefix); ver != nil {
+			result = append(result, t.withVersion(ver))
+		}
+	}
+	return result
+}
+
+// LatestWithPrefix returns the highest-versioned tag under prefix, or nil.
+func (tl TagList) LatestWithPrefix(prefix string) *Tag {
+	return tl.VersionTagsWithPrefix(prefix).Latest()
+}
+
 // FilterByPrefix returns tags with the specified prefix.
+//
+// Prefer VersionTagsWithPrefix when the intent is "version tags under this
+// prefix": chaining this with VersionTags() drops every tag whose prefix is not
+// one version.Parse already understands.
 func (tl TagList) FilterByPrefix(prefix string) TagList {
 	// Pre-allocate assuming ~25% match rate to reduce reallocations
 	result := make(TagList, 0, len(tl)/4+1)

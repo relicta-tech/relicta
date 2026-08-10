@@ -175,7 +175,7 @@ func (uc *PromoteReleaseUseCase) findLatestChannelVersion(ctx context.Context, t
 	}
 
 	var latest *version.SemanticVersion
-	for _, t := range tags.FilterByPrefix(tagPrefix).VersionTags() {
+	for _, t := range tags.VersionTagsWithPrefix(tagPrefix) {
 		ver := t.Version()
 		if ver == nil {
 			continue

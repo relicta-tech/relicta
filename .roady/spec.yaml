@@ -645,6 +645,25 @@ features:
 
         Other Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.
       requirements: []
+    - id: policy-conditions-for-data-the-evaluator-does-not-yet-carry
+      title: Policy conditions for data the evaluator does not yet carry
+      description: |-
+        Five conditions written in the shipped example policies had no field behind them and were removed rather than left looking active (PR #249). Each is a real governance need, and each needs the evaluator to carry data it does not have today.
+
+        CAUSE: buildEvalContext exposes risk, change counts, blast radius, scope, intent, actor identity, team configuration and a clock. It carries nothing about holidays, actor seniority, how many domains a change touches, or an actor's earned trust. `relicta policy fields` now prints exactly what exists, so the gaps are visible instead of guessed at.
+
+        CONSEQUENCE: rules a team would reasonably want cannot be expressed. Specifically:
+
+        1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.
+        2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains "junior"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.
+        3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.
+        4. `actor.trusted` — the reputation and calibration machinery exists in internal/cgp (earned trust, identity registry) and is not surfaced to policy conditions. This is probably the cheapest of the four and the most useful: it is the field that lets a policy say "auto-approve low-risk changes from actors who have earned it".
+        5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for "this list is empty". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.
+
+        OPTIONS: (4) first, since the data exists and only needs exposing in buildEvalContext plus a KnownFieldPaths entry. Then (5), which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.
+
+        Whatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.
+      requirements: []
 constraints:
     - id: file-backend-default
       description: File-based persistence remains the default. PostgreSQL is opt-in via config.

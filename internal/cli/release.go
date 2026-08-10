@@ -352,6 +352,9 @@ func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.An
 			ID:   "cli",
 		},
 		Force: false,
+		// Baseline detection used to hardcode "v", so a project configuring any
+		// other prefix planned against "no previous release".
+		TagPrefix: configuredTagPrefix(),
 	}
 
 	// Pass tag-push mode from workflow context to use case
@@ -671,7 +674,7 @@ func findPreviousVersionTag(ctx context.Context, c cliApp, currentVer *version.S
 	var prevTagName string
 	var prevVer version.SemanticVersion
 
-	for _, t := range tags.FilterByPrefix(cfg.Versioning.TagPrefix).VersionTags() {
+	for _, t := range tags.VersionTagsWithPrefix(cfg.Versioning.TagPrefix) {
 		tagVer := t.Version()
 		if tagVer == nil || !tagVer.LessThan(*currentVer) {
 			continue
@@ -704,7 +707,7 @@ func detectReleaseMode(ctx context.Context, c cliApp, tagPrefix string) (release
 	}
 
 	// Check if any version tag points to HEAD
-	for _, tag := range tags.FilterByPrefix(tagPrefix).VersionTags() {
+	for _, tag := range tags.VersionTagsWithPrefix(tagPrefix) {
 		if tag.Hash() == headCommit.Hash() {
 			ver := tag.Version()
 			if ver != nil {

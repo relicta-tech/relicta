@@ -81,7 +81,7 @@ func (g *GitRepoInspector) GetLatestVersionTag(ctx context.Context, prefix strin
 	}
 
 	// Filter by prefix and find the latest version tag
-	filtered := tags.FilterByPrefix(prefix).VersionTags()
+	filtered := tags.VersionTagsWithPrefix(prefix)
 	if len(filtered) == 0 {
 		// No version tags found
 		return "", nil

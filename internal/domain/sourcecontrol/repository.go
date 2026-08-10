@@ -203,7 +203,7 @@ func (vd *VersionDiscovery) DiscoverAllVersions(ctx context.Context, repo GitRep
 		return nil, err
 	}
 
-	versionTags := tags.FilterByPrefix(vd.tagPrefix).VersionTags()
+	versionTags := tags.VersionTagsWithPrefix(vd.tagPrefix)
 	versions := make([]version.SemanticVersion, 0, len(versionTags))
 	for _, t := range versionTags {
 		if t.Version() != nil {

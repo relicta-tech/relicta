@@ -188,7 +188,7 @@ func latestVersionTag(ctx context.Context, gitAdapter sourcecontrol.GitRepositor
 		return nil
 	}
 	var latest *version.SemanticVersion
-	for _, t := range tags.FilterByPrefix(prefix).VersionTags() {
+	for _, t := range tags.VersionTagsWithPrefix(prefix) {
 		v := t.Version()
 		if v == nil {
 			continue

@@ -794,3 +794,21 @@ func parseModelFlag(flag string) (provider, model string) {
 
 	return provider, model
 }
+
+// configuredTagPrefix returns the version tag prefix from configuration.
+//
+// It defaults to "v" — matching the config default — rather than to the empty
+// string, so a command running before config is loaded keeps the previous
+// behavior instead of searching for bare semver tags.
+//
+// The prefix was hardcoded at the points that mattered most: baseline detection
+// in the plan use case, and the MCP adapter's analyze and plan inputs. A project
+// configuring anything else got a baseline of "no previous release" and a
+// changeset spanning its whole history, silently — "no tags found" and "no tags
+// with this prefix" produced the same result.
+func configuredTagPrefix() string {
+	if cfg == nil || cfg.Versioning.TagPrefix == "" {
+		return "v"
+	}
+	return cfg.Versioning.TagPrefix
+}

@@ -210,7 +210,7 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 
 	var prevTagName string
 	var prevVersion *version.SemanticVersion
-	for _, t := range tags.FilterByPrefix(cfg.Versioning.TagPrefix).VersionTags() {
+	for _, t := range tags.VersionTagsWithPrefix(cfg.Versioning.TagPrefix) {
 		tagVer := t.Version()
 		if tagVer != nil && tagVer.LessThan(ver) {
 			if prevVersion == nil || tagVer.GreaterThan(*prevVersion) {
@@ -1075,6 +1075,7 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 		CurrentVersion:  &output.CurrentVersion,
 		NextVersion:     &output.NextVersion,
 		BumpKind:        &bumpKind,
+		TagPrefix:       configuredTagPrefix(),
 		Confidence:      1.0, // Legacy analysis is authoritative
 		TagPushMode:     opts.TagPushMode,
 		TagName:         opts.TagName,
