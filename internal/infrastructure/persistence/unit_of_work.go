@@ -14,7 +14,7 @@ import (
 // It provides transactional semantics for release operations by deferring
 // writes until commit and providing rollback capability.
 type FileUnitOfWork struct {
-	baseRepo       *FileReleaseRepository
+	baseRepo       release.Repository
 	eventPublisher release.EventPublisher
 	mu             sync.Mutex
 
@@ -27,13 +27,13 @@ type FileUnitOfWork struct {
 
 // FileUnitOfWorkFactory creates new FileUnitOfWork instances.
 type FileUnitOfWorkFactory struct {
-	baseRepo       *FileReleaseRepository
+	baseRepo       release.Repository
 	eventPublisher release.EventPublisher
 }
 
 // NewFileUnitOfWorkFactory creates a new FileUnitOfWorkFactory.
 func NewFileUnitOfWorkFactory(
-	baseRepo *FileReleaseRepository,
+	baseRepo release.Repository,
 	eventPublisher release.EventPublisher,
 ) *FileUnitOfWorkFactory {
 	return &FileUnitOfWorkFactory{
@@ -63,7 +63,7 @@ func (f *FileUnitOfWorkFactory) Begin(ctx context.Context) (release.UnitOfWork, 
 // unitOfWorkRepository wraps the base repository to track changes within a transaction.
 type unitOfWorkRepository struct {
 	uow      *FileUnitOfWork
-	baseRepo *FileReleaseRepository
+	baseRepo release.Repository
 }
 
 // Commit commits all pending changes.
