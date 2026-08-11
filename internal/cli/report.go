@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/compliance"
 )
 
@@ -90,17 +89,38 @@ func runReport(cmd *cobra.Command, args []string) error {
 		rf = compliance.FormatJSON
 	}
 
+	// The repository the report is about, defaulting to this one under the same
+	// identity every other governance read and write uses. Without it the report
+	// filtered on a different key than the releases were recorded under.
+	repo := reportRepo
+	if repo == "" {
+		repo = getRepositoryName(ctx)
+	}
+
 	config := compliance.ReportConfig{
 		Type:       rt,
 		Format:     rf,
 		Period:     period,
-		Repository: reportRepo,
+		Repository: repo,
 	}
 
-	// Create the memory store. In a full integration the store would be
-	// injected from the application container. For now we use the in-memory
-	// store which can be populated by the governance pipeline.
-	store := memory.NewInMemoryStore()
+	// The persisted governance store, not a fresh one.
+	//
+	// This constructed memory.NewInMemoryStore() and handed it straight to the
+	// generator, with a comment saying it "can be populated by the governance
+	// pipeline" — nothing populated it. So every report was generated from zero
+	// records: `relicta report --type dora` said "Total Deployments: 0" for a
+	// repository with twelve published releases that `relicta history` listed.
+	//
+	// Empty is not the worst of it. SOC 2 and EU AI Act Article 12 reports are
+	// artifacts someone hands to an auditor, and a clean one — no incidents, no
+	// failures — asserted from data that was never read is an affirmative false
+	// statement, not a missing feature. A report that cannot see the history has to
+	// say so rather than report zeros.
+	store, err := getMemoryStore()
+	if err != nil {
+		return fmt.Errorf("failed to open the governance history store: %w", err)
+	}
 
 	gen := compliance.NewGenerator(store, nil)
 
