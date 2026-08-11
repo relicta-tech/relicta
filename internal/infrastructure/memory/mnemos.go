@@ -272,43 +272,73 @@ func (a *MnemosAdapter) GetActorMetrics(ctx context.Context, actorID string) (*m
 		return nil, err
 	}
 
-	metrics := &memory.ActorMetrics{
-		ActorID:   actorID,
-		ActorKind: cgp.ActorKindHuman, // Default
-	}
+	metrics := &memory.ActorMetrics{ActorID: actorID}
 
+	// Counted through the shared accumulator rather than incremented here. This
+	// previously did metrics.TotalReleases++ and stopped, under the comment "Simplified
+	// - full implementation would parse all fields", so successes, failures, rollbacks,
+	// risk and the success rate were all left at zero. An actor with nothing but failed
+	// releases showed a flawless record, and reputation and earned trust read that as
+	// grounds to widen its autonomy — the opposite of what the history said.
 	for _, e := range events {
 		metadata := e.Metadata
-		if repo, ok := metadata["repository"].(string); !ok || repo == "" {
+		if eventType, _ := metadata["type"].(string); eventType != "release" {
+			continue
+		}
+		if metaString(metadata, "actor_id") != actorID {
 			continue
 		}
 
-		eventType, _ := metadata["type"].(string)
-		if eventType != "release" {
-			continue
+		record := a.eventToReleaseRecord(e)
+		if metrics.ActorKind == "" {
+			// Taken from the actor's own records rather than defaulted to human: an agent
+			// or CI pipeline recorded as human is exactly the attribution a governance
+			// audit is supposed to make legible.
+			metrics.ActorKind = record.Actor.Kind
 		}
+		metrics.Accumulate(record, time.Now())
+	}
 
-		// Check if this event is for the requested actor
-		if actorIDFromMeta, ok := metadata["actor_id"].(string); !ok || actorIDFromMeta != actorID {
-			continue
-		}
-
-		metrics.TotalReleases++
-		// Parse outcome and update metrics
-		// (Simplified - full implementation would parse all fields)
+	if metrics.ActorKind == "" {
+		metrics.ActorKind = cgp.ActorKindHuman
 	}
 
 	return metrics, nil
 }
 
 // GetRiskPatterns analyzes patterns in Mnemos claims.
+//
+// This returned a hardcoded zero struct, which fed HistoricalContext.AverageRiskScore
+// and RiskTrend straight into governance risk evaluation. A fabricated zero is not a
+// missing input: it is an assertion that this repository has never shipped anything
+// risky, made to the component deciding whether the next change needs a human.
 func (a *MnemosAdapter) GetRiskPatterns(ctx context.Context, repository string) (*memory.RiskPatterns, error) {
-	return &memory.RiskPatterns{
-		Repository:    repository,
-		TotalReleases: 0,
-		UpdatedAt:     time.Now(),
-	}, nil
+	releases, err := a.GetReleaseHistory(ctx, repository, riskPatternWindow)
+	if err != nil {
+		return nil, err
+	}
+
+	patterns := &memory.RiskPatterns{
+		Repository: repository,
+		UpdatedAt:  time.Now(),
+	}
+
+	var total float64
+	for _, r := range releases {
+		patterns.TotalReleases++
+		total += r.RiskScore
+	}
+	if patterns.TotalReleases > 0 {
+		patterns.AverageRiskScore = total / float64(patterns.TotalReleases)
+	}
+
+	patterns.RiskTrend = memory.RiskTrendOf(releases)
+	return patterns, nil
 }
+
+// riskPatternWindow bounds how much history a pattern is drawn from. Wide enough for a
+// trend to mean something, bounded so one call cannot pull an entire history.
+const riskPatternWindow = 200
 
 // UpdateActorMetrics updates actor metrics based on outcome.
 func (a *MnemosAdapter) UpdateActorMetrics(ctx context.Context, actorID string, outcome memory.ReleaseOutcome) error {

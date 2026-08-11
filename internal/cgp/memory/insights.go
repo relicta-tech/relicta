@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -313,4 +314,65 @@ func patternSeverity(p Pattern) string {
 		return "warning"
 	}
 	return "info"
+}
+
+// RiskTrendOf reports whether risk is rising, falling or steady across a history.
+//
+// Ordering-independent: it sorts by ReleasedAt itself rather than trusting the caller's
+// order. Both previous copies of this arithmetic treated the tail of the slice as the
+// recent half, which is right for an oldest-first list and exactly backwards for a
+// newest-first one — and GetReleaseHistory returns newest first. A trend that inverts
+// depending on which reader asked is worse than no trend, because both answers look
+// equally plausible in a report.
+//
+// Fewer than four releases yields TrendStable. A direction inferred from two releases is
+// noise, and noise presented as a finding in a governance decision is worse than an
+// admission of not knowing.
+func RiskTrendOf(releases []*ReleaseRecord) RiskTrend {
+	usable := make([]*ReleaseRecord, 0, len(releases))
+	for _, r := range releases {
+		if r != nil && !r.ReleasedAt.IsZero() {
+			usable = append(usable, r)
+		}
+	}
+	if len(usable) < minimumReleasesForATrend {
+		return TrendStable
+	}
+
+	sort.Slice(usable, func(i, j int) bool {
+		return usable[i].ReleasedAt.Before(usable[j].ReleasedAt)
+	})
+
+	mid := len(usable) / 2
+	older := meanRiskScore(usable[:mid])
+	recent := meanRiskScore(usable[mid:])
+
+	switch diff := recent - older; {
+	case diff > riskTrendTolerance:
+		return TrendIncreasing
+	case diff < -riskTrendTolerance:
+		return TrendDecreasing
+	default:
+		return TrendStable
+	}
+}
+
+const (
+	// minimumReleasesForATrend is the point below which a direction is noise.
+	minimumReleasesForATrend = 4
+
+	// riskTrendTolerance keeps two nearly equal averages from reading as a trend.
+	// Without it every repository drifts to increasing or decreasing on rounding.
+	riskTrendTolerance = 0.1
+)
+
+func meanRiskScore(releases []*ReleaseRecord) float64 {
+	if len(releases) == 0 {
+		return 0
+	}
+	var total float64
+	for _, r := range releases {
+		total += r.RiskScore
+	}
+	return total / float64(len(releases))
 }

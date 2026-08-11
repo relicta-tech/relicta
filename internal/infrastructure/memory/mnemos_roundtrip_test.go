@@ -177,3 +177,111 @@ func TestAMalformedTimestampDoesNotBecomeNow(t *testing.T) {
 		}
 	}
 }
+
+// GetActorMetrics counted releases and stopped, under "Simplified - full implementation
+// would parse all fields". So an actor with nothing but failures showed a flawless
+// record — and these numbers decide whether that actor's next change is auto-approved.
+func TestActorMetricsCountOutcomes(t *testing.T) {
+	srv, _ := mnemosServer(t)
+	adapter := NewMnemosStore(srv.URL, "run-ns", srv.Client())
+	ctx := context.Background()
+
+	base := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	outcomes := []memory.ReleaseOutcome{
+		memory.OutcomeSuccess,
+		memory.OutcomeSuccess,
+		memory.OutcomeFailed,
+		memory.OutcomeRollback,
+	}
+	for i, outcome := range outcomes {
+		if err := adapter.RecordRelease(ctx, &memory.ReleaseRecord{
+			ID:         "run-" + string(rune('a'+i)),
+			Repository: "acme/widget",
+			Version:    "1.0." + string(rune('0'+i)),
+			Actor:      cgp.Actor{ID: "agent:codex", Kind: cgp.ActorKindAgent},
+			Outcome:    outcome,
+			RiskScore:  0.8,
+			ReleasedAt: base.Add(time.Duration(i) * time.Hour),
+		}); err != nil {
+			t.Fatalf("RecordRelease: %v", err)
+		}
+	}
+
+	metrics, err := adapter.GetActorMetrics(ctx, "agent:codex")
+	if err != nil {
+		t.Fatalf("GetActorMetrics: %v", err)
+	}
+
+	if metrics.TotalReleases != 4 {
+		t.Fatalf("TotalReleases = %d, want 4", metrics.TotalReleases)
+	}
+	if metrics.SuccessfulReleases != 2 {
+		t.Errorf("SuccessfulReleases = %d, want 2", metrics.SuccessfulReleases)
+	}
+	// A rollback counts as a failure too: the change reached users and was withdrawn.
+	if metrics.FailedReleases != 2 {
+		t.Errorf("FailedReleases = %d, want 2 (one failed, one rolled back); 0 means outcomes "+
+			"are still not parsed and a failing actor reads as flawless", metrics.FailedReleases)
+	}
+	if metrics.RollbackCount != 1 {
+		t.Errorf("RollbackCount = %d, want 1", metrics.RollbackCount)
+	}
+	if metrics.SuccessRate < 0.49 || metrics.SuccessRate > 0.51 {
+		t.Errorf("SuccessRate = %.2f, want 0.50; this feeds the governance decision's "+
+			"historical context", metrics.SuccessRate)
+	}
+	if metrics.HighRiskReleases != 4 {
+		t.Errorf("HighRiskReleases = %d, want 4 (all at 0.8)", metrics.HighRiskReleases)
+	}
+	// The attribution a governance audit exists to make legible: an agent recorded as a
+	// human is the wrong answer, and it used to be hardcoded.
+	if metrics.ActorKind != cgp.ActorKindAgent {
+		t.Errorf("ActorKind = %q, want agent; it was defaulted to human regardless of what "+
+			"the records said", metrics.ActorKind)
+	}
+}
+
+// GetRiskPatterns returned a hardcoded zero struct, which fed
+// HistoricalContext.AverageRiskScore and RiskTrend straight into risk evaluation. A
+// fabricated zero asserts this repository has never shipped anything risky.
+func TestRiskPatternsAreComputed(t *testing.T) {
+	srv, _ := mnemosServer(t)
+	adapter := NewMnemosStore(srv.URL, "run-ns", srv.Client())
+	ctx := context.Background()
+
+	base := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	// Risk climbing over time: 0.1, 0.2, 0.8, 0.9.
+	for i, score := range []float64{0.1, 0.2, 0.8, 0.9} {
+		if err := adapter.RecordRelease(ctx, &memory.ReleaseRecord{
+			ID:         "run-" + string(rune('a'+i)),
+			Repository: "acme/widget",
+			Version:    "2.0." + string(rune('0'+i)),
+			Actor:      cgp.Actor{ID: "human:felix", Kind: cgp.ActorKindHuman},
+			Outcome:    memory.OutcomeSuccess,
+			RiskScore:  score,
+			ReleasedAt: base.Add(time.Duration(i) * time.Hour),
+		}); err != nil {
+			t.Fatalf("RecordRelease: %v", err)
+		}
+	}
+
+	patterns, err := adapter.GetRiskPatterns(ctx, "acme/widget")
+	if err != nil {
+		t.Fatalf("GetRiskPatterns: %v", err)
+	}
+
+	if patterns.TotalReleases != 4 {
+		t.Fatalf("TotalReleases = %d, want 4; 0 was returned unconditionally before",
+			patterns.TotalReleases)
+	}
+	if patterns.AverageRiskScore < 0.49 || patterns.AverageRiskScore > 0.51 {
+		t.Errorf("AverageRiskScore = %.2f, want 0.50", patterns.AverageRiskScore)
+	}
+	// Risk rose from ~0.15 to ~0.85, and the answer must not depend on which order the
+	// history happened to arrive in.
+	if patterns.RiskTrend != memory.TrendIncreasing {
+		t.Errorf("RiskTrend = %q, want increasing: risk climbed from 0.1 to 0.9 and a report "+
+			"that calls that stable is telling an operator the opposite of the truth",
+			patterns.RiskTrend)
+	}
+}
