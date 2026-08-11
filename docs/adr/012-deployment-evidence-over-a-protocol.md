@@ -251,3 +251,44 @@ aspirational:
 > `go.mod` may reference the other. A test asserting the absence of that dependency
 > is cheap; without it, this decision decays the first time someone reaches for a
 > convenient import.
+
+## Implementation notes
+
+Appended as the decision was carried out. The decision above is unchanged; this
+records what exists, because one statement in the Context is no longer true.
+
+**Both directions now exist.**
+
+| flow | relicta | the deployer's side |
+|---|---|---|
+| deployer reports a deployment | `POST /api/v1/webhooks/deployments` | any deployer posting the documented schema |
+| deployer asks whether it may deploy | `POST /api/v1/webhooks/authorize` | a generic HTTP governance provider, opt-in |
+
+The Context said the gate was "designed and unused" because nothing supplied a
+`Provider` and nothing called `Evaluate`. That has been fixed on the deployer side:
+`Apply` now consults the hook, a generic HTTP provider is configured from the
+environment, and a refusal blocks rather than escalating to approval — the answer is
+binding, or delegating the decision meant nothing.
+
+**The gate refuses production only.** A version legitimately reaches staging before
+it is released; that is what staging is for. Requiring a release record there would
+refuse every pre-release deploy and teach people to switch the gate off, and a gate
+that is off does not protect production either. Which environment is production comes
+from the same `environments:` declaration the DORA report reads, so the gate and the
+report cannot disagree about what "production" means.
+
+**A record is not permission.** A release that was rejected, deferred, or is still
+awaiting approval is refused. Without that distinction, proposing a release would be
+enough to deploy it and the approval step would decide nothing.
+
+**Both sides fail closed, for different reasons.** Relicta answers `5xx` rather than
+"allowed" when it cannot read its own store, because a caller cannot distinguish
+allow-because-governed from allow-because-broken. The deployer treats an unreachable
+or non-answering governor as a refusal, because "governance not requested" and
+"governance requested but unavailable" are different states and sharing an outcome
+makes the gate evaporate exactly when a rushed deploy is most likely.
+
+**Prevention did not replace detection.** `relicta deploy audit` still reconciles
+records after the fact, and remains the fallback for deployers that do not ask —
+which is every deployer that has not been configured to. Detection is what you have
+when you cannot prevent, and not every deployer will call out.
