@@ -24,6 +24,7 @@ type FileStore struct {
 
 	// In-memory cache for fast reads
 	releases       map[string][]*ReleaseRecord            // keyed by repository
+	deployments    map[string][]*DeploymentRecord         // keyed by repository
 	incidents      map[string][]*IncidentRecord           // keyed by repository
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
@@ -43,6 +44,7 @@ func NewFileStore(basePath string) (*FileStore, error) {
 	store := &FileStore{
 		basePath:       basePath,
 		releases:       make(map[string][]*ReleaseRecord),
+		deployments:    make(map[string][]*DeploymentRecord),
 		incidents:      make(map[string][]*IncidentRecord),
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),
@@ -60,6 +62,7 @@ func NewFileStore(basePath string) (*FileStore, error) {
 // fileData represents the JSON structure for persistence.
 type fileData struct {
 	Releases       map[string][]*ReleaseRecord            `json:"releases"`
+	Deployments    map[string][]*DeploymentRecord         `json:"deployments,omitempty"`
 	Incidents      map[string][]*IncidentRecord           `json:"incidents"`
 	Actors         map[string]*ActorMetrics               `json:"actors"`
 	Decisions      map[string]*cgp.GovernanceDecision     `json:"decisions,omitempty"`
@@ -97,6 +100,9 @@ func (s *FileStore) load() error {
 	if fd.Releases != nil {
 		s.releases = fd.Releases
 	}
+	if fd.Deployments != nil {
+		s.deployments = fd.Deployments
+	}
 	if fd.Incidents != nil {
 		s.incidents = fd.Incidents
 	}
@@ -118,6 +124,7 @@ func (s *FileStore) load() error {
 func (s *FileStore) save() error {
 	fd := fileData{
 		Releases:       s.releases,
+		Deployments:    s.deployments,
 		Incidents:      s.incidents,
 		Actors:         s.actors,
 		Decisions:      s.decisions,

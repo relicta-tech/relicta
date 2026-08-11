@@ -309,9 +309,15 @@ func runHistoryRisk(cmd *cobra.Command, args []string) error {
 //
 // One resolver now answers where the store is, and both sides call it.
 func getMemoryStore() (memory.Store, error) {
+	return getMemoryStoreCtx(context.Background())
+}
+
+// getMemoryStoreCtx is the context-taking form, so a caller inside a request or
+// command scope does not silently start a detached one.
+func getMemoryStoreCtx(ctx context.Context) (memory.Store, error) {
 	repoRoot := ""
 	if svc, err := gitservice.NewService(); err == nil {
-		if info, infoErr := gitservice.NewAdapter(svc).GetInfo(context.Background()); infoErr == nil {
+		if info, infoErr := gitservice.NewAdapter(svc).GetInfo(ctx); infoErr == nil {
 			repoRoot = info.Path
 		}
 	}
