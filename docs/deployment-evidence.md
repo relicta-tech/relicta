@@ -184,3 +184,26 @@ release was invisible — and that is precisely what the metric asks about.
 With deployments recorded, both measure deployments. Without them the report falls
 back to releases and **labels which it used** (`countedFrom`), because the same figure
 otherwise means two different things and a reader cannot tell which.
+
+Lead time for changes was worse than either. It averaged the release process's own
+runtime — a few seconds or minutes — and compared that against DORA's 24-hour "elite"
+threshold, so **every project scored elite for publishing quickly**, no matter how long
+its changes had actually waited. A metric that always returns the best answer measures
+nothing.
+
+It now measures commit → production deployment, and says which interval it used:
+
+| `measuredFrom` | meaning |
+|---|---|
+| `commit-to-production` | the DORA definition: earliest commit in the release → production deploy |
+| `release-to-production` | commit dates unknown, so measured from the release. Reads low by exactly the time a change waited to be released |
+| `unavailable` | nothing reached production in the period, so there is no arrival to measure to. Reported as unknown rather than as a number |
+
+The interval starts at the **oldest** commit in a release, not the newest: a release
+containing a three-week-old commit and one from this morning has a three-week lead
+time, and reporting the morning's would describe the fastest change in the batch
+instead of the one the metric asks about.
+
+An `unavailable` lead time contributes no vote to the overall DORA rating. Scoring it
+"low" would rate a project poorly for not reporting deployments, which punishes the
+honest state rather than measuring delivery.

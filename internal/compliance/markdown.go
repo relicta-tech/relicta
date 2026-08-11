@@ -335,10 +335,24 @@ func writeDORA(b *strings.Builder, r *DORAReport) {
 	fmt.Fprintln(b)
 	fmt.Fprintln(b, "| Metric | Value |")
 	fmt.Fprintln(b, "|--------|-------|")
-	fmt.Fprintf(b, "| Average | %.1f hours |\n", r.LeadTimeForChanges.AverageHours)
-	fmt.Fprintf(b, "| Median | %.1f hours |\n", r.LeadTimeForChanges.MedianHours)
-	fmt.Fprintf(b, "| P95 | %.1f hours |\n", r.LeadTimeForChanges.P95Hours)
-	fmt.Fprintf(b, "| Classification | %s |\n", r.LeadTimeForChanges.Classification)
+	// An unmeasurable lead time is stated as such. Printing "0.0 hours" would read as
+	// instantaneous delivery, which is the most flattering possible misreading of
+	// having no data.
+	if lt := r.LeadTimeForChanges; lt.MeasuredFrom == leadTimeUnavailable {
+		fmt.Fprintln(b, "| Lead time | not measurable |")
+		fmt.Fprintln(b, "| Why | no successful production deployment was recorded in this period, "+
+			"so there is no point of arrival to measure to |")
+	} else {
+		fmt.Fprintf(b, "| Average | %.1f hours |\n", lt.AverageHours)
+		fmt.Fprintf(b, "| Median | %.1f hours |\n", lt.MedianHours)
+		fmt.Fprintf(b, "| P95 | %.1f hours |\n", lt.P95Hours)
+		fmt.Fprintf(b, "| Classification | %s |\n", lt.Classification)
+		// Which interval was measured, because release-to-production reads low by
+		// exactly the time a change spent waiting to be released, and the two figures
+		// are not comparable across reports.
+		fmt.Fprintf(b, "| Measured from | %s |\n", lt.MeasuredFrom)
+		fmt.Fprintf(b, "| Releases sampled | %d |\n", lt.SampleSize)
+	}
 	fmt.Fprintln(b)
 
 	// MTTR
