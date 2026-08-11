@@ -133,7 +133,12 @@ clean-mcp-apps:
 # Run unit tests
 test:
 	@echo "Running unit tests..."
-	$(GOTEST) -v ./internal/... ./pkg/...
+	# ./docs/... included because docs/adr holds tests, not only prose: they assert
+	# the ADR index resolves and that neither product's go.mod references the other
+	# (ADR-012). CI reaches them through coverctl's docs domain, so leaving them out
+	# here meant `make test` passing while CI could still fail — a local command that
+	# does not match the gate is worse than no local command.
+	$(GOTEST) -v ./internal/... ./pkg/... ./docs/...
 
 # Run tests with race detection
 test-race:

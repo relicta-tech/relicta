@@ -1,0 +1,50 @@
+name: Docs
+
+# The docs tree holds Go tests, and CI ignores it.
+#
+# `ci.yaml` skips `docs/**` and `**.md`, which is right for a workflow about code:
+# a prose edit should not run the full suite. But docs/adr contains tests that guard
+# documentation itself — that every ADR the index links to exists, that no merge
+# conflict marker survived, that row numbers match filenames, and that neither
+# product's go.mod references the other (ADR-012).
+#
+# Those guards therefore never ran on the changes they exist to catch. An ADR added
+# without an index entry, or an index row pointing at a file nobody wrote, is a
+# docs-only change — exactly what the ignore rules filter out. The tests passed
+# only when unrelated code changed.
+#
+# This job runs them when the docs change, in about thirty seconds, so a guard fires
+# on the thing it guards.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yaml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yaml'
+
+env:
+  GO_VERSION: '1.25'
+  GOTOOLCHAIN: local
+
+permissions:
+  contents: read
+
+jobs:
+  docs-tests:
+    name: Docs Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run docs tests
+        run: go test ./docs/...
