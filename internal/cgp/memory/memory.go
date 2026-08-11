@@ -454,50 +454,12 @@ func (s *InMemoryStore) updateActorMetricsLocked(record *ReleaseRecord) {
 	actorID := record.Actor.ID
 	metrics, exists := s.actors[actorID]
 	if !exists {
-		metrics = &ActorMetrics{
-			ActorID:   actorID,
-			ActorKind: record.Actor.Kind,
-		}
+		metrics = &ActorMetrics{ActorID: actorID, ActorKind: record.Actor.Kind}
 		s.actors[actorID] = metrics
 	}
-
-	now := time.Now()
-
-	// Update counts
-	metrics.TotalReleases++
-	switch record.Outcome {
-	case OutcomeSuccess:
-		metrics.SuccessfulReleases++
-	case OutcomeFailed, OutcomePartial:
-		metrics.FailedReleases++
-	case OutcomeRollback:
-		metrics.RollbackCount++
-		metrics.FailedReleases++
-	}
-
-	if record.RiskScore > 0.7 {
-		metrics.HighRiskReleases++
-	}
-	if record.BreakingChanges > 0 {
-		metrics.BreakingChangeReleases++
-	}
-
-	// Update average risk score (running average)
-	n := float64(metrics.TotalReleases)
-	metrics.AverageRiskScore = ((n-1)*metrics.AverageRiskScore + record.RiskScore) / n
-
-	// Update success rate
-	metrics.SuccessRate = float64(metrics.SuccessfulReleases) / float64(metrics.TotalReleases)
-
-	// Update timestamps
-	if metrics.FirstReleaseAt == nil {
-		metrics.FirstReleaseAt = &record.ReleasedAt
-	}
-	metrics.LastReleaseAt = &record.ReleasedAt
-	metrics.UpdatedAt = now
-
-	// Recalculate reliability score
-	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
+	// One definition, shared with FileStore and the Mnemos adapter: see
+	// ActorMetrics.Accumulate for why this must not be reimplemented per store.
+	metrics.Accumulate(record, time.Now())
 }
 
 // RecordIncident stores an incident record.
@@ -829,3 +791,67 @@ func (s *InMemoryStore) GetAuditTrail(ctx context.Context, proposalID string) (*
 		UpdatedAt:      latest,
 	}, nil
 }
+
+// Accumulate folds one release into an actor's running metrics.
+//
+// Extracted because three stores need this and two had already copied it verbatim
+// (InMemoryStore and FileStore), while the Mnemos adapter had no copy at all and
+// therefore counted releases without ever looking at their outcome — an actor with
+// nothing but failures showed a perfect record, and reputation and earned trust read
+// that as grounds to widen the actor's autonomy.
+//
+// One definition matters more here than in most places. These numbers decide whether an
+// actor's next change is auto-approved, so two implementations drifting apart would mean
+// the same history justified different autonomy depending on which backend was
+// configured — and nothing would report the disagreement.
+func (m *ActorMetrics) Accumulate(record *ReleaseRecord, at time.Time) {
+	if m == nil || record == nil {
+		return
+	}
+
+	m.TotalReleases++
+	switch record.Outcome {
+	case OutcomeSuccess:
+		m.SuccessfulReleases++
+	case OutcomeFailed, OutcomePartial:
+		m.FailedReleases++
+	case OutcomeRollback:
+		// A rollback counts as both: the change was withdrawn, and it failed. Counting it
+		// only as a rollback would leave the failure rate reading clean.
+		m.RollbackCount++
+		m.FailedReleases++
+	}
+
+	if record.RiskScore > highRiskThreshold {
+		m.HighRiskReleases++
+	}
+	if record.BreakingChanges > 0 {
+		m.BreakingChangeReleases++
+	}
+
+	// Running average, so the whole history need not be held in memory.
+	n := float64(m.TotalReleases)
+	m.AverageRiskScore = ((n-1)*m.AverageRiskScore + record.RiskScore) / n
+
+	m.SuccessRate = float64(m.SuccessfulReleases) / float64(m.TotalReleases)
+
+	// A zero ReleasedAt is not a real timestamp and must not become the actor's first
+	// release: it would date the actor's history to year one and make every interval
+	// derived from it meaningless.
+	if !record.ReleasedAt.IsZero() {
+		if m.FirstReleaseAt == nil || record.ReleasedAt.Before(*m.FirstReleaseAt) {
+			releasedAt := record.ReleasedAt
+			m.FirstReleaseAt = &releasedAt
+		}
+		if m.LastReleaseAt == nil || record.ReleasedAt.After(*m.LastReleaseAt) {
+			releasedAt := record.ReleasedAt
+			m.LastReleaseAt = &releasedAt
+		}
+	}
+
+	m.UpdatedAt = at
+	m.ReliabilityScore = m.CalculateReliabilityScore()
+}
+
+// highRiskThreshold is the risk score above which a release counts as high risk.
+const highRiskThreshold = 0.7

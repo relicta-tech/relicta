@@ -77,7 +77,17 @@ func TestMnemosAdapter_RecordRelease_And_GetReleaseHistory(t *testing.T) {
 	if len(history) != 1 {
 		t.Fatalf("expected 1 record, got %d", len(history))
 	}
-	if history[0].ID != "release-rel-1" {
-		t.Fatalf("unexpected record ID: %s", history[0].ID)
+	// "rel-1", not "release-rel-1". This previously expected the prefixed form, which
+	// was the stub read side handing back the stored SourceID verbatim. Readers correlate
+	// on the ID the writer supplied — a deployment naming release "rel-1", an incident
+	// referencing it — so returning the prefixed key matched nothing anywhere.
+	if history[0].ID != "rel-1" {
+		t.Fatalf("record ID = %q, want rel-1: the SourceID prefix is storage detail and must "+
+			"not leak into the record readers correlate on", history[0].ID)
+	}
+	// And the rest of the record must arrive, which is the point of the read side.
+	if history[0].Version == "" || history[0].Outcome == "" {
+		t.Fatalf("record came back hollow (version=%q outcome=%q): every field is already in "+
+			"the stored metadata", history[0].Version, history[0].Outcome)
 	}
 }

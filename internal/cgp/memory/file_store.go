@@ -173,50 +173,11 @@ func (s *FileStore) updateActorMetricsLocked(record *ReleaseRecord) {
 	actorID := record.Actor.ID
 	metrics, exists := s.actors[actorID]
 	if !exists {
-		metrics = &ActorMetrics{
-			ActorID:   actorID,
-			ActorKind: record.Actor.Kind,
-		}
+		metrics = &ActorMetrics{ActorID: actorID, ActorKind: record.Actor.Kind}
 		s.actors[actorID] = metrics
 	}
-
-	now := time.Now()
-
-	// Update counts
-	metrics.TotalReleases++
-	switch record.Outcome {
-	case OutcomeSuccess:
-		metrics.SuccessfulReleases++
-	case OutcomeFailed, OutcomePartial:
-		metrics.FailedReleases++
-	case OutcomeRollback:
-		metrics.RollbackCount++
-		metrics.FailedReleases++
-	}
-
-	if record.RiskScore > 0.7 {
-		metrics.HighRiskReleases++
-	}
-	if record.BreakingChanges > 0 {
-		metrics.BreakingChangeReleases++
-	}
-
-	// Update average risk score (running average)
-	n := float64(metrics.TotalReleases)
-	metrics.AverageRiskScore = ((n-1)*metrics.AverageRiskScore + record.RiskScore) / n
-
-	// Update success rate
-	metrics.SuccessRate = float64(metrics.SuccessfulReleases) / float64(metrics.TotalReleases)
-
-	// Update timestamps
-	if metrics.FirstReleaseAt == nil {
-		metrics.FirstReleaseAt = &record.ReleasedAt
-	}
-	metrics.LastReleaseAt = &record.ReleasedAt
-	metrics.UpdatedAt = now
-
-	// Recalculate reliability score
-	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
+	// One definition, shared with InMemoryStore and the Mnemos adapter.
+	metrics.Accumulate(record, time.Now())
 }
 
 // RecordIncident stores an incident record.

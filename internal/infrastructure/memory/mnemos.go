@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -271,43 +272,73 @@ func (a *MnemosAdapter) GetActorMetrics(ctx context.Context, actorID string) (*m
 		return nil, err
 	}
 
-	metrics := &memory.ActorMetrics{
-		ActorID:   actorID,
-		ActorKind: cgp.ActorKindHuman, // Default
-	}
+	metrics := &memory.ActorMetrics{ActorID: actorID}
 
+	// Counted through the shared accumulator rather than incremented here. This
+	// previously did metrics.TotalReleases++ and stopped, under the comment "Simplified
+	// - full implementation would parse all fields", so successes, failures, rollbacks,
+	// risk and the success rate were all left at zero. An actor with nothing but failed
+	// releases showed a flawless record, and reputation and earned trust read that as
+	// grounds to widen its autonomy — the opposite of what the history said.
 	for _, e := range events {
 		metadata := e.Metadata
-		if repo, ok := metadata["repository"].(string); !ok || repo == "" {
+		if eventType, _ := metadata["type"].(string); eventType != "release" {
+			continue
+		}
+		if metaString(metadata, "actor_id") != actorID {
 			continue
 		}
 
-		eventType, _ := metadata["type"].(string)
-		if eventType != "release" {
-			continue
+		record := a.eventToReleaseRecord(e)
+		if metrics.ActorKind == "" {
+			// Taken from the actor's own records rather than defaulted to human: an agent
+			// or CI pipeline recorded as human is exactly the attribution a governance
+			// audit is supposed to make legible.
+			metrics.ActorKind = record.Actor.Kind
 		}
+		metrics.Accumulate(record, time.Now())
+	}
 
-		// Check if this event is for the requested actor
-		if actorIDFromMeta, ok := metadata["actor_id"].(string); !ok || actorIDFromMeta != actorID {
-			continue
-		}
-
-		metrics.TotalReleases++
-		// Parse outcome and update metrics
-		// (Simplified - full implementation would parse all fields)
+	if metrics.ActorKind == "" {
+		metrics.ActorKind = cgp.ActorKindHuman
 	}
 
 	return metrics, nil
 }
 
 // GetRiskPatterns analyzes patterns in Mnemos claims.
+//
+// This returned a hardcoded zero struct, which fed HistoricalContext.AverageRiskScore
+// and RiskTrend straight into governance risk evaluation. A fabricated zero is not a
+// missing input: it is an assertion that this repository has never shipped anything
+// risky, made to the component deciding whether the next change needs a human.
 func (a *MnemosAdapter) GetRiskPatterns(ctx context.Context, repository string) (*memory.RiskPatterns, error) {
-	return &memory.RiskPatterns{
-		Repository:    repository,
-		TotalReleases: 0,
-		UpdatedAt:     time.Now(),
-	}, nil
+	releases, err := a.GetReleaseHistory(ctx, repository, riskPatternWindow)
+	if err != nil {
+		return nil, err
+	}
+
+	patterns := &memory.RiskPatterns{
+		Repository: repository,
+		UpdatedAt:  time.Now(),
+	}
+
+	var total float64
+	for _, r := range releases {
+		patterns.TotalReleases++
+		total += r.RiskScore
+	}
+	if patterns.TotalReleases > 0 {
+		patterns.AverageRiskScore = total / float64(patterns.TotalReleases)
+	}
+
+	patterns.RiskTrend = memory.RiskTrendOf(releases)
+	return patterns, nil
 }
+
+// riskPatternWindow bounds how much history a pattern is drawn from. Wide enough for a
+// trend to mean something, bounded so one call cannot pull an entire history.
+const riskPatternWindow = 200
 
 // UpdateActorMetrics updates actor metrics based on outcome.
 func (a *MnemosAdapter) UpdateActorMetrics(ctx context.Context, actorID string, outcome memory.ReleaseOutcome) error {
@@ -394,21 +425,109 @@ func (a *MnemosAdapter) queryEvents(ctx context.Context, params map[string]strin
 	return queryResp.Events, nil
 }
 
-// eventToReleaseRecord converts a Mnemos event to a ReleaseRecord.
+// eventToReleaseRecord converts a Mnemos event back into a ReleaseRecord.
+//
+// This returned a record carrying only an ID, marked "Simplified - would need full
+// deserialization". It is not a stub on an unused path: NewMnemosStore returns this
+// adapter and the container assigns it as the memory store whenever Mnemos is
+// configured, so GetReleaseHistory was handing every reader records with no version, no
+// outcome, no actor and no timestamp.
+//
+// What that broke, silently and without an error anywhere: DORA metrics computed from
+// nothing, reconcile unable to match a deployment to a release, `relicta history` empty,
+// reputation and earned trust reading a history with no actors — and the deployment gate
+// refusing a legitimate production release as ungoverned, because it looks a release up
+// by version and the version was absent.
+//
+// RecordRelease already writes every field into Metadata, so nothing new has to be
+// stored; the read side simply never read it.
 func (a *MnemosAdapter) eventToReleaseRecord(e MnemosEvent) *memory.ReleaseRecord {
-	// Parse metadata to reconstruct ReleaseRecord
-	// (Simplified - would need full deserialization)
 	return &memory.ReleaseRecord{
-		ID: e.SourceID,
-		// ... other fields from metadata
+		ID:         strings.TrimPrefix(e.SourceID, "release-"),
+		Repository: metaString(e.Metadata, "repository"),
+		Version:    metaString(e.Metadata, "version"),
+		Actor: cgp.Actor{
+			ID:   metaString(e.Metadata, "actor_id"),
+			Kind: cgp.ActorKind(metaString(e.Metadata, "actor_kind")),
+		},
+		RiskScore:       metaFloat(e.Metadata, "risk_score"),
+		Decision:        cgp.DecisionType(metaString(e.Metadata, "decision")),
+		Outcome:         memory.ReleaseOutcome(metaString(e.Metadata, "outcome")),
+		BreakingChanges: metaInt(e.Metadata, "breaking_changes"),
+		FilesChanged:    metaInt(e.Metadata, "files_changed"),
+		LinesChanged:    metaInt(e.Metadata, "lines_changed"),
+		ReleasedAt:      metaTime(e.Timestamp),
 	}
 }
 
-// eventToIncidentRecord converts a Mnemos event to an IncidentRecord.
+// eventToIncidentRecord converts a Mnemos event back into an IncidentRecord.
+//
+// Same defect as eventToReleaseRecord: MTTR is computed from incidents, and an incident
+// with no detection time and no severity contributes nothing an operator can read.
 func (a *MnemosAdapter) eventToIncidentRecord(e MnemosEvent) *memory.IncidentRecord {
 	return &memory.IncidentRecord{
-		ID: e.SourceID,
+		ID:         strings.TrimPrefix(e.SourceID, "incident-"),
+		Repository: metaString(e.Metadata, "repository"),
+		ReleaseID:  metaString(e.Metadata, "release_id"),
+		Version:    metaString(e.Metadata, "version"),
+		Type:       memory.IncidentType(metaString(e.Metadata, "incident_type")),
+		Severity:   cgp.Severity(metaString(e.Metadata, "severity")),
+		RootCause:  metaString(e.Metadata, "root_cause"),
+		ActorID:    metaString(e.Metadata, "actor_id"),
+		DetectedAt: metaTime(e.Timestamp),
 	}
+}
+
+// The metadata accessors below tolerate whatever JSON decoding produced.
+//
+// A round trip through JSON turns every number into a float64, so an int written as 3
+// comes back as 3.0 and a type assertion to int fails. Reading it as the wrong type
+// would silently yield zero — the same failure mode as the stub, arrived at more subtly.
+// Each accessor therefore accepts the shapes a number or string can legitimately have,
+// and returns the zero value only when the key is genuinely absent.
+
+func metaString(meta map[string]interface{}, key string) string {
+	if v, ok := meta[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func metaFloat(meta map[string]interface{}, key string) float64 {
+	switch v := meta[key].(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		f, err := v.Float64()
+		if err == nil {
+			return f
+		}
+	}
+	return 0
+}
+
+func metaInt(meta map[string]interface{}, key string) int {
+	return int(metaFloat(meta, key))
+}
+
+// metaTime parses the event timestamp, returning the zero time when it is absent or
+// malformed. Zero is the honest answer: substituting time.Now() would date a
+// years-old release to this moment and quietly corrupt every interval computed from it.
+func metaTime(timestamp string) time.Time {
+	if timestamp == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed.UTC()
 }
 
 // generateID generates a unique ID for Mnemos events.
