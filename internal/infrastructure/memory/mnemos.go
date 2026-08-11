@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -394,21 +395,109 @@ func (a *MnemosAdapter) queryEvents(ctx context.Context, params map[string]strin
 	return queryResp.Events, nil
 }
 
-// eventToReleaseRecord converts a Mnemos event to a ReleaseRecord.
+// eventToReleaseRecord converts a Mnemos event back into a ReleaseRecord.
+//
+// This returned a record carrying only an ID, marked "Simplified - would need full
+// deserialization". It is not a stub on an unused path: NewMnemosStore returns this
+// adapter and the container assigns it as the memory store whenever Mnemos is
+// configured, so GetReleaseHistory was handing every reader records with no version, no
+// outcome, no actor and no timestamp.
+//
+// What that broke, silently and without an error anywhere: DORA metrics computed from
+// nothing, reconcile unable to match a deployment to a release, `relicta history` empty,
+// reputation and earned trust reading a history with no actors — and the deployment gate
+// refusing a legitimate production release as ungoverned, because it looks a release up
+// by version and the version was absent.
+//
+// RecordRelease already writes every field into Metadata, so nothing new has to be
+// stored; the read side simply never read it.
 func (a *MnemosAdapter) eventToReleaseRecord(e MnemosEvent) *memory.ReleaseRecord {
-	// Parse metadata to reconstruct ReleaseRecord
-	// (Simplified - would need full deserialization)
 	return &memory.ReleaseRecord{
-		ID: e.SourceID,
-		// ... other fields from metadata
+		ID:         strings.TrimPrefix(e.SourceID, "release-"),
+		Repository: metaString(e.Metadata, "repository"),
+		Version:    metaString(e.Metadata, "version"),
+		Actor: cgp.Actor{
+			ID:   metaString(e.Metadata, "actor_id"),
+			Kind: cgp.ActorKind(metaString(e.Metadata, "actor_kind")),
+		},
+		RiskScore:       metaFloat(e.Metadata, "risk_score"),
+		Decision:        cgp.DecisionType(metaString(e.Metadata, "decision")),
+		Outcome:         memory.ReleaseOutcome(metaString(e.Metadata, "outcome")),
+		BreakingChanges: metaInt(e.Metadata, "breaking_changes"),
+		FilesChanged:    metaInt(e.Metadata, "files_changed"),
+		LinesChanged:    metaInt(e.Metadata, "lines_changed"),
+		ReleasedAt:      metaTime(e.Timestamp),
 	}
 }
 
-// eventToIncidentRecord converts a Mnemos event to an IncidentRecord.
+// eventToIncidentRecord converts a Mnemos event back into an IncidentRecord.
+//
+// Same defect as eventToReleaseRecord: MTTR is computed from incidents, and an incident
+// with no detection time and no severity contributes nothing an operator can read.
 func (a *MnemosAdapter) eventToIncidentRecord(e MnemosEvent) *memory.IncidentRecord {
 	return &memory.IncidentRecord{
-		ID: e.SourceID,
+		ID:         strings.TrimPrefix(e.SourceID, "incident-"),
+		Repository: metaString(e.Metadata, "repository"),
+		ReleaseID:  metaString(e.Metadata, "release_id"),
+		Version:    metaString(e.Metadata, "version"),
+		Type:       memory.IncidentType(metaString(e.Metadata, "incident_type")),
+		Severity:   cgp.Severity(metaString(e.Metadata, "severity")),
+		RootCause:  metaString(e.Metadata, "root_cause"),
+		ActorID:    metaString(e.Metadata, "actor_id"),
+		DetectedAt: metaTime(e.Timestamp),
 	}
+}
+
+// The metadata accessors below tolerate whatever JSON decoding produced.
+//
+// A round trip through JSON turns every number into a float64, so an int written as 3
+// comes back as 3.0 and a type assertion to int fails. Reading it as the wrong type
+// would silently yield zero — the same failure mode as the stub, arrived at more subtly.
+// Each accessor therefore accepts the shapes a number or string can legitimately have,
+// and returns the zero value only when the key is genuinely absent.
+
+func metaString(meta map[string]interface{}, key string) string {
+	if v, ok := meta[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+func metaFloat(meta map[string]interface{}, key string) float64 {
+	switch v := meta[key].(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		f, err := v.Float64()
+		if err == nil {
+			return f
+		}
+	}
+	return 0
+}
+
+func metaInt(meta map[string]interface{}, key string) int {
+	return int(metaFloat(meta, key))
+}
+
+// metaTime parses the event timestamp, returning the zero time when it is absent or
+// malformed. Zero is the honest answer: substituting time.Now() would date a
+// years-old release to this moment and quietly corrupt every interval computed from it.
+func metaTime(timestamp string) time.Time {
+	if timestamp == "" {
+		return time.Time{}
+	}
+	parsed, err := time.Parse(time.RFC3339, timestamp)
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed.UTC()
 }
 
 // generateID generates a unique ID for Mnemos events.
