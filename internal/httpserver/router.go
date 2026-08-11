@@ -141,6 +141,11 @@ func (s *Server) setupRouter() chi.Router {
 			r.Route("/webhooks", func(r chi.Router) {
 				r.Get("/{id}/deliveries", handlers.ListWebhookDeliveries)
 				r.Post("/{id}/deliveries/{deliveryId}/redeliver", handlers.RedeliverWebhook)
+
+				// Inbound deployment evidence (ADR-012). A GitOps controller cannot run
+				// the CLI and has no checkout, so it reports here. Deliberately generic:
+				// any deployer posting the documented schema is a first-class client.
+				r.Post("/deployments", handlers.DeploymentWebhook)
 			})
 
 			// Multi-repository governance endpoints
