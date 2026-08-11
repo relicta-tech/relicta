@@ -16,3 +16,12 @@ func Handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(spec)
 }
+
+// Spec returns the embedded specification bytes.
+//
+// Exported so a test outside this package can compare the documented paths against the
+// routes the router actually serves. Without that comparison the specification drifts
+// silently: it described 18 of the API's routes while the router served considerably
+// more, and nothing reported the gap — a published contract that omits endpoints is
+// worse than an obviously incomplete one, because a client trusts it.
+func Spec() []byte { return spec }
