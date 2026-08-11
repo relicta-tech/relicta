@@ -19,6 +19,7 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-009](009-deterministic-recommendation-artifact.md) | Relicta Emits a Deterministic Recommendation, Not Prose | Accepted | 2026-08 |
 | [ADR-010](010-ai-providers-leave-the-cli.md) | AI Providers Leave the CLI | Accepted, execution phased | 2026-08 |
 | [ADR-011](011-governance-on-by-default.md) | Governance On By Default | Accepted (Option C) | 2026-08 |
+| [ADR-012](012-deployment-evidence-over-a-protocol.md) | Deployment Evidence Crosses a Protocol, Not a Dependency | Accepted | 2026-08 |
 
 > **ADR-001 to ADR-006 have no document.** The decisions were made and are
 > implemented, but the records were never committed — the index linked to six
