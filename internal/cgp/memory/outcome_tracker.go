@@ -5,10 +5,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // OutcomeTracker implements release.EventPublisher and records release outcomes
@@ -85,6 +89,8 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 		return t.handleInitialized(e)
 	case *release.RunPlannedEvent:
 		return t.handlePlanned(e)
+	case *release.RunVersionedEvent:
+		return t.handleVersioned(e)
 	case *release.RunApprovedEvent:
 		return t.handleApproved(e)
 	case *release.RunPublishedEvent:
@@ -100,17 +106,115 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 }
 
 // handleInitialized caches initial release context.
+//
+// RepoID is a raw git remote URL (the plan use case falls back to the checkout path),
+// while every reader — history, the DORA and SOC 2 reports, reconcile, the deployment
+// gate — queries by governance identity. Recording the URL verbatim put these records
+// under a key nothing reads, so they accumulated and were never found: the same defect
+// that made `relicta history` empty in every repository, surviving in a second writer.
+//
+// Normalized through the shared helper rather than a local variant, because two
+// normalizers eventually disagree and the disagreement is invisible — it looks like an
+// empty store.
 func (t *OutcomeTracker) handleInitialized(e *release.RunCreatedEvent) error {
 	t.releaseContexts[e.AggregateID()] = &releaseContext{
-		Repository: e.RepoID,
+		Repository: governanceIdentity(e.RepoID),
 		StartedAt:  e.OccurredAt(),
 		Metadata:   make(map[string]string),
 	}
 	return nil
 }
 
+// governanceIdentity normalizes a run's repository reference to the key readers use.
+//
+// RepoID arrives in three shapes, because the plan use case takes whichever it can get:
+// an explicit identity supplied by the caller, the git remote URL, or the checkout path
+// as a last resort. Each needs different handling, and getting that wrong is silent —
+// a misfiled record looks exactly like an empty store.
+//
+//	owner/repo                          already the identity, passed through
+//	https://github.com/acme/widget.git  normalized to acme/widget
+//	git@github.com:acme/widget.git      the same, so one repository is not keyed twice
+//	/Users/dev/checkout                 local:checkout
+//
+// A path must not reach the remote parser: its last two segments form a
+// plausible-looking pair — "/Users/dev/checkout" becomes "dev/checkout" — that cannot
+// be told apart from a real owner/repo, so it keys records to a repository nobody has.
+// This is the malformed identity RepositoryInfo.GovernanceID exists to avoid, and the
+// "local:" prefix is what that function produces for the same case, so both writers
+// agree on the local repository too. Agreement is the whole point: a second normalizer
+// that is merely close splits the history in a way that reads as no history at all.
+func governanceIdentity(repoRef string) string {
+	ref := strings.TrimSpace(repoRef)
+	if ref == "" {
+		return ""
+	}
+
+	if looksLikeRemote(ref) {
+		if id := sourcecontrol.GovernanceIDFromRemote(ref); id != "" {
+			return id
+		}
+	}
+
+	if isBareIdentity(ref) {
+		return ref
+	}
+
+	name := path.Base(filepath.ToSlash(ref))
+	if name == "" || name == "." || name == "/" {
+		return ref
+	}
+	return "local:" + name
+}
+
+// isBareIdentity reports whether a reference is already an "owner/repo" pair.
+//
+// Two non-empty segments and no leading separator or dot. A relative two-segment path
+// is indistinguishable from an identity, and this resolves the ambiguity toward the
+// identity: that is the documented governance form, and rewriting one that a caller
+// supplied deliberately would move records away from where that caller reads them.
+func isBareIdentity(ref string) bool {
+	if strings.HasPrefix(ref, "/") || strings.HasPrefix(ref, ".") || strings.Contains(ref, `\`) {
+		return false
+	}
+	parts := strings.Split(ref, "/")
+	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
+}
+
+// looksLikeRemote reports whether a reference is a git remote rather than a path.
+//
+// A scheme covers https/ssh/git URLs. The scp form (git@host:owner/repo) has no
+// scheme, so it is recognized by an "@" appearing before the colon — which a Windows
+// drive letter or a plain path does not have.
+func looksLikeRemote(ref string) bool {
+	if strings.Contains(ref, "://") {
+		return true
+	}
+	colon := strings.Index(ref, ":")
+	return colon > 0 && strings.Contains(ref[:colon], "@")
+}
+
 // handlePlanned updates the cached context with plan details.
+//
+// Retained because the event type is part of the public event surface, but note that
+// the aggregate never raises it: run.go raises RunCreated, RunVersioned, RunApproved,
+// RunPublished, RunFailed, RunCanceled, RunRetried and RunNotesUpdated. This handler
+// was therefore the only writer of the cached version and never ran.
 func (t *OutcomeTracker) handlePlanned(e *release.RunPlannedEvent) error {
+	ctx := t.getOrCreateContext(e.AggregateID())
+	ctx.Version = e.VersionNext.String()
+	return nil
+}
+
+// handleVersioned records the version the run settled on.
+//
+// This is the event the aggregate actually raises when a version is decided. Without
+// it the cached version stayed empty, and only the success path recovered — because
+// handlePublished overwrites the version from RunPublishedEvent, which carries one.
+// RunFailedEvent and RunCanceledEvent do not, so every failed and canceled release was
+// recorded with no version at all and could not be tied to the version that failed.
+// That is the half of the history change failure rate and reputation are computed from.
+func (t *OutcomeTracker) handleVersioned(e *release.RunVersionedEvent) error {
 	ctx := t.getOrCreateContext(e.AggregateID())
 	ctx.Version = e.VersionNext.String()
 	return nil

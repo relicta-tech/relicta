@@ -51,6 +51,20 @@ func (r *RepositoryInfo) GovernanceID() string {
 	return "local:" + name
 }
 
+// GovernanceIDFromRemote normalizes a git remote URL to the governance identity.
+//
+// Exported because records are written from more than one place. The outcome tracker
+// sees only domain events, which carry a raw remote URL, while every reader queries
+// by governance ID — so without a shared normalizer the two ends key the same
+// repository differently and the records are never found. That is the bug this
+// identity exists to prevent, reintroduced one caller at a time.
+//
+// Returns "" when the URL yields no owner/repo pair, so a caller can fall back rather
+// than keying records under a fragment.
+func GovernanceIDFromRemote(remoteURL string) string {
+	return governanceIDFromRemote(remoteURL)
+}
+
 // governanceIDFromRemote normalizes a git remote URL to "owner/repo".
 //
 // Both forms have to reduce to the same string, or the same repository would be
