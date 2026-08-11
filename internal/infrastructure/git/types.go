@@ -160,16 +160,26 @@ type CategorizedChanges struct {
 
 // HasChanges returns true if there are any categorized changes.
 func (c *CategorizedChanges) HasChanges() bool {
-	return len(c.All) > 0
+	return c != nil && len(c.All) > 0
 }
 
 // HasBreakingChanges returns true if there are any breaking changes.
+//
+// Nil-safe because templates call this method directly on a nilable field, and a
+// changelog render is not a place to panic: "no changes recorded" and "no breaking
+// changes" are the same answer, and returning it beats aborting a release with a Go
+// runtime message. The renderer also substitutes an empty set for a nil one; this is
+// the second layer, for callers that reach the method some other way.
 func (c *CategorizedChanges) HasBreakingChanges() bool {
-	return len(c.Breaking) > 0
+	return c != nil && len(c.Breaking) > 0
 }
 
-// TotalCount returns the total number of commits.
+// TotalCount returns the total number of commits. Nil-safe, for the same reason as
+// HasBreakingChanges.
 func (c *CategorizedChanges) TotalCount() int {
+	if c == nil {
+		return 0
+	}
 	return len(c.All)
 }
 
