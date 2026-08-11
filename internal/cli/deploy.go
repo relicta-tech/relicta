@@ -78,6 +78,7 @@ var deployListCmd = &cobra.Command{
 func init() {
 	deployCmd.AddCommand(deployRecordCmd)
 	deployCmd.AddCommand(deployListCmd)
+	deployCmd.AddCommand(deployAuditCmd)
 
 	deployRecordCmd.Flags().StringVar(&deployEnv, "env", "", "environment the version reached (required)")
 	deployRecordCmd.Flags().StringVar(&deployVersion, "version", "", "version that was deployed (required)")
@@ -90,6 +91,9 @@ func init() {
 
 	deployListCmd.Flags().StringVar(&deployListEnv, "env", "", "only this environment")
 	deployListCmd.Flags().IntVar(&deployListLimit, "limit", 20, "maximum records to show")
+
+	deployAuditCmd.Flags().BoolVar(&deployAuditStrict, "strict", false,
+		"also fail when a governed release never reached production")
 }
 
 // declaredEnvironment resolves a name against the configured environments.
@@ -273,4 +277,106 @@ func productionEnvironmentName() string {
 		}
 	}
 	return ""
+}
+
+var deployAuditStrict bool
+
+var deployAuditCmd = &cobra.Command{
+	Use:   "audit",
+	Short: "Compare what is deployed against what was governed",
+	Long: `Compare deployment records against release records.
+
+Two discrepancies, and they are not equally serious:
+
+  ungoverned deployment  a version is running with no relicta release behind it —
+                         something reached an environment without passing through
+                         governance
+  undeployed release     a governed release never reached production
+
+Exits non-zero when an ungoverned deployment is found, so a pipeline can gate on
+it. An undeployed release is reported but does not fail the command: a release
+awaiting rollout is a normal state, and failing on it would train people to ignore
+the command — at which point it stops reporting the serious case too. Use --strict
+to fail on both.`,
+	RunE: runDeployAudit,
+}
+
+func runDeployAudit(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+
+	store, repository, err := deploymentStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	deployments, err := store.GetDeploymentHistory(ctx, repository, "", 10000)
+	if err != nil {
+		return fmt.Errorf("failed to read deployments: %w", err)
+	}
+
+	full, ok := store.(memory.Store)
+	if !ok {
+		return fmt.Errorf("the configured store cannot read release history")
+	}
+	releases, err := full.GetReleaseHistory(ctx, repository, 10000)
+	if err != nil {
+		return fmt.Errorf("failed to read releases: %w", err)
+	}
+
+	discrepancies := memory.Reconcile(releases, deployments, productionEnvironmentName())
+
+	severe := 0
+	for _, d := range discrepancies {
+		if d.Severe() {
+			severe++
+		}
+	}
+
+	if outputJSON {
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"repository":    repository,
+			"discrepancies": discrepancies,
+			"ungoverned":    severe,
+			"total":         len(discrepancies),
+		}); err != nil {
+			return err
+		}
+	} else {
+		reportDiscrepancies(repository, discrepancies, severe)
+	}
+
+	if severe > 0 || (deployAuditStrict && len(discrepancies) > 0) {
+		return fmt.Errorf("%d discrepancy(ies) between what is deployed and what was governed", len(discrepancies))
+	}
+	return nil
+}
+
+func reportDiscrepancies(repository string, discrepancies []memory.Discrepancy, severe int) {
+	if len(discrepancies) == 0 {
+		printSuccess(fmt.Sprintf("Everything deployed for %s was governed, and every release reached production.", repository))
+		return
+	}
+
+	printTitle(fmt.Sprintf("Deployment Audit: %s", repository))
+	fmt.Println()
+
+	for _, d := range discrepancies {
+		marker := "•"
+		if d.Severe() {
+			marker = "✗"
+		}
+		fmt.Printf("  %s %s %s\n", marker, d.Version, d.Kind)
+		fmt.Printf("      %s\n", d.Detail)
+		if d.Actor != "" {
+			fmt.Printf("      actor: %s\n", d.Actor)
+		}
+		if d.Reference != "" {
+			fmt.Printf("      reported by: %s\n", d.Reference)
+		}
+		fmt.Println()
+	}
+
+	if severe > 0 {
+		printWarning(fmt.Sprintf("%d version(s) are running without a governed release.", severe))
+	}
 }
