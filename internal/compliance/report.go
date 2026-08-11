@@ -284,12 +284,29 @@ type DeploymentFrequency struct {
 	CountedFrom string `json:"countedFrom"`
 }
 
-// LeadTimeForChanges tracks time from commit to release.
+// LeadTimeForChanges tracks how long a change took to reach production.
 type LeadTimeForChanges struct {
 	AverageHours   float64 `json:"averageHours"`
 	MedianHours    float64 `json:"medianHours"`
 	P95Hours       float64 `json:"p95Hours"`
-	Classification string  `json:"classification"` // less-than-one-day, one-week, one-month, more-than-six-months
+	Classification string  `json:"classification"` // less-than-one-day, one-week, one-month, more-than-six-months, unknown
+
+	// MeasuredFrom names the interval that produced these numbers, because more than
+	// one is possible and they are not comparable:
+	//
+	//   commit-to-production  the DORA definition: earliest commit → production deploy
+	//   release-to-production release published → production deploy, when commit dates
+	//                        are unknown. Measures delivery lag, not lead time, and
+	//                        reads low because the time before the release is missing.
+	//   unavailable          neither could be computed. Reported as unknown rather
+	//                        than as a number, since this metric previously fell back
+	//                        to the release process's own runtime and rated every
+	//                        project elite for publishing quickly.
+	MeasuredFrom string `json:"measuredFrom"`
+
+	// SampleSize is how many releases the figures are drawn from. A median over two
+	// releases invites conclusions it cannot support.
+	SampleSize int `json:"sampleSize"`
 }
 
 // MTTRMetrics tracks mean time to recovery.
@@ -609,33 +626,97 @@ func (g *Generator) calcDeploymentFrequency(data *reportData) DeploymentFrequenc
 	}
 }
 
+// Lead-time interval labels. See LeadTimeForChanges.MeasuredFrom.
+const (
+	leadTimeFromCommit  = "commit-to-production"
+	leadTimeFromRelease = "release-to-production"
+	leadTimeUnavailable = "unavailable"
+)
+
+// calcLeadTime measures how long changes took to reach production.
+//
+// This previously averaged ReleaseRecord.Duration — the runtime of the release
+// process, a few seconds or minutes. That is not lead time for changes by any
+// definition, and because it was compared against DORA's 24-hour "elite" threshold,
+// every project scored elite for publishing quickly no matter how long its changes
+// had actually waited. A metric that always returns the best answer measures nothing.
+//
+// The interval is commit → production deployment where both ends are known, and the
+// report says which interval it used, because release → production reads low by
+// exactly the time a change spent waiting to be released.
 func (g *Generator) calcLeadTime(data *reportData) LeadTimeForChanges {
-	if len(data.releases) == 0 {
-		return LeadTimeForChanges{Classification: "more-than-six-months"}
+	// Successful production deployments only. A failed or rolled-back deployment did
+	// not reach users, so it is not the end of a lead time — it belongs to change
+	// failure rate instead.
+	var deployments []*memory.DeploymentRecord
+	for _, dep := range data.productionDeployments() {
+		if dep.Outcome == memory.DeploymentSucceeded {
+			deployments = append(deployments, dep)
+		}
+	}
+	if len(deployments) == 0 {
+		// No deployment means nothing reached production, so there is no end to measure
+		// to. Deliberately not falling back to the release timestamp: "committed to
+		// tagged" is a different quantity, and presenting it as lead time is the error
+		// this function is fixing.
+		return LeadTimeForChanges{Classification: "unknown", MeasuredFrom: leadTimeUnavailable}
 	}
 
-	var durations []float64
-	for _, r := range data.releases {
-		if r.Duration > 0 {
-			durations = append(durations, r.Duration.Hours())
+	// Earliest successful production deployment per version: a version redeployed
+	// later did not reach users later, and counting the redeploy would inflate the
+	// lead time of a change that shipped on time.
+	arrival := make(map[string]time.Time, len(deployments))
+	for _, dep := range deployments {
+		key := normalizeVersion(dep.Version)
+		if at, seen := arrival[key]; !seen || dep.DeployedAt.Before(at) {
+			arrival[key] = dep.DeployedAt
 		}
 	}
 
-	if len(durations) == 0 {
-		return LeadTimeForChanges{Classification: "more-than-six-months"}
+	var fromCommit, fromRelease []float64
+	for _, rel := range data.releases {
+		deployedAt, ok := arrival[normalizeVersion(rel.Version)]
+		if !ok || deployedAt.IsZero() {
+			continue
+		}
+		if !rel.FirstCommitAt.IsZero() {
+			if hours := deployedAt.Sub(rel.FirstCommitAt).Hours(); hours >= 0 {
+				fromCommit = append(fromCommit, hours)
+				continue
+			}
+			// A deployment before its own earliest commit is a clock or data problem, not
+			// a negative lead time. Skipped rather than clamped to zero, which would read
+			// as an instant delivery and pull the median down.
+		}
+		if !rel.ReleasedAt.IsZero() {
+			if hours := deployedAt.Sub(rel.ReleasedAt).Hours(); hours >= 0 {
+				fromRelease = append(fromRelease, hours)
+			}
+		}
 	}
 
-	sort.Float64s(durations)
-
-	avg := 0.0
-	for _, d := range durations {
-		avg += d
+	// Commit-based samples win outright rather than being merged with release-based
+	// ones. Mixing two different intervals into one median produces a number that
+	// describes neither, and no label could honestly name it.
+	if len(fromCommit) > 0 {
+		return summarizeLeadTime(fromCommit, leadTimeFromCommit)
 	}
-	avg /= float64(len(durations))
+	if len(fromRelease) > 0 {
+		return summarizeLeadTime(fromRelease, leadTimeFromRelease)
+	}
+	return LeadTimeForChanges{Classification: "unknown", MeasuredFrom: leadTimeUnavailable}
+}
 
-	median := percentile(durations, 50)
-	p95 := percentile(durations, 95)
+// summarizeLeadTime reduces samples to the reported figures and a DORA band.
+func summarizeLeadTime(hours []float64, measuredFrom string) LeadTimeForChanges {
+	sort.Float64s(hours)
 
+	total := 0.0
+	for _, h := range hours {
+		total += h
+	}
+
+	median := percentile(hours, 50)
 	classification := "more-than-six-months"
 	switch {
 	case median < 24:
@@ -647,11 +728,20 @@ func (g *Generator) calcLeadTime(data *reportData) LeadTimeForChanges {
 	}
 
 	return LeadTimeForChanges{
-		AverageHours:   avg,
+		AverageHours:   total / float64(len(hours)),
 		MedianHours:    median,
-		P95Hours:       p95,
+		P95Hours:       percentile(hours, 95),
 		Classification: classification,
+		MeasuredFrom:   measuredFrom,
+		SampleSize:     len(hours),
 	}
+}
+
+// normalizeVersion matches a deployment to a release across the "v" prefix, which
+// deployers pick up from image tags. Refusing on that difference would drop real
+// samples and report a shorter history than exists.
+func normalizeVersion(version string) string {
+	return strings.TrimPrefix(strings.TrimSpace(version), "v")
 }
 
 func (g *Generator) calcMTTR(data *reportData) MTTRMetrics {
@@ -804,8 +894,12 @@ func changeFailureRateFrom(failed, total int) ChangeFailureRate {
 	}
 }
 
-// classifyDORA returns the overall DORA classification.
-func classifyDORA(r *DORAReport) string {
+// scoreVotes maps each metric to the DORA level it argues for.
+//
+// Separated from classifyDORA so a test can assert what the votes actually are. A
+// test that believes it constructed a tie, and did not, passes against the very bug
+// it was written to catch.
+func scoreVotes(r *DORAReport) map[string]int {
 	scores := map[string]int{
 		"elite":  0,
 		"high":   0,
@@ -825,15 +919,20 @@ func classifyDORA(r *DORAReport) string {
 		scores["low"]++
 	}
 
-	switch r.LeadTimeForChanges.Classification {
-	case "less-than-one-day":
-		scores["elite"]++
-	case "one-week":
-		scores["high"]++
-	case "one-month":
-		scores["medium"]++
-	default:
-		scores["low"]++
+	// An unmeasurable lead time contributes no vote. Scoring it "low" would rate a
+	// project poorly for not reporting deployments — a different falsehood from the
+	// old one, and one that punishes the honest state.
+	if r.LeadTimeForChanges.MeasuredFrom != leadTimeUnavailable {
+		switch r.LeadTimeForChanges.Classification {
+		case "less-than-one-day":
+			scores["elite"]++
+		case "one-week":
+			scores["high"]++
+		case "one-month":
+			scores["medium"]++
+		default:
+			scores["low"]++
+		}
 	}
 
 	switch r.MTTR.Classification {
@@ -858,13 +957,29 @@ func classifyDORA(r *DORAReport) string {
 		scores["low"]++
 	}
 
-	// Return the most frequent classification
+	return scores
+}
+
+// classifyDORA returns the overall DORA classification.
+func classifyDORA(r *DORAReport) string {
+	scores := scoreVotes(r)
+
+	// Return the most frequent classification.
+	//
+	// Iterated in a fixed order rather than over the map, because Go randomizes map
+	// iteration: with two levels tied, the previous version returned a different
+	// overall rating on each run for identical data — and an audit artifact that
+	// changes when nothing changed cannot be evidence of anything.
+	//
+	// Ordered worst-first so a tie resolves to the more conservative rating. Between
+	// equally supported "elite" and "low" the defensible answer is the lower one; a
+	// report is not the place to round a disagreement upward.
 	best := "low"
 	bestCount := 0
-	for level, count := range scores {
-		if count > bestCount {
+	for _, level := range []string{"low", "medium", "high", "elite"} {
+		if scores[level] > bestCount {
 			best = level
-			bestCount = count
+			bestCount = scores[level]
 		}
 	}
 	return best

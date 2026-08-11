@@ -595,6 +595,7 @@ func (s *Service) RecordReleaseOutcome(ctx context.Context, input RecordOutcomeI
 		LinesChanged:    input.LinesChanged,
 		Outcome:         input.Outcome,
 		ReleasedAt:      time.Now(),
+		FirstCommitAt:   input.FirstCommitAt,
 		Duration:        input.Duration,
 		Tags:            input.Tags,
 	}
@@ -626,6 +627,12 @@ type RecordOutcomeInput struct {
 	Outcome         memory.ReleaseOutcome
 	Duration        time.Duration
 	Tags            []string
+
+	// FirstCommitAt is when the earliest change in this release was committed, which
+	// is where DORA lead time starts. Zero when the caller does not know the commits;
+	// the report then says which interval it measured instead of quietly substituting
+	// one.
+	FirstCommitAt time.Time
 }
 
 // RecordIncident records an incident related to a release.

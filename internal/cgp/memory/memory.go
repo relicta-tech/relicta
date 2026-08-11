@@ -121,7 +121,23 @@ type ReleaseRecord struct {
 	// ReleasedAt is when the release was published.
 	ReleasedAt time.Time `json:"releasedAt"`
 
+	// FirstCommitAt is when the earliest change in this release was committed.
+	//
+	// DORA lead time for changes is the interval from a change being committed to it
+	// running in production, so this is where that interval starts. Without it the
+	// metric has no beginning and can only be approximated from the release itself,
+	// which measures delivery lag rather than lead time.
+	//
+	// Zero for records written before this field existed, and for a release whose
+	// commits are unknown. Readers must treat zero as "unknown" rather than as the
+	// epoch, or every historical release becomes a 56-year lead time.
+	FirstCommitAt time.Time `json:"firstCommitAt,omitempty"`
+
 	// Duration is how long the release process took.
+	//
+	// This is the runtime of the release itself — a few seconds or minutes. It is not
+	// lead time for changes, and reporting it as such rated every project "elite"
+	// regardless of how long its changes actually took to reach users.
 	Duration time.Duration `json:"duration"`
 
 	// Tags are labels for categorization.
