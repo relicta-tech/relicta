@@ -3,6 +3,7 @@ package benchmark
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/template"
 	"github.com/relicta-tech/relicta/v4/internal/service/release"
 )
@@ -107,11 +109,18 @@ func BenchmarkE2E_NotesCommand(b *testing.B) {
 				}
 
 				// Step 2: Render changelog template (core of notes generation)
+				//
+				// Changes must be populated, and not only because a nil one used to panic:
+				// without it this benchmark rendered an *empty* changelog while reporting
+				// numbers labeled 50, 100 and 200 commits. The cost of rendering scales
+				// with the entries in the template, so the figures described work the
+				// benchmark was not doing.
 				changelogData := &template.ChangelogData{
 					Version:         &output.NextVersion,
 					PreviousVersion: &output.CurrentVersion,
 					Date:            time.Now(),
 					RepositoryURL:   "https://github.com/example/repo",
+					Changes:         categorizedChanges(bc.commitCount),
 				}
 				_, err = tmplService.Render("changelog", changelogData)
 				if err != nil {
@@ -428,3 +437,39 @@ func (m *E2EBenchMockGitRepo) GetStatus(ctx context.Context) (*sourcecontrol.Wor
 func (m *E2EBenchMockGitRepo) Fetch(ctx context.Context, remote string) error        { return nil }
 func (m *E2EBenchMockGitRepo) Pull(ctx context.Context, remote, branch string) error { return nil }
 func (m *E2EBenchMockGitRepo) Push(ctx context.Context, remote, branch string) error { return nil }
+
+// categorizedChanges builds a change set of the requested size for rendering.
+//
+// Proportioned so the rendered changelog exercises every section the template has a
+// branch for. A set that is all one category would leave most of the template
+// unmeasured while still claiming a commit count.
+func categorizedChanges(commitCount int) *git.CategorizedChanges {
+	out := &git.CategorizedChanges{}
+	for i := 0; i < commitCount; i++ {
+		commit := git.ConventionalCommit{
+			Description: fmt.Sprintf("change number %d", i),
+			Commit:      git.Commit{Hash: fmt.Sprintf("%040x", i)},
+		}
+		switch i % 5 {
+		case 0:
+			commit.Type = "feat"
+			out.Features = append(out.Features, commit)
+		case 1:
+			commit.Type = "fix"
+			out.Fixes = append(out.Fixes, commit)
+		case 2:
+			commit.Type = "perf"
+			out.Performance = append(out.Performance, commit)
+		case 3:
+			commit.Type = "docs"
+			out.Documentation = append(out.Documentation, commit)
+		default:
+			commit.Type = "feat"
+			commit.Breaking = true
+			commit.BreakingDescription = "the old form is gone"
+			out.Breaking = append(out.Breaking, commit)
+		}
+		out.All = append(out.All, commit)
+	}
+	return out
+}
