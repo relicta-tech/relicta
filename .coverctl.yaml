@@ -74,12 +74,59 @@ policy:
       match:
         - ./pkg/...
       min: null
-    # docs/adr holds no production code — its tests assert that the ADR index
-    # stays honest (every linked record exists, no conflict markers). Listed here
-    # because coverctl enumerates domains explicitly, so a package outside them is
-    # never run: the checks would have looked present and executed nowhere, which
-    # is the failure they exist to catch. min: null since there is nothing to
-    # cover.
+    # Everything below sat outside every domain until now, so none of it had a coverage
+    # threshold: the whole REST API, the SOC 2 and DORA report generation, and the
+    # compliance integrations could lose their tests without `coverctl check` noticing.
+    # It reported "All 18 domains pass" while nine domains' worth of code was unmeasured.
+    #
+    # Their tests did still run — coverctl executes the suite and uses the domain list
+    # for coverage attribution, which a canary test in internal/httpserver confirmed by
+    # failing under the old config too. So this closes a gating hole, not a hole in test
+    # execution.
+    #
+    # Thresholds lock in the coverage measured when they were added rather than aspiring
+    # upward, so the gate starts honest and any regression from here is visible.
+    - name: httpserver
+      match:
+        - ./internal/httpserver/...
+      # Explicit rather than null: the tree is at 76.6% and null inherits the 80%
+      # default, which would fail on arrival. Same reason infrastructure and security
+      # carry explicit values.
+      min: 74
+    - name: compliance
+      match:
+        - ./internal/compliance/...
+      min: null
+    - name: analytics
+      match:
+        - ./internal/analytics/...
+      min: null
+    - name: service
+      match:
+        - ./internal/service/...
+      min: null
+    - name: logging
+      match:
+        - ./internal/logging/...
+      min: null
+    - name: integrations
+      match:
+        - ./internal/integrations/...
+      min: null
+    - name: version
+      match:
+        - ./internal/version/...
+      min: null
+    # Architecture holds no statements — its tests assert import-boundary rules. Listed
+    # so they run at all; min: 0 for the same reason cmd and docs use it.
+    - name: architecture
+      match:
+        - ./internal/architecture/...
+      min: 0
+    - name: benchmark
+      match:
+        - ./internal/benchmark/...
+      min: null
     - name: docs
       match:
         - ./docs/...
