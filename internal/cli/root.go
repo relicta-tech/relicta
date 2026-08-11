@@ -130,9 +130,30 @@ Get started with 'relicta init' to set up your project.`,
 		// "info" default the flag carries when untouched.
 		logLevelExplicit = cmd.Flags().Changed("log-level") || cmd.Flags().Changed("log")
 		// Skip config loading for commands that don't need it
-		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "verify" || cmd.Name() == "report" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Name() == "policy" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp" || cmd.Parent().Name() == "policy") {
+		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "verify" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Name() == "policy" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp" || cmd.Parent().Name() == "policy") {
 			return nil
 		}
+
+		// `report` reads config but must not require it.
+		//
+		// It was in the skip list above, which was harmless while it generated reports
+		// from an empty store and needed nothing. Now that it reads the real
+		// governance history it needs three things from config — where the store is,
+		// which environment counts as production, and the repository identity — and cfg
+		// was nil, so deployment metrics silently fell back to counting releases while
+		// reporting a figure that looked the same.
+		//
+		// Tolerant rather than required: a report about a repository the caller does
+		// not have configured is a legitimate use of --repo, and failing outright would
+		// remove it. The readers are nil-safe, so an absent config degrades to
+		// documented fallbacks rather than a crash.
+		if cmd.Name() == "report" {
+			if err := initConfig(); err != nil {
+				printWarning(fmt.Sprintf("config not loaded, reporting with defaults: %v", err))
+			}
+			return nil
+		}
+
 		return initConfig()
 	},
 	SilenceUsage:  true,
@@ -232,6 +253,7 @@ func init() {
 	// Reading the protocol records is governance inspection: what did the agents
 	// propose here, and what was decided.
 	cgpCmd.GroupID = "governance"
+	deployCmd.GroupID = "governance"
 
 	// Extend: agent integrations and headless servers.
 	mcpCmd.GroupID = "extend"
@@ -255,6 +277,7 @@ func init() {
 	rootCmd.AddCommand(notesCmd)
 	rootCmd.AddCommand(approveCmd)
 	rootCmd.AddCommand(cgpCmd)
+	rootCmd.AddCommand(deployCmd)
 	rootCmd.AddCommand(publishCmd)
 	rootCmd.AddCommand(releaseCmd)
 	rootCmd.AddCommand(cancelCmd)

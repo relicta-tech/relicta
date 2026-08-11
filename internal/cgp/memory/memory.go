@@ -390,6 +390,7 @@ type IncidentCorrelation struct {
 type InMemoryStore struct {
 	mu             sync.RWMutex
 	releases       map[string][]*ReleaseRecord            // keyed by repository
+	deployments    map[string][]*DeploymentRecord         // keyed by repository
 	incidents      map[string][]*IncidentRecord           // keyed by repository
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
@@ -400,6 +401,7 @@ type InMemoryStore struct {
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		releases:       make(map[string][]*ReleaseRecord),
+		deployments:    make(map[string][]*DeploymentRecord),
 		incidents:      make(map[string][]*IncidentRecord),
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),

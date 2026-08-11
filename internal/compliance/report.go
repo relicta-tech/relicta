@@ -69,6 +69,11 @@ type ReportConfig struct {
 	Format     ReportFormat
 	Period     Period
 	Repository string // optional: filter by repo
+
+	// ProductionEnvironment names the environment whose deployments count as
+	// reaching users. Empty means deployment-derived metrics are unavailable and the
+	// report falls back to releases, saying so in DeploymentFrequency.CountedFrom.
+	ProductionEnvironment string
 }
 
 // Validate checks if the configuration is valid.
@@ -266,6 +271,17 @@ type DeploymentFrequency struct {
 	PerDay           float64 `json:"perDay"`
 	PerWeek          float64 `json:"perWeek"`
 	Classification   string  `json:"classification"` // on-demand, weekly, monthly, yearly
+
+	// CountedFrom says what produced this number: "deployments" when something
+	// reports them, "releases" when nothing does.
+	//
+	// Stated rather than implied. A release is a tag being published and a deployment
+	// is a change reaching an environment, so the same figure means different things
+	// depending on which was available — and an auditor reading "12 deployments" has
+	// no way to tell that it counted tags. DORA defines this metric over changes
+	// reaching users, so counting releases is an approximation and must be labeled
+	// as one.
+	CountedFrom string `json:"countedFrom"`
 }
 
 // LeadTimeForChanges tracks time from commit to release.
@@ -416,7 +432,32 @@ type reportData struct {
 	releases  []*memory.ReleaseRecord
 	incidents []*memory.IncidentRecord
 	decisions []*cgp.GovernanceDecision
-	period    Period
+
+	// deployments is what actually reached an environment, when anything reports it.
+	// Nil means nothing does, and the metrics fall back to releases while saying so.
+	deployments []*memory.DeploymentRecord
+
+	// productionEnvironment names the environment whose deployments count as
+	// reaching users. Without it, deployment frequency would count staging and read
+	// high — a project deploying to three environments per change would appear to
+	// deploy three times as often as it does.
+	productionEnvironment string
+
+	period Period
+}
+
+// productionDeployments returns the deployments that reached users.
+func (d *reportData) productionDeployments() []*memory.DeploymentRecord {
+	if d.productionEnvironment == "" {
+		return nil
+	}
+	out := make([]*memory.DeploymentRecord, 0, len(d.deployments))
+	for _, dep := range d.deployments {
+		if dep.Environment == d.productionEnvironment {
+			out = append(out, dep)
+		}
+	}
+	return out
 }
 
 // fetchData retrieves all relevant data from the store for the period.
@@ -442,6 +483,25 @@ func (g *Generator) fetchData(ctx context.Context, config ReportConfig) (*report
 	for _, r := range releases {
 		if !r.ReleasedAt.Before(config.Period.Start) && !r.ReleasedAt.After(config.Period.End) {
 			filtered = append(filtered, r)
+		}
+	}
+
+	// Deployments, when the store holds them and something reported them.
+	//
+	// Type-asserted rather than required on Store: not every implementation carries
+	// deployments, and obliging the remote adapters to invent behavior for a record
+	// they do not hold would be worse than an honest absence. A store without them
+	// falls back to release-derived metrics, labeled as such.
+	var filteredDeployments []*memory.DeploymentRecord
+	if deploymentStore, ok := g.store.(memory.DeploymentStore); ok {
+		deployments, depErr := deploymentStore.GetDeploymentHistory(ctx, repo, "", 10000)
+		if depErr != nil {
+			return nil, fmt.Errorf("failed to get deployment history: %w", depErr)
+		}
+		for _, dep := range deployments {
+			if !dep.DeployedAt.Before(config.Period.Start) && !dep.DeployedAt.After(config.Period.End) {
+				filteredDeployments = append(filteredDeployments, dep)
+			}
 		}
 	}
 
@@ -471,10 +531,12 @@ func (g *Generator) fetchData(ctx context.Context, config ReportConfig) (*report
 	}
 
 	return &reportData{
-		releases:  filtered,
-		incidents: filteredIncidents,
-		decisions: decisions,
-		period:    config.Period,
+		releases:              filtered,
+		incidents:             filteredIncidents,
+		decisions:             decisions,
+		period:                config.Period,
+		deployments:           filteredDeployments,
+		productionEnvironment: config.ProductionEnvironment,
 	}, nil
 }
 
@@ -501,7 +563,25 @@ func (g *Generator) calculateDORA(data *reportData) *DORAReport {
 }
 
 func (g *Generator) calcDeploymentFrequency(data *reportData) DeploymentFrequency {
-	total := len(data.releases)
+	// Deployments when anything reports them, releases otherwise. This metric
+	// counted releases unconditionally, which measures tags rather than changes
+	// reaching users: a project that tags weekly and deploys daily was wrong in both
+	// directions. See ADR-012.
+	countedFrom := "deployments"
+	total := 0
+	if production := data.productionDeployments(); len(production) > 0 {
+		for _, dep := range production {
+			// Only successful deployments reached users. A failed one is not a
+			// deployment for this metric's purpose — it is an input to change failure
+			// rate instead.
+			if dep.Outcome == memory.DeploymentSucceeded {
+				total++
+			}
+		}
+	} else {
+		countedFrom = "releases"
+		total = len(data.releases)
+	}
 	days := data.period.End.Sub(data.period.Start).Hours() / 24
 	if days < 1 {
 		days = 1
@@ -521,6 +601,7 @@ func (g *Generator) calcDeploymentFrequency(data *reportData) DeploymentFrequenc
 	}
 
 	return DeploymentFrequency{
+		CountedFrom:      countedFrom,
 		TotalDeployments: total,
 		PerDay:           perDay,
 		PerWeek:          perWeek,
@@ -624,6 +705,22 @@ func (g *Generator) calcMTTR(data *reportData) MTTRMetrics {
 }
 
 func (g *Generator) calcChangeFailureRate(data *reportData) ChangeFailureRate {
+	// Deployments first, because this is the metric that could not be computed at
+	// all before them: a failed deployment of a perfectly good release was invisible,
+	// and that is exactly what change failure rate asks about. Releases remain the
+	// fallback, where the rate really measures "releases that failed to publish".
+	if production := data.productionDeployments(); len(production) > 0 {
+		failed := 0
+		for _, dep := range production {
+			// A rollback counts as a failure: the change reached users and then had to
+			// be withdrawn, which is the outcome this metric exists to surface.
+			if dep.Outcome == memory.DeploymentFailed || dep.Outcome == memory.DeploymentRolledBack {
+				failed++
+			}
+		}
+		return changeFailureRateFrom(failed, len(production))
+	}
+
 	total := len(data.releases)
 	if total == 0 {
 		return ChangeFailureRate{Classification: "0-15%"}
@@ -657,6 +754,38 @@ func (g *Generator) calcChangeFailureRate(data *reportData) ChangeFailureRate {
 
 	rate := float64(failed) / float64(total)
 
+	classification := "0-15%"
+	switch {
+	case rate > 0.45:
+		classification = "46-60%"
+	case rate > 0.30:
+		classification = "31-45%"
+	case rate > 0.15:
+		classification = "16-30%"
+	}
+
+	return ChangeFailureRate{
+		TotalChanges:   total,
+		FailedChanges:  failed,
+		Rate:           rate,
+		Classification: classification,
+	}
+}
+
+// changeFailureRateFrom classifies a failure count against a total.
+//
+// Extracted so the deployment path and the release path classify identically. Two
+// copies of the same thresholds would drift, and the drift would be invisible: both
+// would return a plausible band.
+func changeFailureRateFrom(failed, total int) ChangeFailureRate {
+	if total == 0 {
+		return ChangeFailureRate{Classification: "0-15%"}
+	}
+	if failed > total {
+		failed = total
+	}
+
+	rate := float64(failed) / float64(total)
 	classification := "0-15%"
 	switch {
 	case rate > 0.45:

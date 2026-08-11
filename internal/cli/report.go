@@ -102,6 +102,9 @@ func runReport(cmd *cobra.Command, args []string) error {
 		Format:     rf,
 		Period:     period,
 		Repository: repo,
+		// Named so deployment frequency counts changes reaching users rather than
+		// every environment a version passes through.
+		ProductionEnvironment: productionEnvironmentName(),
 	}
 
 	// The persisted governance store, not a fresh one.
