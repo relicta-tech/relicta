@@ -96,9 +96,16 @@ commit is a *request* to deploy, while the controller reporting healthy is the
   authenticated endpoint. Not "the Rollops webhook". Any deployer — a CI step, a
   hand-rolled script, a different controller — can post to it.
 - Anything that genuinely needs both sides' internals is a **plugin in its own
-  repository**, which is already Rollops' established pattern (`pkg/target` is
-  public precisely so third-party plugins can implement it, and
-  `rollops-plugin-datadog` and `rollops-plugin-unleash` live outside the core).
+  repository**, which is already both products' established pattern: relicta's
+  `pkg/plugin` is a public gRPC hook contract, Rollops' `pkg/target` is public so
+  third-party targets can implement it, and `rollops-plugin-datadog` and
+  `rollops-plugin-unleash` live outside that core. A plugin may depend on both
+  products; neither product may depend on the other.
+
+  A plugin is a packaging choice for the side that happens to be running, not a
+  substitute for the contract — see the alternatives below for which directions a
+  plugin can and cannot carry, which the release lifecycle decides rather than
+  taste.
 
 ### 3. The governance answer travels as CGP
 
@@ -180,6 +187,33 @@ commit says a deployment was requested, not that it succeeded. Useful later as a
 **A shared library both import.** Moves the coupling rather than removing it: a
 change to the shared library still forces coordinated releases. A wire format
 versioned independently of both products does not.
+
+**A plugin, on either side.** This is the right home for coupling that has to exist,
+and both products already have the pattern: relicta's `pkg/plugin` defines a gRPC
+hook contract, Rollops' `pkg/target` is public for third-party targets, and both
+keep their plugins in separate repositories. A third repository may depend on both
+products; that is what a plugin is for.
+
+But a plugin cannot carry every direction, and the reason is the lifecycle rather
+than a preference:
+
+| flow | can it be a relicta plugin? |
+|---|---|
+| release → tell the deployer a version is ready | **yes** — `HookPostPublish` fires while relicta is running |
+| deployer → report that a version deployed | **no** — relicta is not running |
+| deployer → ask whether it may deploy | **no** — relicta is not running |
+
+Relicta's plugins are invoked by relicta during a release run. A deployment finishes
+minutes or hours later, when no relicta process exists and there is nothing to hook.
+The same applies to the gate, which is consulted at deploy time.
+
+So the split is forced: **pushing** a release event outward can be a relicta plugin,
+while **receiving** evidence needs a long-running surface (`relicta server` or Hub)
+or a CLI invocation from whatever runs at deploy time, and the gate needs the
+deployer to call out. A plugin is a packaging convenience for whichever side is
+running at the moment in question — it is not an alternative to the contract, it is
+a consumer of it. A plugin that reached past the contract into internal types would
+relocate the coupling into a three-way version matrix rather than remove it.
 
 **Recording only, no gate.** This was the smaller option and it is not enough on
 its own. Recording detects an ungoverned deployment after it has shipped; the gate
