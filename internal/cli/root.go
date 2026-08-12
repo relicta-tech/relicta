@@ -213,7 +213,7 @@ func init() {
 		&cobra.Group{ID: "governance", Title: "Governance:"},
 		&cobra.Group{ID: "extend", Title: "Extend (MCP, Plugins, Server):"},
 		&cobra.Group{ID: "ops", Title: "Operations:"},
-		&cobra.Group{ID: "integrations", Title: "Integrations (Vanta, Drata):"},
+		&cobra.Group{ID: "integrations", Title: "Integrations (Hub, Vanta, Drata):"},
 	)
 
 	// Lifecycle: the canonical release flow.
@@ -271,6 +271,8 @@ func init() {
 	demoCmd.GroupID = "ops"
 
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(hubCmd)
+	hubCmd.GroupID = "integrations"
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(planCmd)
 	rootCmd.AddCommand(bumpCmd)
