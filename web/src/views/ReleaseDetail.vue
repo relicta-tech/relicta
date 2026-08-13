@@ -57,13 +57,13 @@ function getStateClass(state: string): string {
 
 function getStepStateClass(state: string): string {
   const classes: Record<string, string> = {
-    pending: 'text-gray-500',
+    pending: 'text-gray-600 dark:text-gray-400',
     running: 'text-blue-500',
     done: 'text-green-500',
     failed: 'text-red-500',
     skipped: 'text-gray-400',
   }
-  return classes[state] || 'text-gray-500'
+  return classes[state] || 'text-gray-600 dark:text-gray-400'
 }
 
 function formatDate(dateString: string): string {
@@ -110,7 +110,7 @@ function goBack() {
       class="card border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
     >
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">
+        <p class="text-red-600 dark:text-red-300">
           {{ releasesStore.error }}
         </p>
       </div>

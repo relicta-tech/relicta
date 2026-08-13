@@ -69,7 +69,7 @@ function getTrendDirectionClass(): string {
   if (!trends.value) return ''
   switch (trends.value.trend_direction) {
     case 'improving': return 'text-green-600 dark:text-green-400'
-    case 'declining': return 'text-red-600 dark:text-red-400'
+    case 'declining': return 'text-red-600 dark:text-red-300'
     default: return 'text-yellow-600 dark:text-yellow-400'
   }
 }
@@ -398,7 +398,7 @@ const outcomeSummary = computed(() => {
       class="card border-red-200 dark:border-red-800"
     >
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">
+        <p class="text-red-600 dark:text-red-300">
           {{ error }}
         </p>
         <button

@@ -102,9 +102,9 @@ function getHealthStatusColor(): string {
     case 'degraded':
       return 'text-yellow-700 dark:text-yellow-400'
     case 'unhealthy':
-      return 'text-red-600 dark:text-red-400'
+      return 'text-red-600 dark:text-red-300'
     default:
-      return 'text-gray-500'
+      return 'text-gray-600 dark:text-gray-400'
   }
 }
 </script>
