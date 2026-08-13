@@ -207,3 +207,15 @@ func (c *Client) postJSON(ctx context.Context, path string, body, out any) error
 	}
 	return nil
 }
+
+// readLimited reads a response body with a ceiling.
+//
+// Bounded because these endpoints are reached over a host the user named: an unbounded read lets
+// a hostile or broken server exhaust memory in a CLI that was only asking a question.
+func readLimited(resp *http.Response) ([]byte, error) {
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("hub: reading the response: %w", err)
+	}
+	return raw, nil
+}
