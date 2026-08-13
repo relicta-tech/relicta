@@ -84,14 +84,22 @@ const avgReliability = computed(() => {
     <div class="grid gap-4 md:grid-cols-4">
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold">{{ actors.length }}</div>
-          <p class="text-sm text-muted-foreground">Total Actors</p>
+          <div class="text-2xl font-bold">
+            {{ actors.length }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Total Actors
+          </p>
         </div>
       </div>
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold">{{ totalReleases }}</div>
-          <p class="text-sm text-muted-foreground">Total Releases</p>
+          <div class="text-2xl font-bold">
+            {{ totalReleases }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Total Releases
+          </p>
         </div>
       </div>
       <div class="card">
@@ -99,13 +107,19 @@ const avgReliability = computed(() => {
           <div :class="['text-2xl font-bold', getSuccessRateColor(avgSuccessRate)]">
             {{ avgSuccessRate.toFixed(1) }}%
           </div>
-          <p class="text-sm text-muted-foreground">Avg Success Rate</p>
+          <p class="text-sm text-muted-foreground">
+            Avg Success Rate
+          </p>
         </div>
       </div>
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold">{{ (avgReliability * 100).toFixed(0) }}%</div>
-          <p class="text-sm text-muted-foreground">Avg Reliability</p>
+          <div class="text-2xl font-bold">
+            {{ (avgReliability * 100).toFixed(0) }}%
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Avg Reliability
+          </p>
         </div>
       </div>
     </div>
@@ -113,20 +127,22 @@ const avgReliability = computed(() => {
     <!-- Trust level breakdown -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Trust Level Distribution</h2>
+        <h2 class="card-title">
+          Trust Level Distribution
+        </h2>
       </div>
       <div class="card-content">
         <div class="flex gap-8">
           <div class="flex items-center gap-3">
-            <div class="h-4 w-4 rounded-full bg-green-500"></div>
+            <div class="h-4 w-4 rounded-full bg-green-500" />
             <span>Trusted: {{ actors.filter(a => a.trust_level === 'trusted').length }}</span>
           </div>
           <div class="flex items-center gap-3">
-            <div class="h-4 w-4 rounded-full bg-blue-500"></div>
+            <div class="h-4 w-4 rounded-full bg-blue-500" />
             <span>Standard: {{ actors.filter(a => a.trust_level === 'standard').length }}</span>
           </div>
           <div class="flex items-center gap-3">
-            <div class="h-4 w-4 rounded-full bg-yellow-500"></div>
+            <div class="h-4 w-4 rounded-full bg-yellow-500" />
             <span>Probation: {{ actors.filter(a => a.trust_level === 'probation').length }}</span>
           </div>
         </div>
@@ -136,22 +152,41 @@ const avgReliability = computed(() => {
     <!-- Actors table -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Actor Performance</h2>
-        <p class="card-description">Individual actor metrics and trust levels</p>
+        <h2 class="card-title">
+          Actor Performance
+        </h2>
+        <p class="card-description">
+          Individual actor metrics and trust levels
+        </p>
       </div>
       <div class="card-content p-0">
-        <div v-if="loading" class="flex items-center justify-center py-12">
-          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-12"
+        >
+          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="actors.length === 0" class="py-12 text-center text-muted-foreground">
+        <div
+          v-else-if="actors.length === 0"
+          class="py-12 text-center text-muted-foreground"
+        >
           No actors found
         </div>
-        <table v-else class="table">
+        <table
+          v-else
+          class="table"
+        >
           <thead class="table-header">
             <tr>
-              <th class="table-head">Actor</th>
-              <th class="table-head">Kind</th>
-              <th class="table-head">Trust Level</th>
+              <th class="table-head">
+                Actor
+              </th>
+              <th class="table-head">
+                Kind
+              </th>
+              <th class="table-head">
+                Trust Level
+              </th>
               <th
                 class="table-head cursor-pointer hover:text-foreground"
                 @click="toggleSort('release_count')"
@@ -166,7 +201,9 @@ const avgReliability = computed(() => {
                 Success Rate
                 <span v-if="sortField === 'success_rate'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head">Avg Risk</th>
+              <th class="table-head">
+                Avg Risk
+              </th>
               <th
                 class="table-head cursor-pointer hover:text-foreground"
                 @click="toggleSort('reliability_score')"
@@ -174,7 +211,9 @@ const avgReliability = computed(() => {
                 Reliability
                 <span v-if="sortField === 'reliability_score'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head">Last Seen</th>
+              <th class="table-head">
+                Last Seen
+              </th>
             </tr>
           </thead>
           <tbody class="table-body">
@@ -184,7 +223,9 @@ const avgReliability = computed(() => {
               class="table-row"
             >
               <td class="table-cell">
-                <div class="font-medium">{{ actor.name }}</div>
+                <div class="font-medium">
+                  {{ actor.name }}
+                </div>
                 <code class="text-xs text-muted-foreground">{{ actor.id.substring(0, 12) }}...</code>
               </td>
               <td class="table-cell">
@@ -195,20 +236,24 @@ const avgReliability = computed(() => {
                   {{ actor.trust_level }}
                 </span>
               </td>
-              <td class="table-cell font-medium">{{ actor.release_count }}</td>
+              <td class="table-cell font-medium">
+                {{ actor.release_count }}
+              </td>
               <td class="table-cell">
                 <span :class="getSuccessRateColor(actor.success_rate)">
                   {{ actor.success_rate.toFixed(1) }}%
                 </span>
               </td>
-              <td class="table-cell">{{ actor.average_risk_score.toFixed(1) }}</td>
+              <td class="table-cell">
+                {{ actor.average_risk_score.toFixed(1) }}
+              </td>
               <td class="table-cell">
                 <div class="flex items-center gap-2">
                   <div class="h-2 w-20 overflow-hidden rounded-full bg-muted">
                     <div
                       :class="['h-full', getReliabilityColor(actor.reliability_score)]"
                       :style="{ width: `${actor.reliability_score * 100}%` }"
-                    ></div>
+                    />
                   </div>
                   <span class="text-sm">{{ (actor.reliability_score * 100).toFixed(0) }}%</span>
                 </div>

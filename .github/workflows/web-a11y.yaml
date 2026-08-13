@@ -45,6 +45,13 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
+      # The dashboard had eslint, its plugins and an `npm run lint` script, no config file,
+      # a script passing flags eslint 9 removed, and no CI step — three layers of the same
+      # omission, so linting had never run and nothing would have reported that. Placed
+      # before the browser install because it is the faster signal.
+      - name: Lint
+        run: npm run lint:check
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 

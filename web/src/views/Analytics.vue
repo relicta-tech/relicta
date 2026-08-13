@@ -186,7 +186,7 @@ const sortedTeamMembers = computed(() => {
               v-model="dateFrom"
               type="date"
               class="input"
-            />
+            >
           </div>
           <div>
             <label class="mb-1 block text-sm font-medium text-muted-foreground">To</label>
@@ -194,7 +194,7 @@ const sortedTeamMembers = computed(() => {
               v-model="dateTo"
               type="date"
               class="input"
-            />
+            >
           </div>
           <div>
             <label class="mb-1 block text-sm font-medium text-muted-foreground">Granularity</label>
@@ -202,14 +202,17 @@ const sortedTeamMembers = computed(() => {
               <button
                 v-for="g in (['day', 'week', 'month'] as Granularity[])"
                 :key="g"
-                @click="granularity = g"
                 :class="['btn-sm', granularity === g ? 'btn-primary' : 'btn-ghost']"
+                @click="granularity = g"
               >
                 {{ g }}
               </button>
             </div>
           </div>
-          <button @click="applyFilters" class="btn-primary btn-sm">
+          <button
+            class="btn-primary btn-sm"
+            @click="applyFilters"
+          >
             Apply
           </button>
         </div>
@@ -217,10 +220,20 @@ const sortedTeamMembers = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-if="error" class="card border-red-200 dark:border-red-800">
+    <div
+      v-if="error"
+      class="card border-red-200 dark:border-red-800"
+    >
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
-        <button @click="loadData" class="btn-primary btn-sm mt-2">Retry</button>
+        <p class="text-red-600 dark:text-red-400">
+          {{ error }}
+        </p>
+        <button
+          class="btn-primary btn-sm mt-2"
+          @click="loadData"
+        >
+          Retry
+        </button>
       </div>
     </div>
 
@@ -228,26 +241,42 @@ const sortedTeamMembers = computed(() => {
     <div class="grid gap-4 md:grid-cols-4">
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold">{{ totalReleases }}</div>
-          <p class="text-sm text-muted-foreground">Total Releases</p>
+          <div class="text-2xl font-bold">
+            {{ totalReleases }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Total Releases
+          </p>
         </div>
       </div>
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold text-green-600">{{ decisionCounts.approve }}</div>
-          <p class="text-sm text-muted-foreground">Approved</p>
+          <div class="text-2xl font-bold text-green-600">
+            {{ decisionCounts.approve }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Approved
+          </p>
         </div>
       </div>
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold text-yellow-600">{{ decisionCounts.require_review }}</div>
-          <p class="text-sm text-muted-foreground">Required Review</p>
+          <div class="text-2xl font-bold text-yellow-600">
+            {{ decisionCounts.require_review }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Required Review
+          </p>
         </div>
       </div>
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold text-red-600">{{ decisionCounts.deny }}</div>
-          <p class="text-sm text-muted-foreground">Denied</p>
+          <div class="text-2xl font-bold text-red-600">
+            {{ decisionCounts.deny }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Denied
+          </p>
         </div>
       </div>
     </div>
@@ -256,22 +285,48 @@ const sortedTeamMembers = computed(() => {
       <!-- Risk trend line chart -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Risk Trends</h2>
-          <p class="card-description">Average risk score over time ({{ granularity }})</p>
+          <h2 class="card-title">
+            Risk Trends
+          </h2>
+          <p class="card-description">
+            Average risk score over time ({{ granularity }})
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="riskTrends.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="riskTrends.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No trend data available for this range
           </div>
           <div v-else>
-            <svg class="w-full" :viewBox="`0 0 ${trendChartWidth} ${trendChartHeight}`" preserveAspectRatio="xMidYMid meet">
+            <svg
+              class="w-full"
+              :viewBox="`0 0 ${trendChartWidth} ${trendChartHeight}`"
+              preserveAspectRatio="xMidYMid meet"
+            >
               <defs>
-                <linearGradient id="analyticsRiskGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style="stop-color: var(--color-primary); stop-opacity: 0.3" />
-                  <stop offset="100%" style="stop-color: var(--color-primary); stop-opacity: 0" />
+                <linearGradient
+                  id="analyticsRiskGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    style="stop-color: var(--color-primary); stop-opacity: 0.3"
+                  />
+                  <stop
+                    offset="100%"
+                    style="stop-color: var(--color-primary); stop-opacity: 0"
+                  />
                 </linearGradient>
               </defs>
               <path
@@ -309,20 +364,39 @@ const sortedTeamMembers = computed(() => {
       <!-- Decision distribution -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Decision Distribution</h2>
-          <p class="card-description">Breakdown of governance outcomes</p>
+          <h2 class="card-title">
+            Decision Distribution
+          </h2>
+          <p class="card-description">
+            Breakdown of governance outcomes
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="decisionCounts.total === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="decisionCounts.total === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No decisions in this range
           </div>
-          <div v-else class="flex flex-col items-center gap-6 md:flex-row md:justify-around">
+          <div
+            v-else
+            class="flex flex-col items-center gap-6 md:flex-row md:justify-around"
+          >
             <div class="relative">
-              <svg viewBox="0 0 100 100" class="h-40 w-40">
-                <template v-for="(seg, i) in decisionSegments" :key="seg.label">
+              <svg
+                viewBox="0 0 100 100"
+                class="h-40 w-40"
+              >
+                <template
+                  v-for="(seg, i) in decisionSegments"
+                  :key="seg.label"
+                >
                   <path
                     v-if="seg.pct > 0"
                     :d="getDonutPath(
@@ -335,10 +409,20 @@ const sortedTeamMembers = computed(() => {
                     <title>{{ seg.label }}: {{ seg.count }} ({{ seg.pct.toFixed(1) }}%)</title>
                   </path>
                 </template>
-                <text x="50" y="48" text-anchor="middle" class="fill-foreground text-lg font-bold">
+                <text
+                  x="50"
+                  y="48"
+                  text-anchor="middle"
+                  class="fill-foreground text-lg font-bold"
+                >
                   {{ decisionCounts.total }}
                 </text>
-                <text x="50" y="58" text-anchor="middle" class="fill-muted-foreground text-[8px]">
+                <text
+                  x="50"
+                  y="58"
+                  text-anchor="middle"
+                  class="fill-muted-foreground text-[8px]"
+                >
                   decisions
                 </text>
               </svg>
@@ -349,10 +433,17 @@ const sortedTeamMembers = computed(() => {
                 :key="seg.label"
                 class="flex items-center gap-3"
               >
-                <div class="h-3 w-3 rounded-full" :style="{ backgroundColor: seg.color }"></div>
+                <div
+                  class="h-3 w-3 rounded-full"
+                  :style="{ backgroundColor: seg.color }"
+                />
                 <div>
-                  <div class="text-sm font-medium">{{ seg.label }}</div>
-                  <div class="text-xs text-muted-foreground">{{ seg.count }} ({{ seg.pct.toFixed(1) }}%)</div>
+                  <div class="text-sm font-medium">
+                    {{ seg.label }}
+                  </div>
+                  <div class="text-xs text-muted-foreground">
+                    {{ seg.count }} ({{ seg.pct.toFixed(1) }}%)
+                  </div>
                 </div>
               </div>
             </div>
@@ -366,10 +457,15 @@ const sortedTeamMembers = computed(() => {
       <div class="card-header">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="card-title">Team Metrics</h2>
+            <h2 class="card-title">
+              Team Metrics
+            </h2>
             <p class="card-description">
               Approvals per actor and release velocity
-              <span v-if="avgVelocity > 0" class="ml-2 text-primary">
+              <span
+                v-if="avgVelocity > 0"
+                class="ml-2 text-primary"
+              >
                 (avg {{ avgVelocity.toFixed(1) }} releases/week)
               </span>
             </p>
@@ -377,38 +473,83 @@ const sortedTeamMembers = computed(() => {
         </div>
       </div>
       <div class="card-content p-0">
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="teamMembers.length === 0" class="py-8 text-center text-muted-foreground">
+        <div
+          v-else-if="teamMembers.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
           No team data available
         </div>
-        <table v-else class="table">
+        <table
+          v-else
+          class="table"
+        >
           <thead class="table-header">
             <tr>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('actor_name')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('actor_name')"
+              >
                 Actor
-                <span v-if="sortField === 'actor_name'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'actor_name'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('releases')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('releases')"
+              >
                 Releases
-                <span v-if="sortField === 'releases'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'releases'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('approvals')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('approvals')"
+              >
                 Approvals
-                <span v-if="sortField === 'approvals'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'approvals'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('denials')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('denials')"
+              >
                 Denials
-                <span v-if="sortField === 'denials'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'denials'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('avg_cycle_time_hours')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('avg_cycle_time_hours')"
+              >
                 Avg Cycle Time
-                <span v-if="sortField === 'avg_cycle_time_hours'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'avg_cycle_time_hours'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
-              <th class="table-head cursor-pointer select-none" @click="toggleSort('success_rate')">
+              <th
+                class="table-head cursor-pointer select-none"
+                @click="toggleSort('success_rate')"
+              >
                 Success Rate
-                <span v-if="sortField === 'success_rate'" class="ml-1">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+                <span
+                  v-if="sortField === 'success_rate'"
+                  class="ml-1"
+                >{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
               </th>
             </tr>
           </thead>
@@ -420,11 +561,19 @@ const sortedTeamMembers = computed(() => {
             >
               <td class="table-cell font-medium">
                 {{ member.actor_name }}
-                <div class="text-xs text-muted-foreground">{{ member.actor_id.substring(0, 12) }}</div>
+                <div class="text-xs text-muted-foreground">
+                  {{ member.actor_id.substring(0, 12) }}
+                </div>
               </td>
-              <td class="table-cell">{{ member.releases }}</td>
-              <td class="table-cell text-green-600">{{ member.approvals }}</td>
-              <td class="table-cell text-red-600">{{ member.denials }}</td>
+              <td class="table-cell">
+                {{ member.releases }}
+              </td>
+              <td class="table-cell text-green-600">
+                {{ member.approvals }}
+              </td>
+              <td class="table-cell text-red-600">
+                {{ member.denials }}
+              </td>
               <td class="table-cell">
                 {{ member.avg_cycle_time_hours.toFixed(1) }}h
               </td>
@@ -435,7 +584,7 @@ const sortedTeamMembers = computed(() => {
                       class="h-full transition-all"
                       :class="member.success_rate >= 90 ? 'bg-green-500' : member.success_rate >= 70 ? 'bg-yellow-500' : 'bg-red-500'"
                       :style="{ width: `${member.success_rate}%` }"
-                    ></div>
+                    />
                   </div>
                   <span class="text-sm">{{ member.success_rate.toFixed(0) }}%</span>
                 </div>

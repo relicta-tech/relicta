@@ -9,24 +9,39 @@
 -->
 
 <template>
-  <article :class="cardClasses" data-testid="approval-card" :data-tier="card.risk.tier">
+  <article
+    :class="cardClasses"
+    data-testid="approval-card"
+    :data-tier="card.risk.tier"
+  >
     <header class="flex items-start justify-between mb-4">
       <div>
         <h2 class="text-xl font-semibold">
           <span class="font-mono text-sm text-gray-600">{{ card.cardId }}</span>
         </h2>
-        <p v-if="card.version || card.repository" class="text-sm text-gray-600 mt-1">
+        <p
+          v-if="card.version || card.repository"
+          class="text-sm text-gray-600 mt-1"
+        >
           <span v-if="card.repository">{{ card.repository }}</span>
-          <span v-if="card.version" class="font-mono">@{{ card.version }}</span>
+          <span
+            v-if="card.version"
+            class="font-mono"
+          >@{{ card.version }}</span>
         </p>
       </div>
 
       <div :class="['text-right', tierStyle.text]">
         <div class="flex items-center gap-2 justify-end">
-          <span class="font-mono text-lg" :aria-label="`risk ${card.risk.tier}`">{{ glyph }}</span>
+          <span
+            class="font-mono text-lg"
+            :aria-label="`risk ${card.risk.tier}`"
+          >{{ glyph }}</span>
           <span class="font-bold text-2xl">{{ severityLabel }}</span>
         </div>
-        <div class="text-sm">{{ Math.round(card.risk.score * 100) }} / 100</div>
+        <div class="text-sm">
+          {{ Math.round(card.risk.score * 100) }} / 100
+        </div>
       </div>
     </header>
 
@@ -40,11 +55,14 @@
           :aria-valuenow="Math.round(card.risk.score * 100)"
           aria-valuemin="0"
           aria-valuemax="100"
-        ></div>
+        />
       </div>
     </div>
 
-    <section v-if="card.risk.factors && card.risk.factors.length" class="mb-4">
+    <section
+      v-if="card.risk.factors && card.risk.factors.length"
+      class="mb-4"
+    >
       <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">
         Risk Factors
       </h3>
@@ -65,33 +83,56 @@
       </ul>
     </section>
 
-    <section v-if="card.diffSummary" class="mb-4">
+    <section
+      v-if="card.diffSummary"
+      class="mb-4"
+    >
       <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">
         Diff Summary
       </h3>
-      <p class="text-sm text-gray-700 whitespace-pre-line">{{ card.diffSummary }}</p>
+      <p class="text-sm text-gray-700 whitespace-pre-line">
+        {{ card.diffSummary }}
+      </p>
     </section>
 
     <section class="mb-4">
-      <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">Actor</h3>
+      <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">
+        Actor
+      </h3>
       <div class="flex items-center gap-2 text-sm">
         <span
           class="px-2 py-0.5 rounded-full text-xs font-mono uppercase"
           :class="actorBadgeClass"
         >{{ card.actor.kind }}</span>
         <span class="font-mono">{{ card.actor.id }}</span>
-        <span v-if="card.actor.name" class="text-gray-600">— {{ card.actor.name }}</span>
+        <span
+          v-if="card.actor.name"
+          class="text-gray-600"
+        >— {{ card.actor.name }}</span>
       </div>
     </section>
 
-    <section v-if="card.rationale && card.rationale.length" class="mb-4">
-      <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">Rationale</h3>
+    <section
+      v-if="card.rationale && card.rationale.length"
+      class="mb-4"
+    >
+      <h3 class="font-semibold text-sm uppercase tracking-wide text-gray-700 mb-2">
+        Rationale
+      </h3>
       <ul class="list-disc list-inside text-sm space-y-1 text-gray-700">
-        <li v-for="(line, idx) in card.rationale" :key="idx">{{ line }}</li>
+        <li
+          v-for="(line, idx) in card.rationale"
+          :key="idx"
+        >
+          {{ line }}
+        </li>
       </ul>
     </section>
 
-    <section v-if="card.frameworks && card.frameworks.length" class="mb-4 flex gap-2 flex-wrap">
+    <section
+      v-if="card.frameworks && card.frameworks.length"
+      class="mb-4 flex gap-2 flex-wrap"
+    >
       <span
         v-for="fw in card.frameworks"
         :key="fw"

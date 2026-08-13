@@ -37,8 +37,8 @@ export const useReleasesStore = defineStore('releases', () => {
   async function fetchActiveRelease() {
     try {
       activeRelease.value = await api.getActiveRelease()
-    } catch (err) {
-      // Active release may not exist
+    } catch {
+      // Active release may not exist, which is an ordinary state rather than a failure.
       activeRelease.value = null
     }
   }

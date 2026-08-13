@@ -116,16 +116,37 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
       <div class="card-header">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="card-title">Filters</h2>
-            <p class="card-description">Narrow down audit events</p>
+            <h2 class="card-title">
+              Filters
+            </h2>
+            <p class="card-description">
+              Narrow down audit events
+            </p>
           </div>
           <div class="flex gap-2">
-            <button @click="clearFilters" class="btn-ghost btn-sm">
+            <button
+              class="btn-ghost btn-sm"
+              @click="clearFilters"
+            >
               Clear Filters
             </button>
-            <button @click="exportEvents" :disabled="events.length === 0" class="btn-outline btn-sm">
-              <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <button
+              :disabled="events.length === 0"
+              class="btn-outline btn-sm"
+              @click="exportEvents"
+            >
+              <svg
+                class="mr-2 h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
               Export CSV
             </button>
@@ -141,7 +162,7 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
               type="text"
               class="input mt-1"
               placeholder="e.g., release.created"
-            />
+            >
           </div>
           <div>
             <label class="text-sm font-medium">Actor ID</label>
@@ -150,7 +171,7 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
               type="text"
               class="input mt-1"
               placeholder="Actor ID..."
-            />
+            >
           </div>
           <div>
             <label class="text-sm font-medium">Release ID</label>
@@ -159,7 +180,7 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
               type="text"
               class="input mt-1"
               placeholder="Release ID..."
-            />
+            >
           </div>
           <div>
             <label class="text-sm font-medium">From Date</label>
@@ -167,7 +188,7 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
               v-model="dateFrom"
               type="datetime-local"
               class="input mt-1"
-            />
+            >
           </div>
           <div>
             <label class="text-sm font-medium">To Date</label>
@@ -175,7 +196,7 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
               v-model="dateTo"
               type="datetime-local"
               class="input mt-1"
-            />
+            >
           </div>
         </div>
       </div>
@@ -184,19 +205,30 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
     <!-- Events list -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Audit Events</h2>
+        <h2 class="card-title">
+          Audit Events
+        </h2>
         <p class="card-description">
           {{ totalEvents }} total event{{ totalEvents !== 1 ? 's' : '' }}
         </p>
       </div>
       <div class="card-content p-0">
-        <div v-if="loading" class="flex items-center justify-center py-12">
-          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-12"
+        >
+          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="events.length === 0" class="py-12 text-center text-muted-foreground">
+        <div
+          v-else-if="events.length === 0"
+          class="py-12 text-center text-muted-foreground"
+        >
           No audit events found
         </div>
-        <div v-else class="divide-y">
+        <div
+          v-else
+          class="divide-y"
+        >
           <div
             v-for="event in events"
             :key="event.id"
@@ -228,7 +260,10 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
                   </code>
                 </div>
               </div>
-              <div v-if="Object.keys(event.data).length > 0" class="w-full md:w-auto md:max-w-md">
+              <div
+                v-if="Object.keys(event.data).length > 0"
+                class="w-full md:w-auto md:max-w-md"
+              >
                 <details class="rounded-md bg-muted">
                   <summary class="cursor-pointer px-3 py-2 text-sm font-medium">
                     Event Data
@@ -246,16 +281,16 @@ const totalPages = () => Math.ceil(totalEvents.value / pageSize.value)
         </div>
         <div class="flex gap-2">
           <button
-            @click="prevPage"
             :disabled="currentPage <= 1"
             class="btn-outline btn-sm"
+            @click="prevPage"
           >
             Previous
           </button>
           <button
-            @click="nextPage"
             :disabled="currentPage >= totalPages()"
             class="btn-outline btn-sm"
+            @click="nextPage"
           >
             Next
           </button>
