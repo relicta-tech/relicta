@@ -275,3 +275,22 @@ STILL OPEN: nothing constructs a unit of work, so `FileUnitOfWork` and `App.Unit
 remain unreachable. They are now redundant rather than load-bearing — the decorator does the
 publishing — so the open question is whether to delete them or adopt them for the
 transactional boundary they were written for.
+
+## Hub cannot represent a canceled run
+
+`relicta hub sync` skips records whose outcome is `canceled`, because Hub's event vocabulary
+is release.planned / release.published / release.failed and none of them is true of a run that
+never shipped. Sending one would mean choosing between two false statements, and
+`eventTypeFor`'s default would have made it the worse one — every cancellation arriving as a
+successful release, inflating the deployment frequency the local report is careful to exclude
+it from.
+
+Skipping keeps Hub's numbers agreeing with relicta's own about the same repository, at the
+cost of Hub not knowing a release was deliberately stopped — which is governance-relevant:
+"we decided not to ship this" is a decision an org-wide view should show.
+
+Closing it needs a `release.canceled` event type in Hub, materialized into a row that is
+recorded but excluded from every rate, mirroring `ReleaseOutcome.CountsAsRelease` on the CLI
+side. Both halves of that predicate have to move together, or the two sides will disagree
+about which records are releases — which reads as a reporting bug rather than a difference of
+opinion.
