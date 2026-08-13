@@ -151,27 +151,50 @@ function formatRelativeTime(dateString: string): string {
     <!-- Pending approvals -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Pending Approvals</h2>
+        <h2 class="card-title">
+          Pending Approvals
+        </h2>
         <p class="card-description">
           {{ pendingApprovals.length }} release{{ pendingApprovals.length !== 1 ? 's' : '' }} awaiting review
         </p>
       </div>
       <div class="card-content">
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="pendingApprovals.length === 0" class="py-8 text-center text-muted-foreground">
-          <svg class="mx-auto h-12 w-12 text-muted-foreground/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div
+          v-else-if="pendingApprovals.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
+          <svg
+            class="mx-auto h-12 w-12 text-muted-foreground/50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
-          <p class="mt-2">All caught up! No pending approvals.</p>
+          <p class="mt-2">
+            All caught up! No pending approvals.
+          </p>
         </div>
         <!--
           Canonical ApprovalCard view — same shape backend/CLI/MCP all emit.
           Buttons inside the card route through handleCardAction to the
           existing modal flow so the user-visible UX is unchanged.
         -->
-        <div v-if="pendingCards.length > 0 && !loading" class="space-y-4 mb-6">
+        <div
+          v-if="pendingCards.length > 0 && !loading"
+          class="space-y-4 mb-6"
+        >
           <ApprovalCard
             v-for="entry in pendingCards"
             :key="entry.approval.release_id"
@@ -180,7 +203,10 @@ function formatRelativeTime(dateString: string): string {
           />
         </div>
 
-        <div v-else class="space-y-4">
+        <div
+          v-else
+          class="space-y-4"
+        >
           <div
             v-for="approval in pendingApprovals"
             :key="approval.release_id"
@@ -197,39 +223,69 @@ function formatRelativeTime(dateString: string): string {
                 <div class="text-sm text-muted-foreground">
                   {{ approval.commit_count }} commits · Submitted {{ formatRelativeTime(approval.submitted_at) }} by {{ approval.submitted_by }}
                 </div>
-                <div v-if="approval.review_reason" class="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">
-                  <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                <div
+                  v-if="approval.review_reason"
+                  class="flex items-center gap-2 rounded-md bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400"
+                >
+                  <svg
+                    class="h-4 w-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                   <span>{{ approval.review_reason }}</span>
                 </div>
-                <div v-if="approval.changes?.length" class="space-y-1">
-                  <div class="text-sm font-medium">Changes:</div>
+                <div
+                  v-if="approval.changes?.length"
+                  class="space-y-1"
+                >
+                  <div class="text-sm font-medium">
+                    Changes:
+                  </div>
                   <ul class="list-inside list-disc text-sm text-muted-foreground">
-                    <li v-for="change in approval.changes.slice(0, 5)" :key="change">{{ change }}</li>
-                    <li v-if="approval.changes.length > 5" class="text-xs">
+                    <li
+                      v-for="change in approval.changes.slice(0, 5)"
+                      :key="change"
+                    >
+                      {{ change }}
+                    </li>
+                    <li
+                      v-if="approval.changes.length > 5"
+                      class="text-xs"
+                    >
                       +{{ approval.changes.length - 5 }} more...
                     </li>
                   </ul>
                 </div>
               </div>
               <div class="flex gap-2">
-                <RouterLink :to="`/releases/${approval.release_id}`" class="btn-outline btn-sm">
+                <RouterLink
+                  :to="`/releases/${approval.release_id}`"
+                  class="btn-outline btn-sm"
+                >
                   View Details
                 </RouterLink>
                 <button
-                  @click="openRejectModal(approval)"
                   :disabled="rejecting === approval.release_id"
                   class="btn-destructive btn-sm"
+                  @click="openRejectModal(approval)"
                 >
                   Reject
                 </button>
                 <button
-                  @click="openApproveModal(approval)"
                   :disabled="approving === approval.release_id"
                   class="btn-primary btn-sm"
+                  @click="openApproveModal(approval)"
                 >
-                  <span v-if="approving === approval.release_id" class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                  <span
+                    v-if="approving === approval.release_id"
+                    class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+                  />
                   Approve
                 </button>
               </div>
@@ -242,21 +298,41 @@ function formatRelativeTime(dateString: string): string {
     <!-- Recent decisions -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Recent Decisions</h2>
-        <p class="card-description">Latest approval decisions</p>
+        <h2 class="card-title">
+          Recent Decisions
+        </h2>
+        <p class="card-description">
+          Latest approval decisions
+        </p>
       </div>
       <div class="card-content p-0">
-        <div v-if="recentDecisions.length === 0" class="py-8 text-center text-muted-foreground">
+        <div
+          v-if="recentDecisions.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
           No recent decisions
         </div>
-        <table v-else class="table">
+        <table
+          v-else
+          class="table"
+        >
           <thead class="table-header">
             <tr>
-              <th class="table-head">Release</th>
-              <th class="table-head">Decision</th>
-              <th class="table-head">Risk</th>
-              <th class="table-head">By</th>
-              <th class="table-head">Time</th>
+              <th class="table-head">
+                Release
+              </th>
+              <th class="table-head">
+                Decision
+              </th>
+              <th class="table-head">
+                Risk
+              </th>
+              <th class="table-head">
+                By
+              </th>
+              <th class="table-head">
+                Time
+              </th>
             </tr>
           </thead>
           <tbody class="table-body">
@@ -297,10 +373,15 @@ function formatRelativeTime(dateString: string): string {
 
     <!-- Approve Modal -->
     <Teleport to="body">
-      <div v-if="showApproveModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div
+        v-if="showApproveModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      >
         <div class="card w-full max-w-md">
           <div class="card-header">
-            <h2 class="card-title">Approve Release</h2>
+            <h2 class="card-title">
+              Approve Release
+            </h2>
             <p class="card-description">
               Approve {{ selectedApproval?.version }} for publishing
             </p>
@@ -313,19 +394,25 @@ function formatRelativeTime(dateString: string): string {
                 rows="3"
                 class="input mt-1"
                 placeholder="Reason for approval..."
-              ></textarea>
+              />
             </label>
           </div>
           <div class="card-footer justify-end gap-2 border-t pt-4">
-            <button @click="showApproveModal = false" class="btn-ghost btn-sm">
+            <button
+              class="btn-ghost btn-sm"
+              @click="showApproveModal = false"
+            >
               Cancel
             </button>
             <button
-              @click="handleApprove"
               :disabled="approving !== null"
               class="btn-primary btn-sm"
+              @click="handleApprove"
             >
-              <span v-if="approving" class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              <span
+                v-if="approving"
+                class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+              />
               Approve
             </button>
           </div>
@@ -335,10 +422,15 @@ function formatRelativeTime(dateString: string): string {
 
     <!-- Reject Modal -->
     <Teleport to="body">
-      <div v-if="showRejectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div
+        v-if="showRejectModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      >
         <div class="card w-full max-w-md">
           <div class="card-header">
-            <h2 class="card-title">Reject Release</h2>
+            <h2 class="card-title">
+              Reject Release
+            </h2>
             <p class="card-description">
               Reject {{ selectedApproval?.version }}
             </p>
@@ -352,19 +444,25 @@ function formatRelativeTime(dateString: string): string {
                 class="input mt-1"
                 placeholder="Reason for rejection..."
                 required
-              ></textarea>
+              />
             </label>
           </div>
           <div class="card-footer justify-end gap-2 border-t pt-4">
-            <button @click="showRejectModal = false" class="btn-ghost btn-sm">
+            <button
+              class="btn-ghost btn-sm"
+              @click="showRejectModal = false"
+            >
               Cancel
             </button>
             <button
-              @click="handleReject"
               :disabled="rejecting !== null || !rejectReason"
               class="btn-destructive btn-sm"
+              @click="handleReject"
             >
-              <span v-if="rejecting" class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              <span
+                v-if="rejecting"
+                class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
+              />
               Reject
             </button>
           </div>

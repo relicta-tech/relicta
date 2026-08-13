@@ -131,11 +131,25 @@ function getTimelinePosition(dateString: string): number {
     <div :class="['card', getOverallHealthBg()]">
       <div class="card-content flex items-center justify-between pt-6">
         <div class="flex items-center gap-4">
-          <svg class="h-8 w-8 shrink-0" :class="getOverallHealthColor()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            class="h-8 w-8 shrink-0"
+            :class="getOverallHealthColor()"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
           <div>
-            <h2 class="text-lg font-semibold" :class="getOverallHealthColor()">
+            <h2
+              class="text-lg font-semibold"
+              :class="getOverallHealthColor()"
+            >
               System {{ overallHealth }}
             </h2>
             <p class="text-sm text-muted-foreground">
@@ -143,22 +157,38 @@ function getTimelinePosition(dateString: string): number {
             </p>
           </div>
         </div>
-        <button @click="loadData" class="btn-ghost btn-sm">
+        <button
+          class="btn-ghost btn-sm"
+          @click="loadData"
+        >
           Refresh
         </button>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-12"
+    >
+      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="card border-red-200 dark:border-red-800">
+    <div
+      v-else-if="error"
+      class="card border-red-200 dark:border-red-800"
+    >
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
-        <button @click="loadData" class="btn-primary btn-sm mt-2">Retry</button>
+        <p class="text-red-600 dark:text-red-400">
+          {{ error }}
+        </p>
+        <button
+          class="btn-primary btn-sm mt-2"
+          @click="loadData"
+        >
+          Retry
+        </button>
       </div>
     </div>
 
@@ -166,14 +196,24 @@ function getTimelinePosition(dateString: string): number {
       <!-- Deployment health cards -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Deployment Health</h2>
-          <p class="card-description">Health status with threshold indicators for recent deployments</p>
+          <h2 class="card-title">
+            Deployment Health
+          </h2>
+          <p class="card-description">
+            Health status with threshold indicators for recent deployments
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="deployments.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-if="deployments.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No active deployments being monitored
           </div>
-          <div v-else class="grid gap-4 md:grid-cols-2">
+          <div
+            v-else
+            class="grid gap-4 md:grid-cols-2"
+          >
             <div
               v-for="dep in deployments"
               :key="dep.release_id"
@@ -181,14 +221,16 @@ function getTimelinePosition(dateString: string): number {
             >
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <span :class="['h-2.5 w-2.5 rounded-full', getDeploymentStatusColor(dep.status)]"></span>
+                  <span :class="['h-2.5 w-2.5 rounded-full', getDeploymentStatusColor(dep.status)]" />
                   <span class="font-medium">{{ dep.version }}</span>
                 </div>
                 <span class="text-xs text-muted-foreground">{{ formatDateTime(dep.deployed_at) }}</span>
               </div>
               <div class="mt-3 grid grid-cols-2 gap-4">
                 <div>
-                  <div class="text-xs text-muted-foreground">Error Rate</div>
+                  <div class="text-xs text-muted-foreground">
+                    Error Rate
+                  </div>
                   <div class="flex items-center gap-2">
                     <span
                       class="text-sm font-medium"
@@ -205,11 +247,13 @@ function getTimelinePosition(dateString: string): number {
                       class="h-full transition-all"
                       :class="dep.error_rate > dep.thresholds.error_rate_max ? 'bg-red-500' : 'bg-green-500'"
                       :style="{ width: `${Math.min((dep.error_rate / dep.thresholds.error_rate_max) * 100, 100)}%` }"
-                    ></div>
+                    />
                   </div>
                 </div>
                 <div>
-                  <div class="text-xs text-muted-foreground">P99 Latency</div>
+                  <div class="text-xs text-muted-foreground">
+                    P99 Latency
+                  </div>
                   <div class="flex items-center gap-2">
                     <span
                       class="text-sm font-medium"
@@ -226,7 +270,7 @@ function getTimelinePosition(dateString: string): number {
                       class="h-full transition-all"
                       :class="dep.latency_p99_ms > dep.thresholds.latency_p99_max_ms ? 'bg-yellow-500' : 'bg-green-500'"
                       :style="{ width: `${Math.min((dep.latency_p99_ms / dep.thresholds.latency_p99_max_ms) * 100, 100)}%` }"
-                    ></div>
+                    />
                   </div>
                 </div>
               </div>
@@ -239,38 +283,82 @@ function getTimelinePosition(dateString: string): number {
         <!-- Provider status -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">Provider Connections</h2>
-            <p class="card-description">Observability data source status</p>
+            <h2 class="card-title">
+              Provider Connections
+            </h2>
+            <p class="card-description">
+              Observability data source status
+            </p>
           </div>
           <div class="card-content">
-            <div v-if="providers.length === 0" class="py-8 text-center text-muted-foreground">
+            <div
+              v-if="providers.length === 0"
+              class="py-8 text-center text-muted-foreground"
+            >
               No providers configured
             </div>
-            <div v-else class="space-y-3">
+            <div
+              v-else
+              class="space-y-3"
+            >
               <div
                 v-for="provider in providers"
                 :key="provider.name"
                 class="flex items-center justify-between rounded-lg border p-3"
               >
                 <div class="flex items-center gap-3">
-                  <svg class="h-5 w-5 shrink-0" :class="getProviderStatusIcon(provider.status)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path v-if="provider.status === 'connected'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    <path v-else-if="provider.status === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.834-1.964-.834-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                  <svg
+                    class="h-5 w-5 shrink-0"
+                    :class="getProviderStatusIcon(provider.status)"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      v-if="provider.status === 'connected'"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    />
+                    <path
+                      v-else-if="provider.status === 'error'"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.834-1.964-.834-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                    <path
+                      v-else
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M20 12H4"
+                    />
                   </svg>
                   <div>
-                    <div class="font-medium">{{ provider.name }}</div>
-                    <div class="text-xs text-muted-foreground">{{ provider.type }}</div>
+                    <div class="font-medium">
+                      {{ provider.name }}
+                    </div>
+                    <div class="text-xs text-muted-foreground">
+                      {{ provider.type }}
+                    </div>
                   </div>
                 </div>
                 <div class="text-right">
-                  <div class="text-sm capitalize" :class="getProviderStatusIcon(provider.status)">
+                  <div
+                    class="text-sm capitalize"
+                    :class="getProviderStatusIcon(provider.status)"
+                  >
                     {{ provider.status }}
                   </div>
                   <div class="text-xs text-muted-foreground">
                     {{ formatDateTime(provider.last_check) }}
                   </div>
-                  <div v-if="provider.error_message" class="mt-1 text-xs text-red-500">
+                  <div
+                    v-if="provider.error_message"
+                    class="mt-1 text-xs text-red-500"
+                  >
                     {{ provider.error_message }}
                   </div>
                 </div>
@@ -282,14 +370,24 @@ function getTimelinePosition(dateString: string): number {
         <!-- Incident-release correlations -->
         <div class="card">
           <div class="card-header">
-            <h2 class="card-title">Incident Correlations</h2>
-            <p class="card-description">Recent incident-release correlations with confidence scores</p>
+            <h2 class="card-title">
+              Incident Correlations
+            </h2>
+            <p class="card-description">
+              Recent incident-release correlations with confidence scores
+            </p>
           </div>
           <div class="card-content">
-            <div v-if="correlations.length === 0" class="py-8 text-center text-muted-foreground">
+            <div
+              v-if="correlations.length === 0"
+              class="py-8 text-center text-muted-foreground"
+            >
               No incident correlations detected
             </div>
-            <div v-else class="space-y-3">
+            <div
+              v-else
+              class="space-y-3"
+            >
               <div
                 v-for="corr in correlations"
                 :key="corr.incident_id"
@@ -303,16 +401,20 @@ function getTimelinePosition(dateString: string): number {
                       </span>
                       <span class="font-medium">{{ corr.version }}</span>
                     </div>
-                    <p class="mt-1 text-sm text-muted-foreground">{{ corr.description }}</p>
+                    <p class="mt-1 text-sm text-muted-foreground">
+                      {{ corr.description }}
+                    </p>
                   </div>
                   <div class="text-right">
-                    <div class="text-xs text-muted-foreground">Confidence</div>
+                    <div class="text-xs text-muted-foreground">
+                      Confidence
+                    </div>
                     <div class="flex items-center gap-1">
                       <div class="h-2 w-12 overflow-hidden rounded-full bg-muted">
                         <div
                           :class="['h-full', getConfidenceColor(corr.confidence)]"
                           :style="{ width: `${corr.confidence * 100}%` }"
-                        ></div>
+                        />
                       </div>
                       <span class="text-xs font-medium">{{ (corr.confidence * 100).toFixed(0) }}%</span>
                     </div>
@@ -328,15 +430,22 @@ function getTimelinePosition(dateString: string): number {
       </div>
 
       <!-- Correlation timeline -->
-      <div v-if="correlations.length > 1" class="card">
+      <div
+        v-if="correlations.length > 1"
+        class="card"
+      >
         <div class="card-header">
-          <h2 class="card-title">Release Correlation Timeline</h2>
-          <p class="card-description">Incident-release correlations plotted over time</p>
+          <h2 class="card-title">
+            Release Correlation Timeline
+          </h2>
+          <p class="card-description">
+            Incident-release correlations plotted over time
+          </p>
         </div>
         <div class="card-content">
           <div class="relative h-20 rounded-lg border bg-muted/30 px-4 py-2">
             <!-- Timeline bar -->
-            <div class="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 bg-border"></div>
+            <div class="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 bg-border" />
             <!-- Timeline points -->
             <div
               v-for="corr in correlations"
@@ -350,7 +459,7 @@ function getTimelinePosition(dateString: string): number {
                   corr.status === 'open' ? 'bg-red-500' : corr.status === 'investigating' ? 'bg-yellow-500' : 'bg-green-500',
                 ]"
                 :title="`${corr.version} - ${corr.description} (${(corr.confidence * 100).toFixed(0)}% confidence)`"
-              ></div>
+              />
               <div class="mt-2 whitespace-nowrap text-center text-[10px] text-muted-foreground">
                 {{ corr.version }}
               </div>

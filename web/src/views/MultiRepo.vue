@@ -196,51 +196,76 @@ function getNodeStateColor(state: string): string {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-lg font-semibold">Repository Groups</h2>
-        <p class="text-sm text-muted-foreground">Multi-repo coordination and dependency management</p>
+        <h2 class="text-lg font-semibold">
+          Repository Groups
+        </h2>
+        <p class="text-sm text-muted-foreground">
+          Multi-repo coordination and dependency management
+        </p>
       </div>
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-12"
+    >
+      <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="card border-red-200 dark:border-red-800">
+    <div
+      v-else-if="error"
+      class="card border-red-200 dark:border-red-800"
+    >
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
-        <button @click="loading = true; api.getGroups().then(r => { groups = r.groups; error = null }).catch(e => { error = e.message }).finally(() => loading = false)" class="btn-primary btn-sm mt-2">
+        <p class="text-red-600 dark:text-red-400">
+          {{ error }}
+        </p>
+        <button
+          class="btn-primary btn-sm mt-2"
+          @click="loading = true; api.getGroups().then(r => { groups = r.groups; error = null }).catch(e => { error = e.message }).finally(() => loading = false)"
+        >
           Retry
         </button>
       </div>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="groups.length === 0" class="card">
+    <div
+      v-else-if="groups.length === 0"
+      class="card"
+    >
       <div class="card-content py-12 text-center text-muted-foreground">
         No repository groups configured. Add groups in your configuration to enable multi-repo coordination.
       </div>
     </div>
 
     <!-- Group cards -->
-    <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div
+      v-else
+      class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+    >
       <button
         v-for="group in groups"
         :key="group.name"
-        @click="selectGroup(group.name)"
         :class="[
           'card cursor-pointer text-left transition-all hover:shadow-md',
           selectedGroup === group.name ? 'ring-2 ring-primary' : '',
           getGroupStatusBorder(group.status),
         ]"
+        @click="selectGroup(group.name)"
       >
         <div class="card-content pt-6">
           <div class="flex items-center justify-between">
-            <h3 class="font-semibold">{{ group.name }}</h3>
-            <span :class="['h-2.5 w-2.5 rounded-full', getGroupStatusColor(group.status)]"></span>
+            <h3 class="font-semibold">
+              {{ group.name }}
+            </h3>
+            <span :class="['h-2.5 w-2.5 rounded-full', getGroupStatusColor(group.status)]" />
           </div>
-          <p class="mt-1 text-sm text-muted-foreground">{{ group.description }}</p>
+          <p class="mt-1 text-sm text-muted-foreground">
+            {{ group.description }}
+          </p>
           <div class="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
             <span>{{ group.repo_count }} repos</span>
             <span>Last release: {{ formatDate(group.last_release) }}</span>
@@ -250,21 +275,37 @@ function getNodeStateColor(state: string): string {
     </div>
 
     <!-- Selected group detail -->
-    <div v-if="selectedGroup" class="space-y-6">
+    <div
+      v-if="selectedGroup"
+      class="space-y-6"
+    >
       <!-- Dependency graph -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Dependency Graph: {{ selectedGroup }}</h2>
-          <p class="card-description">Repository dependencies and release state</p>
+          <h2 class="card-title">
+            Dependency Graph: {{ selectedGroup }}
+          </h2>
+          <p class="card-description">
+            Repository dependencies and release state
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loadingDetail" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loadingDetail"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="!groupGraph || groupGraph.nodes.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="!groupGraph || groupGraph.nodes.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No dependency graph data available
           </div>
-          <div v-else class="overflow-x-auto">
+          <div
+            v-else
+            class="overflow-x-auto"
+          >
             <svg
               :viewBox="`0 0 ${graphLayout.width} ${graphLayout.height}`"
               :style="{ minWidth: `${Math.min(graphLayout.width, 800)}px` }"
@@ -272,8 +313,19 @@ function getNodeStateColor(state: string): string {
               preserveAspectRatio="xMinYMin meet"
             >
               <defs>
-                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                  <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" class="text-muted-foreground" />
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="10"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <polygon
+                    points="0 0, 10 3.5, 0 7"
+                    fill="currentColor"
+                    class="text-muted-foreground"
+                  />
                 </marker>
               </defs>
               <!-- Edges -->
@@ -292,7 +344,10 @@ function getNodeStateColor(state: string): string {
                 <title v-if="edge.label">{{ edge.label }}</title>
               </line>
               <!-- Nodes -->
-              <g v-for="node in graphLayout.nodes" :key="node.id">
+              <g
+                v-for="node in graphLayout.nodes"
+                :key="node.id"
+              >
                 <rect
                   :x="node.x"
                   :y="node.y"
@@ -333,25 +388,50 @@ function getNodeStateColor(state: string): string {
       <!-- Per-repo status -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Repository Status</h2>
-          <p class="card-description">Current release state for each repository in the group</p>
+          <h2 class="card-title">
+            Repository Status
+          </h2>
+          <p class="card-description">
+            Current release state for each repository in the group
+          </p>
         </div>
         <div class="card-content p-0">
-          <div v-if="loadingDetail" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loadingDetail"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="!groupStatus || groupStatus.repos.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="!groupStatus || groupStatus.repos.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No repository data available
           </div>
-          <table v-else class="table">
+          <table
+            v-else
+            class="table"
+          >
             <thead class="table-header">
               <tr>
-                <th class="table-head">Repository</th>
-                <th class="table-head">Version</th>
-                <th class="table-head">State</th>
-                <th class="table-head">Risk</th>
-                <th class="table-head">Last Release</th>
-                <th class="table-head">Pending</th>
+                <th class="table-head">
+                  Repository
+                </th>
+                <th class="table-head">
+                  Version
+                </th>
+                <th class="table-head">
+                  State
+                </th>
+                <th class="table-head">
+                  Risk
+                </th>
+                <th class="table-head">
+                  Last Release
+                </th>
+                <th class="table-head">
+                  Pending
+                </th>
               </tr>
             </thead>
             <tbody class="table-body">
@@ -360,8 +440,12 @@ function getNodeStateColor(state: string): string {
                 :key="repo.name"
                 class="table-row"
               >
-                <td class="table-cell font-medium">{{ repo.name }}</td>
-                <td class="table-cell font-mono text-sm">{{ repo.version }}</td>
+                <td class="table-cell font-medium">
+                  {{ repo.name }}
+                </td>
+                <td class="table-cell font-mono text-sm">
+                  {{ repo.version }}
+                </td>
                 <td class="table-cell">
                   <span :class="['badge', getRepoStateClass(repo.state)]">{{ repo.state }}</span>
                 </td>
@@ -376,8 +460,11 @@ function getNodeStateColor(state: string): string {
                     v-if="repo.has_pending_changes"
                     class="inline-flex h-2 w-2 rounded-full bg-yellow-500"
                     title="Has pending changes"
-                  ></span>
-                  <span v-else class="text-muted-foreground">--</span>
+                  />
+                  <span
+                    v-else
+                    class="text-muted-foreground"
+                  >--</span>
                 </td>
               </tr>
             </tbody>
@@ -389,8 +476,12 @@ function getNodeStateColor(state: string): string {
       <div class="card">
         <div class="card-content flex items-center justify-between pt-6">
           <div>
-            <h3 class="font-medium">Coordinated Release</h3>
-            <p class="text-sm text-muted-foreground">Plan a release across all repositories in this group</p>
+            <h3 class="font-medium">
+              Coordinated Release
+            </h3>
+            <p class="text-sm text-muted-foreground">
+              Plan a release across all repositories in this group
+            </p>
           </div>
           <button class="btn-primary">
             Plan Coordinated Release

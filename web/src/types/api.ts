@@ -316,6 +316,11 @@ export interface WebSocketMessage {
 }
 
 export type WebSocketEventType =
+  // The wildcard is a supported subscription target — useWebSocket dispatches to
+  // handlers.get('*') for every message — and leaving it out of the union is why App.vue
+  // subscribed with `'*' as any`. A cast that exists because the type is wrong teaches the
+  // next reader that casts are normal here.
+  | '*'
   | 'release.created'
   | 'release.state_changed'
   | 'release.versioned'

@@ -72,16 +72,30 @@ function prevPage() {
         <div class="flex flex-wrap gap-4">
           <div class="flex items-center gap-2">
             <label class="text-sm font-medium">State:</label>
-            <select v-model="filterState" class="input w-40">
-              <option v-for="state in states" :key="state" :value="state">
+            <select
+              v-model="filterState"
+              class="input w-40"
+            >
+              <option
+                v-for="state in states"
+                :key="state"
+                :value="state"
+              >
                 {{ state === 'all' ? 'All States' : state }}
               </option>
             </select>
           </div>
           <div class="flex items-center gap-2">
             <label class="text-sm font-medium">Risk:</label>
-            <select v-model="filterRisk" class="input w-40">
-              <option v-for="level in riskLevels" :key="level" :value="level">
+            <select
+              v-model="filterRisk"
+              class="input w-40"
+            >
+              <option
+                v-for="level in riskLevels"
+                :key="level"
+                :value="level"
+              >
                 {{ level === 'all' ? 'All Levels' : level }}
               </option>
             </select>
@@ -91,11 +105,16 @@ function prevPage() {
     </div>
 
     <!-- Active release highlight -->
-    <div v-if="releasesStore.activeRelease" class="card border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+    <div
+      v-if="releasesStore.activeRelease"
+      class="card border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
+    >
       <div class="card-header">
         <div class="flex items-center gap-3">
-          <span class="h-3 w-3 animate-pulse rounded-full bg-blue-500"></span>
-          <h2 class="card-title">Active Release</h2>
+          <span class="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
+          <h2 class="card-title">
+            Active Release
+          </h2>
         </div>
       </div>
       <div class="card-content">
@@ -104,7 +123,9 @@ function prevPage() {
           class="flex items-center justify-between"
         >
           <div>
-            <div class="text-2xl font-bold">{{ releasesStore.activeRelease.version_next }}</div>
+            <div class="text-2xl font-bold">
+              {{ releasesStore.activeRelease.version_next }}
+            </div>
             <div class="text-sm text-muted-foreground">
               {{ releasesStore.activeRelease.commit_count }} commits ·
               Started {{ formatDate(releasesStore.activeRelease.created_at) }}
@@ -125,28 +146,51 @@ function prevPage() {
     <!-- Releases table -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">All Releases</h2>
+        <h2 class="card-title">
+          All Releases
+        </h2>
         <p class="card-description">
           {{ releasesStore.totalReleases }} total releases
         </p>
       </div>
       <div class="card-content p-0">
-        <div v-if="releasesStore.loading" class="flex items-center justify-center py-12">
-          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="releasesStore.loading"
+          class="flex items-center justify-center py-12"
+        >
+          <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="filteredReleases.length === 0" class="py-12 text-center text-muted-foreground">
+        <div
+          v-else-if="filteredReleases.length === 0"
+          class="py-12 text-center text-muted-foreground"
+        >
           No releases found
         </div>
-        <table v-else class="table">
+        <table
+          v-else
+          class="table"
+        >
           <thead class="table-header">
             <tr>
-              <th class="table-head">Version</th>
-              <th class="table-head">Commits</th>
-              <th class="table-head">Risk</th>
-              <th class="table-head">State</th>
-              <th class="table-head">Actor</th>
-              <th class="table-head">Updated</th>
-              <th class="table-head"></th>
+              <th class="table-head">
+                Version
+              </th>
+              <th class="table-head">
+                Commits
+              </th>
+              <th class="table-head">
+                Risk
+              </th>
+              <th class="table-head">
+                State
+              </th>
+              <th class="table-head">
+                Actor
+              </th>
+              <th class="table-head">
+                Updated
+              </th>
+              <th class="table-head" />
             </tr>
           </thead>
           <tbody class="table-body">
@@ -157,11 +201,16 @@ function prevPage() {
             >
               <td class="table-cell font-medium">
                 <div>{{ release.version_next }}</div>
-                <div v-if="release.version_current" class="text-xs text-muted-foreground">
+                <div
+                  v-if="release.version_current"
+                  class="text-xs text-muted-foreground"
+                >
                   from {{ release.version_current }}
                 </div>
               </td>
-              <td class="table-cell">{{ release.commit_count }}</td>
+              <td class="table-cell">
+                {{ release.commit_count }}
+              </td>
               <td class="table-cell">
                 <span :class="['badge', getRiskLevelClass(release.risk_level)]">
                   {{ release.risk_score }} ({{ release.risk_level }})
@@ -175,14 +224,19 @@ function prevPage() {
               <td class="table-cell">
                 <div class="text-sm">
                   <div>{{ release.actor_id.substring(0, 8) }}...</div>
-                  <div class="text-xs text-muted-foreground">{{ release.actor_kind }}</div>
+                  <div class="text-xs text-muted-foreground">
+                    {{ release.actor_kind }}
+                  </div>
                 </div>
               </td>
               <td class="table-cell text-sm text-muted-foreground">
                 {{ formatDate(release.updated_at) }}
               </td>
               <td class="table-cell">
-                <RouterLink :to="`/releases/${release.id}`" class="btn-ghost btn-sm">
+                <RouterLink
+                  :to="`/releases/${release.id}`"
+                  class="btn-ghost btn-sm"
+                >
                   View
                 </RouterLink>
               </td>
@@ -196,16 +250,16 @@ function prevPage() {
         </div>
         <div class="flex gap-2">
           <button
-            @click="prevPage"
             :disabled="releasesStore.currentPage <= 1"
             class="btn-outline btn-sm"
+            @click="prevPage"
           >
             Previous
           </button>
           <button
-            @click="nextPage"
             :disabled="releasesStore.currentPage >= releasesStore.totalPages"
             class="btn-outline btn-sm"
+            @click="nextPage"
           >
             Next
           </button>
