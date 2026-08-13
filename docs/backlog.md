@@ -149,47 +149,52 @@ SUGGESTED APPROACH
 
 ---
 
-## Wire or withdraw the cgp_* MCP tools
+## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
 
-The three CGP protocol tools are advertised in tools/list and cannot work. An agent enumerates them, calls one, and gets a failure on every attempt.
+The three tools work. `relicta mcp serve` supplies the governance service's own evaluator
+(option 1), so an agent calling cgp_propose is governed by the same thresholds, policies and
+freeze periods as a human running `relicta evaluate` — a fresh `evaluator.New()` would have
+produced a second verdict for the same change with nothing saying which was authoritative.
+Verified over stdio against a real repository: cgp_propose returns a GovernanceDecision with
+risk score 0.6, `approval_required`, and the rationale "Agent-initiated change with elevated
+risk requires human review".
 
-  cgp_propose
-  cgp_authorize
-  cgp_status
+THE RELATED LIST WAS PARTLY WRONG, and the correction matters more than the fix:
 
-CAUSE
+- `WithRiskCalculator` and `WithCache` are override seams over fields `NewServer` already
+  defaults (`risk.NewCalculatorWithDefaults()`, `NewResourceCache()`). The claim that
+  "WithRiskCalculator gates the fallback risk path in handleEvaluate, which therefore cannot
+  run either" was false — that path runs. Deleting the option, which the entry invited, would
+  have removed a working seam and broken four call sites. Confirmed by removing it and reading
+  the compiler's answer, after a grep for the wrong field name (`riskCalculator` rather than
+  `riskCalc`) had suggested it was dead.
 
-handleCGP* calls ensureCGPService (internal/mcp/server.go:708), which needs either s.cgpService or s.evaluator. `relicta mcp serve` wires neither: WithCGPService and WithEvaluator are both defined and called only from tests. So ensureCGPService always takes its error path.
+- `WithCacheDisabled` is therefore meaningful: it turns off a cache that is on.
 
-Found by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.
+- `WithPolicyEngine` was already wired.
 
-MITIGATION ALREADY LANDED
+TWO WERE GENUINELY UNWIRED, and both are fixed:
 
-The failure now returns a ToolInputError explaining that no evaluator is configured and pointing at relicta_evaluate, instead of the redacted "internal error" an agent used to receive. The tools still do not work.
+- `WithReleaseRepository`. Five resources — release state, active runs, history, the run's
+  recommendation — answered `{"status": "no release repository configured"}` while the
+  container held the repository all along. To a caller that is indistinguishable from having
+  no release, so an agent asking what is in progress was told nothing was. Now wired;
+  `relicta://state` returns the real run (`"state": "versioned", "version": "0.1.0"`).
 
-THE DECISION THIS NEEDS
+- `WithActorBudgets`. A configured `governance.actor_budget_path` gated the CLI and was
+  ignored by the MCP surface — the surface agents actually use, and the reason per-actor
+  budgets exist. `ResolveBudget`'s fallback is the restrictive default, so nothing was unsafe;
+  what went missing was the operator's own policy, in either direction. The loader is now
+  shared with the CLI gate rather than duplicated, and `mcp serve` refuses to start on an
+  unreadable budget file instead of silently applying defaults the operator does not expect.
 
-Supplying `evaluator.New()` in createMCPServer would make the tools respond, and that is what the tests do. But a bare evaluator is not the same as the CLI's governance service: the container builds that from cfg.Governance — thresholds, policies, freeze periods, trusted actors, reputation. An agent evaluating a proposal through cgp_* would get a different verdict than a human running `relicta evaluate` on the same change, which for a governance tool is worse than the tool being absent.
-
-Three options:
-
-1. Expose the container's configured evaluator (or the governance service's) and wire that. Correct, and makes agent and CLI agree. Needs an accessor the container does not currently have, and a decision about whether the CGP protocol path should share governance's configuration or have its own.
-
-2. Withdraw the three tools from tools/list until they can be wired. Honest, and stops agents wasting calls. Loses the CGP protocol surface, which pkg/cgp exists to expose.
-
-3. Keep them advertised but make the unconfigured response a documented, structured "not available here" that an agent can branch on. Cheapest; currently implemented as an isError, which is close.
-
-Option 1 is the real answer if the CGP protocol surface is meant to be part of the product. Option 2 is right if it is not.
-
-ACCEPTANCE
-
-Either the three tools return real results computed with the same configuration the CLI uses, or they are not advertised. A test should assert whichever is chosen, since the current state — advertised and non-functional — is what nothing was checking.
-
-RELATED
-
-Other Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.
-
----
+WHAT THE TESTS COVER, and why in two places: internal/mcp asserts the behavior each option
+unlocks, and internal/cli asserts that mcp.go passes them. Only the second was missing, and
+it is the half that was broken — an option nothing calls is the defect this file keeps
+recording. The budget test needed rewriting for the same reason: its first version configured
+a *restrictive* budget and asserted refusal, which passed even with the option turned into a
+no-op, because the default refuses that operation too. It now configures a permissive budget
+and asserts the operation is allowed, with the unconfigured server as a control.
 
 ## Policy conditions for data the evaluator does not yet carry
 
