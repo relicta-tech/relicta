@@ -93,7 +93,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		slog.Warn("No API keys configured. Dashboard will be inaccessible.")
 		// Naming api_keys was not actionable: `relicta init` writes no dashboard
 		// section, so there was nothing to edit and no indication of the nesting.
-		hintDashboardAPIKeys.print()
+		hintDashboardAuth.print()
 	}
 
 	// Initialize application container

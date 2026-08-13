@@ -61,8 +61,8 @@ frequency and lead time measure against — without it, every environment a vers
 passes through counts as a deployment.`,
 }
 
-// hintDashboardAPIKeys is the remedy for running the dashboard in API-key mode with no keys.
-var hintDashboardAPIKeys = configHint{
+// hintDashboardAuth is the remedy for running the dashboard in API-key mode with no keys.
+var hintDashboardAuth = configHint{
 	purpose: "The dashboard is in API-key mode with no keys configured, so every request will be refused.",
 	yaml: `  dashboard:
     auth:

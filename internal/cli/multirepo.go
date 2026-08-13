@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
-	inframultirepo "github.com/relicta-tech/relicta/v4/internal/infrastructure/multirepo"
 )
 
 var (
@@ -189,18 +189,12 @@ func setupGroupCommand() (*multirepo.RepositoryGroup, *appmultirepo.Coordinator,
 		return nil, nil, fmt.Errorf("invalid group configuration: %w", err)
 	}
 
-	// Create a no-op coordinator for CLI. Real adapters would be injected
-	// through the container in a production setup.
-	// A real git adapter, not nil. The coordinator dereferences it for every
-	// repository in the group, so `relicta group plan` panicked here rather than
-	// degrading — the interface, the coordinator and the dependency ordering were all
-	// written and tested, and nothing could reach them.
-	//
-	// The release executor stays nil: running a full release inside another checkout is
-	// a separate piece of work, and Coordinator.Release refuses clearly when it is
-	// absent instead of panicking (see docs/backlog.md).
-	coordinator := appmultirepo.NewCoordinator(
-		inframultirepo.NewGitAdapter(configuredTagPrefix()), nil)
+	// Built by the container, which is the composition root. The CLI must not import
+	// internal/infrastructure directly — the hexagonal fitness function in
+	// internal/architecture enforces that — and it previously built this coordinator as
+	// NewCoordinator(nil, nil), so every `relicta group plan` panicked on the first
+	// repository in the group.
+	coordinator := container.NewMultirepoCoordinator(configuredTagPrefix())
 
 	return group, coordinator, nil
 }

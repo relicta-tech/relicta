@@ -18,7 +18,7 @@ import (
 //
 // The rule this enforces: a user-facing message that names a config section must either name
 // one `init` writes, or carry the YAML to add. errGovernanceDisabled established the shape;
-// hintEnvironments, hintDashboardAPIKeys and hintRepositoryGroups follow it.
+// hintEnvironments, hintDashboardAuth and hintRepositoryGroups follow it.
 //
 // This is the invariant the backlog asked for, and it is worth having as a test rather than
 // a convention because the failure is silent: the message looks helpful, and only someone
@@ -71,7 +71,7 @@ var configKeyMentions = []struct {
 }{
 	{section: "governance", file: "governance_disabled.go", hint: func() string { return governanceEnableHint }},
 	{section: "environments", file: "deploy.go", hint: hintEnvironments.String},
-	{section: "dashboard", file: "serve.go", hint: hintDashboardAPIKeys.String},
+	{section: "dashboard", file: "serve.go", hint: hintDashboardAuth.String},
 	{section: "repository_groups", file: "multirepo.go", hint: hintRepositoryGroups.String},
 }
 
