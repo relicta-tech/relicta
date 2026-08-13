@@ -144,8 +144,12 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
     <div class="grid gap-4 md:grid-cols-4">
       <div class="card">
         <div class="card-content pt-6">
-          <div class="text-2xl font-bold">{{ decisions.length }}</div>
-          <p class="text-sm text-muted-foreground">Total Decisions</p>
+          <div class="text-2xl font-bold">
+            {{ decisions.length }}
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Total Decisions
+          </p>
         </div>
       </div>
       <div class="card">
@@ -153,7 +157,9 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
           <div class="text-2xl font-bold text-green-600">
             {{ decisions.filter(d => d.decision === 'approve').length }}
           </div>
-          <p class="text-sm text-muted-foreground">Approved</p>
+          <p class="text-sm text-muted-foreground">
+            Approved
+          </p>
         </div>
       </div>
       <div class="card">
@@ -161,7 +167,9 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
           <div class="text-2xl font-bold text-yellow-600">
             {{ decisions.filter(d => d.decision === 'require_review').length }}
           </div>
-          <p class="text-sm text-muted-foreground">Required Review</p>
+          <p class="text-sm text-muted-foreground">
+            Required Review
+          </p>
         </div>
       </div>
       <div class="card">
@@ -169,7 +177,9 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
           <div class="text-2xl font-bold text-red-600">
             {{ decisions.filter(d => d.decision === 'deny').length }}
           </div>
-          <p class="text-sm text-muted-foreground">Denied</p>
+          <p class="text-sm text-muted-foreground">
+            Denied
+          </p>
         </div>
       </div>
     </div>
@@ -180,18 +190,22 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
         <div class="card-header">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="card-title">Risk Trends</h2>
-              <p class="card-description">Average risk score over time</p>
+              <h2 class="card-title">
+                Risk Trends
+              </h2>
+              <p class="card-description">
+                Average risk score over time
+              </p>
             </div>
             <div class="flex gap-2">
               <button
                 v-for="days in [7, 14, 30, 90]"
                 :key="days"
-                @click="changeDaysRange(days)"
                 :class="[
                   'btn-sm',
                   daysRange === days ? 'btn-primary' : 'btn-ghost',
                 ]"
+                @click="changeDaysRange(days)"
               >
                 {{ days }}d
               </button>
@@ -199,19 +213,41 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
           </div>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="riskTrends.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="riskTrends.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No trend data available
           </div>
           <div v-else>
             <!-- Enhanced SVG sparkline with gradient and data points -->
-            <svg class="w-full" viewBox="0 0 300 80" preserveAspectRatio="xMidYMid meet">
+            <svg
+              class="w-full"
+              viewBox="0 0 300 80"
+              preserveAspectRatio="xMidYMid meet"
+            >
               <defs>
-                <linearGradient id="riskGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style="stop-color: var(--color-primary); stop-opacity: 0.3" />
-                  <stop offset="100%" style="stop-color: var(--color-primary); stop-opacity: 0" />
+                <linearGradient
+                  id="riskGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    style="stop-color: var(--color-primary); stop-opacity: 0.3"
+                  />
+                  <stop
+                    offset="100%"
+                    style="stop-color: var(--color-primary); stop-opacity: 0"
+                  />
                 </linearGradient>
               </defs>
               <!-- Area fill under line -->
@@ -253,17 +289,30 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
       <!-- Risk factors -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Risk Factors</h2>
-          <p class="card-description">Distribution of contributing factors</p>
+          <h2 class="card-title">
+            Risk Factors
+          </h2>
+          <p class="card-description">
+            Distribution of contributing factors
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="factors.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="factors.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No factor data available
           </div>
-          <div v-else class="space-y-4">
+          <div
+            v-else
+            class="space-y-4"
+          >
             <div
               v-for="factor in factors"
               :key="factor.factor"
@@ -277,7 +326,7 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
                 <div
                   class="h-full bg-primary transition-all"
                   :style="{ width: `${factor.percentage}%` }"
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -288,21 +337,40 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
     <!-- Decision distribution donut chart -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Decision Distribution</h2>
-        <p class="card-description">Breakdown of governance decisions by outcome</p>
+        <h2 class="card-title">
+          Decision Distribution
+        </h2>
+        <p class="card-description">
+          Breakdown of governance decisions by outcome
+        </p>
       </div>
       <div class="card-content">
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="decisions.length === 0" class="py-8 text-center text-muted-foreground">
+        <div
+          v-else-if="decisions.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
           No decision data available
         </div>
-        <div v-else class="flex flex-col items-center gap-6 md:flex-row md:justify-around">
+        <div
+          v-else
+          class="flex flex-col items-center gap-6 md:flex-row md:justify-around"
+        >
           <!-- Donut chart -->
           <div class="relative">
-            <svg viewBox="0 0 100 100" class="h-40 w-40">
-              <template v-for="(segment, i) in getDecisionDistribution()" :key="segment.label">
+            <svg
+              viewBox="0 0 100 100"
+              class="h-40 w-40"
+            >
+              <template
+                v-for="(segment, i) in getDecisionDistribution()"
+                :key="segment.label"
+              >
                 <path
                   v-if="segment.percentage > 0"
                   :d="getDonutPath(
@@ -316,10 +384,20 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
                 </path>
               </template>
               <!-- Center text -->
-              <text x="50" y="48" text-anchor="middle" class="fill-foreground text-lg font-bold">
+              <text
+                x="50"
+                y="48"
+                text-anchor="middle"
+                class="fill-foreground text-lg font-bold"
+              >
                 {{ decisions.length }}
               </text>
-              <text x="50" y="58" text-anchor="middle" class="fill-muted-foreground text-[8px]">
+              <text
+                x="50"
+                y="58"
+                text-anchor="middle"
+                class="fill-muted-foreground text-[8px]"
+              >
                 decisions
               </text>
             </svg>
@@ -334,9 +412,11 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
               <div
                 class="h-3 w-3 rounded-full"
                 :style="{ backgroundColor: segment.color }"
-              ></div>
+              />
               <div class="flex-1">
-                <div class="text-sm font-medium">{{ segment.label }}</div>
+                <div class="text-sm font-medium">
+                  {{ segment.label }}
+                </div>
                 <div class="text-xs text-muted-foreground">
                   {{ segment.count }} ({{ segment.percentage.toFixed(1) }}%)
                 </div>
@@ -350,25 +430,50 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
     <!-- Decision history -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Decision History</h2>
-        <p class="card-description">Recent governance decisions</p>
+        <h2 class="card-title">
+          Decision History
+        </h2>
+        <p class="card-description">
+          Recent governance decisions
+        </p>
       </div>
       <div class="card-content p-0">
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="decisions.length === 0" class="py-8 text-center text-muted-foreground">
+        <div
+          v-else-if="decisions.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
           No decisions recorded
         </div>
-        <table v-else class="table">
+        <table
+          v-else
+          class="table"
+        >
           <thead class="table-header">
             <tr>
-              <th class="table-head">Release</th>
-              <th class="table-head">Decision</th>
-              <th class="table-head">Risk</th>
-              <th class="table-head">Factors</th>
-              <th class="table-head">Actor</th>
-              <th class="table-head">Time</th>
+              <th class="table-head">
+                Release
+              </th>
+              <th class="table-head">
+                Decision
+              </th>
+              <th class="table-head">
+                Risk
+              </th>
+              <th class="table-head">
+                Factors
+              </th>
+              <th class="table-head">
+                Actor
+              </th>
+              <th class="table-head">
+                Time
+              </th>
             </tr>
           </thead>
           <tbody class="table-body">
@@ -404,14 +509,19 @@ function getDonutPath(startAngle: number, endAngle: number, radius: number = 40,
                   >
                     {{ factor }}
                   </span>
-                  <span v-if="decision.factors.length > 3" class="text-xs text-muted-foreground">
+                  <span
+                    v-if="decision.factors.length > 3"
+                    class="text-xs text-muted-foreground"
+                  >
                     +{{ decision.factors.length - 3 }}
                   </span>
                 </div>
               </td>
               <td class="table-cell text-sm">
                 {{ decision.actor_id.substring(0, 8) }}...
-                <div class="text-xs text-muted-foreground">{{ decision.actor_kind }}</div>
+                <div class="text-xs text-muted-foreground">
+                  {{ decision.actor_kind }}
+                </div>
               </td>
               <td class="table-cell text-sm text-muted-foreground">
                 {{ formatDateTime(decision.timestamp) }}

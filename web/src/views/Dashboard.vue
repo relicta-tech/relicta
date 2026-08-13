@@ -61,39 +61,57 @@ function formatDate(dateString: string): string {
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <div class="card">
         <div class="card-header pb-2">
-          <h3 class="text-sm font-medium text-muted-foreground">Total Releases</h3>
+          <h3 class="text-sm font-medium text-muted-foreground">
+            Total Releases
+          </h3>
         </div>
         <div class="card-content">
-          <div class="text-2xl font-bold">{{ releasesStore.totalReleases }}</div>
-          <p class="text-xs text-muted-foreground">All time</p>
+          <div class="text-2xl font-bold">
+            {{ releasesStore.totalReleases }}
+          </div>
+          <p class="text-xs text-muted-foreground">
+            All time
+          </p>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header pb-2">
-          <h3 class="text-sm font-medium text-muted-foreground">Pending Approvals</h3>
+          <h3 class="text-sm font-medium text-muted-foreground">
+            Pending Approvals
+          </h3>
         </div>
         <div class="card-content">
-          <div class="text-2xl font-bold">{{ pendingApprovals.length }}</div>
-          <p class="text-xs text-muted-foreground">Awaiting review</p>
+          <div class="text-2xl font-bold">
+            {{ pendingApprovals.length }}
+          </div>
+          <p class="text-xs text-muted-foreground">
+            Awaiting review
+          </p>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header pb-2">
-          <h3 class="text-sm font-medium text-muted-foreground">Avg Risk Score</h3>
+          <h3 class="text-sm font-medium text-muted-foreground">
+            Avg Risk Score
+          </h3>
         </div>
         <div class="card-content">
           <div class="text-2xl font-bold">
             {{ riskTrends.length > 0 ? (riskTrends.reduce((sum, t) => sum + t.risk_score, 0) / riskTrends.length).toFixed(1) : '—' }}
           </div>
-          <p class="text-xs text-muted-foreground">Last 14 days</p>
+          <p class="text-xs text-muted-foreground">
+            Last 14 days
+          </p>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header pb-2">
-          <h3 class="text-sm font-medium text-muted-foreground">Active Release</h3>
+          <h3 class="text-sm font-medium text-muted-foreground">
+            Active Release
+          </h3>
         </div>
         <div class="card-content">
           <div class="text-2xl font-bold">
@@ -110,17 +128,30 @@ function formatDate(dateString: string): string {
       <!-- Recent releases -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Recent Releases</h2>
-          <p class="card-description">Latest release activity</p>
+          <h2 class="card-title">
+            Recent Releases
+          </h2>
+          <p class="card-description">
+            Latest release activity
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="recentReleases.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="recentReleases.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No releases yet
           </div>
-          <div v-else class="space-y-4">
+          <div
+            v-else
+            class="space-y-4"
+          >
             <RouterLink
               v-for="release in recentReleases"
               :key="release.id"
@@ -129,7 +160,9 @@ function formatDate(dateString: string): string {
             >
               <div class="flex items-center gap-4">
                 <div>
-                  <div class="font-medium">{{ release.version_next }}</div>
+                  <div class="font-medium">
+                    {{ release.version_next }}
+                  </div>
                   <div class="text-sm text-muted-foreground">
                     {{ release.commit_count }} commits
                   </div>
@@ -151,28 +184,46 @@ function formatDate(dateString: string): string {
       <!-- Pending approvals -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Pending Approvals</h2>
-          <p class="card-description">Releases awaiting review</p>
+          <h2 class="card-title">
+            Pending Approvals
+          </h2>
+          <p class="card-description">
+            Releases awaiting review
+          </p>
         </div>
         <div class="card-content">
-          <div v-if="loading" class="flex items-center justify-center py-8">
-            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            v-if="loading"
+            class="flex items-center justify-center py-8"
+          >
+            <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           </div>
-          <div v-else-if="pendingApprovals.length === 0" class="py-8 text-center text-muted-foreground">
+          <div
+            v-else-if="pendingApprovals.length === 0"
+            class="py-8 text-center text-muted-foreground"
+          >
             No pending approvals
           </div>
-          <div v-else class="space-y-4">
+          <div
+            v-else
+            class="space-y-4"
+          >
             <div
               v-for="approval in pendingApprovals"
               :key="approval.release_id"
               class="flex items-center justify-between rounded-lg border p-4"
             >
               <div>
-                <div class="font-medium">{{ approval.version }}</div>
+                <div class="font-medium">
+                  {{ approval.version }}
+                </div>
                 <div class="text-sm text-muted-foreground">
                   {{ approval.commit_count }} commits · {{ formatDate(approval.submitted_at) }}
                 </div>
-                <div v-if="approval.review_reason" class="mt-1 text-sm text-yellow-600 dark:text-yellow-400">
+                <div
+                  v-if="approval.review_reason"
+                  class="mt-1 text-sm text-yellow-600 dark:text-yellow-400"
+                >
                   {{ approval.review_reason }}
                 </div>
               </div>
@@ -180,7 +231,10 @@ function formatDate(dateString: string): string {
                 <span :class="['badge', getRiskLevelClass(approval.risk_level)]">
                   {{ approval.risk_level }}
                 </span>
-                <RouterLink :to="`/approvals`" class="btn-primary btn-sm">
+                <RouterLink
+                  :to="`/approvals`"
+                  class="btn-primary btn-sm"
+                >
                   Review
                 </RouterLink>
               </div>
@@ -193,17 +247,30 @@ function formatDate(dateString: string): string {
     <!-- Risk factors distribution -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Risk Factors</h2>
-        <p class="card-description">Distribution of risk factors across releases</p>
+        <h2 class="card-title">
+          Risk Factors
+        </h2>
+        <p class="card-description">
+          Distribution of risk factors across releases
+        </p>
       </div>
       <div class="card-content">
-        <div v-if="loading" class="flex items-center justify-center py-8">
-          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+        <div
+          v-if="loading"
+          class="flex items-center justify-center py-8"
+        >
+          <div class="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-        <div v-else-if="factors.length === 0" class="py-8 text-center text-muted-foreground">
+        <div
+          v-else-if="factors.length === 0"
+          class="py-8 text-center text-muted-foreground"
+        >
           No factor data available
         </div>
-        <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-else
+          class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+        >
           <div
             v-for="factor in factors"
             :key="factor.factor"
@@ -218,7 +285,7 @@ function formatDate(dateString: string): string {
                 <div
                   class="h-full bg-primary transition-all"
                   :style="{ width: `${factor.percentage}%` }"
-                ></div>
+                />
               </div>
             </div>
             <div class="mt-1 text-right text-xs text-muted-foreground">
