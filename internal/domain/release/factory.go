@@ -43,6 +43,18 @@ type Config struct {
 
 	// VersionWriter writes version files. Optional.
 	VersionWriter ports.VersionWriter
+
+	// EventPublisher receives the aggregate's domain events after each successful
+	// save. Optional; without it a release emits no events.
+	//
+	// This is how the outcome tracker and the webhook publisher are reached. Before it
+	// existed, the only production caller of any EventPublisher was FileUnitOfWork,
+	// which nothing constructed outside a test — so the container assembled the full
+	// chain, logged it as initialized, and no release ever published an event. The
+	// visible effects were that configured webhooks never fired for a release and that
+	// no failed or canceled run was ever recorded, leaving change failure rate to be
+	// computed from a history that held almost only successes.
+	EventPublisher ports.EventPublisher
 }
 
 // NewServices creates a new set of release governance services.
@@ -57,8 +69,19 @@ func NewServices(cfg Config) (*Services, error) {
 	repoInspector := adapters.NewGitRepoInspector(cfg.GitAdapter)
 
 	// Create file-based repository and lock manager
-	repository := adapters.NewFileReleaseRunRepository()
+	var repository ports.ReleaseRunRepository = adapters.NewFileReleaseRunRepository()
 	lockManager := adapters.NewFileLockManager()
+
+	// Publication is a decorator on save rather than a call in each use case: every use
+	// case already persists through this repository, and there are ten such calls across
+	// plan, bump, notes, approve, publish and retry. One seam cannot be forgotten by the
+	// eleventh.
+	if cfg.EventPublisher != nil {
+		repository = adapters.NewEventPublishingRepository(adapters.EventPublishingConfig{
+			Repository: repository,
+			Publisher:  cfg.EventPublisher,
+		})
+	}
 
 	// Create use cases
 	planRelease := app.NewPlanReleaseUseCase(

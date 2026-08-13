@@ -28,6 +28,19 @@ type OutcomeTracker struct {
 	next   release.EventPublisher
 	logger *slog.Logger
 
+	// repository is the governance identity to record against when the cached context
+	// has none.
+	//
+	// The cache is per-process, and the CLI runs one command per process: `relicta
+	// cancel` loads a run from disk and raises a single RunCanceledEvent, so nothing
+	// ever supplied the RunCreatedEvent that carries the repository. Every such record
+	// was rejected by the store with "repository is required" — a warning in a log
+	// nobody reads, and no record at all. It is supplied by the caller rather than
+	// derived from the event because the identity comes from the git remote, and a
+	// second derivation from the run's path would produce "local:checkout" where the
+	// publish path produces "acme/widget", splitting one repository's history in two.
+	repository string
+
 	// releaseContexts caches release context for building complete records.
 	// This is needed because outcome events don't contain all release metadata.
 	releaseContexts map[release.RunID]*releaseContext
@@ -50,12 +63,17 @@ type releaseContext struct {
 }
 
 // NewOutcomeTracker creates a new OutcomeTracker.
-// The next parameter is optional - if nil, events are not forwarded.
-func NewOutcomeTracker(store Store, next release.EventPublisher) *OutcomeTracker {
+//
+// next is optional — if nil, events are not forwarded. repository is the governance
+// identity to fall back on, and should be the same value the rest of the process records
+// against (repoInfo.GovernanceID()); empty is allowed, and then a terminal event arriving
+// without a cached context cannot be recorded.
+func NewOutcomeTracker(store Store, next release.EventPublisher, repository string) *OutcomeTracker {
 	return &OutcomeTracker{
 		store:           store,
 		next:            next,
 		logger:          slog.Default().With("component", "outcome_tracker"),
+		repository:      repository,
 		releaseContexts: make(map[release.RunID]*releaseContext),
 	}
 }
@@ -254,6 +272,11 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedE
 
 	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeFailed, e.OccurredAt())
 	record.Metadata["failure_reason"] = e.Reason
+	// The event's version is the only source in a fresh process, where the cached
+	// context from RunVersionedEvent does not exist.
+	if record.Version == "" {
+		record.Version = e.Version
+	}
 
 	if err := t.store.RecordRelease(ctx, record); err != nil {
 		return fmt.Errorf("failed to record failed release: %w", err)
@@ -273,10 +296,21 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedE
 func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCanceledEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
-	// Cancellation is treated as a partial outcome (not success, not failure)
-	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomePartial, e.OccurredAt())
+	// Recorded as canceled, not partial. OutcomePartial is a negative outcome that
+	// counts toward change failure rate and an actor's failed releases, so recording a
+	// deliberate cancellation that way punished the governance gate for working.
+	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeCanceled, e.OccurredAt())
 	record.Metadata["canceled_by"] = e.By
 	record.Metadata["cancel_reason"] = e.Reason
+	if record.Version == "" {
+		record.Version = e.Version
+	}
+	if record.Actor.ID == "" && e.By != "" {
+		// A fresh process has no cached context, so the event's own actor is the only
+		// one available — and an audit entry nobody can attribute is half an entry.
+		record.Actor = cgp.NewActor(cgp.ActorKindHuman,
+			cgp.QualifiedActorID(cgp.ActorKindHuman, e.By))
+	}
 	record.Tags = append(record.Tags, "canceled")
 
 	if err := t.store.RecordRelease(ctx, record); err != nil {
@@ -310,9 +344,17 @@ func (t *OutcomeTracker) buildReleaseRecord(
 		metadata[k] = v
 	}
 
+	// The cached context wins when it has one, because it came from this run's own
+	// RunCreatedEvent; the fallback covers the fresh-process case where there is no
+	// cached context at all.
+	repository := ctx.Repository
+	if repository == "" {
+		repository = t.repository
+	}
+
 	return &ReleaseRecord{
 		ID:              string(releaseID),
-		Repository:      ctx.Repository,
+		Repository:      repository,
 		Version:         ctx.Version,
 		Actor:           ctx.Actor,
 		RiskScore:       ctx.RiskScore,

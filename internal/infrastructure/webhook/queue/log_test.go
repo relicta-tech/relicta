@@ -36,7 +36,7 @@ func TestDeliveryLog_RecordAndList(t *testing.T) {
 			Success:        false,
 			Error:          "server error",
 			Attempt:        1,
-			Event:          "run.published",
+			Event:          "release.published",
 		},
 		{
 			DeliveryID:     "d-001",
@@ -47,7 +47,7 @@ func TestDeliveryLog_RecordAndList(t *testing.T) {
 			PayloadHash:    "abc123",
 			Success:        true,
 			Attempt:        2,
-			Event:          "run.published",
+			Event:          "release.published",
 		},
 	}
 

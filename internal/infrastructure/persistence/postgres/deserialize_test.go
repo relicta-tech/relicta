@@ -25,21 +25,21 @@ func TestDeserializeEvent_MalformedJSONPropagatesError(t *testing.T) {
 	// One representative failure per event-type family. Unmarshal failure
 	// branches are structurally identical, so covering a few proves the rule.
 	cases := []string{
-		"run.created",
-		"run.state_transitioned",
-		"run.planned",
-		"run.versioned",
-		"run.notes_generated",
-		"run.notes_updated",
-		"run.approved",
-		"run.publishing_started",
-		"run.published",
-		"run.failed",
-		"run.canceled",
-		"run.retried",
-		"run.step_completed",
-		"run.plugin_executed",
-		"run.tag_push_mode_detected",
+		"release.created",
+		"release.state_transitioned",
+		"release.planned",
+		"release.versioned",
+		"release.notes_generated",
+		"release.notes_updated",
+		"release.approved",
+		"release.publishing_started",
+		"release.published",
+		"release.failed",
+		"release.canceled",
+		"release.retried",
+		"release.step_completed",
+		"release.plugin_executed",
+		"release.tag_push_mode_detected",
 	}
 	garbage := json.RawMessage(`{"runId": 12345}`) // wrong type for RunID
 
@@ -56,7 +56,7 @@ func TestDeserializeEvent_MalformedJSONPropagatesError(t *testing.T) {
 func TestDeserializeEvent_EmptyPayloadDecodesToZeroValues(t *testing.T) {
 	// Empty `{}` is valid JSON — Unmarshal succeeds with zero-valued struct.
 	// Verifies the happy-path branch; error path covered above.
-	evt, err := deserializeEvent("run.created", json.RawMessage(`{}`))
+	evt, err := deserializeEvent("release.created", json.RawMessage(`{}`))
 	if err != nil {
 		t.Fatalf("empty payload should decode without error; got %v", err)
 	}

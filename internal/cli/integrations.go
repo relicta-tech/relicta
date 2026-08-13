@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/compliance"
 	"github.com/relicta-tech/relicta/v4/internal/integrations/drata"
 	"github.com/relicta-tech/relicta/v4/internal/integrations/vanta"
@@ -118,7 +117,20 @@ func runVantaPush(cmd *cobra.Command, args []string) error {
 		return errors.New("--repo is required (system identifier shown in Vanta UI)")
 	}
 
-	store := memory.NewInMemoryStore()
+	// The persisted governance store, not a fresh one.
+	//
+	// `relicta report` had this same defect and was fixed; this path was missed, and
+	// it is the worse of the two. Generating from memory.NewInMemoryStore() means the
+	// evidence is built from zero records — and then pushed to Vanta, where an auditor
+	// reads it as this organization's compliance record. An Article 12 or SOC 2
+	// artifact showing no incidents and no failed releases, asserted from a store that
+	// was never read, is an affirmative false statement about a controlled system, not
+	// a blank report someone will notice is blank.
+	store, err := getMemoryStoreCtx(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to open the governance history store: %w", err)
+	}
+
 	gen := compliance.NewGenerator(store, nil)
 
 	var evidence []vanta.Evidence
@@ -237,7 +249,14 @@ func runDrataPush(cmd *cobra.Command, args []string) error {
 		return errors.New("--repo is required (system identifier shown in Drata UI)")
 	}
 
-	store := memory.NewInMemoryStore()
+	// The persisted governance store, not a fresh one — same reasoning as the Vanta
+	// push above: this evidence is read by an auditor, so generating it from an empty
+	// store asserts a clean compliance record rather than reporting one.
+	store, err := getMemoryStoreCtx(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to open the governance history store: %w", err)
+	}
+
 	gen := compliance.NewGenerator(store, nil)
 
 	var evidence []drata.Evidence
