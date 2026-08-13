@@ -68,7 +68,8 @@ type Condition struct {
 	// Field is the path to evaluate: "actor.kind", "risk.score", "change.breaking", etc.
 	Field string `json:"field" yaml:"field"`
 
-	// Operator is the comparison operator: "eq", "ne", "gt", "lt", "gte", "lte", "in", "contains", "matches".
+	// Operator is the comparison operator: "eq", "ne", "gt", "lt", "gte", "lte", "in",
+	// "contains", "matches", "is_empty", "size".
 	Operator string `json:"operator" yaml:"operator"`
 
 	// Value is the comparison value.
@@ -108,6 +109,24 @@ const (
 	OperatorIn             = "in"
 	OperatorContains       = "contains"
 	OperatorMatches        = "matches"
+
+	// OperatorIsEmpty tests whether a collection or string has nothing in it. The
+	// compare value is a bool, so a rule can assert either emptiness or its absence.
+	//
+	// Added because "this list is empty" could not be expressed at all: a shipped rule
+	// meaning "the actor belongs to no team" had to be removed rather than left looking
+	// active, since there was no operator for it. It applies equally to actor.teams,
+	// actor.roles and scope.files — the three places a policy asks about a set.
+	OperatorIsEmpty = "is_empty"
+
+	// OperatorSize compares the number of elements in a collection, so a rule can say
+	// "touches more than three packages" rather than only "touches this one".
+	//
+	// Paired with is_empty deliberately: a size comparison expresses emptiness too, but
+	// `actor.teams size 0` reads as arithmetic where `actor.teams is_empty true` reads as
+	// the question being asked, and policies are read by people deciding whether to trust
+	// them.
+	OperatorSize = "size"
 )
 
 // DecisionType constants for policy decisions.
@@ -204,7 +223,8 @@ func isValidDecision(d string) bool {
 func isValidOperator(op string) bool {
 	switch op {
 	case OperatorEqual, OperatorNotEqual, OperatorGreaterThan, OperatorLessThan,
-		OperatorGreaterOrEqual, OperatorLessOrEqual, OperatorIn, OperatorContains, OperatorMatches:
+		OperatorGreaterOrEqual, OperatorLessOrEqual, OperatorIn, OperatorContains, OperatorMatches,
+		OperatorIsEmpty, OperatorSize:
 		return true
 	default:
 		return false

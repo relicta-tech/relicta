@@ -840,8 +840,8 @@ func TestTagPushModeRecordsEvent(t *testing.T) {
 	if foundEvent.VersionNext.String() != "2.0.0" {
 		t.Errorf("TagPushModeDetectedEvent.VersionNext = %v, want 2.0.0", foundEvent.VersionNext)
 	}
-	if foundEvent.EventName() != "run.tag_push_mode_detected" {
-		t.Errorf("TagPushModeDetectedEvent.EventName() = %q, want %q", foundEvent.EventName(), "run.tag_push_mode_detected")
+	if foundEvent.EventName() != "release.tag_push_mode_detected" {
+		t.Errorf("TagPushModeDetectedEvent.EventName() = %q, want %q", foundEvent.EventName(), "release.tag_push_mode_detected")
 	}
 }
 

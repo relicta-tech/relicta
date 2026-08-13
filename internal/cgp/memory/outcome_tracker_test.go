@@ -12,7 +12,7 @@ import (
 
 func TestOutcomeTracker_PublishedEvent(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("test-release-1")
 
@@ -69,7 +69,7 @@ func TestOutcomeTracker_PublishedEvent(t *testing.T) {
 
 func TestOutcomeTracker_FailedEvent(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("test-release-2")
 
@@ -119,7 +119,7 @@ func TestOutcomeTracker_FailedEvent(t *testing.T) {
 
 func TestOutcomeTracker_CanceledEvent(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("test-release-3")
 
@@ -157,8 +157,13 @@ func TestOutcomeTracker_CanceledEvent(t *testing.T) {
 	}
 
 	record := history[0]
-	if record.Outcome != OutcomePartial {
-		t.Errorf("expected outcome %q, got %q", OutcomePartial, record.Outcome)
+	// This asserted OutcomePartial, which pinned a bug rather than protecting behavior:
+	// IsNegative counts partial as a problem and Accumulate counts it as a failed
+	// release, so a deliberate cancellation lowered the actor's reliability score and
+	// raised change failure rate. Canceling is the governance gate working, not a
+	// failure, and OutcomeCanceled is excluded from both.
+	if record.Outcome != OutcomeCanceled {
+		t.Errorf("expected outcome %q, got %q", OutcomeCanceled, record.Outcome)
 	}
 	if record.Metadata["canceled_by"] != "admin" {
 		t.Errorf("expected canceled_by in metadata, got %v", record.Metadata)
@@ -171,7 +176,7 @@ func TestOutcomeTracker_CanceledEvent(t *testing.T) {
 func TestOutcomeTracker_ForwardsToNextPublisher(t *testing.T) {
 	store := NewInMemoryStore()
 	nextPublisher := &mockEventPublisher{}
-	tracker := NewOutcomeTracker(store, nextPublisher)
+	tracker := NewOutcomeTracker(store, nextPublisher, "")
 
 	releaseID := release.RunID("test-release-4")
 	event := &release.RunCreatedEvent{RunID: releaseID, RepoID: "/path/to/repo", At: time.Now()}
@@ -185,14 +190,14 @@ func TestOutcomeTracker_ForwardsToNextPublisher(t *testing.T) {
 		t.Fatalf("expected 1 event forwarded, got %d", len(nextPublisher.events))
 	}
 
-	if nextPublisher.events[0].EventName() != "run.created" {
+	if nextPublisher.events[0].EventName() != "release.created" {
 		t.Errorf("expected 'run.created' event, got %q", nextPublisher.events[0].EventName())
 	}
 }
 
 func TestOutcomeTracker_ActorMetricsUpdated(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	actorID := "human:dev-user"
 	actor := cgp.NewHumanActor("dev-user", "Developer")
@@ -236,7 +241,7 @@ func TestOutcomeTracker_ActorMetricsUpdated(t *testing.T) {
 
 func TestOutcomeTracker_DurationTracking(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("timed-release")
 
@@ -273,7 +278,7 @@ func TestOutcomeTracker_DurationTracking(t *testing.T) {
 
 func TestOutcomeTracker_AddTags(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("tagged-release")
 	tracker.SetReleaseContext(releaseID, "owner/repo", "1.0.0", cgp.NewHumanActor("dev", "Dev"), 0.1, cgp.DecisionApproved)
@@ -301,7 +306,7 @@ func TestOutcomeTracker_AddTags(t *testing.T) {
 
 func TestOutcomeTracker_EventChaining(t *testing.T) {
 	store := NewInMemoryStore()
-	tracker := NewOutcomeTracker(store, nil)
+	tracker := NewOutcomeTracker(store, nil, "")
 
 	releaseID := release.RunID("chained-release")
 

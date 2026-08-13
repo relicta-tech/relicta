@@ -597,7 +597,13 @@ func (g *Generator) calcDeploymentFrequency(data *reportData) DeploymentFrequenc
 		}
 	} else {
 		countedFrom = "releases"
-		total = len(data.releases)
+		// Canceled runs are in the store for audit but never reached users, so they
+		// are not deployments by any reading of this metric.
+		for _, r := range data.releases {
+			if r.Outcome.CountsAsRelease() {
+				total++
+			}
+		}
 	}
 	days := data.period.End.Sub(data.period.Start).Hours() / 24
 	if days < 1 {
@@ -811,7 +817,15 @@ func (g *Generator) calcChangeFailureRate(data *reportData) ChangeFailureRate {
 		return changeFailureRateFrom(failed, len(production))
 	}
 
-	total := len(data.releases)
+	// Canceled runs are excluded from both sides: a release nobody shipped is neither a
+	// failure nor a change whose failure rate this measures. Left in the denominator,
+	// each cancellation would quietly improve the number.
+	total := 0
+	for _, r := range data.releases {
+		if r.Outcome.CountsAsRelease() {
+			total++
+		}
+	}
 	if total == 0 {
 		return ChangeFailureRate{Classification: "0-15%"}
 	}
@@ -1119,6 +1133,11 @@ func (g *Generator) buildSummary(data *reportData) *SummaryReport {
 	// Actor Activity
 	actorMap := make(map[string]*ActorActivitySummary)
 	for _, r := range data.releases {
+		if !r.Outcome.CountsAsRelease() {
+			// Recorded for audit, but not one of this actor's releases — and not a
+			// reason to list an actor who only ever canceled as having released.
+			continue
+		}
 		a, ok := actorMap[r.Actor.ID]
 		if !ok {
 			a = &ActorActivitySummary{

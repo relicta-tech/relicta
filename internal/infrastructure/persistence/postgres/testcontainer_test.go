@@ -561,15 +561,15 @@ func TestStore_DeserializeEventTypeCoverage(t *testing.T) {
 
 	// Verify each event type round-tripped to a non-nil concrete type.
 	wantNames := map[string]bool{
-		"run.created":            true,
-		"run.state_transitioned": true,
-		"run.planned":            true,
-		"run.approved":           true,
-		"run.failed":             true,
-		"run.canceled":           true,
-		"run.retried":            true,
-		"run.step_completed":     true,
-		"run.plugin_executed":    true,
+		"release.created":            true,
+		"release.state_transitioned": true,
+		"release.planned":            true,
+		"release.approved":           true,
+		"release.failed":             true,
+		"release.canceled":           true,
+		"release.retried":            true,
+		"release.step_completed":     true,
+		"release.plugin_executed":    true,
 	}
 	gotNames := map[string]bool{}
 	for _, e := range loaded {

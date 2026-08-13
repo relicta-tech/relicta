@@ -565,6 +565,38 @@ func (p *Parser) parseComparisonExpr() (Expression, error) {
 			Line:     line,
 			Column:   col,
 		}, nil
+
+	case TokenIsEmpty:
+		line, col := p.current.Line, p.current.Column
+		p.advance()
+
+		right, err := p.parsePrimaryExpr()
+		if err != nil {
+			return nil, err
+		}
+
+		return &CallExpr{
+			Function: "is_empty",
+			Args:     []Expression{left, right},
+			Line:     line,
+			Column:   col,
+		}, nil
+
+	case TokenSize:
+		line, col := p.current.Line, p.current.Column
+		p.advance()
+
+		right, err := p.parsePrimaryExpr()
+		if err != nil {
+			return nil, err
+		}
+
+		return &CallExpr{
+			Function: "size",
+			Args:     []Expression{left, right},
+			Line:     line,
+			Column:   col,
+		}, nil
 	}
 
 	return left, nil

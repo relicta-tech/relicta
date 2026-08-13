@@ -109,8 +109,8 @@ func TestNewReleaseRun(t *testing.T) {
 		t.Errorf("len(DomainEvents()) = %d, want %d", len(events), 1)
 	}
 
-	if events[0].EventName() != "run.created" {
-		t.Errorf("EventName() = %v, want %v", events[0].EventName(), "run.created")
+	if events[0].EventName() != "release.created" {
+		t.Errorf("EventName() = %v, want %v", events[0].EventName(), "release.created")
 	}
 }
 
@@ -1181,7 +1181,7 @@ func TestReleaseRun_EmitCreatedEvent(t *testing.T) {
 		t.Fatal("EmitCreatedEvent should add an event")
 	}
 
-	if events[0].EventName() != "run.created" {
+	if events[0].EventName() != "release.created" {
 		t.Errorf("Event name = %s, want run.created", events[0].EventName())
 	}
 }
@@ -1653,7 +1653,7 @@ func TestReleaseRun_RecordTagPushMode(t *testing.T) {
 		t.Fatal("RecordTagPushMode should add an event")
 	}
 
-	if events[0].EventName() != "run.tag_push_mode_detected" {
+	if events[0].EventName() != "release.tag_push_mode_detected" {
 		t.Errorf("Event name = %s, want run.tag_push_mode_detected", events[0].EventName())
 	}
 

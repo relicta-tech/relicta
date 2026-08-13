@@ -159,12 +159,32 @@ func (s *FileStore) RecordRelease(ctx context.Context, record *ReleaseRecord) er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.releases[record.Repository] = append(s.releases[record.Repository], record)
+	records, replaced := UpsertReleaseRecord(s.releases[record.Repository], record)
+	s.releases[record.Repository] = records
 
-	// Update actor metrics
-	s.updateActorMetricsLocked(record)
+	if replaced != nil {
+		// A replacement cannot be folded in: Accumulate keeps a running average, so
+		// adding the new record on top of the old one's contribution would count the
+		// release twice. Both actors are rebuilt because a corrected record may name a
+		// different actor than the one it replaces.
+		s.rebuildActorMetricsLocked(record.Actor.ID, record.Actor.Kind)
+		if replaced.Actor.ID != record.Actor.ID {
+			s.rebuildActorMetricsLocked(replaced.Actor.ID, replaced.Actor.Kind)
+		}
+	} else {
+		s.updateActorMetricsLocked(record)
+	}
 
 	return s.save()
+}
+
+// rebuildActorMetricsLocked recomputes one actor's metrics from the stored records.
+// Must be called with the lock held.
+func (s *FileStore) rebuildActorMetricsLocked(actorID string, kind cgp.ActorKind) {
+	if actorID == "" {
+		return
+	}
+	s.actors[actorID] = RebuildActorMetrics(actorID, kind, s.releases, s.incidents, time.Now())
 }
 
 // updateActorMetricsLocked updates actor metrics based on a release record.

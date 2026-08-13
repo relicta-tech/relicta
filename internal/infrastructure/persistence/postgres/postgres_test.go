@@ -115,11 +115,11 @@ func TestEventStore_AppendAndLoadAll(t *testing.T) {
 		t.Fatalf("LoadAllEvents: got %d events, want %d", got, want)
 	}
 
-	if all[0].EventName() != "run.created" {
-		t.Errorf("first event name = %q, want %q", all[0].EventName(), "run.created")
+	if all[0].EventName() != "release.created" {
+		t.Errorf("first event name = %q, want %q", all[0].EventName(), "release.created")
 	}
-	if all[1].EventName() != "run.planned" {
-		t.Errorf("second event name = %q, want %q", all[1].EventName(), "run.planned")
+	if all[1].EventName() != "release.planned" {
+		t.Errorf("second event name = %q, want %q", all[1].EventName(), "release.planned")
 	}
 }
 
@@ -189,8 +189,8 @@ func TestEventStore_LoadEventsSince(t *testing.T) {
 		t.Fatalf("got %d events, want %d", got, want)
 	}
 
-	if events[0].EventName() != "run.planned" {
-		t.Errorf("first event name = %q, want %q", events[0].EventName(), "run.planned")
+	if events[0].EventName() != "release.planned" {
+		t.Errorf("first event name = %q, want %q", events[0].EventName(), "release.planned")
 	}
 }
 
@@ -357,11 +357,11 @@ func TestEventStore_EventReplay_OrderPreserved(t *testing.T) {
 	}
 
 	expectedNames := []string{
-		"run.created",
-		"run.planned",
-		"run.notes_generated",
-		"run.approved",
-		"run.published",
+		"release.created",
+		"release.planned",
+		"release.notes_generated",
+		"release.approved",
+		"release.published",
 	}
 
 	for i, evt := range events {

@@ -16,7 +16,7 @@ func TestRunCreatedEvent(t *testing.T) {
 		At:      now,
 	}
 
-	if event.EventName() != "run.created" {
+	if event.EventName() != "release.created" {
 		t.Errorf("EventName() = %v, want run.created", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -38,7 +38,7 @@ func TestStateTransitionedEvent(t *testing.T) {
 		At:    now,
 	}
 
-	if event.EventName() != "run.state_transitioned" {
+	if event.EventName() != "release.state_transitioned" {
 		t.Errorf("EventName() = %v, want run.state_transitioned", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -59,7 +59,7 @@ func TestRunApprovedEvent(t *testing.T) {
 		At:           now,
 	}
 
-	if event.EventName() != "run.approved" {
+	if event.EventName() != "release.approved" {
 		t.Errorf("EventName() = %v, want run.approved", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -80,7 +80,7 @@ func TestStepCompletedEvent(t *testing.T) {
 		At:       now,
 	}
 
-	if event.EventName() != "run.step_completed" {
+	if event.EventName() != "release.step_completed" {
 		t.Errorf("EventName() = %v, want run.step_completed", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -99,7 +99,7 @@ func TestRunPublishedEvent(t *testing.T) {
 		At:      now,
 	}
 
-	if event.EventName() != "run.published" {
+	if event.EventName() != "release.published" {
 		t.Errorf("EventName() = %v, want run.published", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -118,7 +118,7 @@ func TestRunFailedEvent(t *testing.T) {
 		At:     now,
 	}
 
-	if event.EventName() != "run.failed" {
+	if event.EventName() != "release.failed" {
 		t.Errorf("EventName() = %v, want run.failed", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -138,7 +138,7 @@ func TestRunCanceledEvent(t *testing.T) {
 		At:     now,
 	}
 
-	if event.EventName() != "run.canceled" {
+	if event.EventName() != "release.canceled" {
 		t.Errorf("EventName() = %v, want run.canceled", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -160,7 +160,7 @@ func TestRunVersionedEvent(t *testing.T) {
 		At:          now,
 	}
 
-	if event.EventName() != "run.versioned" {
+	if event.EventName() != "release.versioned" {
 		t.Errorf("EventName() = %v, want run.versioned", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -179,7 +179,7 @@ func TestRunRetriedEvent(t *testing.T) {
 		At:    now,
 	}
 
-	if event.EventName() != "run.retried" {
+	if event.EventName() != "release.retried" {
 		t.Errorf("EventName() = %v, want run.retried", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -203,7 +203,7 @@ func TestRunPlannedEvent(t *testing.T) {
 		At:             now,
 	}
 
-	if event.EventName() != "run.planned" {
+	if event.EventName() != "release.planned" {
 		t.Errorf("EventName() = %v, want run.planned", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -225,7 +225,7 @@ func TestRunNotesGeneratedEvent(t *testing.T) {
 		At:          now,
 	}
 
-	if event.EventName() != "run.notes_generated" {
+	if event.EventName() != "release.notes_generated" {
 		t.Errorf("EventName() = %v, want run.notes_generated", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -245,7 +245,7 @@ func TestRunNotesUpdatedEvent(t *testing.T) {
 		At:          now,
 	}
 
-	if event.EventName() != "run.notes_updated" {
+	if event.EventName() != "release.notes_updated" {
 		t.Errorf("EventName() = %v, want run.notes_updated", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -266,7 +266,7 @@ func TestRunPublishingStartedEvent(t *testing.T) {
 		At:       now,
 	}
 
-	if event.EventName() != "run.publishing_started" {
+	if event.EventName() != "release.publishing_started" {
 		t.Errorf("EventName() = %v, want run.publishing_started", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -289,7 +289,7 @@ func TestPluginExecutedEvent(t *testing.T) {
 		At:         now,
 	}
 
-	if event.EventName() != "run.plugin_executed" {
+	if event.EventName() != "release.plugin_executed" {
 		t.Errorf("EventName() = %v, want run.plugin_executed", event.EventName())
 	}
 	if event.OccurredAt() != now {
@@ -310,7 +310,7 @@ func TestTagPushModeDetectedEvent(t *testing.T) {
 		At:          now,
 	}
 
-	if event.EventName() != "run.tag_push_mode_detected" {
+	if event.EventName() != "release.tag_push_mode_detected" {
 		t.Errorf("EventName() = %v, want run.tag_push_mode_detected", event.EventName())
 	}
 	if event.OccurredAt() != now {

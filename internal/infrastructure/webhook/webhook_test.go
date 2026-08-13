@@ -74,7 +74,7 @@ func TestPublisher_SendsToWebhook(t *testing.T) {
 		t.Fatal("webhook did not receive payload")
 	}
 
-	if received.Event != "run.published" {
+	if received.Event != "release.published" {
 		t.Errorf("expected event 'run.published', got %q", received.Event)
 	}
 
@@ -105,7 +105,7 @@ func TestPublisher_FiltersEvents(t *testing.T) {
 		{
 			Name:   "filtered",
 			URL:    server.URL,
-			Events: []string{"run.published", "run.failed"},
+			Events: []string{"release.published", "release.failed"},
 		},
 	}
 
@@ -135,7 +135,7 @@ func TestPublisher_FiltersEvents(t *testing.T) {
 		t.Errorf("expected 1 event, got %d: %v", len(receivedEvents), receivedEvents)
 	}
 
-	if len(receivedEvents) > 0 && receivedEvents[0] != "run.published" {
+	if len(receivedEvents) > 0 && receivedEvents[0] != "release.published" {
 		t.Errorf("expected 'run.published', got %q", receivedEvents[0])
 	}
 }
@@ -156,7 +156,7 @@ func TestPublisher_WildcardFilter(t *testing.T) {
 		{
 			Name:   "wildcard",
 			URL:    server.URL,
-			Events: []string{"run.*"},
+			Events: []string{"release.*"},
 		},
 	}
 
@@ -343,7 +343,7 @@ func TestPublisher_ForwardsToNextPublisher(t *testing.T) {
 		t.Fatalf("expected 1 event forwarded, got %d", len(nextPublisher.events))
 	}
 
-	if nextPublisher.events[0].EventName() != "run.published" {
+	if nextPublisher.events[0].EventName() != "release.published" {
 		t.Errorf("expected 'run.published' event, got %q", nextPublisher.events[0].EventName())
 	}
 }
@@ -459,17 +459,17 @@ func TestPublisher_AllEventTypes(t *testing.T) {
 	}
 
 	expectedEvents := []string{
-		"run.created",
-		"run.planned",
-		"run.versioned",
-		"run.notes_generated",
-		"run.approved",
-		"run.publishing_started",
-		"run.published",
-		"run.failed",
-		"run.canceled",
-		"run.plugin_executed",
-		"run.retried",
+		"release.created",
+		"release.planned",
+		"release.versioned",
+		"release.notes_generated",
+		"release.approved",
+		"release.publishing_started",
+		"release.published",
+		"release.failed",
+		"release.canceled",
+		"release.plugin_executed",
+		"release.retried",
 	}
 
 	for _, expected := range expectedEvents {
