@@ -19,9 +19,14 @@ import (
 // initialized container, and requiring one for a command that only reads sibling checkouts
 // would be a heavier change than the layering rule asks for.
 //
-// The release executor is nil. Running a full release inside another checkout — its config,
-// its plugins, its approval state — is a separate feature, and Coordinator.Execute refuses
-// clearly rather than dereferencing it.
+// The executor is a planner: it answers what each member would release next, which is the
+// NEXT column `relicta group plan` exists to fill and left blank. It refuses to run a release,
+// because doing that inside another checkout needs a decision about whether a group release
+// may approve on behalf of a member whose policy requires a human — and Coordinator.Execute
+// surfaces that refusal rather than guessing at somebody's governance.
 func NewMultirepoCoordinator(tagPrefix string) *appmultirepo.Coordinator {
-	return appmultirepo.NewCoordinator(inframultirepo.NewGitAdapter(tagPrefix), nil)
+	return appmultirepo.NewCoordinator(
+		inframultirepo.NewGitAdapter(tagPrefix),
+		inframultirepo.NewPlanner(tagPrefix),
+	)
 }

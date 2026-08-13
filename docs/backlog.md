@@ -71,11 +71,21 @@ two further defects surfaced:
    each member repository at its configured path and honors the configured tag prefix; group
    plan now reports both members' current versions and change counts.
 
-STILL OPEN, and the reason this entry is not entirely closed: the release executor is still
-nil, so `relicta group release` refuses rather than releasing, and the NEXT column in a group
-plan is blank because the next version comes from the executor's own Plan. Running a full
-release inside another checkout — its config, its plugins, its approval state — is a feature
-rather than a wiring fix. Coordinator.Execute now says so instead of panicking.
+PARTLY CLOSED SINCE: the executor is a planner now, so the NEXT column is filled —
+`infrastructure/multirepo.Planner` reads each member's commits since its last version tag and
+applies the same rule the single-repository path applies. Deliberately the same rule: a group
+that planned by different arithmetic would produce a different version for the same commits
+depending on which command ran, and neither answer would be wrong on its own terms. (I wrote a
+test asserting chores produce no version, which is not this tool's rule — DetectReleaseType
+treats any commit as at least a patch — and corrected the test rather than the behavior.)
+
+STILL OPEN: running a release. `relicta group release` refuses, and the refusal names what is
+undecided rather than reading as a defect: whether a group release may approve on behalf of a
+member whose policy requires a human. That is a governance decision, not a wiring gap, and
+guessing at it would be the worst kind of convenience — the pipeline would run inside somebody
+else's checkout under an approval they did not give. Everything else it needs (that
+repository's config, its plugins, its release services) is constructible per path the way the
+planner is.
 
 ## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
 
