@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
 )
 
@@ -23,7 +25,19 @@ var groupCmd = &cobra.Command{
 	Short: "Multi-repository governance commands",
 	Long: `Manage coordinated releases across multiple repositories.
 
-Repository groups are defined in .relicta.yaml under 'repository_groups'.
+Repository groups are declared in .relicta.yaml, which relicta init does not
+write — add the section yourself:
+
+  repository_groups:
+    - name: platform
+      strategy: coordinated
+      repositories:
+        - name: service-a
+          path: ../service-a
+        - name: service-b
+          path: ../service-b
+          dependencies: [service-a]
+
 Each group contains repositories with optional dependency relationships.
 
 Supported strategies:
@@ -160,6 +174,13 @@ func setupGroupCommand() (*multirepo.RepositoryGroup, *appmultirepo.Coordinator,
 	}
 
 	group := findGroup(groupName)
+	if group == nil && (cfg == nil || len(cfg.RepositoryGroups) == 0) {
+		// Nothing is declared at all, which is a different situation from a
+		// misspelled group name: `relicta init` writes no repository_groups section,
+		// so the reader needs the shape, not the key's name.
+		hintRepositoryGroups.print()
+		return nil, nil, errors.New("no repository groups are declared")
+	}
 	if group == nil {
 		return nil, nil, fmt.Errorf("repository group %q not found in configuration", groupName)
 	}
@@ -168,9 +189,12 @@ func setupGroupCommand() (*multirepo.RepositoryGroup, *appmultirepo.Coordinator,
 		return nil, nil, fmt.Errorf("invalid group configuration: %w", err)
 	}
 
-	// Create a no-op coordinator for CLI. Real adapters would be injected
-	// through the container in a production setup.
-	coordinator := appmultirepo.NewCoordinator(nil, nil)
+	// Built by the container, which is the composition root. The CLI must not import
+	// internal/infrastructure directly — the hexagonal fitness function in
+	// internal/architecture enforces that — and it previously built this coordinator as
+	// NewCoordinator(nil, nil), so every `relicta group plan` panicked on the first
+	// repository in the group.
+	coordinator := container.NewMultirepoCoordinator(configuredTagPrefix())
 
 	return group, coordinator, nil
 }

@@ -38,51 +38,44 @@ The monorepo tag model decision it was waiting on was resolved as plain prefix s
 rather than a component-qualified type. `app-v1.2.3` is what the documentation already
 promised, and it parses.
 
-## Decide what relicta init should write, and make error messages match
+## DONE: what init writes is decided, and every key mentioned has somewhere to look
 
-`relicta init` writes 6 of the schema's 21 top-level config sections, so error messages that tell a user to edit a setting frequently name a key the generated file does not contain.
+DECISION: option 1. `relicta init` keeps a curated file — now 7 sections, governance having
+been added because it is the capability the product exists for — and every message that names
+a config section carries the YAML to add. Writing all 21 sections would be several hundred
+lines of advanced settings at their defaults, which is its own usability problem.
 
-WRITTEN: versioning, changelog, ai, plugins, workflow, output
+The three cases the entry named now print a paste-able block instead of a key name:
+environments (deploy), dashboard.api_keys (serve), repository_groups (group). `configHint`
+holds them, following the shape errGovernanceDisabled established, and the group command's
+help text shows the same YAML rather than only naming the section.
 
-MISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks
+ENFORCED, since the failure is silent — the message looks helpful and only someone following
+it discovers there is nothing to edit. `TestEveryConfigKeyMentionedHasSomewhereToLook` reads
+the sections out of a file `WriteDefaultConfig` actually produces, so adding or removing one
+changes the expectation automatically, and requires each hint to show its section nested and
+name the file. `TestActionableMessagesDoNotJustNameAKey` fails on a one-line "configure X in
+.relicta.yaml" string, which is what all three of these were.
 
-MESSAGES THAT POINT AT ABSENT KEYS
+Both hints were verified by pasting them into a config and running the command, which is how
+two further defects surfaced:
 
-  internal/cli/evaluate.go   "enable governance in .relicta.yaml"        (governance absent)
-  internal/cli/multirepo.go  "defined in .relicta.yaml under 'repository_groups'"  (absent)
-  internal/cli/serve.go      "configure api_keys in .relicta.yaml"       (dashboard absent)
+1. The repository_groups YAML in the first version of the hint was wrong — `repositories`
+   takes entries with their own name and path, and a list of strings fails to load. A hint
+   that does not work is worse than a key name, because the reader now has two problems.
 
-A user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.
+2. Following the corrected hint reached `relicta group plan`, which **panicked**:
+   `NewCoordinator(nil, nil)` in internal/cli/multirepo.go, dereferenced immediately by
+   planRepo. No implementation of the application's GitAdapter interface existed anywhere, so
+   the command had never worked. Fixed with infrastructure/multirepo.GitAdapter, which opens
+   each member repository at its configured path and honors the configured tag prefix; group
+   plan now reports both members' current versions and change counts.
 
-MITIGATION ALREADY LANDED
-
-The governance case now returns errGovernanceDisabled (internal/cli/governance_disabled.go), which prints the YAML to add rather than naming a key:
-
-  Add this to .relicta.yaml:
-
-    governance:
-      enabled: true
-
-Verified end to end: adding exactly that makes `relicta evaluate` work. The multirepo and dashboard messages have not been given the same treatment.
-
-THE DECISION THIS NEEDS
-
-Writing all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:
-
-1. Keep a curated subset, and require every "configure X in .relicta.yaml" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.
-2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.
-3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.
-
-Whichever is chosen, the invariant worth enforcing with a test is: no user-facing message names a config key unless that key (or a commented example of it) appears in what init writes.
-
-SUGGESTED APPROACH
-
-1. Pick 1, 2 or 3
-2. If 1: audit every message mentioning .relicta.yaml and give it a snippet, following errGovernanceDisabled
-3. Add a test that scans CLI strings for ".relicta.yaml" references and checks the named section appears in WriteDefaultConfig output
-4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find
-
----
+STILL OPEN, and the reason this entry is not entirely closed: the release executor is still
+nil, so `relicta group release` refuses rather than releasing, and the NEXT column in a group
+plan is blank because the next version comes from the executor's own Plan. Running a full
+release inside another checkout — its config, its plugins, its approval state — is a feature
+rather than a wiring fix. Coordinator.Execute now says so instead of panicking.
 
 ## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
 

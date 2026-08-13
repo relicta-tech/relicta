@@ -205,6 +205,13 @@ func (c *Coordinator) Execute(
 
 		result.State = StateReleasing
 
+		if c.releaseExecutor == nil {
+			// Refused rather than dereferenced. Plan works with a git adapter alone, so
+			// a coordinator built for planning would otherwise panic here the moment
+			// someone ran `group release` against it.
+			return nil, fmt.Errorf("cannot release %q: no release executor is configured, "+
+				"so this coordinator can plan a group but not release one", repo.Name)
+		}
 		releaseResult, err := c.releaseExecutor.Release(ctx, repo.Path)
 		if err != nil {
 			result.State = StateFailed
