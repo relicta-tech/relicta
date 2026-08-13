@@ -45,7 +45,7 @@ function getOverallHealthColor(): string {
     case 'healthy': return 'text-green-500'
     case 'degraded': return 'text-yellow-500'
     case 'unhealthy': return 'text-red-500'
-    default: return 'text-gray-500'
+    default: return 'text-gray-600 dark:text-gray-400'
   }
 }
 
@@ -76,9 +76,9 @@ function getDeploymentBorderClass(dep: DeploymentHealth): string {
 function getProviderStatusIcon(status: string): string {
   switch (status) {
     case 'connected': return 'text-green-500'
-    case 'disconnected': return 'text-gray-500'
+    case 'disconnected': return 'text-gray-600 dark:text-gray-400'
     case 'error': return 'text-red-500'
-    default: return 'text-gray-500'
+    default: return 'text-gray-600 dark:text-gray-400'
   }
 }
 
@@ -157,7 +157,7 @@ function getTimelinePosition(dateString: string): number {
     <!-- Error -->
     <div v-else-if="error" class="card border-red-200 dark:border-red-800">
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
+        <p class="text-red-600 dark:text-red-300">{{ error }}</p>
         <button @click="loadData" class="btn-primary btn-sm mt-2">Retry</button>
       </div>
     </div>

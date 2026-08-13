@@ -30,21 +30,21 @@
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.1",
     "@rushstack/eslint-patch": "^1.16.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@tsconfig/node22": "^22.0.0",
     "@types/node": "^22.10.2",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/tsconfig": "^0.9.1",
-    "autoprefixer": "^10.5.4",
     "eslint": "^9.17.0",
     "eslint-plugin-vue": "^9.32.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.0",
     "vite": "^8.2.0",
-    "vue-tsc": "^3.3.9",
-    "@playwright/test": "^1.62.1",
-    "@axe-core/playwright": "^4.12.1"
+    "vue-tsc": "^3.3.9"
   }
 }

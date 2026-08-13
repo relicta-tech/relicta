@@ -219,7 +219,7 @@ const sortedTeamMembers = computed(() => {
     <!-- Error state -->
     <div v-if="error" class="card border-red-200 dark:border-red-800">
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
+        <p class="text-red-600 dark:text-red-300">{{ error }}</p>
         <button @click="loadData" class="btn-primary btn-sm mt-2">Retry</button>
       </div>
     </div>

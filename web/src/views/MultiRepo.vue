@@ -209,7 +209,7 @@ function getNodeStateColor(state: string): string {
     <!-- Error -->
     <div v-else-if="error" class="card border-red-200 dark:border-red-800">
       <div class="card-content pt-6">
-        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
+        <p class="text-red-600 dark:text-red-300">{{ error }}</p>
         <button @click="loading = true; api.getGroups().then(r => { groups = r.groups; error = null }).catch(e => { error = e.message }).finally(() => loading = false)" class="btn-primary btn-sm mt-2">
           Retry
         </button>

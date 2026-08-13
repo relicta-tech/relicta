@@ -1,6 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 replaces the three @tailwind directives with one import. */
+@import "tailwindcss";
+
+/* The existing JavaScript config still owns the design tokens — the semantic colours
+   (border, background, primary, …) that map onto the CSS variables below, and darkMode:
+   'class'. v4 prefers a CSS-first @theme block, but @config is supported and keeps this
+   migration to the mechanism change rather than also rewriting every token: `@apply
+   border-border` has to keep resolving, and the dark theme depends on the same names. */
+@config "../../tailwind.config.js";
+
+/* The shared button base.
+ *
+ * Declared with v4's @utility rather than as a .btn rule inside @layer components, because
+ * the variants below are written as `@apply btn …` and v4 only lets @apply consume real
+ * utilities. Keeping it applyable is what leaves both the variant definitions and every
+ * template using class="btn-primary" unchanged. */
+@utility btn {
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+}
+
 
 @layer base {
   :root {
@@ -140,10 +157,7 @@
     @apply flex items-center p-6 pt-0;
   }
 
-  /* Button variants */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
-  }
+  /* Button variants; the shared base is an @utility below. */
 
   .btn-primary {
     @apply btn bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2;
