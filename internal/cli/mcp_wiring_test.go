@@ -30,6 +30,15 @@ import (
 var mcpServerOptionsThatMustBeWired = map[string]string{
 	"WithGitService": "ensureRepoPath falls back to \".\", so the server resolves the " +
 		"wrong repository when started from a subdirectory and reports no active release",
+	"WithEvaluator": "the three cgp_* tools are advertised in tools/list and need an " +
+		"evaluator; without one every call an agent makes returns a refusal",
+	"WithReleaseRepository": "release state, active runs, history and the run " +
+		"recommendation are served from the repository; without it each answers \"no " +
+		"release repository configured\", which a caller cannot tell apart from a " +
+		"repository that genuinely has no release",
+	"WithActorBudgets": "a configured governance.actor_budget_path gates the CLI and is " +
+		"ignored here, on the surface agents actually use — which is what per-actor " +
+		"budgets exist for",
 }
 
 func TestMCPServerWiresOptionsItDependsOn(t *testing.T) {
@@ -88,4 +97,25 @@ func readSource(t *testing.T, name string) string {
 		t.Fatalf("read %s: %v", name, err)
 	}
 	return string(data)
+}
+
+// The evaluator has to be the governance service's own, not a fresh one. A fresh
+// evaluator carries default thresholds and no policies, so cgp_propose would decide
+// by different rules than relicta_evaluate and `relicta approve` — two governance
+// verdicts for one change, with nothing saying which is authoritative.
+//
+// This is a separate assertion from the wiring map above: that one catches a missing
+// call, this one catches the wrong argument, and the second is the more plausible
+// mistake now that the call exists.
+func TestTheMCPEvaluatorIsTheGovernanceServices(t *testing.T) {
+	source := readSource(t, "mcp.go")
+
+	if strings.Contains(source, "mcp.WithEvaluator(evaluator.New(") {
+		t.Error("mcp serve builds a fresh evaluator: an agent would then be governed by " +
+			"default thresholds and no policies, disagreeing with the CLI on the same change")
+	}
+	if !strings.Contains(source, "govSvc.Evaluator()") {
+		t.Error("expected the evaluator to come from the governance service, so the " +
+			"protocol surface and the CLI share one set of rules")
+	}
 }

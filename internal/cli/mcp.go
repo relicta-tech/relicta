@@ -156,6 +156,30 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 					opts = append(opts, mcp.WithEvaluator(eval))
 				}
 			}
+
+			// Five resources — release state, active runs, history, the run's
+			// recommendation — answered "not available" because nothing supplied the
+			// repository, though the container had it all along. An agent asking what
+			// release is in progress got a stub, which reads as "no release" rather
+			// than "this server was not wired".
+			if repo := app.ReleaseRepository(); repo != nil {
+				opts = append(opts, mcp.WithReleaseRepository(repo))
+			}
+
+			// The operator's per-actor autonomy budgets. WithActorBudgets was never
+			// called, so a configured governance.actor_budget_path gated the CLI and
+			// was ignored here — on the surface agents actually use, which is what
+			// per-actor budgets are for. ResolveBudget's fallback is restrictive, so
+			// nothing was unsafe by default; what went missing was the operator's own
+			// policy, whether it widened a trusted agent's budget or tightened one
+			// past the default.
+			if budgets, budgetErr := loadActorBudgetSet(); budgetErr != nil {
+				// Refused rather than ignored: continuing would apply defaults while
+				// the operator believes their file is in force.
+				return fmt.Errorf("failed to load actor budgets for the MCP server: %w", budgetErr)
+			} else if budgets != nil {
+				opts = append(opts, mcp.WithActorBudgets(budgets))
+			}
 		}
 	}
 
