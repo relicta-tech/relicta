@@ -206,7 +206,15 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	// Add outcome tracker if governance memory is enabled
 	if c.config.Governance.MemoryEnabled {
-		memoryPath := ".relicta/memory"
+		// The one resolver both sides call. This used to hardcode a cwd-relative
+		// ".relicta/memory" while every reader — `relicta history`, the DORA and SOC 2
+		// reports, the deployment gate, `hub sync` — resolves the store through
+		// governance.MemoryStorePath, which defaults to ".relicta/governance/memory.json"
+		// against the repository root. So the tracker wrote to a different directory than
+		// anything reads, and a relative path also made the location depend on which
+		// subdirectory the command happened to run from. Reading and writing one store is
+		// the whole point of a store.
+		memoryPath := filepath.Dir(governance.MemoryStorePath(c.config.Governance.MemoryPath, repoRoot))
 		c.memoryStore, err = cgpmemory.NewFileStore(memoryPath)
 		if err != nil {
 			c.logger.Warn("failed to initialize memory store", "error", err)
@@ -263,8 +271,17 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	c.eventPublisher = publisher
 
-	// Initialize UnitOfWork factory for transactional operations
-	c.unitOfWorkFactory = persistence.NewFileUnitOfWorkFactory(c.releaseRepo, c.baseEventPublisher)
+	// Initialize UnitOfWork factory for transactional operations.
+	//
+	// The composed chain, not the bare in-memory publisher. The unit of work is what
+	// publishes a release's events after persisting it, and it was handed
+	// baseEventPublisher — so the outcome tracker and the webhook publisher were built,
+	// logged as initialized, assigned to c.eventPublisher, and then bypassed by the only
+	// code path that emits events. Configured webhooks were never delivered for a
+	// release, and no run that failed or was canceled was ever recorded, since the CLI's
+	// own recordPublishOutcome covers the publish path alone. Nothing failed; the
+	// behavior was simply absent.
+	c.unitOfWorkFactory = persistence.NewFileUnitOfWorkFactory(c.releaseRepo, c.eventPublisher)
 
 	// Initialize version calculator
 	c.versionCalc = version.NewDefaultVersionCalculator()

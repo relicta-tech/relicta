@@ -254,3 +254,17 @@ WHAT REMAINS, and is genuinely open:
 Item 3 is the smallest and the most valuable of the three, because records nobody can read are only marginally better than records that do not exist.
 
 ---
+
+## Release domain events are never published, so the outcome tracker and release webhooks are unreachable
+
+The only production caller of `release.EventPublisher.Publish` is `FileUnitOfWork.Commit` (`internal/infrastructure/persistence/unit_of_work.go:107`), and nothing constructs a unit of work outside `container_test.go`. `App.UnitOfWork()` and `App.MemoryStore()` both have zero production callers. So the container builds the full chain — OutcomeTracker → WebhookPublisher → InMemoryEventPublisher — logs it as initialized, assigns it to `c.eventPublisher`, and no code path ever emits an event through it.
+
+Two user-visible consequences.
+
+First, `webhooks:` configured in `.relicta.yaml` never receive release events. The delivery queue, the retry logic and the signing are implemented and tested; nothing calls them for a release.
+
+Second, runs that fail or are canceled before publish are never recorded in governance history. The CLI's `recordPublishOutcome` covers the publish path only, so the store holds successes and publish failures. Change failure rate is therefore computed over a population that largely excludes failures — the metric that exists to count them. Verified empirically: `plan → bump → cancel` in a governed repository writes zero records, both before and after correcting which publisher the unit-of-work factory receives.
+
+Fixing it means routing release-run persistence through the unit of work, or publishing from the release-repo bridge on save, so aggregate events reach the chain. That touches the persistence path of every release command, which is why it is logged here rather than folded into the change that found it. The wiring itself is already corrected: the factory receives the composed chain, and the container's memory store resolves through `governance.MemoryStorePath` like every reader rather than a cwd-relative `.relicta/memory` nothing read. Adopting the unit of work is the remaining step.
+
+Found while making CLI → Hub sync work end to end (#286, relicta-hub#38).
