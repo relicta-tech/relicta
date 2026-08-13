@@ -193,10 +193,23 @@ downstream breaks on it, which is why it survived: it is wrong only on the scree
 command whose purpose is letting a person audit what an agent did. Running the command found
 it; reading the formatting code had not.
 
-STILL OPEN, unchanged: the read-side join. The protocol records and the release audit trail
-are separate views of governance activity — correct modeling, since a CGP proposal is not a
-release run (see the correction below) — but a reader asking "what governed this change?" has
-to consult both. One command or endpoint reporting both is the useful thing left to build.
+DONE: the read-side join. `relicta audit` reports both records as one timeline, joined on the
+version an ExecutionAuthorization granted — so an agent's proposal appears on the same line as
+the release that carried it out. The records stay separate, which remains the right modeling;
+this is a read-side view over them, not a merge.
+
+Either half stands alone when it has no counterpart, and the output says what a dash means: a
+release with no proposal was driven directly, and a proposal with no release was never
+authorized or has not shipped. `--version` accepts a tag name, since that is where a reader
+copies one from.
+
+One thing worth keeping: the first version keyed its "already paired" set by version, so
+pairing one release suppressed every other release carrying that version — and a repository
+routinely has several, a canceled 0.1.0 and the published 0.1.0 that followed it being the
+ordinary case. The cancellation vanished from the timeline. Running the command on a
+repository that had both is what found it; reading the loop had not. It claims by release ID
+now, and only a release that counts as one is a candidate for pairing — an authorization
+paired with a run that never happened would misstate what it led to.
 
 ## Correction: CGP proposals are not release runs
 

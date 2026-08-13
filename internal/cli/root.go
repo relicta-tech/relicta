@@ -247,6 +247,7 @@ func init() {
 
 	// Governance: policy authoring, evaluation, audit.
 	policyCmd.GroupID = "governance"
+	auditCmd.GroupID = "governance"
 	evaluateCmd.GroupID = "governance"
 	verifyCmd.GroupID = "governance"
 	groupCmd.GroupID = "governance"
