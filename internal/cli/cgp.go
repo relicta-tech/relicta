@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -37,6 +38,13 @@ The cgp_propose, cgp_authorize and cgp_status MCP tools record a governance
 handshake for each proposed change. These commands read those records, so a
 person can audit what was proposed and what was decided without going through
 an agent.
+
+Records are kept indefinitely. Nothing prunes .relicta/cgp/, and that is the
+decision rather than an omission: these are the evidence that a change was
+governed, and an audit trail that expires cannot answer a question asked after
+it expired. Removing records is therefore a deliberate act — delete the files —
+and 'relicta cgp list' reports how many are held so the growth is visible
+instead of silent.
 
 Examples:
   # What has been proposed in this repository?
@@ -119,7 +127,7 @@ func runCGPList(cmd *cobra.Command, _ []string) error {
 		r := row{
 			ProposalID: id,
 			State:      "proposed",
-			Actor:      fmt.Sprintf("%s:%s", proposal.Actor.Kind, proposal.Actor.ID),
+			Actor:      qualifiedActor(proposal.Actor.Kind, proposal.Actor.ID),
 			Summary:    proposal.Intent.Summary,
 		}
 		if decision, decisionErr := store.GetDecision(ctx, id); decisionErr == nil {
@@ -217,7 +225,7 @@ func runCGPStatus(cmd *cobra.Command, args []string) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(w, "  State:\t%s\n", state)
-	fmt.Fprintf(w, "  Actor:\t%s:%s\n", proposal.Actor.Kind, proposal.Actor.ID)
+	fmt.Fprintf(w, "  Actor:\t%s\n", qualifiedActor(proposal.Actor.Kind, proposal.Actor.ID))
 	fmt.Fprintf(w, "  Repository:\t%s\n", proposal.Scope.Repository)
 	if proposal.Scope.CommitRange != "" {
 		fmt.Fprintf(w, "  Commits:\t%s\n", proposal.Scope.CommitRange)
@@ -275,4 +283,22 @@ func runCGPStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	return nil
+}
+
+// qualifiedActor renders an actor as "<kind>:<identity>" without repeating a prefix the
+// identity already carries.
+//
+// Both renderings composed the pair unconditionally, and the IDs agents actually send are
+// already qualified — the convention pkg/cgp itself uses, and what NewAgentActor and
+// NewCIActor produce. So a proposal from "agent:probe" was listed as "agent:agent:probe".
+// Nothing downstream breaks, which is why it survived: it is only wrong on the screen, in the
+// command whose purpose is letting a person audit what an agent did.
+func qualifiedActor(kind, id string) string {
+	if kind == "" {
+		return id
+	}
+	if strings.HasPrefix(id, kind+":") {
+		return id
+	}
+	return kind + ":" + id
 }

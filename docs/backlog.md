@@ -171,28 +171,32 @@ and one on `scope.files` cannot disagree about the size of the same change. The 
 is most likely to get wrong were the ones they could not test, which is the same reason
 `--trust-level` was added.
 
-## CGP protocol proposals do not survive the session
+## DONE: CGP protocol records are durable, readable, and kept on purpose
 
-The cgp_* MCP tools now work (PR #260), which exposes the next limitation: nothing they record persists.
+The durability landed in PR #267 (FileProposalStore, wired through the WithStore option that
+had never been called outside tests). The two things this entry left open are now closed.
 
-CAUSE: internal/cgp/protocol/service.go defaults to `&inMemoryStore{}` — three maps keyed by proposal and decision ID, created per Service. NewService takes a ServiceOption for the store, but no caller supplies one, so every server process gets a fresh empty store.
+`relicta cgp list` and `relicta cgp status <id>` exist, so the records are auditable by a
+person rather than only over MCP. Verified against a proposal made through the cgp_propose
+tool: list shows its state, risk score, actor and summary; status shows the full handshake.
 
-CONSEQUENCE: the three tools form a protocol handshake — propose returns a decision, authorize records an ExecutionAuthorization against that decision, status reports which state a proposal reached — and the chain only holds inside one process. Over stdio that is one MCP session. Specifically:
+RETENTION, decided rather than left as an accident: records are kept indefinitely. These are
+the evidence that a change was governed, and an audit trail that expires cannot answer a
+question asked after it expired. Removing them is a deliberate act — delete the files — and
+`cgp list` reports how many are held, so growth is visible instead of silent. The command's
+help says all of this, which is the part the entry asked for.
 
-- `cgp_status` on a proposal from an earlier session returns "proposal <id> not found", which is indistinguishable from an ID that never existed
-- `cgp_authorize` cannot authorize a decision made before the server restarted, so a long-running agent workflow that spans a restart cannot complete the handshake
-- nothing recorded through the protocol surface reaches the audit trail that `relicta approve` writes, so a governance decision made via CGP leaves no durable evidence — which is the opposite of the property ADR-009 and the audit trail exist for
+FOUND WHILE VERIFYING IT: both renderings composed "<kind>:<id>" unconditionally, while the
+IDs agents send are already qualified — the convention pkg/cgp uses and what NewAgentActor
+produces. So a proposal from "agent:probe" was listed as "agent:agent:probe". Nothing
+downstream breaks on it, which is why it survived: it is wrong only on the screen, in the
+command whose purpose is letting a person audit what an agent did. Running the command found
+it; reading the formatting code had not.
 
-The last point is the significant one. Relicta's claim is verifiable governance; a decision path that forgets its own decisions cannot support that claim, and the tools now being reachable means agents can actually take that path.
-
-OPTIONS:
-1. Back the protocol store with the same file-based store the release runs use (.relicta/), so proposals and authorizations persist alongside the runs they concern. Cheapest, and consistent with how everything else in the CLI persists. Needs a decision on where under .relicta/ and whether proposals are pruned.
-2. Route the protocol tools through the release aggregate instead of a parallel store, so a CGP proposal becomes a release run and inherits the existing audit trail, state machine and persistence. Most correct — one governance record rather than two — but the wire-format types and the aggregate do not currently line up, so it is a mapping exercise.
-3. Leave it in memory and say so in the tool descriptions, so an agent knows the handshake is session-scoped rather than discovering it through a "not found".
-
-Option 2 is where this should end up, because two parallel records of the same decision is the shape of defect this project keeps finding — the release store was consolidated for exactly that reason (PR #247). Option 3 is worth doing immediately regardless of which is chosen, since it costs a sentence and removes a misleading error.
-
----
+STILL OPEN, unchanged: the read-side join. The protocol records and the release audit trail
+are separate views of governance activity — correct modeling, since a CGP proposal is not a
+release run (see the correction below) — but a reader asking "what governed this change?" has
+to consult both. One command or endpoint reporting both is the useful thing left to build.
 
 ## Correction: CGP proposals are not release runs
 
