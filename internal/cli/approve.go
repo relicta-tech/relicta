@@ -562,7 +562,9 @@ func createCGPActor() cgp.Actor {
 		identity = actor
 	}
 
-	id := fmt.Sprintf("%s:%s", kind.String(), identity)
+	// The shared composer, so this actor is keyed identically to one recorded by the
+	// outcome tracker for the same person.
+	id := cgp.QualifiedActorID(kind, identity)
 
 	// Trust level. Trust is NEVER inferred from actor kind or the absence of CI
 	// markers — both are environment signals an attacker can spoof to escalate.

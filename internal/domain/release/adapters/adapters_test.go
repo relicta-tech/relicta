@@ -1361,12 +1361,12 @@ func TestFileEventStore_AppendAndLoad(t *testing.T) {
 	}
 
 	// Verify first event
-	if loaded[0].EventName() != "run.created" {
+	if loaded[0].EventName() != "release.created" {
 		t.Errorf("First event name = %s, want run.created", loaded[0].EventName())
 	}
 
 	// Verify second event
-	if loaded[1].EventName() != "run.state_transitioned" {
+	if loaded[1].EventName() != "release.state_transitioned" {
 		t.Errorf("Second event name = %s, want run.state_transitioned", loaded[1].EventName())
 	}
 }
@@ -1474,7 +1474,7 @@ func TestFileEventStore_EmptyRunReturnsNil(t *testing.T) {
 func TestEventPublishingRepository_SavePublishesEvents(t *testing.T) {
 	baseRepo := NewFileReleaseRunRepository()
 	eventStore := NewFileEventStore()
-	repo := NewEventPublishingRepository(baseRepo, eventStore)
+	repo := NewEventPublishingRepository(EventPublishingConfig{Repository: baseRepo, EventStore: eventStore})
 
 	repoRoot := t.TempDir()
 	ctx := WithRepoRoot(context.Background(), repoRoot)
@@ -1900,7 +1900,7 @@ func TestEventPublishingRepository_SaveAndLoad(t *testing.T) {
 
 	baseRepo := NewFileReleaseRunRepository()
 	eventStore := NewFileEventStore()
-	repo := NewEventPublishingRepository(baseRepo, eventStore)
+	repo := NewEventPublishingRepository(EventPublishingConfig{Repository: baseRepo, EventStore: eventStore})
 
 	// Create and save a run
 	run := domain.NewReleaseRun(
@@ -1939,7 +1939,7 @@ func TestEventPublishingRepository_FindByPlanHash(t *testing.T) {
 	ctx := WithRepoRoot(context.Background(), repoRoot)
 
 	baseRepo := NewFileReleaseRunRepository()
-	repo := NewEventPublishingRepository(baseRepo, nil)
+	repo := NewEventPublishingRepository(EventPublishingConfig{Repository: baseRepo, EventStore: nil})
 
 	// Create and save a run
 	run := domain.NewReleaseRun(
@@ -1972,7 +1972,7 @@ func TestEventPublishingRepository_NilEventStore(t *testing.T) {
 	ctx := context.Background()
 
 	baseRepo := NewFileReleaseRunRepository()
-	repo := NewEventPublishingRepository(baseRepo, nil) // No event store
+	repo := NewEventPublishingRepository(EventPublishingConfig{Repository: baseRepo, EventStore: nil}) // No event store
 
 	// Create a run with events
 	run := domain.NewReleaseRun(
@@ -2044,7 +2044,7 @@ func TestFileEventStore_AppendWithContext(t *testing.T) {
 	}
 
 	// Verify first event type
-	if loaded[0].EventName() != "run.created" {
+	if loaded[0].EventName() != "release.created" {
 		t.Errorf("First event name = %s, want run.created", loaded[0].EventName())
 	}
 }
@@ -2561,7 +2561,7 @@ func TestFileEventStore_AllEventTypes(t *testing.T) {
 	}
 
 	// Verify first event is run.created
-	if len(loaded) > 0 && loaded[0].EventName() != "run.created" {
+	if len(loaded) > 0 && loaded[0].EventName() != "release.created" {
 		t.Errorf("First event: got %s, want run.created", loaded[0].EventName())
 	}
 }
@@ -2702,7 +2702,7 @@ func TestEventPublishingRepository_Load(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	loaded, err := eventPubRepo.Load(context.Background(), run.ID())
 
 	if err != nil {
@@ -2723,7 +2723,7 @@ func TestEventPublishingRepository_LoadBatch(t *testing.T) {
 	mockRepo.runs[run1.ID()] = run1
 	mockRepo.runs[run2.ID()] = run2
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	loaded, err := eventPubRepo.LoadBatch(context.Background(), "/tmp/repo", []domain.RunID{run1.ID(), run2.ID()})
 
 	if err != nil {
@@ -2743,7 +2743,7 @@ func TestEventPublishingRepository_LoadLatest(t *testing.T) {
 	mockRepo.runs[run.ID()] = run
 	mockRepo.latestRunID = run.ID()
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	loaded, err := eventPubRepo.LoadLatest(context.Background(), "/tmp/repo")
 
 	if err != nil {
@@ -2761,7 +2761,7 @@ func TestEventPublishingRepository_SetLatest(t *testing.T) {
 	mockRepo := newMockReleaseRunRepository()
 	runID := domain.RunID("test-run-id")
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	err := eventPubRepo.SetLatest(context.Background(), "/tmp/repo", runID)
 
 	if err != nil {
@@ -2780,7 +2780,7 @@ func TestEventPublishingRepository_List(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	ids, err := eventPubRepo.List(context.Background(), "/tmp/repo")
 
 	if err != nil {
@@ -2799,7 +2799,7 @@ func TestEventPublishingRepository_Delete(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	err := eventPubRepo.Delete(context.Background(), run.ID())
 
 	if err != nil {
@@ -2818,7 +2818,7 @@ func TestEventPublishingRepository_FindByState(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	runs, err := eventPubRepo.FindByState(context.Background(), "/tmp/repo", domain.StateDraft)
 
 	if err != nil {
@@ -2837,7 +2837,7 @@ func TestEventPublishingRepository_FindActive(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	runs, err := eventPubRepo.FindActive(context.Background(), "/tmp/repo")
 
 	if err != nil {
@@ -2856,7 +2856,7 @@ func TestEventPublishingRepository_LoadFromRepo_WithSupport(t *testing.T) {
 	run := domain.NewReleaseRun("org/repo", "/tmp/repo", "v1.0.0", "abc123", []domain.CommitSHA{"abc123"}, "cfg", "plug")
 	mockRepo.runs[run.ID()] = run
 
-	eventPubRepo := NewEventPublishingRepository(mockRepo, nil)
+	eventPubRepo := NewEventPublishingRepository(EventPublishingConfig{Repository: mockRepo, EventStore: nil})
 	loaded, err := eventPubRepo.LoadFromRepo(context.Background(), "/tmp/repo", run.ID())
 
 	if err != nil {

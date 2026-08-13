@@ -255,16 +255,61 @@ Item 3 is the smallest and the most valuable of the three, because records nobod
 
 ---
 
-## Release domain events are never published, so the outcome tracker and release webhooks are unreachable
+## DONE: Release domain events are now published (was: the outcome tracker and release webhooks are unreachable)
 
-The only production caller of `release.EventPublisher.Publish` is `FileUnitOfWork.Commit` (`internal/infrastructure/persistence/unit_of_work.go:107`), and nothing constructs a unit of work outside `container_test.go`. `App.UnitOfWork()` and `App.MemoryStore()` both have zero production callers. So the container builds the full chain — OutcomeTracker → WebhookPublisher → InMemoryEventPublisher — logs it as initialized, assigns it to `c.eventPublisher`, and no code path ever emits an event through it.
+Fixed. Kept here because the shape of the bug is worth remembering, and because two of the
+things found on the way out are decisions rather than fixes.
 
-Two user-visible consequences.
+WHAT IT WAS: the only production caller of `release.EventPublisher.Publish` was
+`FileUnitOfWork.Commit`, and nothing constructed a unit of work outside `container_test.go`.
+So the container assembled OutcomeTracker → WebhookPublisher → InMemoryEventPublisher,
+logged it as initialized, and no release ever published an event.
 
-First, `webhooks:` configured in `.relicta.yaml` never receive release events. The delivery queue, the retry logic and the signing are implemented and tested; nothing calls them for a release.
+THE SEAM CHOSEN: the repository's Save, decorated. Every use case already persists through
+it — ten calls across plan, bump, notes, approve, publish and retry — so one seam cannot be
+forgotten by the eleventh. Both paths to the aggregate are decorated: the release services,
+and `app.ReleaseRepository()` through the bridge, which is what cancel, clean, rollback and
+bump use. Decorating only the first left canceling silent, which is how that half was found.
 
-Second, runs that fail or are canceled before publish are never recorded in governance history. The CLI's `recordPublishOutcome` covers the publish path only, so the store holds successes and publish failures. Change failure rate is therefore computed over a population that largely excludes failures — the metric that exists to count them. Verified empirically: `plan → bump → cancel` in a governed repository writes zero records, both before and after correcting which publisher the unit-of-work factory receives.
+WHAT WAS BLOCKING IT, once events flowed:
 
-Fixing it means routing release-run persistence through the unit of work, or publishing from the release-repo bridge on save, so aggregate events reach the chain. That touches the persistence path of every release command, which is why it is logged here rather than folded into the change that found it. The wiring itself is already corrected: the factory receives the composed chain, and the container's memory store resolves through `governance.MemoryStorePath` like every reader rather than a cwd-relative `.relicta/memory` nothing read. Adopting the unit of work is the remaining step.
+1. The tracker's per-run context cache is per-process, and this CLI is one process per
+   command. `relicta cancel` raises a lone RunCanceledEvent, so there was no cached
+   repository and the store rejected the record with "repository is required". The
+   governance identity is now supplied by the container — the same value
+   recordPublishOutcome uses, because a second derivation from the run's path would produce
+   "local:checkout" where publish produces "acme/widget" and split one repository's history.
 
-Found while making CLI → Hub sync work end to end (#286, relicta-hub#38).
+2. Terminal events carried no version, for the same reason: bump raised RunVersionedEvent in
+   a process that has since exited. RunFailedEvent and RunCanceledEvent now carry it.
+
+3. Two writers, one release. The tracker records during the publish use case and
+   recordPublishOutcome records after it returns, both keyed on the run ID, and
+   RecordRelease appended unconditionally — so every publish would have produced two
+   records. RecordRelease now replaces by ID, which also makes retrying a publish
+   idempotent. A replacement rebuilds the affected actors' metrics, because Accumulate
+   keeps a running average that cannot be un-added.
+
+DECISIONS TAKEN, both of which changed numbers:
+
+- A cancellation is recorded as `OutcomeCanceled` and excluded from every rate computed
+  over releases (`CountsAsRelease`). It was recorded as OutcomePartial, which IsNegative
+  counts as a problem and Accumulate counts as a failed release — so declining to ship
+  lowered the actor's reliability score and raised change failure rate. The governance gate
+  working as intended must not read as a defect.
+
+- Event names are the documented `release.*` rather than `run.*`. The webhook configuration
+  documented `release.published` and offered `release.*` as its wildcard example, so a user
+  who configured exactly what was described received nothing, and there was nothing to log
+  because the filter simply matched no event. Both event-store deserializers accept the
+  historical spelling (`CanonicalEventName`), so history written before the rename still
+  loads.
+
+- Webhook deliveries were sent with a bare `go` and nothing waited. In a process that exits
+  when the command returns, delivery was a race against teardown that left no trace when it
+  lost. The publisher now tracks in-flight sends and the container waits on shutdown.
+
+STILL OPEN: nothing constructs a unit of work, so `FileUnitOfWork` and `App.UnitOfWork()`
+remain unreachable. They are now redundant rather than load-bearing — the decorator does the
+publishing — so the open question is whether to delete them or adopt them for the
+transactional boundary they were written for.

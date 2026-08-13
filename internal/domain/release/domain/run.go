@@ -1211,9 +1211,10 @@ func (r *ReleaseRun) MarkFailed(reason, actor string) error {
 	r.lastError = reason
 
 	r.addEvent(&RunFailedEvent{
-		RunID:  r.id,
-		Reason: reason,
-		At:     time.Now(),
+		RunID:   r.id,
+		Reason:  reason,
+		At:      time.Now(),
+		Version: r.versionNext.String(),
 	})
 
 	return r.TransitionTo(StateFailed, "FAIL", actor, reason, nil)
@@ -1228,10 +1229,11 @@ func (r *ReleaseRun) Cancel(reason, actor string) error {
 	r.lastError = reason
 
 	r.addEvent(&RunCanceledEvent{
-		RunID:  r.id,
-		Reason: reason,
-		By:     actor,
-		At:     time.Now(),
+		RunID:   r.id,
+		Reason:  reason,
+		By:      actor,
+		At:      time.Now(),
+		Version: r.versionNext.String(),
 	})
 
 	return r.TransitionTo(StateCanceled, "CANCEL", actor, reason, nil)

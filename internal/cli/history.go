@@ -177,6 +177,11 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Printf("Summary: %d releases, %.0f%% success rate\n",
 		stats.total, stats.successRate*100)
+	if stats.canceled > 0 {
+		// Reported separately rather than folded in, so the count above stays "releases"
+		// and a reader can still see that runs were canceled.
+		fmt.Printf("         %d canceled (not counted as releases)\n", stats.canceled)
+	}
 
 	return nil
 }
@@ -406,6 +411,8 @@ func getOutcomeSymbol(outcome memory.ReleaseOutcome) string {
 		return "↩"
 	case memory.OutcomePartial:
 		return "◐"
+	case memory.OutcomeCanceled:
+		return "⊘"
 	default:
 		return "?"
 	}
@@ -442,16 +449,27 @@ func getReliabilityLabel(score float64) string {
 }
 
 type releaseStats struct {
+	// total counts releases only: a canceled run is recorded but never released, so
+	// including it would make the success rate fall every time someone declined to ship.
 	total       int
 	successful  int
 	failed      int
+	canceled    int
 	successRate float64
 }
 
 func calculateReleaseStats(releases []*memory.ReleaseRecord) releaseStats {
-	stats := releaseStats{total: len(releases)}
+	var stats releaseStats
 
 	for _, r := range releases {
+		// Canceled runs are listed in the history above but are not releases, so they
+		// stay out of the total the success rate divides by. Counting them made every
+		// cancellation look like a release that did not succeed.
+		if !r.Outcome.CountsAsRelease() {
+			stats.canceled++
+			continue
+		}
+		stats.total++
 		switch r.Outcome {
 		case memory.OutcomeSuccess:
 			stats.successful++

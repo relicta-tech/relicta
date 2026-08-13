@@ -26,7 +26,7 @@ import (
 //     version that failed. That is the half of the history change failure rate is
 //     computed from.
 
-func trackerFor(store Store) *OutcomeTracker { return NewOutcomeTracker(store, nil) }
+func trackerFor(store Store) *OutcomeTracker { return NewOutcomeTracker(store, nil, "") }
 
 func mustVersion(t *testing.T, v string) version.SemanticVersion {
 	t.Helper()

@@ -50,9 +50,20 @@ type releaseRepoBridge struct {
 // then — several commands call ReleaseRepository() without ever calling
 // InitReleaseServices. Both point at the same files, so there is one store either
 // way.
-func newReleaseRepoBridge(repoRoot string) *releaseRepoBridge {
+// The publisher is the same composed chain the release services receive, so a run saved
+// through this bridge emits its events exactly as one saved by plan or publish does.
+// Without it, the commands reaching the aggregate through here — cancel, clean, rollback,
+// bump, approve — were the half of the workflow that recorded nothing.
+func newReleaseRepoBridge(repoRoot string, publisher ports.EventPublisher) *releaseRepoBridge {
+	var inner ports.ReleaseRunRepository = adapters.NewFileReleaseRunRepository()
+	if publisher != nil {
+		inner = adapters.NewEventPublishingRepository(adapters.EventPublishingConfig{
+			Repository: inner,
+			Publisher:  publisher,
+		})
+	}
 	return &releaseRepoBridge{
-		inner:    adapters.NewFileReleaseRunRepository(),
+		inner:    inner,
 		repoRoot: repoRoot,
 	}
 }

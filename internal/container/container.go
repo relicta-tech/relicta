@@ -189,7 +189,6 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 		// the caller's cwd.
 		repoRoot = ""
 	}
-	c.releaseRepo = newReleaseRepoBridge(repoRoot)
 
 	// Initialize event publisher chain:
 	// OutcomeTracker → WebhookPublisher → InMemoryEventPublisher
@@ -200,7 +199,12 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	// Add webhook publisher if webhooks are configured
 	if len(c.config.Webhooks) > 0 {
-		publisher = webhook.NewPublisher(c.config.Webhooks, publisher)
+		webhookPublisher := webhook.NewPublisher(c.config.Webhooks, publisher)
+		// Registered so shutdown waits for deliveries in flight. Each command is its own
+		// process, so without this the goroutine carrying a delivery is killed when the
+		// command returns and the webhook simply never arrives.
+		c.registerCloseable(webhookPublisher)
+		publisher = webhookPublisher
 		c.logger.Debug("webhook publisher initialized", "webhook_count", len(c.config.Webhooks))
 	}
 
@@ -219,8 +223,17 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 		if err != nil {
 			c.logger.Warn("failed to initialize memory store", "error", err)
 		} else {
-			publisher = cgpmemory.NewOutcomeTracker(c.memoryStore, publisher)
-			c.logger.Debug("outcome tracker initialized", "path", memoryPath)
+			// The same governance identity the CLI's recordPublishOutcome records
+			// against, resolved once here. The tracker's own per-run context cache is
+			// empty in a fresh process, so without this a terminal event arriving on its
+			// own — which is every `relicta cancel` — produced a record the store
+			// rejected for having no repository.
+			governanceID := ""
+			if repoInfo, infoErr := c.gitAdapter.GetInfo(ctx); infoErr == nil {
+				governanceID = repoInfo.GovernanceID()
+			}
+			publisher = cgpmemory.NewOutcomeTracker(c.memoryStore, publisher, governanceID)
+			c.logger.Debug("outcome tracker initialized", "path", memoryPath, "repository", governanceID)
 		}
 	}
 
@@ -270,6 +283,13 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	}
 
 	c.eventPublisher = publisher
+
+	// The bridge is built here, after the chain, because it carries it: the commands
+	// that save through app.ReleaseRepository() — cancel, clean, rollback, bump,
+	// approve — must publish their events too. Built before the chain existed, the
+	// bridge wrapped a bare repository, so canceling a release recorded nothing and
+	// change failure rate never saw a canceled run.
+	c.releaseRepo = newReleaseRepoBridge(repoRoot, c.eventPublisher)
 
 	// Initialize UnitOfWork factory for transactional operations.
 	//
@@ -540,6 +560,9 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 		NotesGenerator: notesGenerator,
 		Publisher:      publisher,
 		VersionWriter:  versionWriter,
+		// The composed chain built in initEventPublishing: outcome tracker, webhook
+		// delivery, then the in-memory publisher the dashboard subscribes to.
+		EventPublisher: c.eventPublisher,
 	}
 
 	var err error

@@ -166,6 +166,29 @@ func NewActor(kind ActorKind, id string) Actor {
 	}
 }
 
+// QualifiedActorID composes the "<kind>:<identity>" form that identifies an actor
+// everywhere their history is keyed.
+//
+// One definition because reputation, earned trust and every per-actor metric are keyed on
+// this string, so two spellings of one person are two people with half a record each. The
+// CLI composed it by hand for approve and publish while the outcome tracker recorded a
+// canceling actor bare, so the same user appeared as both "human:alice" and "alice" — and
+// the split showed up as an actor with suspiciously little history rather than as an
+// error. NewAgentActor and NewCIActor build the same form for their kinds.
+//
+// Idempotent: an identity that already carries its kind prefix is returned unchanged,
+// since callers legitimately hold either shape.
+func QualifiedActorID(kind ActorKind, identity string) string {
+	if identity == "" {
+		return ""
+	}
+	prefix := kind.String() + ":"
+	if strings.HasPrefix(identity, prefix) {
+		return identity
+	}
+	return prefix + identity
+}
+
 // NewAgentActor creates an actor representing an AI agent.
 func NewAgentActor(agentID string, agentName string, model string) Actor {
 	attrs := make(map[string]string)
