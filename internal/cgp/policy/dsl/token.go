@@ -59,6 +59,8 @@ const (
 	TokenIn       // in
 	TokenContains // contains
 	TokenMatches  // matches
+	TokenIsEmpty  // is_empty
+	TokenSize     // size
 
 	// Delimiters
 	TokenLBrace // {
@@ -108,6 +110,8 @@ func (t TokenType) String() string {
 		TokenIn:          "in",
 		TokenContains:    "contains",
 		TokenMatches:     "matches",
+		TokenIsEmpty:     "is_empty",
+		TokenSize:        "size",
 		TokenLBrace:      "{",
 		TokenRBrace:      "}",
 		TokenLParen:      "(",
@@ -140,8 +144,13 @@ var keywords = map[string]TokenType{
 	"in":          TokenIn,
 	"contains":    TokenContains,
 	"matches":     TokenMatches,
-	"true":        TokenBool,
-	"false":       TokenBool,
+	// "this list is empty" and "how many are in it" had no syntax at all, so a shipped
+	// rule meaning "the actor belongs to no team" had to be deleted rather than left
+	// looking active.
+	"is_empty": TokenIsEmpty,
+	"size":     TokenSize,
+	"true":     TokenBool,
+	"false":    TokenBool,
 }
 
 // LookupKeyword returns the token type for an identifier.

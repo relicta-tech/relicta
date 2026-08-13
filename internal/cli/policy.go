@@ -146,6 +146,7 @@ var (
 	policyTestFixes        int
 	policyTestDependencies int
 	policyTestFilesChanged int
+	policyTestFiles        []string
 	policyTestLinesChanged int
 
 	policyScaffoldDir              string
@@ -259,6 +260,9 @@ func init() {
 	policyTestCmd.Flags().IntVar(&policyTestFixes, "fixes", 0, "fix change count")
 	policyTestCmd.Flags().IntVar(&policyTestDependencies, "dependencies", 0, "dependency change count")
 	policyTestCmd.Flags().IntVar(&policyTestFilesChanged, "files-changed", 0, "changed files count")
+	policyTestCmd.Flags().StringSliceVar(&policyTestFiles, "files", nil,
+		"changed file paths, so path- and breadth-conditioned rules can be exercised "+
+			"(e.g. --files internal/a.go,web/b.ts)")
 	policyTestCmd.Flags().IntVar(&policyTestLinesChanged, "lines-changed", 0, "changed lines count")
 
 	policyScaffoldCmd.Flags().StringVarP(&policyScaffoldDir, "dir", "d", "", "directory containing policy files")
@@ -296,6 +300,15 @@ type policyTestInputData struct {
 	Dependencies      int      `json:"dependencies" yaml:"dependencies"`
 	FilesChanged      int      `json:"files_changed" yaml:"files_changed"`
 	LinesChanged      int      `json:"lines_changed" yaml:"lines_changed"`
+
+	// Files are the changed paths, not only how many.
+	//
+	// Path-conditioned rules could not be exercised here at all: `scope.files contains
+	// "terraform/"` and the breadth fields derived from the same paths both need the
+	// paths themselves, and this harness carried a count. So the rules a team is most
+	// likely to get wrong were the ones they could not test — the same reason
+	// --trust-level was added.
+	Files []string `json:"files,omitempty" yaml:"files,omitempty"`
 }
 
 type policyTestOutput struct {

@@ -275,6 +275,18 @@ func (c *Compiler) compileCallCondition(expr *CallExpr) ([]policy.Condition, err
 			Operator: policy.OperatorMatches,
 			Value:    value,
 		}}, nil
+	case "is_empty":
+		return []policy.Condition{{
+			Field:    field,
+			Operator: policy.OperatorIsEmpty,
+			Value:    value,
+		}}, nil
+	case "size":
+		return []policy.Condition{{
+			Field:    field,
+			Operator: policy.OperatorSize,
+			Value:    value,
+		}}, nil
 	default:
 		return nil, fmt.Errorf("unsupported function: %s", expr.Function)
 	}

@@ -126,25 +126,50 @@ and asserts the operation is allowed, with the unconfigured server as a control.
 
 ## Policy conditions for data the evaluator does not yet carry
 
-Five conditions written in the shipped example policies had no field behind them and were removed rather than left looking active (PR #249). Each is a real governance need, and each needs the evaluator to carry data it does not have today.
+Five conditions written in the shipped example policies had no field behind them and were
+removed rather than left looking active (PR #249). Two are now closed.
 
-CAUSE: buildEvalContext exposes risk, change counts, blast radius, scope, intent, actor identity, team configuration and a clock. It carries nothing about holidays, actor seniority, how many domains a change touches, or an actor's earned trust. `relicta policy fields` now prints exactly what exists, so the gaps are visible instead of guessed at.
+5. ~~Membership-of-nothing~~ — DONE. `is_empty` and `size` exist as operators, in the schema,
+   the DSL (lexer, parser, compiler) and the engine, so `actor.teams is_empty true` compiles
+   and fires. `NOT actor.is_member` can be written again. `size` came with it because a
+   length comparison is the same question asked arithmetically, and it applies to
+   `scope.files` and `actor.roles` too.
 
-CONSEQUENCE: rules a team would reasonably want cannot be expressed. Specifically:
+   Two things worth carrying forward. A field the context does not carry does not match, for
+   every operator including this one — I assumed absence should read as empty and asserted it
+   in a test before checking, and it is the wrong answer twice: a rule about unknown data
+   should not fire in a governance tool, and one operator disagreeing with the other nine is
+   a special case the policy author cannot see. It costs nothing here, because
+   buildEvalContext always sets `actor.teams` and `actor.roles`, so they are present-and-empty
+   rather than absent. And `is_empty` on a non-collection is an error rather than a silent
+   false: a policy comparing the emptiness of a risk score is a mistake, and hiding it means
+   the rule never fires and nobody learns why.
 
-1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.
-2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains "junior"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.
-3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.
-4. ~~`actor.trusted`~~ — DONE. buildEvalContext now exposes `actor.trusted` and `actor.trustLevel` from proposal.Actor.TrustLevel (so it reflects whichever source granted the trust: the trusted_actors allowlist, an identity-registry grant, or earned trust), plus `actor.reputation.overall` / `.level` / `.samples` / `.trend` from the reputation the governance service computes. The clause is restored in agent-aware.policy. Two things worth carrying forward: `actor.reputation.*` is absent rather than zero when reputation is not being computed, because a zero score means a bad record and would have made every such rule fire; and `relicta policy test --trust-level` exists so a trust-conditioned rule can be exercised at all.
-5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for "this list is empty". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.
+3. `change.scope_count` — PARTLY DONE, and deliberately renamed. `scope.areas` /
+   `scope.areaCount` (distinct first path segments) and `scope.directories` /
+   `scope.directoryCount` are derived from the paths the proposal already carries, so
+   "touches more than two areas" is expressible today: with `size` and `>` it is the rule
+   this entry wanted, and it distinguishes a three-file change across three areas from a
+   three-file change inside one — the distinction fileCount cannot make, which is why the
+   entry rejected approximating it that way.
 
-OPTIONS: (5) next, which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.
+   Named for what they measure rather than "domains" or "packages" on purpose. True package
+   attribution needs the workspace layout, which the policy engine is not given: it receives
+   a proposal and an analysis, and injecting a workspace resolver into it is a larger change
+   than this. Calling a path prefix a "package" would be the same approximation the entry
+   rejected, with better marketing. **Still open:** real package attribution for monorepos,
+   reusing the workspace detection, if someone needs boundaries rather than breadth.
 
-STILL OPEN from (4): the shipped `trusted-human` rule takes no actions, so with agent-aware's `decision = "approve"` defaults, matching it changes the rationale but not the verdict. The rule that would pay for itself is the agent equivalent — a trusted agent skipping the human approval `agent-requires-human` demands — but that loosens a shipped template's governance, so it wants a deliberate decision rather than being folded into exposing the field.
+1 and 2 (`time.is_holiday`, `actor.level`) remain configuration surfaces and can wait for
+someone to ask.
 
-Whatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.
-
----
+ALSO FIXED HERE: `relicta policy test` carried a changed-file count and not the paths, so no
+path-conditioned rule could be exercised at all — neither the breadth fields nor
+`scope.files contains "terraform/"`, which the shipped policies use. `--files` supplies them,
+and the count is derived from them unless given explicitly, so a rule on `scope.fileCount`
+and one on `scope.files` cannot disagree about the size of the same change. The rules a team
+is most likely to get wrong were the ones they could not test, which is the same reason
+`--trust-level` was added.
 
 ## CGP protocol proposals do not survive the session
 

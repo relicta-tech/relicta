@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -619,6 +621,24 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 			// team" — were inexpressible, and the three shipped policies that write
 			// them as `change.files contains "terraform/"` matched nothing.
 			"files": proposal.Scope.Files,
+
+			// How widely the change is spread, which fileCount cannot express: a
+			// thousand-line change inside one package is routine, and a twelve-line
+			// change touching six areas is the one worth a second reader. Combined
+			// with the size operator, `scope.areas size > 3` is that rule.
+			//
+			// These are path-derived breadth, deliberately named for what they
+			// measure rather than "domains" or "packages". Real package attribution
+			// needs the workspace layout, which this engine is not given — see
+			// docs/backlog.md. Approximating it with fileCount was rejected for being
+			// backwards, and approximating it with a name that implies package
+			// boundaries would be the same mistake with better marketing.
+			"areas":     topLevelAreas(proposal.Scope.Files),
+			"areaCount": len(topLevelAreas(proposal.Scope.Files)),
+			// Distinct parent directories, for a finer-grained version of the same
+			// question.
+			"directories":    changedDirectories(proposal.Scope.Files),
+			"directoryCount": len(changedDirectories(proposal.Scope.Files)),
 		}
 		ctx["commit_count"] = len(proposal.Scope.Commits)
 	}
@@ -740,9 +760,108 @@ func compareValues(fieldValue any, operator string, compareValue any) (bool, err
 	case OperatorMatches:
 		return valueMatches(fieldValue, compareValue)
 
+	case OperatorIsEmpty:
+		return valueIsEmpty(fieldValue, compareValue)
+
+	case OperatorSize:
+		return valueSize(fieldValue, compareValue)
+
 	default:
 		return false, fmt.Errorf("unsupported operator: %s", operator)
 	}
+}
+
+// valueIsEmpty reports whether the field's emptiness matches what the rule asserts.
+//
+// An explicit nil counts as empty. A field the context does not carry at all never reaches
+// here: the engine records it as a missing field and the rule does not match, which is its
+// convention for every operator and the right answer for a governance tool — a rule about
+// unknown data should not fire. That costs nothing for the case this operator exists for,
+// because buildEvalContext always sets actor.teams and actor.roles from the team context, so
+// they are present-and-empty rather than absent.
+func valueIsEmpty(fieldValue, compareValue any) (bool, error) {
+	want, ok := toBool(compareValue)
+	if !ok {
+		return false, fmt.Errorf("operator %q needs true or false, got %T", OperatorIsEmpty, compareValue)
+	}
+
+	empty, ok := isEmptyValue(fieldValue)
+	if !ok {
+		return false, fmt.Errorf("operator %q needs a list, map or string, got %T",
+			OperatorIsEmpty, fieldValue)
+	}
+	return empty == want, nil
+}
+
+// valueSize compares a collection's element count against a number.
+func valueSize(fieldValue, compareValue any) (bool, error) {
+	size, ok := valueLength(fieldValue)
+	if !ok {
+		return false, fmt.Errorf("operator %q needs a list, map or string, got %T",
+			OperatorSize, fieldValue)
+	}
+	return compareNumeric(size, compareValue, func(a, b float64) bool { return a == b })
+}
+
+// isEmptyValue reports emptiness for the kinds of value a policy field can hold, and whether
+// the question applied at all.
+func isEmptyValue(v any) (empty, applicable bool) {
+	if v == nil {
+		// Absent rather than empty, and treated as empty on purpose — see valueIsEmpty.
+		return true, true
+	}
+	length, ok := valueLength(v)
+	if !ok {
+		return false, false
+	}
+	return length == 0, true
+}
+
+// valueLength returns the element count of a collection or string.
+func valueLength(v any) (int, bool) {
+	switch tv := v.(type) {
+	case nil:
+		return 0, true
+	case string:
+		return len(tv), true
+	case []string:
+		return len(tv), true
+	case []any:
+		return len(tv), true
+	case map[string]any:
+		return len(tv), true
+	case map[string]string:
+		return len(tv), true
+	default:
+		// Reflection covers the slice and map types the context happens to carry
+		// (e.g. []cgp.Actor) without enumerating each one, which would be a list that
+		// silently misses whatever is added next.
+		rv := reflect.ValueOf(v)
+		switch rv.Kind() {
+		case reflect.Slice, reflect.Array, reflect.Map:
+			return rv.Len(), true
+		default:
+			return 0, false
+		}
+	}
+}
+
+// toBool accepts the shapes a policy file's boolean arrives in.
+func toBool(v any) (bool, bool) {
+	switch tv := v.(type) {
+	case bool:
+		return tv, true
+	case string:
+		// YAML unquoted true/false decode as bool, but a quoted "true" is a string, and
+		// refusing it would be a distinction the policy author cannot see.
+		switch strings.ToLower(tv) {
+		case "true":
+			return true, true
+		case "false":
+			return false, true
+		}
+	}
+	return false, false
 }
 
 // valuesEqual compares two values for equality.
@@ -897,4 +1016,55 @@ func valueMatches(fieldValue, pattern any) (bool, error) {
 		return false, fmt.Errorf("invalid regex pattern: %w", err)
 	}
 	return re.MatchString(str), nil
+}
+
+// topLevelAreas returns the distinct first path segments of the changed files, sorted.
+//
+// The unit is deliberately crude and deliberately honest: a repository's first path segment
+// is where its major divisions live in every layout this tool has seen (cmd/, internal/,
+// web/, terraform/, services/…), and it needs nothing but the paths the proposal already
+// carries. A file at the repository root counts as the root area, because a change to
+// go.mod or a Dockerfile is spread as widely as any other.
+func topLevelAreas(files []string) []string {
+	return distinctPathParts(files, func(path string) string {
+		clean := strings.TrimPrefix(filepath.ToSlash(path), "./")
+		if clean == "" {
+			return ""
+		}
+		if head, _, found := strings.Cut(clean, "/"); found {
+			return head
+		}
+		return "."
+	})
+}
+
+// changedDirectories returns the distinct parent directories of the changed files, sorted.
+func changedDirectories(files []string) []string {
+	return distinctPathParts(files, func(path string) string {
+		dir := filepath.ToSlash(filepath.Dir(filepath.ToSlash(path)))
+		if dir == "" {
+			return "."
+		}
+		return dir
+	})
+}
+
+// distinctPathParts applies part to each file and returns the sorted distinct results.
+//
+// Sorted so a rule's trace is stable between runs: an unordered set makes two identical
+// evaluations produce different audit records, which reads as the input having changed.
+func distinctPathParts(files []string, part func(string) string) []string {
+	seen := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		if p := part(file); p != "" {
+			seen[p] = struct{}{}
+		}
+	}
+
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
