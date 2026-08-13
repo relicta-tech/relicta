@@ -143,6 +143,7 @@ func evaluatePolicyScenario(ctx context.Context, policies []policy.Policy, input
 			Repository:  input.Repository,
 			Branch:      input.Branch,
 			CommitRange: "HEAD~1..HEAD",
+			Files:       input.Files,
 		},
 		cgp.ProposalIntent{
 			Summary:       "policy test",
@@ -327,8 +328,9 @@ func resolvePolicyTestInput(cmd *cobra.Command) (*policyTestInputData, error) {
 		Features:          policyTestFeatures,
 		Fixes:             policyTestFixes,
 		Dependencies:      policyTestDependencies,
-		FilesChanged:      policyTestFilesChanged,
+		FilesChanged:      filesChangedOrDerived(cmd),
 		LinesChanged:      policyTestLinesChanged,
+		Files:             policyTestFiles,
 	})
 
 	if policyTestInput == "" {
@@ -395,10 +397,31 @@ func resolvePolicyTestInput(cmd *cobra.Command) (*policyTestInputData, error) {
 	if cmd.Flags().Changed("files-changed") {
 		merged.FilesChanged = policyTestFilesChanged
 	}
+	if cmd.Flags().Changed("files") {
+		merged.Files = policyTestFiles
+		merged.FilesChanged = filesChangedOrDerived(cmd)
+	}
 	if cmd.Flags().Changed("lines-changed") {
 		merged.LinesChanged = policyTestLinesChanged
 	}
 
 	applied := applyPolicyTestDefaults(merged)
 	return &applied, nil
+}
+
+// filesChangedOrDerived returns the changed-file count, derived from --files when the count
+// was not given explicitly.
+//
+// One helper for both input paths. The derivation first lived only in the --input merge, so
+// running with flags alone produced paths and a count of zero — a rule on scope.fileCount and
+// a rule on scope.files then disagreed about the size of the same change, which is worse than
+// either being absent.
+func filesChangedOrDerived(cmd *cobra.Command) int {
+	if cmd.Flags().Changed("files-changed") {
+		return policyTestFilesChanged
+	}
+	if len(policyTestFiles) > 0 {
+		return len(policyTestFiles)
+	}
+	return policyTestFilesChanged
 }
