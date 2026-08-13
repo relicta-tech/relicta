@@ -5,6 +5,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -104,9 +105,11 @@ func init() {
 // the records look fine individually.
 func declaredEnvironment(name string) (config.EnvironmentConfig, error) {
 	if cfg == nil || len(cfg.Environments) == 0 {
-		return config.EnvironmentConfig{}, fmt.Errorf(
-			"no environments are declared: add an 'environments' list to .relicta.yaml, " +
-				"marking one as production")
+		// The hint carries the YAML, because `relicta init` does not write an
+		// environments section and naming the key sends the reader to a file that
+		// does not contain it.
+		hintEnvironments.print()
+		return config.EnvironmentConfig{}, errors.New("no environments are declared")
 	}
 
 	declared := make([]string, 0, len(cfg.Environments))

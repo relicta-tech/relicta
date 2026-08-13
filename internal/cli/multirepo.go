@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -10,6 +11,7 @@ import (
 
 	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
 	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	inframultirepo "github.com/relicta-tech/relicta/v4/internal/infrastructure/multirepo"
 )
 
 var (
@@ -23,7 +25,19 @@ var groupCmd = &cobra.Command{
 	Short: "Multi-repository governance commands",
 	Long: `Manage coordinated releases across multiple repositories.
 
-Repository groups are defined in .relicta.yaml under 'repository_groups'.
+Repository groups are declared in .relicta.yaml, which relicta init does not
+write — add the section yourself:
+
+  repository_groups:
+    - name: platform
+      strategy: coordinated
+      repositories:
+        - name: service-a
+          path: ../service-a
+        - name: service-b
+          path: ../service-b
+          dependencies: [service-a]
+
 Each group contains repositories with optional dependency relationships.
 
 Supported strategies:
@@ -160,6 +174,13 @@ func setupGroupCommand() (*multirepo.RepositoryGroup, *appmultirepo.Coordinator,
 	}
 
 	group := findGroup(groupName)
+	if group == nil && (cfg == nil || len(cfg.RepositoryGroups) == 0) {
+		// Nothing is declared at all, which is a different situation from a
+		// misspelled group name: `relicta init` writes no repository_groups section,
+		// so the reader needs the shape, not the key's name.
+		hintRepositoryGroups.print()
+		return nil, nil, errors.New("no repository groups are declared")
+	}
 	if group == nil {
 		return nil, nil, fmt.Errorf("repository group %q not found in configuration", groupName)
 	}
@@ -170,7 +191,16 @@ func setupGroupCommand() (*multirepo.RepositoryGroup, *appmultirepo.Coordinator,
 
 	// Create a no-op coordinator for CLI. Real adapters would be injected
 	// through the container in a production setup.
-	coordinator := appmultirepo.NewCoordinator(nil, nil)
+	// A real git adapter, not nil. The coordinator dereferences it for every
+	// repository in the group, so `relicta group plan` panicked here rather than
+	// degrading — the interface, the coordinator and the dependency ordering were all
+	// written and tested, and nothing could reach them.
+	//
+	// The release executor stays nil: running a full release inside another checkout is
+	// a separate piece of work, and Coordinator.Release refuses clearly when it is
+	// absent instead of panicking (see docs/backlog.md).
+	coordinator := appmultirepo.NewCoordinator(
+		inframultirepo.NewGitAdapter(configuredTagPrefix()), nil)
 
 	return group, coordinator, nil
 }
