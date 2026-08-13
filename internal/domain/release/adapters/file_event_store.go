@@ -259,74 +259,76 @@ func hasEventsSuffix(name string) bool {
 
 // deserializeEvent converts raw JSON back to a domain event.
 func deserializeEvent(eventName string, payload json.RawMessage) (domain.DomainEvent, error) {
-	switch eventName {
-	case "run.created":
+	// Accepts the historical "run.*" spelling, so events persisted by earlier versions
+	// still reconstruct.
+	switch domain.CanonicalEventName(eventName) {
+	case "release.created":
 		var e domain.RunCreatedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.state_transitioned":
+	case "release.state_transitioned":
 		var e domain.StateTransitionedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.planned":
+	case "release.planned":
 		var e domain.RunPlannedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.versioned":
+	case "release.versioned":
 		var e domain.RunVersionedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.notes_generated":
+	case "release.notes_generated":
 		var e domain.RunNotesGeneratedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.notes_updated":
+	case "release.notes_updated":
 		var e domain.RunNotesUpdatedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.approved":
+	case "release.approved":
 		var e domain.RunApprovedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.publishing_started":
+	case "release.publishing_started":
 		var e domain.RunPublishingStartedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.published":
+	case "release.published":
 		var e domain.RunPublishedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.failed":
+	case "release.failed":
 		var e domain.RunFailedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.canceled":
+	case "release.canceled":
 		var e domain.RunCanceledEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err
 		}
 		return &e, nil
-	case "run.retried":
+	case "release.retried":
 		var e domain.RunRetriedEvent
 		if err := json.Unmarshal(payload, &e); err != nil {
 			return nil, err

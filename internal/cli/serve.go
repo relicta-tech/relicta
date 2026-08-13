@@ -90,8 +90,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// Warn if API key mode with no keys configured
 	if dashboardCfg.Auth.Mode == config.DashboardAuthAPIKey && len(dashboardCfg.Auth.APIKeys) == 0 {
-		slog.Warn("No API keys configured. Dashboard will be inaccessible.",
-			"hint", "Use --api-key flag or configure api_keys in .relicta.yaml")
+		slog.Warn("No API keys configured. Dashboard will be inaccessible.")
+		// Naming api_keys was not actionable: `relicta init` writes no dashboard
+		// section, so there was nothing to edit and no indication of the nesting.
+		hintDashboardAuth.print()
 	}
 
 	// Initialize application container

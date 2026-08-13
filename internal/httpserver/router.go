@@ -90,6 +90,12 @@ func (s *Server) setupRouter() chi.Router {
 				r.Get("/active", handlers.GetActiveRelease)
 				r.Get("/{id}", handlers.GetRelease)
 				r.Get("/{id}/events", handlers.GetReleaseEvents)
+
+				// The ADR-009 recommendation artifact for a run. ADR-009 names this
+				// API as one of the three interfaces that return the artifact, and it
+				// returned none — a Hub reading over HTTP got a different shape than an
+				// agent reading MCP for the same release.
+				r.Get("/{id}/recommendation", handlers.GetReleaseRecommendation)
 			})
 
 			// Governance endpoints
@@ -135,6 +141,18 @@ func (s *Server) setupRouter() chi.Router {
 			r.Route("/webhooks", func(r chi.Router) {
 				r.Get("/{id}/deliveries", handlers.ListWebhookDeliveries)
 				r.Post("/{id}/deliveries/{deliveryId}/redeliver", handlers.RedeliverWebhook)
+
+				// Inbound deployment evidence (ADR-012). A GitOps controller cannot run
+				// the CLI and has no checkout, so it reports here. Deliberately generic:
+				// any deployer posting the documented schema is a first-class client.
+				r.Post("/deployments", handlers.DeploymentWebhook)
+
+				// The same conversation in the other direction: a deployer asking
+				// whether a version may reach an environment, before it deploys it.
+				// Evidence detects an ungoverned deployment; this refuses one. Sits
+				// beside the evidence route because it shares the caller, the schema
+				// style and the signing secret.
+				r.Post("/authorize", handlers.Authorize)
 			})
 
 			// Multi-repository governance endpoints

@@ -92,15 +92,25 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (string, e
 	// Hot-reload: reinitialize config and adapter so subsequent commands work
 	// without restarting the MCP server (fixes #83).
 	if s.configReloader != nil {
-		newCfg, newAdapter, err := s.configReloader(ctx)
+		reloaded, err := s.configReloader(ctx)
 		if err != nil {
 			s.logger.Warn("config reload after init failed, tools may require server restart", "error", err)
 			result["reload_warning"] = "Config created but live reload failed. Restart MCP server if tools return not_configured."
 		} else {
 			s.mu.Lock()
-			s.config = newCfg
-			if newAdapter != nil {
-				s.adapter = newAdapter
+			s.config = reloaded.Config
+			if reloaded.Adapter != nil {
+				s.adapter = reloaded.Adapter
+			}
+			// The evaluator is what the cgp_* tools decide with, and it was not
+			// refreshed here — so after init they kept failing while this handler
+			// reported that tools were available.
+			if reloaded.Evaluator != nil {
+				s.evaluator = reloaded.Evaluator
+				// ensureCGPService caches the service it builds. Without clearing it,
+				// a service built from the previous evaluator would survive the reload
+				// and keep deciding by the old rules.
+				s.cgpService = nil
 			}
 			s.mu.Unlock()
 			if s.cache != nil {
@@ -935,7 +945,7 @@ func (s *Server) handleValidateRelease(ctx context.Context, input ValidateReleas
 // Resource handlers
 
 func (s *Server) handleCGPPropose(ctx context.Context, input CGPProposeToolInput) (string, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return "", err
 	}
 
@@ -975,7 +985,7 @@ func (s *Server) handleCGPPropose(ctx context.Context, input CGPProposeToolInput
 }
 
 func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolInput) (string, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return "", err
 	}
 
@@ -1008,7 +1018,7 @@ func (s *Server) handleCGPAuthorize(ctx context.Context, input CGPAuthorizeToolI
 }
 
 func (s *Server) handleCGPStatus(ctx context.Context, input CGPStatusToolInput) (CGPStatusToolOutput, error) {
-	if err := s.ensureCGPService(); err != nil {
+	if err := s.ensureCGPService(ctx); err != nil {
 		return CGPStatusToolOutput{}, err
 	}
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
@@ -126,6 +127,13 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not determine repository; use --repo to specify")
 	}
 
+	// Records written before the identity was made canonical are keyed by the
+	// repository's checkout path, and are invisible to a read under the canonical
+	// key. Adopting them here rather than dropping them silently: a store that looks
+	// healthy and contains nothing about this repository's past is the failure the
+	// canonical identity was introduced to fix, repeated at the migration boundary.
+	adoptLegacyGovernanceRecords(ctx, store, repo)
+
 	history, err := store.GetReleaseHistory(ctx, repo, historyLimit)
 	if err != nil {
 		return fmt.Errorf("failed to get release history: %w", err)
@@ -169,6 +177,11 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Printf("Summary: %d releases, %.0f%% success rate\n",
 		stats.total, stats.successRate*100)
+	if stats.canceled > 0 {
+		// Reported separately rather than folded in, so the count above stays "releases"
+		// and a reader can still see that runs were canceled.
+		fmt.Printf("         %d canceled (not counted as releases)\n", stats.canceled)
+	}
 
 	return nil
 }
@@ -285,20 +298,41 @@ func runHistoryRisk(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// getMemoryStore opens the same governance store the release path writes to.
+//
+// It used to open .relicta/memory, falling back to ~/.relicta/memory when that
+// directory did not exist. The governance service writes release outcomes to
+// .relicta/governance/memory.json, so publishing recorded an outcome and this read
+// an empty store in a different directory — `relicta history` reported "no release
+// history found" for every repository, always.
+//
+// Two further problems came with the old resolution. The path was relative to the
+// process working directory, so the history depended on which subdirectory the
+// command ran from; and the home-directory fallback turned that into silently
+// reading a global store, which would have mixed several repositories' governance
+// history together had anything ever been written there.
+//
+// One resolver now answers where the store is, and both sides call it.
 func getMemoryStore() (memory.Store, error) {
-	// Default to file store in .relicta directory
-	storeDir := filepath.Join(".relicta", "memory")
+	return getMemoryStoreCtx(context.Background())
+}
 
-	// Check if directory exists
-	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
-		// Try home directory
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			storeDir = filepath.Join(homeDir, ".relicta", "memory")
+// getMemoryStoreCtx is the context-taking form, so a caller inside a request or
+// command scope does not silently start a detached one.
+func getMemoryStoreCtx(ctx context.Context) (memory.Store, error) {
+	repoRoot := ""
+	if svc, err := gitservice.NewService(); err == nil {
+		if info, infoErr := gitservice.NewAdapter(svc).GetInfo(ctx); infoErr == nil {
+			repoRoot = info.Path
 		}
 	}
 
-	return memory.NewFileStore(storeDir)
+	configured := ""
+	if cfg != nil {
+		configured = cfg.Governance.MemoryPath
+	}
+
+	return memory.NewFileStore(filepath.Dir(governance.MemoryStorePath(configured, repoRoot)))
 }
 
 // getRepositoryName resolves the current repository as "owner/name".
@@ -309,6 +343,51 @@ func getMemoryStore() (memory.Store, error) {
 // stripping the "url = " prefix left the key in place and the URL failed every
 // scheme check downstream. It also only looked at ./.git, so it could not work
 // from a subdirectory of the repository.
+// getRepositoryName returns the canonical governance identity for the current
+// repository.
+//
+// It used to compose info.Owner with info.Name, and those come from different
+// sources: Owner is parsed from the remote URL while Name is the last segment of
+// the checkout path. On a repository whose remote is github.com/acme/widget.git
+// checked out at /tmp/tmp.6fPqrJakiQ, that produced "acme/tmp.6fPqrJakiQ" — a
+// plausible-looking identity belonging to no repository, queried against records
+// that publish had stored under the absolute path. `relicta history` was empty in
+// every repository as a result.
+// adoptLegacyGovernanceRecords moves path-keyed records onto the canonical
+// identity, once, when the canonical key has none.
+//
+// Best-effort and quiet on failure: this runs on the read path of an informational
+// command, and a migration problem must not stop someone from reading the history
+// that is reachable. It reports what it moved, because silently rewriting stored
+// governance records is not something to do without saying so.
+func adoptLegacyGovernanceRecords(ctx context.Context, store memory.Store, canonicalID string) {
+	adopter, ok := store.(interface {
+		AdoptLegacyRepositoryKey(context.Context, string, string) (int, error)
+	})
+	if !ok {
+		return
+	}
+
+	svc, err := gitservice.NewService()
+	if err != nil {
+		return
+	}
+	info, err := gitservice.NewAdapter(svc).GetInfo(ctx)
+	if err != nil || info.Path == "" {
+		return
+	}
+
+	adopted, err := adopter.AdoptLegacyRepositoryKey(ctx, canonicalID, info.Path)
+	if err != nil {
+		printWarning(fmt.Sprintf("could not migrate legacy governance records: %v", err))
+		return
+	}
+	if adopted > 0 {
+		printInfo(fmt.Sprintf("Migrated %d governance record(s) to the repository identity %q",
+			adopted, canonicalID))
+	}
+}
+
 func getRepositoryName(ctx context.Context) string {
 	svc, err := gitservice.NewService()
 	if err != nil {
@@ -316,14 +395,10 @@ func getRepositoryName(ctx context.Context) string {
 	}
 
 	info, err := gitservice.NewAdapter(svc).GetInfo(ctx)
-	if err != nil || info.Name == "" {
+	if err != nil {
 		return ""
 	}
-
-	if info.Owner != "" {
-		return info.Owner + "/" + info.Name
-	}
-	return info.Name
+	return info.GovernanceID()
 }
 
 func getOutcomeSymbol(outcome memory.ReleaseOutcome) string {
@@ -336,6 +411,8 @@ func getOutcomeSymbol(outcome memory.ReleaseOutcome) string {
 		return "↩"
 	case memory.OutcomePartial:
 		return "◐"
+	case memory.OutcomeCanceled:
+		return "⊘"
 	default:
 		return "?"
 	}
@@ -372,16 +449,27 @@ func getReliabilityLabel(score float64) string {
 }
 
 type releaseStats struct {
+	// total counts releases only: a canceled run is recorded but never released, so
+	// including it would make the success rate fall every time someone declined to ship.
 	total       int
 	successful  int
 	failed      int
+	canceled    int
 	successRate float64
 }
 
 func calculateReleaseStats(releases []*memory.ReleaseRecord) releaseStats {
-	stats := releaseStats{total: len(releases)}
+	var stats releaseStats
 
 	for _, r := range releases {
+		// Canceled runs are listed in the history above but are not releases, so they
+		// stay out of the total the success rate divides by. Counting them made every
+		// cancellation look like a release that did not succeed.
+		if !r.Outcome.CountsAsRelease() {
+			stats.canceled++
+			continue
+		}
+		stats.total++
 		switch r.Outcome {
 		case memory.OutcomeSuccess:
 			stats.successful++

@@ -178,6 +178,12 @@ Grouped contexts — note these are camelCase:
 | `actor.kind` / `.id` / `.name` | string | Who is releasing |
 | `actor.teams` / `.roles` | list | Team and role names — use with `contains` |
 | `actor.canApprove` / `.canPublish` / `.isTeamLead` | bool | Permissions from team configuration |
+| `actor.trusted` | bool | True at trust level "trusted" or above — the actor may auto-approve |
+| `actor.trustLevel` | string | "untrusted", "limited", "trusted", "full" |
+| `actor.reputation.overall` | float | Computed reputation (0.0 - 1.0). Only present when reputation is computed — see below |
+| `actor.reputation.level` | string | "trusted", "reliable", "probation", "restricted" |
+| `actor.reputation.samples` | int | Release records behind the score |
+| `actor.reputation.trend` | string | "improving", "stable", "declining" |
 | `time.hour` / `.dayOfMonth` / `.month` | int | Clock and calendar |
 | `time.weekday` / `.monthName` | string | Capitalized, e.g. "Friday" |
 | `time.weekdayNum` | int | 0=Sunday … 6=Saturday |
@@ -188,6 +194,34 @@ Grouped contexts — note these are camelCase:
 | `team.teamCount` / `.roleCount` | int | Size of the team configuration |
 | `team.canApprove` / `.canPublish` / `.isTeamLead` | bool | This actor's permissions |
 | `team.teams.<name>.*` / `team.roles.<name>.*` | — | Your configured teams and roles |
+
+#### Trust and reputation
+
+`actor.trusted` and `actor.trustLevel` are always available. They report the trust
+the actor holds at evaluation time, whichever of the three sources granted it: the
+`governance.trusted_actors` allowlist, an identity-registry grant, or earned trust
+computed from the actor's own release record. A rule does not need to know which:
+
+```
+when {
+    actor.kind == "human" AND risk.score < 0.3 AND actor.trusted == true
+}
+```
+
+`actor.reputation.*` is the raw track record, and it is **absent unless governance
+computes it** — it needs `governance.memory_enabled` together with
+`reputation_enabled` or `earned_trust_enabled`, plus release history for the actor.
+Absent is deliberately not zero: zero is the score of an actor with a bad record,
+so a rule like `actor.reputation.overall < 0.5` would otherwise fire for every
+actor in a deployment that never computes reputation. Where the field is absent the
+condition simply does not match, and `relicta policy test --explain` prints it as a
+missing field.
+
+Test a trust-conditioned rule with `relicta policy test --trust-level trusted`; the
+default is `limited`, which is what a real invocation starts an actor at. Reputation
+rules take `--reputation 0.2 --reputation-samples 12 --reputation-trend declining`;
+omitting `--reputation` is the "no reputation computed" case, so both halves of a
+reputation rule can be tested.
 
 ### Comparison Operators
 

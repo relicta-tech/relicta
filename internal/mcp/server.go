@@ -23,11 +23,28 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
+// ReloadedComponents carries everything a reload has to refresh.
+//
+// A struct rather than a widening return list, because this is the second thing
+// reload was found to be missing. It refreshed config and adapter and nothing
+// else, so the evaluator kept whatever value it had at startup — which, in the
+// case the reloader exists for, is nil: with no config file there is no
+// container, so no governance service and no evaluator. `relicta_init` then
+// reported "tools are now available" while the three cgp_* tools stayed exactly
+// as broken as before.
+//
+// Any field may be nil, meaning "initialization did not produce one"; the server
+// keeps what it had rather than clearing a working component.
+type ReloadedComponents struct {
+	Config    *config.Config
+	Adapter   *Adapter
+	Evaluator *evaluator.Evaluator
+}
+
 // ConfigReloader is called after relicta_init creates a config file mid-session.
-// It reloads the config and reinitializes the container/adapter so that
-// subsequent tool calls work without restarting the MCP server.
-// Returns the new config and adapter (adapter may be nil if initialization fails).
-type ConfigReloader func(ctx context.Context) (*config.Config, *Adapter, error)
+// It reloads the config and reinitializes the container so that subsequent tool
+// calls work without restarting the MCP server.
+type ConfigReloader func(ctx context.Context) (ReloadedComponents, error)
 
 // Server wraps the MCP server for Relicta.
 type Server struct {
@@ -705,14 +722,22 @@ func (s *Server) ensureRepoPath(ctx context.Context) string {
 	}
 	return repoPath
 }
-func (s *Server) ensureCGPService() error {
+func (s *Server) ensureCGPService(ctx context.Context) error {
 	if s.cgpService != nil {
 		return nil
 	}
 
 	// Lazily create a CGP service from the evaluator if available.
 	if s.evaluator != nil {
-		s.cgpService = cgpprotocol.NewService(s.evaluator)
+		// With a durable store, because the service defaults to an in-memory one and
+		// WithStore was called from nowhere outside tests. Every server process
+		// therefore began with an empty store and forgot the handshake when it
+		// exited: `cgp_status` answered "proposal not found" for a decision made in
+		// an earlier session, indistinguishable from an ID that never existed, and a
+		// governance decision made over the protocol left no durable evidence at all
+		// — the opposite of the property the audit trail exists for.
+		s.cgpService = cgpprotocol.NewService(s.evaluator,
+			cgpprotocol.WithStore(cgpprotocol.NewFileProposalStore(s.ensureRepoPath(ctx))))
 		return nil
 	}
 
@@ -720,11 +745,15 @@ func (s *Server) ensureCGPService() error {
 	// advertised in tools/list, so an agent will try them; before this it received
 	// "internal error" and could not tell an unconfigured server from a crash.
 	//
-	// Neither WithCGPService nor WithEvaluator is wired by `relicta mcp serve`, so
-	// this is the path every real call takes. Supplying an evaluator would make
-	// the tools work, but a bare one would evaluate against different policy than
-	// the CLI's configured governance service — a correctness question, tracked in
-	// roady rather than guessed at here.
+	// `relicta mcp serve` now supplies the governance service's own evaluator, so
+	// this path is reached only when the server was built without one — no config,
+	// or a container that failed to initialize. It stays a distinct, explanatory
+	// error because "governance is not configured here" and "governance failed" call
+	// for different responses from the caller.
+	//
+	// The evaluator is deliberately the configured one rather than a fresh one: a
+	// bare evaluator carries default thresholds and no policies, so these tools
+	// would decide by different rules than relicta_evaluate and `relicta approve`.
 	return &mcp.ToolInputError{Message: "CGP protocol tools are not available on this server: " +
 		"no evaluator is configured. Use relicta_evaluate for release governance."}
 }

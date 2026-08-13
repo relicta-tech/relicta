@@ -55,7 +55,7 @@ Relicta produces that evidence. Every release proposal flows through a cryptogra
 - **Release Attestation & Signing**: Generate and verify cryptographic attestations for releases
 - **MCP Server**: Claude / GPT / Cursor / Devin agents drive releases through the same governance gates as humans
 
-See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
+See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, [Deployment Evidence](docs/deployment-evidence.md) for recording that a release reached an environment and gating deployments on governance, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
 
 ### Compliance Integrations (Push, don't replace)
 

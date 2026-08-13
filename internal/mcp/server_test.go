@@ -1924,9 +1924,9 @@ func TestHandleInitReloadsConfig(t *testing.T) {
 	testAdapter := NewAdapter()
 
 	server, err := NewServer("1.0.0",
-		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
+		WithConfigReloader(func(ctx context.Context) (ReloadedComponents, error) {
 			reloaderCalled = true
-			return testCfg, testAdapter, nil
+			return ReloadedComponents{Config: testCfg, Adapter: testAdapter}, nil
 		}),
 	)
 	require.NoError(t, err)
@@ -1950,8 +1950,8 @@ func TestHandleInitReloaderFailureDoesNotBlock(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(origDir) })
 
 	server, err := NewServer("1.0.0",
-		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
-			return nil, nil, fmt.Errorf("simulated reload failure")
+		WithConfigReloader(func(ctx context.Context) (ReloadedComponents, error) {
+			return ReloadedComponents{}, fmt.Errorf("simulated reload failure")
 		}),
 	)
 	require.NoError(t, err)
@@ -1998,8 +1998,8 @@ func TestHandleInitReloaderInvalidatesCacheCompletely(t *testing.T) {
 
 	server, err := NewServer("1.0.0",
 		WithCache(cache),
-		WithConfigReloader(func(ctx context.Context) (*config.Config, *Adapter, error) {
-			return config.DefaultConfig(), NewAdapter(), nil
+		WithConfigReloader(func(ctx context.Context) (ReloadedComponents, error) {
+			return ReloadedComponents{Config: config.DefaultConfig(), Adapter: NewAdapter()}, nil
 		}),
 	)
 	require.NoError(t, err)

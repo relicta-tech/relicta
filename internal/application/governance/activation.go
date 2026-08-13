@@ -141,6 +141,49 @@ func (s *Service) applyReputationGuard(ctx context.Context, input EvaluateReleas
 	}
 }
 
+// governingActorReputation computes the reputation of the actor that governs the
+// proposal — which is not always the actor that initiated the release, since
+// authorship detection can hand governance to the machine that wrote the commits.
+// The policy evaluator sees the governing actor, so that is the actor whose track
+// record it must see too.
+//
+// Returns ok=false when reputation is not being computed at all: no memory store,
+// or neither reputation guarding nor earned trust enabled. Callers must leave the
+// field absent in that case rather than reporting a zero score — a deployment that
+// does not compute reputation is not a deployment full of untrustworthy actors.
+func (s *Service) governingActorReputation(ctx context.Context, repository string, proposal *cgp.ChangeProposal) (reputation.Score, bool) {
+	if s.memoryStore == nil || proposal == nil {
+		return reputation.Score{}, false
+	}
+	if !s.reputationEnabled && !s.earnedTrustEnabled {
+		return reputation.Score{}, false
+	}
+	return s.computeReputation(ctx, repository, proposal.Actor.ID)
+}
+
+// attachActorReputation records the computed reputation on the proposal so the
+// policy evaluator can expose it as `actor.reputation.*`.
+//
+// The reputation and earned-trust machinery decided things no policy could
+// express: a rule saying "auto-approve low-risk changes from actors who have
+// earned it" had no field to read (docs/backlog.md). This is the channel — the
+// proposal is the only thing that reaches the evaluator, which is built from
+// configuration and has no access to the memory store.
+func attachActorReputation(proposal *cgp.ChangeProposal, score reputation.Score) {
+	if proposal == nil {
+		return
+	}
+	if proposal.Context == nil {
+		proposal.Context = &cgp.ProposalContext{}
+	}
+	proposal.Context.ActorReputation = &cgp.ActorReputation{
+		Overall:    score.Overall,
+		Level:      score.Level(),
+		SampleSize: score.SampleSize,
+		Trend:      string(score.Trend),
+	}
+}
+
 // computeReputation loads the actor's release and incident history and computes
 // a reputation score. Returns ok=false when history cannot be loaded.
 func (s *Service) computeReputation(ctx context.Context, repository, actorID string) (reputation.Score, bool) {

@@ -12,11 +12,21 @@ tests asserting the two properties the decision rests on: `TestBuild_NoProseFiel
 and `TestBuild_IsDeterministic`, plus `TestDigest_StableAcrossCalls` for
 provenance.
 
-**Not yet on every interface.** The decision text says "CLI JSON output, MCP tool
-results, HTTP API"; the HTTP API does not emit the artifact. That is outstanding
-work against an accepted decision, not a reason to keep the decision provisional
-— but it does mean a Hub reading the HTTP API today gets a different shape than an
-agent reading MCP.
+**Now on all three interfaces.** The decision text says "CLI JSON output, MCP tool
+results, HTTP API". The HTTP API emitted nothing until
+`GET /api/v1/releases/{id}/recommendation` was added, so a Hub reading over HTTP
+received a different shape than an agent reading MCP for the same release.
+
+The artifact is **stored at plan time and served back verbatim**, not rebuilt on
+read. Reconstructing it from a stored run would be lossy in a way the shape hides:
+risk factors and required actions are not persisted on a run, and
+`Assessment.Factors` serializes as `[]` rather than being omitted, so "no factors
+were computed" would be served as "no factors exist" — the failure this ADR's own
+`Policy` field avoids by omission. Serving the stored bytes also keeps
+`InputsDigest` meaningful over HTTP: it describes the content being served.
+
+A run planned before artifacts were persisted has none, and the endpoint says so
+(404 with a reason) rather than serving an empty object.
 
 ## Date
 

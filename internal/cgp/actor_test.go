@@ -142,6 +142,49 @@ func TestTrustLevel_String(t *testing.T) {
 	}
 }
 
+func TestParseTrustLevel(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    TrustLevel
+		expectValid bool
+	}{
+		{"untrusted", "untrusted", TrustLevelUntrusted, true},
+		{"limited", "limited", TrustLevelLimited, true},
+		{"trusted", "trusted", TrustLevelTrusted, true},
+		{"full", "full", TrustLevelFull, true},
+		{"mixed case with spaces", "  Trusted ", TrustLevelTrusted, true},
+		// A name that is not a trust level must be rejected, not folded into the
+		// zero value: silently reading "very-trusted" as untrusted would make a
+		// rule on actor.trusted look inert for a reason nothing reports.
+		{"unrecognized", "very-trusted", TrustLevelUntrusted, false},
+		{"empty", "", TrustLevelUntrusted, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, valid := ParseTrustLevel(tt.input)
+			if valid != tt.expectValid {
+				t.Errorf("ParseTrustLevel(%q) valid = %v, want %v", tt.input, valid, tt.expectValid)
+			}
+			if got != tt.expected {
+				t.Errorf("ParseTrustLevel(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+// Every level's name must round-trip, or a policy comparing actor.trustLevel to
+// a level printed by the tool would silently never match.
+func TestTrustLevelNamesRoundTrip(t *testing.T) {
+	for _, level := range []TrustLevel{TrustLevelUntrusted, TrustLevelLimited, TrustLevelTrusted, TrustLevelFull} {
+		got, ok := ParseTrustLevel(level.String())
+		if !ok || got != level {
+			t.Errorf("ParseTrustLevel(%q) = (%v, %v), want (%v, true)", level.String(), got, ok, level)
+		}
+	}
+}
+
 func TestTrustLevel_CanAutoApprove(t *testing.T) {
 	tests := []struct {
 		name     string

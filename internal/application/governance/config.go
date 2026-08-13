@@ -16,6 +16,33 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
+// DefaultMemoryStorePath is where governance history lives inside a repository.
+const DefaultMemoryStorePath = ".relicta/governance/memory.json"
+
+// MemoryStorePath resolves the governance memory store's location.
+//
+// Exposed because two commands were reading two different stores. The governance
+// service writes release outcomes to .relicta/governance/memory.json, and
+// `relicta history` opened .relicta/memory — falling back to ~/.relicta/memory
+// when that did not exist. So publishing recorded an outcome and history read an
+// empty store, in a different directory, and reported "no release history found"
+// for every repository.
+//
+// The relative default is resolved against the repository root rather than the
+// process working directory: a relative store path would make the history depend
+// on which subdirectory a command ran from, and the home-directory fallback turned
+// that into silently reading a global store instead.
+func MemoryStorePath(configured, repoRoot string) string {
+	path := configured
+	if path == "" {
+		path = DefaultMemoryStorePath
+	}
+	if !filepath.IsAbs(path) && repoRoot != "" {
+		path = filepath.Join(repoRoot, path)
+	}
+	return path
+}
+
 // NewServiceFromConfig creates a governance service from configuration.
 // It sets up the evaluator, policy engine, and optionally the memory store
 // based on the provided configuration. Construction reads from disk (identity
@@ -65,15 +92,7 @@ func NewServiceFromConfig(ctx context.Context, cfg *config.GovernanceConfig, rep
 
 	// Set up memory store if enabled
 	if cfg.MemoryEnabled {
-		memoryPath := cfg.MemoryPath
-		if memoryPath == "" {
-			memoryPath = ".relicta/governance/memory.json"
-		}
-
-		// Make path absolute if relative
-		if !filepath.IsAbs(memoryPath) && repoPath != "" {
-			memoryPath = filepath.Join(repoPath, memoryPath)
-		}
+		memoryPath := MemoryStorePath(cfg.MemoryPath, repoPath)
 
 		// Create FileStore for persistence
 		store, err := memory.NewFileStore(filepath.Dir(memoryPath))

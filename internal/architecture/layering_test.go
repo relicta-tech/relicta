@@ -10,7 +10,9 @@
 package architecture
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -105,12 +107,30 @@ func TestAllowlistIsCurrent(t *testing.T) {
 }
 
 // repoRoot returns the absolute path to the repository root via `go list -m`.
+// repoRoot returns the directory of the module this test belongs to.
+//
+// Derived from `go env GOMOD` rather than `go list -m -f {{.Dir}}`, which in workspace mode
+// prints one line per workspace module. This repository's go.work lists both ./relicta and
+// ./relicta-hub, so the old version returned two paths joined by a newline, cmd.Dir became a
+// path that does not exist, `go list` failed, and every fitness function in this file took its
+// "likely build-tag stub" skip branch.
+//
+// The effect was that the hexagonal boundary check ran only in CI. It caught a violation I
+// introduced — internal/cli importing internal/infrastructure/multirepo — after a local
+// `go test ./...` had reported everything green, which is the whole failure mode a fitness
+// function exists to prevent. A guard that skips on the machine where the code is written is
+// half a guard.
 func repoRoot(t *testing.T) string {
 	t.Helper()
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}")
-	out, err := cmd.Output()
+	out, err := exec.Command("go", "env", "GOMOD").Output()
 	if err != nil {
-		t.Skipf("go list -m failed: %v", err)
+		t.Skipf("go env GOMOD failed: %v", err)
 	}
-	return strings.TrimSpace(string(out))
+
+	goMod := strings.TrimSpace(string(out))
+	if goMod == "" || goMod == os.DevNull {
+		// No module: nothing for these checks to read.
+		t.Skip("not in a Go module")
+	}
+	return filepath.Dir(goMod)
 }

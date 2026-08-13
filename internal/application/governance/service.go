@@ -303,6 +303,21 @@ type HistoricalContext struct {
 	ReliabilityScore float64
 }
 
+// Evaluator returns the evaluator this service decides with.
+//
+// Exposed so the CGP protocol tools can decide the same way the rest of the tool
+// does. They are advertised over MCP and every call to them failed, because
+// neither WithCGPService nor WithEvaluator was ever wired by `relicta mcp serve`.
+// The fix is not simply to supply an evaluator: a freshly constructed one carries
+// default thresholds and no policies, so cgp_propose would have answered from
+// different rules than relicta_evaluate and `relicta approve` — two governance
+// verdicts for one change, with nothing indicating which was authoritative. This
+// is the evaluator built from configuration, with the config thresholds and the
+// policies loaded from .relicta/policies, so there is one set of rules.
+func (s *Service) Evaluator() *evaluator.Evaluator {
+	return s.evaluator
+}
+
 // EvaluateRelease evaluates a release against CGP governance rules.
 func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInput) (*EvaluateReleaseOutput, error) {
 	if input.Release == nil {
@@ -327,9 +342,21 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	if s.identityRegistry != nil {
 		identityTrust = s.applyIdentityTrust(ctx, proposal)
 	}
+	// Compute the governing actor's reputation once, before evaluation, and attach
+	// it to the proposal so policy conditions can read `actor.reputation.*`.
+	// Earned trust reuses the same score rather than loading the history a second
+	// time. Absent (nil) when no reputation was computed, which the evaluator
+	// surfaces as a missing field rather than as a zero score.
+	//
+	// The reputation guard below deliberately still computes its own: it judges the
+	// actor that initiated the release, and authorship detection may have replaced
+	// that actor here, so the two are not always the same score.
 	var earnedTrust *EarnedTrustInfo
-	if s.earnedTrustEnabled && s.memoryStore != nil {
-		earnedTrust = s.applyEarnedTrust(ctx, input.Repository, proposal)
+	if score, ok := s.governingActorReputation(ctx, input.Repository, proposal); ok {
+		attachActorReputation(proposal, score)
+		if s.earnedTrustEnabled {
+			earnedTrust = s.applyEarnedTrust(proposal, score)
+		}
 	}
 
 	// Evaluate the proposal
@@ -568,6 +595,7 @@ func (s *Service) RecordReleaseOutcome(ctx context.Context, input RecordOutcomeI
 		LinesChanged:    input.LinesChanged,
 		Outcome:         input.Outcome,
 		ReleasedAt:      time.Now(),
+		FirstCommitAt:   input.FirstCommitAt,
 		Duration:        input.Duration,
 		Tags:            input.Tags,
 	}
@@ -599,6 +627,12 @@ type RecordOutcomeInput struct {
 	Outcome         memory.ReleaseOutcome
 	Duration        time.Duration
 	Tags            []string
+
+	// FirstCommitAt is when the earliest change in this release was committed, which
+	// is where DORA lead time starts. Zero when the caller does not know the commits;
+	// the report then says which interval it measured instead of quietly substituting
+	// one.
+	FirstCommitAt time.Time
 }
 
 // RecordIncident records an incident related to a release.

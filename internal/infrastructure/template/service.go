@@ -227,7 +227,42 @@ func (s *ServiceImpl) RenderWithContext(ctx context.Context, name string, data a
 		return "", rperrors.NotFound(op, fmt.Sprintf("template not found: %s", name))
 	}
 
-	return s.executeWithTimeout(ctx, op, tmpl, data)
+	return s.executeWithTimeout(ctx, op, tmpl, withRenderableChanges(data))
+}
+
+// withRenderableChanges substitutes an empty change set for a nil one.
+//
+// ChangelogData.Changes and ReleaseNotesData.Changes are pointers, so nil is
+// representable — and the built-in templates dereference them directly
+// ({{ if .Changes.HasBreakingChanges }}, {{ range .Changes.Breaking }}). A nil there
+// aborts the render with "invalid memory address or nil pointer dereference", which
+// reaches the user as a failed release explained by a Go runtime message.
+//
+// Fixed here rather than in each template because the renderer is the one place that
+// covers all of them, including templates a user wrote. Guarding every dereference in
+// every template would leave the next template to be written unprotected.
+//
+// An empty change set renders an empty changelog, which is the honest output for a
+// caller that supplied no changes — and unlike a panic, it says so by being empty
+// rather than by crashing.
+func withRenderableChanges(data any) any {
+	switch d := data.(type) {
+	case *ChangelogData:
+		if d != nil && d.Changes == nil {
+			copied := *d
+			copied.Changes = &git.CategorizedChanges{}
+			return &copied
+		}
+	case *ReleaseNotesData:
+		if d != nil && d.Changes == nil {
+			copied := *d
+			copied.Changes = &git.CategorizedChanges{}
+			return &copied
+		}
+	}
+	// Copied rather than mutated: a caller's struct is not ours to modify, and a
+	// caller that later checks whether Changes was set must still see its own value.
+	return data
 }
 
 // executeWithTimeout executes a template with timeout protection.

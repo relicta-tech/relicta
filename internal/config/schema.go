@@ -31,6 +31,11 @@ type Config struct {
 	Telemetry TelemetryConfig `mapstructure:"telemetry" json:"telemetry"`
 	// Governance configures Change Governance Protocol (CGP) settings.
 	Governance GovernanceConfig `mapstructure:"governance" json:"governance"`
+
+	// Environments declares where releases are deployed. Empty means deployments
+	// are not tracked, which is the default: a project that does not report them
+	// must not be told it is missing evidence it never promised.
+	Environments []EnvironmentConfig `mapstructure:"environments" json:"environments,omitempty"`
 	// Webhooks configures webhook notifications for release events.
 	Webhooks []WebhookConfig `mapstructure:"webhooks" json:"webhooks,omitempty"`
 	// Monorepo configures multi-package/monorepo versioning support.
@@ -217,6 +222,29 @@ func (v *VersioningConfig) ResolvedVersionFiles() []VersionTarget {
 }
 
 // GitConfig configures git operations and authentication.
+// EnvironmentConfig declares one environment a release can be deployed to.
+//
+// Declared rather than free-form. A deployment record arrives from outside — a
+// GitOps controller, a CI step, a script — and free-form names let "prod",
+// "production" and "Production" become three environments in the same audit report,
+// each with its own partial history. A declared list means an unknown environment is
+// a reported error rather than a new row nobody notices.
+type EnvironmentConfig struct {
+	// Name is the environment's identifier, as reporters will send it.
+	Name string `mapstructure:"name" json:"name"`
+
+	// Production marks the environment whose deployments count as reaching users.
+	//
+	// Exactly one environment should carry this. DORA deployment frequency means
+	// "changes reaching users", so without the designation the metric counts staging
+	// and reads high — a project deploying to three environments per change would
+	// appear to deploy three times as often as it does.
+	Production bool `mapstructure:"production" json:"production,omitempty"`
+
+	// Description is free text for humans reading the config.
+	Description string `mapstructure:"description" json:"description,omitempty"`
+}
+
 type GitConfig struct {
 	// DefaultRemote is the default remote name (default: "origin").
 	DefaultRemote string `mapstructure:"default_remote" json:"default_remote,omitempty"`

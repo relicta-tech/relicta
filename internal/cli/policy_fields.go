@@ -75,6 +75,16 @@ func runPolicyFields(cmd *cobra.Command, _ []string) error {
 	fmt.Println("Conditions on team.teams.<name> and team.roles.<name> are also valid;")
 	fmt.Println("those names come from your team configuration.")
 	fmt.Println()
+	// Everything else in the list is always present. actor.reputation.* is the one
+	// branch that is not, and a rule reading it where it is absent does not error —
+	// it just never matches. Saying so here is the only warning a policy author gets
+	// before a release depends on it.
+	fmt.Println("actor.reputation.* is present only when governance computes reputation:")
+	fmt.Println("governance.memory_enabled plus reputation_enabled or earned_trust_enabled,")
+	fmt.Println("and release history for the actor. Where it is absent a condition on it")
+	fmt.Println("never matches — 'relicta policy test --explain' reports it as missing.")
+	fmt.Println("actor.trusted and actor.trustLevel are always present.")
+	fmt.Println()
 	fmt.Println("Check a policy against this list with: relicta policy validate")
 
 	_ = cmd

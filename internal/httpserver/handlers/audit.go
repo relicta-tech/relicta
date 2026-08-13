@@ -64,7 +64,7 @@ func ListAuditEvents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		run, err := ctx.ReleaseServices.Repository.Load(r.Context(), runID)
+		run, err := loadRun(r.Context(), ctx.ReleaseServices.Repository, repoRoot, runID)
 		if err != nil {
 			continue
 		}

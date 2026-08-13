@@ -52,6 +52,24 @@ type RunQuery interface {
 	FindByPlanHash(ctx context.Context, repoRoot string, planHash string) (*domain.ReleaseRun, error)
 }
 
+// RecommendationStore persists the deterministic recommendation artifact
+// (ADR-009) alongside the run it describes.
+//
+// Kept separate from ReleaseRunRepository on purpose. ADR-009 makes the artifact
+// the contract every interface returns, but not every repository implementation
+// needs to store one, and folding these two methods into the full interface would
+// oblige the bridge and every test double to implement them. Callers type-assert,
+// which is also how SaveMachineJSON is reached.
+type RecommendationStore interface {
+	// SaveRecommendation stores the artifact bytes for a run, as given.
+	SaveRecommendation(repoRoot string, runID domain.RunID, artifact []byte) error
+
+	// LoadRecommendation returns a run's artifact. found is false when the run has
+	// none — an ordinary case for runs planned before artifacts were persisted,
+	// and distinct from a read failure.
+	LoadRecommendation(repoRoot string, runID domain.RunID) (artifact []byte, found bool, err error)
+}
+
 // ReleaseRunRepository is the full interface combining all repository operations.
 // Prefer using the smaller interfaces (RunReader, RunWriter, RunQuery) when possible.
 type ReleaseRunRepository interface {

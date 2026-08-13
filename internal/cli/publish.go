@@ -13,6 +13,7 @@ import (
 
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
 	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
@@ -292,9 +293,12 @@ func evaluateGovernanceForPublish(ctx context.Context, app cliApp, rel *release.
 	actor := createCGPActor()
 
 	input := governance.EvaluateReleaseInput{
-		Release:        rel,
-		Actor:          actor,
-		Repository:     repoInfo.Path,
+		Release: rel,
+		Actor:   actor,
+		// This one reads history as well as evaluating, so keying it by the checkout
+		// path meant it asked for the history of a directory rather than of the
+		// repository — and found none, whatever had been recorded.
+		Repository:     repoInfo.GovernanceID(),
 		IncludeHistory: cfg.Governance.MemoryEnabled,
 	}
 
@@ -333,15 +337,24 @@ func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.ReleaseR
 	}
 
 	// Extract change metrics from release plan
+	var firstCommitAt time.Time
 	if plan := release.GetPlan(rel); plan != nil && plan.HasChangeSet() {
 		cats := plan.GetChangeSet().Categories()
 		breakingChanges = len(cats.Breaking)
 		filesChanged = plan.GetChangeSet().Summary().TotalCommits
+		// Where DORA lead time starts: the oldest change in this release, not the
+		// newest. Lead time asks how long a change waited to reach users, so the
+		// release's slowest change is the one that answers it.
+		firstCommitAt = earliestCommitDate(plan.GetChangeSet().Commits())
 	}
 
 	input := governance.RecordOutcomeInput{
-		ReleaseID:       rel.ID(),
-		Repository:      repoInfo.Path,
+		ReleaseID: rel.ID(),
+		// The canonical governance identity, not the checkout path. Recording under
+		// the path meant the outcome was invisible to every reader that asked by
+		// name or remote — `relicta history` was empty in every repository, and
+		// earned trust never found the history it escalates on.
+		Repository:      repoInfo.GovernanceID(),
 		Version:         rel.Summary().VersionNext,
 		Actor:           actor,
 		RiskScore:       riskScore,
@@ -351,6 +364,7 @@ func recordPublishOutcome(ctx context.Context, app cliApp, rel *release.ReleaseR
 		FilesChanged:    filesChanged,
 		Outcome:         outcome,
 		Duration:        duration,
+		FirstCommitAt:   firstCommitAt,
 	}
 
 	if err := govService.RecordReleaseOutcome(ctx, input); err != nil {
@@ -473,4 +487,33 @@ func outputPublishJSONFromServices(run *releasedomain.ReleaseRun) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(output)
+}
+
+// earliestCommitDate returns the oldest commit date in a release, or zero when none
+// is known.
+//
+// The oldest rather than the newest, because DORA lead time for changes measures how
+// long a change waited to reach users: a release containing a three-week-old commit
+// and one from this morning has a three-week lead time, and reporting the morning's
+// would describe the fastest change in the batch instead of the change the metric
+// asks about.
+//
+// Zero when nothing carries a date, which the report reads as unknown rather than as
+// the epoch — a substituted zero would turn every such release into a 56-year lead
+// time and dominate the average.
+func earliestCommitDate(commits []*changes.ConventionalCommit) time.Time {
+	var earliest time.Time
+	for _, c := range commits {
+		if c == nil {
+			continue
+		}
+		date := c.Date()
+		if date.IsZero() {
+			continue
+		}
+		if earliest.IsZero() || date.Before(earliest) {
+			earliest = date
+		}
+	}
+	return earliest
 }

@@ -138,6 +138,48 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 			if gitSvc := app.Git(); gitSvc != nil {
 				opts = append(opts, mcp.WithGitService(gitSvc))
 			}
+
+			// The three cgp_* protocol tools are advertised in tools/list and every
+			// call to them failed: they need either WithCGPService or WithEvaluator,
+			// and neither was ever wired, so ensureCGPService took its error path on
+			// every request. An agent reading the tool list saw three governance
+			// tools and could use none of them.
+			//
+			// Handing over the governance service's own evaluator rather than a
+			// fresh one is the point. A fresh evaluator carries default thresholds
+			// and no policies, so cgp_propose would have decided by different rules
+			// than relicta_evaluate and `relicta approve` — two governance verdicts
+			// for one change, with nothing saying which was authoritative. This way
+			// the protocol surface and the CLI share one set of rules.
+			if govSvc := app.GovernanceService(); govSvc != nil {
+				if eval := govSvc.Evaluator(); eval != nil {
+					opts = append(opts, mcp.WithEvaluator(eval))
+				}
+			}
+
+			// Five resources — release state, active runs, history, the run's
+			// recommendation — answered "not available" because nothing supplied the
+			// repository, though the container had it all along. An agent asking what
+			// release is in progress got a stub, which reads as "no release" rather
+			// than "this server was not wired".
+			if repo := app.ReleaseRepository(); repo != nil {
+				opts = append(opts, mcp.WithReleaseRepository(repo))
+			}
+
+			// The operator's per-actor autonomy budgets. WithActorBudgets was never
+			// called, so a configured governance.actor_budget_path gated the CLI and
+			// was ignored here — on the surface agents actually use, which is what
+			// per-actor budgets are for. ResolveBudget's fallback is restrictive, so
+			// nothing was unsafe by default; what went missing was the operator's own
+			// policy, whether it widened a trusted agent's budget or tightened one
+			// past the default.
+			if budgets, budgetErr := loadActorBudgetSet(); budgetErr != nil {
+				// Refused rather than ignored: continuing would apply defaults while
+				// the operator believes their file is in force.
+				return fmt.Errorf("failed to load actor budgets for the MCP server: %w", budgetErr)
+			} else if budgets != nil {
+				opts = append(opts, mcp.WithActorBudgets(budgets))
+			}
 		}
 	}
 
@@ -154,13 +196,13 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 	// Config reloader for hot-reload after relicta_init (fixes #83).
 	// When init creates .relicta.yaml mid-session, this reloads config and
 	// reinitializes the container so subsequent commands work immediately.
-	opts = append(opts, mcp.WithConfigReloader(func(reloadCtx context.Context) (*config.Config, *mcp.Adapter, error) {
+	opts = append(opts, mcp.WithConfigReloader(func(reloadCtx context.Context) (mcp.ReloadedComponents, error) {
 		mcpLogger.Info("reloading config after init")
 
 		// Re-load config from disk
 		newCfg, err := config.NewLoader().Load()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to load config: %w", err)
+			return mcp.ReloadedComponents{}, fmt.Errorf("failed to load config: %w", err)
 		}
 
 		// Close old container if it exists
@@ -173,14 +215,22 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 		// Initialize new container and adapter
 		newApp, newAdapter, err := initContainerAndAdapter(newCfg)
 		if err != nil {
-			return newCfg, nil, fmt.Errorf("config loaded but container init failed: %w", err)
+			return mcp.ReloadedComponents{Config: newCfg}, fmt.Errorf("config loaded but container init failed: %w", err)
 		}
 
 		// Update the outer app reference for cleanup on shutdown
 		app = newApp
 		cfg = newCfg
 
-		return newCfg, newAdapter, nil
+		// The evaluator has to come back too. This reload path exists for the case
+		// where no config existed at startup, which is exactly the case where the
+		// evaluator was nil — so without this, `relicta_init` reported that tools
+		// were available while the three cgp_* tools stayed broken.
+		reloaded := mcp.ReloadedComponents{Config: newCfg, Adapter: newAdapter}
+		if govSvc := newApp.GovernanceService(); govSvc != nil {
+			reloaded.Evaluator = govSvc.Evaluator()
+		}
+		return reloaded, nil
 	}))
 
 	// Create and start MCP server

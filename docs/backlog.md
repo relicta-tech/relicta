@@ -1,212 +1,296 @@
 
-## Consolidate the two file-based release repositories
-
-There are two independent file-based implementations of the ReleaseRun aggregate, with incompatible on-disk schemas, and commands disagree about which to use.
-
-WHAT THEY ARE
-
-1. internal/domain/release/adapters/FileReleaseRunRepository — wired by internal/domain/release/factory.go:60 and used by the release services (plan, bump, notes, approve, publish) and by `relicta status`. Writes the changeset at the top level of the run JSON and restores it on load.
-
-2. internal/infrastructure/persistence/FileReleaseRepository — wired at internal/container/container.go:169, returned by app.ReleaseRepository(), and used by the governance paths. Expects the changeset nested under plan.changeset, and reconstructs runs lossily.
-
-THE CONSEQUENCE, OBSERVED
-
-`relicta evaluate` failed on every release, in every repository, with:
-
-  governance evaluation failed: failed to evaluate proposal: invalid proposal:
-  invalid scope: either commitRange or commits is required
-
-`plan` wrote the run with (1); `evaluate` read it with (2); (2) found no changeset because it looks in a different place, so governance had no commit range and refused the proposal. A core command — the one that computes the risk score and policy verdict the product is built around — could not succeed at all.
-
-WHAT (2) LOSES ON LOAD (internal/infrastructure/persistence/release_repository.go:739-741)
-
-  BaseRef  <- dto.Branch      (the branch, not the base ref)
-  HeadSHA  <- ""              (empty)
-  Commits  <- nil             (dropped)
-  ChangeSet                   (not found: different schema location)
-
-So a run loaded through (2) cannot support anything that needs commits, HEAD, or the base ref — which is most of governance.
-
-IMMEDIATE MITIGATION ALREADY LANDED
-
-getLatestReleaseForEvaluate now loads through the release services' repository, the same one status reads and plan wrote. That makes evaluate work without touching the duplication. It is a redirect, not a fix: app.ReleaseRepository() still returns the lossy implementation and other callers still use it.
-
-WHY THIS IS NOT A SMALL CHANGE
-
-- app.ReleaseRepository() has other callers that would need auditing for the same class of bug
-- the two schemas differ, so consolidating means deciding whether to migrate existing .relicta/releases/*.json or read both shapes during a transition
-- domainrelease.Repository and ports.ReleaseRunRepository are different interfaces over the same concept, so consolidation is an interface decision as well as an implementation one
-- publish and approve both take governance paths that would change behaviour
-
-SUGGESTED APPROACH
-
-1. Inventory every caller of app.ReleaseRepository() and record which are affected by the lossy load
-2. Decide the single owning implementation — (1) is the better candidate: it is the writer, it round-trips the changeset, and the release services already depend on it
-3. Give the surviving type the union of the two interfaces, or narrow callers to the interface they actually need
-4. Handle existing on-disk runs: either read both schema shapes for a release or two, or migrate on load
-5. Delete the loser, and add a test that a run written by the release services round-trips with commits, HEAD SHA, base ref and changeset intact — the absence of that test is why this survived
-
-ACCEPTANCE
-
-One implementation. A round-trip test proving commits, head_sha, base_ref and changeset all survive save/load. evaluate, approve and publish all read runs through it.
-
----
-
-## Make versioning.tag_prefix work for non-"v" prefixes
-
-Tracked on GitHub as relicta-tech/relicta#231; logged here so it stays in the backlog.
-
-versioning.tag_prefix is configurable, TagList.FilterByPrefix exists, and monorepo docs describe app-v1.2.3 style tags. But a tag with any prefix other than "v" is never recognised as a version tag, so the setting has no effect beyond its default.
-
-CAUSE
-
-sourcecontrol.NewTag (internal/domain/sourcecontrol/tag.go:23) decides version-ness by parsing the whole tag name, and version.Parse accepts only bare semver or a leading "v":
-
-  Parse("1.5.0")         -> 1.5.0
-  Parse("v1.5.0")        -> 1.5.0
-  Parse("release-1.5.0") -> invalid semantic version
-  Parse("rel/1.5.0")     -> invalid semantic version
-  Parse("app-v1.5.0")    -> invalid semantic version
-
-Such tags are dropped by TagList.VersionTags() BEFORE FilterByPrefix can be applied — the usual call order is FilterByPrefix(prefix).VersionTags(), and the second step discards what the first selected.
-
-CONSEQUENCES for any project not using "v"
-
-- plan cannot find the previous version tag, so it computes a baseline of "no previous release" and a changeset spanning the whole history
-- status cannot detect that a release happened since a run was planned
-- monorepo-style prefixes do not work at all, though app-v1.2.3 is the documented pattern for blast and workspace versioning
-
-The failure is silent: nothing reports that the prefix was ignored, so the project simply appears to have no releases.
-
-RELATED
-
-internal/domain/release/app/plan.go:131 separately hardcodes the prefix:
-
-  tag, err := uc.repoInspector.GetLatestVersionTag(ctx, "v")
-
-even though cfg.Versioning.TagPrefix is threaded into the CLI's AnalyzeInput elsewhere. Both need fixing; that line alone would still hit the parse limitation.
-
-WHY IT NEEDS A DECISION FIRST
-
-The right shape depends on what a monorepo tag is meant to be: "prefix app-v plus semver", or a component-qualified tag with its own type carrying component and version separately. blast and workspace versioning both depend on the answer, so deciding that comes before implementing.
-
-SUGGESTED APPROACH
-
-1. Decide the monorepo tag model (plain prefix vs component-qualified type)
-2. Teach the tag domain to strip a configured prefix before parsing, or add a prefix-aware constructor
-3. Pass cfg.Versioning.TagPrefix in plan.go instead of "v"
-4. Revisit detectRunStaleness in internal/cli/status.go, which currently cannot see non-"v" releases
-
-EXISTING TEST
-
-TestDetectRunStaleness_NonVTagPrefixesAreNotDetected (internal/cli/status_staleness_test.go) pins the current behavior and FAILS once this is fixed, as a prompt to revisit the staleness detector at the same time.
-
----
-
-## Decide what relicta init should write, and make error messages match
-
-`relicta init` writes 6 of the schema's 21 top-level config sections, so error messages that tell a user to edit a setting frequently name a key the generated file does not contain.
-
-WRITTEN: versioning, changelog, ai, plugins, workflow, output
-
-MISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks
-
-MESSAGES THAT POINT AT ABSENT KEYS
-
-  internal/cli/evaluate.go   "enable governance in .relicta.yaml"        (governance absent)
-  internal/cli/multirepo.go  "defined in .relicta.yaml under 'repository_groups'"  (absent)
-  internal/cli/serve.go      "configure api_keys in .relicta.yaml"       (dashboard absent)
-
-A user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.
-
-MITIGATION ALREADY LANDED
-
-The governance case now returns errGovernanceDisabled (internal/cli/governance_disabled.go), which prints the YAML to add rather than naming a key:
-
-  Add this to .relicta.yaml:
-
-    governance:
-      enabled: true
-
-Verified end to end: adding exactly that makes `relicta evaluate` work. The multirepo and dashboard messages have not been given the same treatment.
-
-THE DECISION THIS NEEDS
-
-Writing all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:
-
-1. Keep a curated subset, and require every "configure X in .relicta.yaml" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.
-2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.
-3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.
-
-Whichever is chosen, the invariant worth enforcing with a test is: no user-facing message names a config key unless that key (or a commented example of it) appears in what init writes.
-
-SUGGESTED APPROACH
-
-1. Pick 1, 2 or 3
-2. If 1: audit every message mentioning .relicta.yaml and give it a snippet, following errGovernanceDisabled
-3. Add a test that scans CLI strings for ".relicta.yaml" references and checks the named section appears in WriteDefaultConfig output
-4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find
-
----
-
-## Wire or withdraw the cgp_* MCP tools
-
-The three CGP protocol tools are advertised in tools/list and cannot work. An agent enumerates them, calls one, and gets a failure on every attempt.
-
-  cgp_propose
-  cgp_authorize
-  cgp_status
-
-CAUSE
-
-handleCGP* calls ensureCGPService (internal/mcp/server.go:708), which needs either s.cgpService or s.evaluator. `relicta mcp serve` wires neither: WithCGPService and WithEvaluator are both defined and called only from tests. So ensureCGPService always takes its error path.
-
-Found by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.
-
-MITIGATION ALREADY LANDED
-
-The failure now returns a ToolInputError explaining that no evaluator is configured and pointing at relicta_evaluate, instead of the redacted "internal error" an agent used to receive. The tools still do not work.
-
-THE DECISION THIS NEEDS
-
-Supplying `evaluator.New()` in createMCPServer would make the tools respond, and that is what the tests do. But a bare evaluator is not the same as the CLI's governance service: the container builds that from cfg.Governance — thresholds, policies, freeze periods, trusted actors, reputation. An agent evaluating a proposal through cgp_* would get a different verdict than a human running `relicta evaluate` on the same change, which for a governance tool is worse than the tool being absent.
-
-Three options:
-
-1. Expose the container's configured evaluator (or the governance service's) and wire that. Correct, and makes agent and CLI agree. Needs an accessor the container does not currently have, and a decision about whether the CGP protocol path should share governance's configuration or have its own.
-
-2. Withdraw the three tools from tools/list until they can be wired. Honest, and stops agents wasting calls. Loses the CGP protocol surface, which pkg/cgp exists to expose.
-
-3. Keep them advertised but make the unconfigured response a documented, structured "not available here" that an agent can branch on. Cheapest; currently implemented as an isError, which is close.
-
-Option 1 is the real answer if the CGP protocol surface is meant to be part of the product. Option 2 is right if it is not.
-
-ACCEPTANCE
-
-Either the three tools return real results computed with the same configuration the CLI uses, or they are not advertised. A test should assert whichever is chosen, since the current state — advertised and non-functional — is what nothing was checking.
-
-RELATED
-
-Other Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.
-
----
+## DONE: the two file-based release repositories are consolidated
+
+One implementation survives — `adapters.FileReleaseRunRepository`, the writer that
+round-trips — reached by the callers of the other interface through `releaseRepoBridge`.
+`persistence.FileReleaseRepository` is constructed nowhere; the only remaining mention of it
+in container.go is a comment explaining what it used to do. `app.ReleaseRepository()` returns
+the bridge, so cancel, clean, rollback, bump and approve read the runs plan wrote.
+
+The acceptance asked for a round trip proving commits, head SHA, base ref and changeset all
+survive save/load, and that was the part still missing:
+`TestARunRoundTripsWithEverythingGovernanceNeeds` now asserts all four together. Base ref had
+no assertion anywhere, and it was the field the lossy loader filled from the branch — wrong
+rather than empty, which is the failure mode that reads as data instead of absence. Verified
+by dropping the stored value on load: the test fails naming the field.
+
+## DONE: versioning.tag_prefix works for any prefix
+
+Verified end to end rather than by reading the code, in a repository configured with
+`tag_prefix: "release-"` and tagged `release-1.4.0`:
+
+    Current version:  1.4.0
+    Next version:     1.5.0 (minor)
+    Total commits:    1
+
+and, after `release-1.5.0` was created elsewhere, `relicta status` reports the run stale with
+"planned against 1.4.0, but the repository is now at 1.5.0" — the staleness detector this
+entry said could not see non-"v" releases. It now takes `cfg.Versioning.TagPrefix` at both
+call sites, and `plan` passes `input.tagPrefixOrDefault()` rather than a hardcoded "v".
+
+The domain gained the prefix-aware pair the entry asked for: `Tag.VersionWithPrefix` and
+`TagList.VersionTagsWithPrefix`, which do the selecting and the stripping together, because
+the prefix that selects a tag is the prefix that must be removed to read its version.
+`FilterByPrefix` and `VersionTags` remain, each documenting that chaining them drops every
+tag whose prefix `version.Parse` does not already understand — the trap this entry recorded.
+
+The monorepo tag model decision it was waiting on was resolved as plain prefix stripping
+rather than a component-qualified type. `app-v1.2.3` is what the documentation already
+promised, and it parses.
+
+## DONE: what init writes is decided, and every key mentioned has somewhere to look
+
+DECISION: option 1. `relicta init` keeps a curated file — now 7 sections, governance having
+been added because it is the capability the product exists for — and every message that names
+a config section carries the YAML to add. Writing all 21 sections would be several hundred
+lines of advanced settings at their defaults, which is its own usability problem.
+
+The three cases the entry named now print a paste-able block instead of a key name:
+environments (deploy), dashboard.api_keys (serve), repository_groups (group). `configHint`
+holds them, following the shape errGovernanceDisabled established, and the group command's
+help text shows the same YAML rather than only naming the section.
+
+ENFORCED, since the failure is silent — the message looks helpful and only someone following
+it discovers there is nothing to edit. `TestEveryConfigKeyMentionedHasSomewhereToLook` reads
+the sections out of a file `WriteDefaultConfig` actually produces, so adding or removing one
+changes the expectation automatically, and requires each hint to show its section nested and
+name the file. `TestActionableMessagesDoNotJustNameAKey` fails on a one-line "configure X in
+.relicta.yaml" string, which is what all three of these were.
+
+Both hints were verified by pasting them into a config and running the command, which is how
+two further defects surfaced:
+
+1. The repository_groups YAML in the first version of the hint was wrong — `repositories`
+   takes entries with their own name and path, and a list of strings fails to load. A hint
+   that does not work is worse than a key name, because the reader now has two problems.
+
+2. Following the corrected hint reached `relicta group plan`, which **panicked**:
+   `NewCoordinator(nil, nil)` in internal/cli/multirepo.go, dereferenced immediately by
+   planRepo. No implementation of the application's GitAdapter interface existed anywhere, so
+   the command had never worked. Fixed with infrastructure/multirepo.GitAdapter, which opens
+   each member repository at its configured path and honors the configured tag prefix; group
+   plan now reports both members' current versions and change counts.
+
+STILL OPEN, and the reason this entry is not entirely closed: the release executor is still
+nil, so `relicta group release` refuses rather than releasing, and the NEXT column in a group
+plan is blank because the next version comes from the executor's own Plan. Running a full
+release inside another checkout — its config, its plugins, its approval state — is a feature
+rather than a wiring fix. Coordinator.Execute now says so instead of panicking.
+
+## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
+
+The three tools work. `relicta mcp serve` supplies the governance service's own evaluator
+(option 1), so an agent calling cgp_propose is governed by the same thresholds, policies and
+freeze periods as a human running `relicta evaluate` — a fresh `evaluator.New()` would have
+produced a second verdict for the same change with nothing saying which was authoritative.
+Verified over stdio against a real repository: cgp_propose returns a GovernanceDecision with
+risk score 0.6, `approval_required`, and the rationale "Agent-initiated change with elevated
+risk requires human review".
+
+THE RELATED LIST WAS PARTLY WRONG, and the correction matters more than the fix:
+
+- `WithRiskCalculator` and `WithCache` are override seams over fields `NewServer` already
+  defaults (`risk.NewCalculatorWithDefaults()`, `NewResourceCache()`). The claim that
+  "WithRiskCalculator gates the fallback risk path in handleEvaluate, which therefore cannot
+  run either" was false — that path runs. Deleting the option, which the entry invited, would
+  have removed a working seam and broken four call sites. Confirmed by removing it and reading
+  the compiler's answer, after a grep for the wrong field name (`riskCalculator` rather than
+  `riskCalc`) had suggested it was dead.
+
+- `WithCacheDisabled` is therefore meaningful: it turns off a cache that is on.
+
+- `WithPolicyEngine` was already wired.
+
+TWO WERE GENUINELY UNWIRED, and both are fixed:
+
+- `WithReleaseRepository`. Five resources — release state, active runs, history, the run's
+  recommendation — answered `{"status": "no release repository configured"}` while the
+  container held the repository all along. To a caller that is indistinguishable from having
+  no release, so an agent asking what is in progress was told nothing was. Now wired;
+  `relicta://state` returns the real run (`"state": "versioned", "version": "0.1.0"`).
+
+- `WithActorBudgets`. A configured `governance.actor_budget_path` gated the CLI and was
+  ignored by the MCP surface — the surface agents actually use, and the reason per-actor
+  budgets exist. `ResolveBudget`'s fallback is the restrictive default, so nothing was unsafe;
+  what went missing was the operator's own policy, in either direction. The loader is now
+  shared with the CLI gate rather than duplicated, and `mcp serve` refuses to start on an
+  unreadable budget file instead of silently applying defaults the operator does not expect.
+
+WHAT THE TESTS COVER, and why in two places: internal/mcp asserts the behavior each option
+unlocks, and internal/cli asserts that mcp.go passes them. Only the second was missing, and
+it is the half that was broken — an option nothing calls is the defect this file keeps
+recording. The budget test needed rewriting for the same reason: its first version configured
+a *restrictive* budget and asserted refusal, which passed even with the option turned into a
+no-op, because the default refuses that operation too. It now configures a permissive budget
+and asserts the operation is allowed, with the unconfigured server as a control.
 
 ## Policy conditions for data the evaluator does not yet carry
 
-Five conditions written in the shipped example policies had no field behind them and were removed rather than left looking active (PR #249). Each is a real governance need, and each needs the evaluator to carry data it does not have today.
+Five conditions written in the shipped example policies had no field behind them and were
+removed rather than left looking active (PR #249). Two are now closed.
 
-CAUSE: buildEvalContext exposes risk, change counts, blast radius, scope, intent, actor identity, team configuration and a clock. It carries nothing about holidays, actor seniority, how many domains a change touches, or an actor's earned trust. `relicta policy fields` now prints exactly what exists, so the gaps are visible instead of guessed at.
+5. ~~Membership-of-nothing~~ — DONE. `is_empty` and `size` exist as operators, in the schema,
+   the DSL (lexer, parser, compiler) and the engine, so `actor.teams is_empty true` compiles
+   and fires. `NOT actor.is_member` can be written again. `size` came with it because a
+   length comparison is the same question asked arithmetically, and it applies to
+   `scope.files` and `actor.roles` too.
 
-CONSEQUENCE: rules a team would reasonably want cannot be expressed. Specifically:
+   Two things worth carrying forward. A field the context does not carry does not match, for
+   every operator including this one — I assumed absence should read as empty and asserted it
+   in a test before checking, and it is the wrong answer twice: a rule about unknown data
+   should not fire in a governance tool, and one operator disagreeing with the other nine is
+   a special case the policy author cannot see. It costs nothing here, because
+   buildEvalContext always sets `actor.teams` and `actor.roles`, so they are present-and-empty
+   rather than absent. And `is_empty` on a non-collection is an error rather than a silent
+   false: a policy comparing the emptiness of a risk score is a mistake, and hiding it means
+   the rule never fires and nobody learns why.
 
-1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.
-2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains "junior"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.
-3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.
-4. `actor.trusted` — the reputation and calibration machinery exists in internal/cgp (earned trust, identity registry) and is not surfaced to policy conditions. This is probably the cheapest of the four and the most useful: it is the field that lets a policy say "auto-approve low-risk changes from actors who have earned it".
-5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for "this list is empty". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.
+3. `change.scope_count` — PARTLY DONE, and deliberately renamed. `scope.areas` /
+   `scope.areaCount` (distinct first path segments) and `scope.directories` /
+   `scope.directoryCount` are derived from the paths the proposal already carries, so
+   "touches more than two areas" is expressible today: with `size` and `>` it is the rule
+   this entry wanted, and it distinguishes a three-file change across three areas from a
+   three-file change inside one — the distinction fileCount cannot make, which is why the
+   entry rejected approximating it that way.
 
-OPTIONS: (4) first, since the data exists and only needs exposing in buildEvalContext plus a KnownFieldPaths entry. Then (5), which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.
+   Named for what they measure rather than "domains" or "packages" on purpose. True package
+   attribution needs the workspace layout, which the policy engine is not given: it receives
+   a proposal and an analysis, and injecting a workspace resolver into it is a larger change
+   than this. Calling a path prefix a "package" would be the same approximation the entry
+   rejected, with better marketing. **Still open:** real package attribution for monorepos,
+   reusing the workspace detection, if someone needs boundaries rather than breadth.
 
-Whatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.
+1 and 2 (`time.is_holiday`, `actor.level`) remain configuration surfaces and can wait for
+someone to ask.
+
+ALSO FIXED HERE: `relicta policy test` carried a changed-file count and not the paths, so no
+path-conditioned rule could be exercised at all — neither the breadth fields nor
+`scope.files contains "terraform/"`, which the shipped policies use. `--files` supplies them,
+and the count is derived from them unless given explicitly, so a rule on `scope.fileCount`
+and one on `scope.files` cannot disagree about the size of the same change. The rules a team
+is most likely to get wrong were the ones they could not test, which is the same reason
+`--trust-level` was added.
+
+## DONE: CGP protocol records are durable, readable, and kept on purpose
+
+The durability landed in PR #267 (FileProposalStore, wired through the WithStore option that
+had never been called outside tests). The two things this entry left open are now closed.
+
+`relicta cgp list` and `relicta cgp status <id>` exist, so the records are auditable by a
+person rather than only over MCP. Verified against a proposal made through the cgp_propose
+tool: list shows its state, risk score, actor and summary; status shows the full handshake.
+
+RETENTION, decided rather than left as an accident: records are kept indefinitely. These are
+the evidence that a change was governed, and an audit trail that expires cannot answer a
+question asked after it expired. Removing them is a deliberate act — delete the files — and
+`cgp list` reports how many are held, so growth is visible instead of silent. The command's
+help says all of this, which is the part the entry asked for.
+
+FOUND WHILE VERIFYING IT: both renderings composed "<kind>:<id>" unconditionally, while the
+IDs agents send are already qualified — the convention pkg/cgp uses and what NewAgentActor
+produces. So a proposal from "agent:probe" was listed as "agent:agent:probe". Nothing
+downstream breaks on it, which is why it survived: it is wrong only on the screen, in the
+command whose purpose is letting a person audit what an agent did. Running the command found
+it; reading the formatting code had not.
+
+STILL OPEN, unchanged: the read-side join. The protocol records and the release audit trail
+are separate views of governance activity — correct modeling, since a CGP proposal is not a
+release run (see the correction below) — but a reader asking "what governed this change?" has
+to consult both. One command or endpoint reporting both is the useful thing left to build.
+
+## Correction: CGP proposals are not release runs
+
+Supersedes the recommendation in "CGP protocol proposals do not survive the session". That entry proposed, as its preferred option, routing CGP proposals through the ReleaseRun aggregate so there would be one governance record rather than two — by analogy to the duplicate release store consolidated in PR #247. I wrote that recommendation and it is wrong.
+
+WHY IT IS WRONG: a cgpsdk.ChangeProposal carries an actor, a scope, an intent and metadata. That is all. It has no version proposal, no changeset, no bump kind, and no release state machine. CGP governs change in general; not every proposal is a release. Mapping every proposal onto a ReleaseRun would force the aggregate to hold data it has no meaning for, and would require inventing release fields for proposals that are not releases.
+
+The #247 analogy only holds when two records describe the same thing. There, two stores held the same release run in different DTO shapes, and a run written by one came back from the other missing its changeset and HEAD. Here the two records describe different things, so having two is correct modeling rather than duplication.
+
+WHAT WAS DONE INSTEAD (PR #267): a durable FileProposalStore under .relicta/cgp/{proposals,decisions,authorizations}, wired through the WithStore option that already existed and had never been called outside tests. The handshake now survives across processes — verified across four separate `relicta mcp serve` invocations, ending at state "authorized" with the decision and authorization both readable.
+
+WHAT REMAINS, and is genuinely open:
+1. Nothing prunes .relicta/cgp/. Proposals accumulate indefinitely. Decide a retention rule, or decide deliberately that governance records are never deleted — which is a defensible position for an audit trail and should then be stated rather than left as an accident.
+2. The protocol records and the release audit trail are still separate views of governance activity. That is correct modeling, but a reader asking "what governed this change?" has to consult both. A read-side join — one command or endpoint that reports both — is the useful thing to build, and it does not require merging the aggregates.
+3. There is no CLI surface for the protocol records at all: they are reachable only over MCP. `relicta cgp status <id>` would let a person audit what an agent did, which is the point of recording it.
+
+Item 3 is the smallest and the most valuable of the three, because records nobody can read are only marginally better than records that do not exist.
 
 ---
+
+## DONE: Release domain events are now published (was: the outcome tracker and release webhooks are unreachable)
+
+Fixed. Kept here because the shape of the bug is worth remembering, and because two of the
+things found on the way out are decisions rather than fixes.
+
+WHAT IT WAS: the only production caller of `release.EventPublisher.Publish` was
+`FileUnitOfWork.Commit`, and nothing constructed a unit of work outside `container_test.go`.
+So the container assembled OutcomeTracker → WebhookPublisher → InMemoryEventPublisher,
+logged it as initialized, and no release ever published an event.
+
+THE SEAM CHOSEN: the repository's Save, decorated. Every use case already persists through
+it — ten calls across plan, bump, notes, approve, publish and retry — so one seam cannot be
+forgotten by the eleventh. Both paths to the aggregate are decorated: the release services,
+and `app.ReleaseRepository()` through the bridge, which is what cancel, clean, rollback and
+bump use. Decorating only the first left canceling silent, which is how that half was found.
+
+WHAT WAS BLOCKING IT, once events flowed:
+
+1. The tracker's per-run context cache is per-process, and this CLI is one process per
+   command. `relicta cancel` raises a lone RunCanceledEvent, so there was no cached
+   repository and the store rejected the record with "repository is required". The
+   governance identity is now supplied by the container — the same value
+   recordPublishOutcome uses, because a second derivation from the run's path would produce
+   "local:checkout" where publish produces "acme/widget" and split one repository's history.
+
+2. Terminal events carried no version, for the same reason: bump raised RunVersionedEvent in
+   a process that has since exited. RunFailedEvent and RunCanceledEvent now carry it.
+
+3. Two writers, one release. The tracker records during the publish use case and
+   recordPublishOutcome records after it returns, both keyed on the run ID, and
+   RecordRelease appended unconditionally — so every publish would have produced two
+   records. RecordRelease now replaces by ID, which also makes retrying a publish
+   idempotent. A replacement rebuilds the affected actors' metrics, because Accumulate
+   keeps a running average that cannot be un-added.
+
+DECISIONS TAKEN, both of which changed numbers:
+
+- A cancellation is recorded as `OutcomeCanceled` and excluded from every rate computed
+  over releases (`CountsAsRelease`). It was recorded as OutcomePartial, which IsNegative
+  counts as a problem and Accumulate counts as a failed release — so declining to ship
+  lowered the actor's reliability score and raised change failure rate. The governance gate
+  working as intended must not read as a defect.
+
+- Event names are the documented `release.*` rather than `run.*`. The webhook configuration
+  documented `release.published` and offered `release.*` as its wildcard example, so a user
+  who configured exactly what was described received nothing, and there was nothing to log
+  because the filter simply matched no event. Both event-store deserializers accept the
+  historical spelling (`CanonicalEventName`), so history written before the rename still
+  loads.
+
+- Webhook deliveries were sent with a bare `go` and nothing waited. In a process that exits
+  when the command returns, delivery was a race against teardown that left no trace when it
+  lost. The publisher now tracks in-flight sends and the container waits on shutdown.
+
+STILL OPEN: nothing constructs a unit of work, so `FileUnitOfWork` and `App.UnitOfWork()`
+remain unreachable. They are now redundant rather than load-bearing — the decorator does the
+publishing — so the open question is whether to delete them or adopt them for the
+transactional boundary they were written for.
+
+## Hub cannot represent a canceled run
+
+`relicta hub sync` skips records whose outcome is `canceled`, because Hub's event vocabulary
+is release.planned / release.published / release.failed and none of them is true of a run that
+never shipped. Sending one would mean choosing between two false statements, and
+`eventTypeFor`'s default would have made it the worse one — every cancellation arriving as a
+successful release, inflating the deployment frequency the local report is careful to exclude
+it from.
+
+Skipping keeps Hub's numbers agreeing with relicta's own about the same repository, at the
+cost of Hub not knowing a release was deliberately stopped — which is governance-relevant:
+"we decided not to ship this" is a decision an org-wide view should show.
+
+Closing it needs a `release.canceled` event type in Hub, materialized into a row that is
+recorded but excluded from every rate, mirroring `ReleaseOutcome.CountsAsRelease` on the CLI
+side. Both halves of that predicate have to move together, or the two sides will disagree
+about which records are releases — which reads as a reporting bug rather than a difference of
+opinion.

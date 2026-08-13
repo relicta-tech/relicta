@@ -24,6 +24,7 @@ type FileStore struct {
 
 	// In-memory cache for fast reads
 	releases       map[string][]*ReleaseRecord            // keyed by repository
+	deployments    map[string][]*DeploymentRecord         // keyed by repository
 	incidents      map[string][]*IncidentRecord           // keyed by repository
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
@@ -43,6 +44,7 @@ func NewFileStore(basePath string) (*FileStore, error) {
 	store := &FileStore{
 		basePath:       basePath,
 		releases:       make(map[string][]*ReleaseRecord),
+		deployments:    make(map[string][]*DeploymentRecord),
 		incidents:      make(map[string][]*IncidentRecord),
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),
@@ -60,6 +62,7 @@ func NewFileStore(basePath string) (*FileStore, error) {
 // fileData represents the JSON structure for persistence.
 type fileData struct {
 	Releases       map[string][]*ReleaseRecord            `json:"releases"`
+	Deployments    map[string][]*DeploymentRecord         `json:"deployments,omitempty"`
 	Incidents      map[string][]*IncidentRecord           `json:"incidents"`
 	Actors         map[string]*ActorMetrics               `json:"actors"`
 	Decisions      map[string]*cgp.GovernanceDecision     `json:"decisions,omitempty"`
@@ -97,6 +100,9 @@ func (s *FileStore) load() error {
 	if fd.Releases != nil {
 		s.releases = fd.Releases
 	}
+	if fd.Deployments != nil {
+		s.deployments = fd.Deployments
+	}
 	if fd.Incidents != nil {
 		s.incidents = fd.Incidents
 	}
@@ -118,6 +124,7 @@ func (s *FileStore) load() error {
 func (s *FileStore) save() error {
 	fd := fileData{
 		Releases:       s.releases,
+		Deployments:    s.deployments,
 		Incidents:      s.incidents,
 		Actors:         s.actors,
 		Decisions:      s.decisions,
@@ -152,12 +159,32 @@ func (s *FileStore) RecordRelease(ctx context.Context, record *ReleaseRecord) er
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.releases[record.Repository] = append(s.releases[record.Repository], record)
+	records, replaced := UpsertReleaseRecord(s.releases[record.Repository], record)
+	s.releases[record.Repository] = records
 
-	// Update actor metrics
-	s.updateActorMetricsLocked(record)
+	if replaced != nil {
+		// A replacement cannot be folded in: Accumulate keeps a running average, so
+		// adding the new record on top of the old one's contribution would count the
+		// release twice. Both actors are rebuilt because a corrected record may name a
+		// different actor than the one it replaces.
+		s.rebuildActorMetricsLocked(record.Actor.ID, record.Actor.Kind)
+		if replaced.Actor.ID != record.Actor.ID {
+			s.rebuildActorMetricsLocked(replaced.Actor.ID, replaced.Actor.Kind)
+		}
+	} else {
+		s.updateActorMetricsLocked(record)
+	}
 
 	return s.save()
+}
+
+// rebuildActorMetricsLocked recomputes one actor's metrics from the stored records.
+// Must be called with the lock held.
+func (s *FileStore) rebuildActorMetricsLocked(actorID string, kind cgp.ActorKind) {
+	if actorID == "" {
+		return
+	}
+	s.actors[actorID] = RebuildActorMetrics(actorID, kind, s.releases, s.incidents, time.Now())
 }
 
 // updateActorMetricsLocked updates actor metrics based on a release record.
@@ -166,50 +193,11 @@ func (s *FileStore) updateActorMetricsLocked(record *ReleaseRecord) {
 	actorID := record.Actor.ID
 	metrics, exists := s.actors[actorID]
 	if !exists {
-		metrics = &ActorMetrics{
-			ActorID:   actorID,
-			ActorKind: record.Actor.Kind,
-		}
+		metrics = &ActorMetrics{ActorID: actorID, ActorKind: record.Actor.Kind}
 		s.actors[actorID] = metrics
 	}
-
-	now := time.Now()
-
-	// Update counts
-	metrics.TotalReleases++
-	switch record.Outcome {
-	case OutcomeSuccess:
-		metrics.SuccessfulReleases++
-	case OutcomeFailed, OutcomePartial:
-		metrics.FailedReleases++
-	case OutcomeRollback:
-		metrics.RollbackCount++
-		metrics.FailedReleases++
-	}
-
-	if record.RiskScore > 0.7 {
-		metrics.HighRiskReleases++
-	}
-	if record.BreakingChanges > 0 {
-		metrics.BreakingChangeReleases++
-	}
-
-	// Update average risk score (running average)
-	n := float64(metrics.TotalReleases)
-	metrics.AverageRiskScore = ((n-1)*metrics.AverageRiskScore + record.RiskScore) / n
-
-	// Update success rate
-	metrics.SuccessRate = float64(metrics.SuccessfulReleases) / float64(metrics.TotalReleases)
-
-	// Update timestamps
-	if metrics.FirstReleaseAt == nil {
-		metrics.FirstReleaseAt = &record.ReleasedAt
-	}
-	metrics.LastReleaseAt = &record.ReleasedAt
-	metrics.UpdatedAt = now
-
-	// Recalculate reliability score
-	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
+	// One definition, shared with InMemoryStore and the Mnemos adapter.
+	metrics.Accumulate(record, time.Now())
 }
 
 // RecordIncident stores an incident record.

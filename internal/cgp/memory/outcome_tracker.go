@@ -5,10 +5,14 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 )
 
 // OutcomeTracker implements release.EventPublisher and records release outcomes
@@ -23,6 +27,19 @@ type OutcomeTracker struct {
 	store  Store
 	next   release.EventPublisher
 	logger *slog.Logger
+
+	// repository is the governance identity to record against when the cached context
+	// has none.
+	//
+	// The cache is per-process, and the CLI runs one command per process: `relicta
+	// cancel` loads a run from disk and raises a single RunCanceledEvent, so nothing
+	// ever supplied the RunCreatedEvent that carries the repository. Every such record
+	// was rejected by the store with "repository is required" — a warning in a log
+	// nobody reads, and no record at all. It is supplied by the caller rather than
+	// derived from the event because the identity comes from the git remote, and a
+	// second derivation from the run's path would produce "local:checkout" where the
+	// publish path produces "acme/widget", splitting one repository's history in two.
+	repository string
 
 	// releaseContexts caches release context for building complete records.
 	// This is needed because outcome events don't contain all release metadata.
@@ -46,12 +63,17 @@ type releaseContext struct {
 }
 
 // NewOutcomeTracker creates a new OutcomeTracker.
-// The next parameter is optional - if nil, events are not forwarded.
-func NewOutcomeTracker(store Store, next release.EventPublisher) *OutcomeTracker {
+//
+// next is optional — if nil, events are not forwarded. repository is the governance
+// identity to fall back on, and should be the same value the rest of the process records
+// against (repoInfo.GovernanceID()); empty is allowed, and then a terminal event arriving
+// without a cached context cannot be recorded.
+func NewOutcomeTracker(store Store, next release.EventPublisher, repository string) *OutcomeTracker {
 	return &OutcomeTracker{
 		store:           store,
 		next:            next,
 		logger:          slog.Default().With("component", "outcome_tracker"),
+		repository:      repository,
 		releaseContexts: make(map[release.RunID]*releaseContext),
 	}
 }
@@ -85,6 +107,8 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 		return t.handleInitialized(e)
 	case *release.RunPlannedEvent:
 		return t.handlePlanned(e)
+	case *release.RunVersionedEvent:
+		return t.handleVersioned(e)
 	case *release.RunApprovedEvent:
 		return t.handleApproved(e)
 	case *release.RunPublishedEvent:
@@ -100,17 +124,115 @@ func (t *OutcomeTracker) processEvent(ctx context.Context, event release.DomainE
 }
 
 // handleInitialized caches initial release context.
+//
+// RepoID is a raw git remote URL (the plan use case falls back to the checkout path),
+// while every reader — history, the DORA and SOC 2 reports, reconcile, the deployment
+// gate — queries by governance identity. Recording the URL verbatim put these records
+// under a key nothing reads, so they accumulated and were never found: the same defect
+// that made `relicta history` empty in every repository, surviving in a second writer.
+//
+// Normalized through the shared helper rather than a local variant, because two
+// normalizers eventually disagree and the disagreement is invisible — it looks like an
+// empty store.
 func (t *OutcomeTracker) handleInitialized(e *release.RunCreatedEvent) error {
 	t.releaseContexts[e.AggregateID()] = &releaseContext{
-		Repository: e.RepoID,
+		Repository: governanceIdentity(e.RepoID),
 		StartedAt:  e.OccurredAt(),
 		Metadata:   make(map[string]string),
 	}
 	return nil
 }
 
+// governanceIdentity normalizes a run's repository reference to the key readers use.
+//
+// RepoID arrives in three shapes, because the plan use case takes whichever it can get:
+// an explicit identity supplied by the caller, the git remote URL, or the checkout path
+// as a last resort. Each needs different handling, and getting that wrong is silent —
+// a misfiled record looks exactly like an empty store.
+//
+//	owner/repo                          already the identity, passed through
+//	https://github.com/acme/widget.git  normalized to acme/widget
+//	git@github.com:acme/widget.git      the same, so one repository is not keyed twice
+//	/Users/dev/checkout                 local:checkout
+//
+// A path must not reach the remote parser: its last two segments form a
+// plausible-looking pair — "/Users/dev/checkout" becomes "dev/checkout" — that cannot
+// be told apart from a real owner/repo, so it keys records to a repository nobody has.
+// This is the malformed identity RepositoryInfo.GovernanceID exists to avoid, and the
+// "local:" prefix is what that function produces for the same case, so both writers
+// agree on the local repository too. Agreement is the whole point: a second normalizer
+// that is merely close splits the history in a way that reads as no history at all.
+func governanceIdentity(repoRef string) string {
+	ref := strings.TrimSpace(repoRef)
+	if ref == "" {
+		return ""
+	}
+
+	if looksLikeRemote(ref) {
+		if id := sourcecontrol.GovernanceIDFromRemote(ref); id != "" {
+			return id
+		}
+	}
+
+	if isBareIdentity(ref) {
+		return ref
+	}
+
+	name := path.Base(filepath.ToSlash(ref))
+	if name == "" || name == "." || name == "/" {
+		return ref
+	}
+	return "local:" + name
+}
+
+// isBareIdentity reports whether a reference is already an "owner/repo" pair.
+//
+// Two non-empty segments and no leading separator or dot. A relative two-segment path
+// is indistinguishable from an identity, and this resolves the ambiguity toward the
+// identity: that is the documented governance form, and rewriting one that a caller
+// supplied deliberately would move records away from where that caller reads them.
+func isBareIdentity(ref string) bool {
+	if strings.HasPrefix(ref, "/") || strings.HasPrefix(ref, ".") || strings.Contains(ref, `\`) {
+		return false
+	}
+	parts := strings.Split(ref, "/")
+	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
+}
+
+// looksLikeRemote reports whether a reference is a git remote rather than a path.
+//
+// A scheme covers https/ssh/git URLs. The scp form (git@host:owner/repo) has no
+// scheme, so it is recognized by an "@" appearing before the colon — which a Windows
+// drive letter or a plain path does not have.
+func looksLikeRemote(ref string) bool {
+	if strings.Contains(ref, "://") {
+		return true
+	}
+	colon := strings.Index(ref, ":")
+	return colon > 0 && strings.Contains(ref[:colon], "@")
+}
+
 // handlePlanned updates the cached context with plan details.
+//
+// Retained because the event type is part of the public event surface, but note that
+// the aggregate never raises it: run.go raises RunCreated, RunVersioned, RunApproved,
+// RunPublished, RunFailed, RunCanceled, RunRetried and RunNotesUpdated. This handler
+// was therefore the only writer of the cached version and never ran.
 func (t *OutcomeTracker) handlePlanned(e *release.RunPlannedEvent) error {
+	ctx := t.getOrCreateContext(e.AggregateID())
+	ctx.Version = e.VersionNext.String()
+	return nil
+}
+
+// handleVersioned records the version the run settled on.
+//
+// This is the event the aggregate actually raises when a version is decided. Without
+// it the cached version stayed empty, and only the success path recovered — because
+// handlePublished overwrites the version from RunPublishedEvent, which carries one.
+// RunFailedEvent and RunCanceledEvent do not, so every failed and canceled release was
+// recorded with no version at all and could not be tied to the version that failed.
+// That is the half of the history change failure rate and reputation are computed from.
+func (t *OutcomeTracker) handleVersioned(e *release.RunVersionedEvent) error {
 	ctx := t.getOrCreateContext(e.AggregateID())
 	ctx.Version = e.VersionNext.String()
 	return nil
@@ -150,6 +272,11 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedE
 
 	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeFailed, e.OccurredAt())
 	record.Metadata["failure_reason"] = e.Reason
+	// The event's version is the only source in a fresh process, where the cached
+	// context from RunVersionedEvent does not exist.
+	if record.Version == "" {
+		record.Version = e.Version
+	}
 
 	if err := t.store.RecordRelease(ctx, record); err != nil {
 		return fmt.Errorf("failed to record failed release: %w", err)
@@ -169,10 +296,21 @@ func (t *OutcomeTracker) handleFailed(ctx context.Context, e *release.RunFailedE
 func (t *OutcomeTracker) handleCanceled(ctx context.Context, e *release.RunCanceledEvent) error {
 	releaseCtx := t.getOrCreateContext(e.AggregateID())
 
-	// Cancellation is treated as a partial outcome (not success, not failure)
-	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomePartial, e.OccurredAt())
+	// Recorded as canceled, not partial. OutcomePartial is a negative outcome that
+	// counts toward change failure rate and an actor's failed releases, so recording a
+	// deliberate cancellation that way punished the governance gate for working.
+	record := t.buildReleaseRecord(e.AggregateID(), releaseCtx, OutcomeCanceled, e.OccurredAt())
 	record.Metadata["canceled_by"] = e.By
 	record.Metadata["cancel_reason"] = e.Reason
+	if record.Version == "" {
+		record.Version = e.Version
+	}
+	if record.Actor.ID == "" && e.By != "" {
+		// A fresh process has no cached context, so the event's own actor is the only
+		// one available — and an audit entry nobody can attribute is half an entry.
+		record.Actor = cgp.NewActor(cgp.ActorKindHuman,
+			cgp.QualifiedActorID(cgp.ActorKindHuman, e.By))
+	}
 	record.Tags = append(record.Tags, "canceled")
 
 	if err := t.store.RecordRelease(ctx, record); err != nil {
@@ -206,9 +344,17 @@ func (t *OutcomeTracker) buildReleaseRecord(
 		metadata[k] = v
 	}
 
+	// The cached context wins when it has one, because it came from this run's own
+	// RunCreatedEvent; the fallback covers the fresh-process case where there is no
+	// cached context at all.
+	repository := ctx.Repository
+	if repository == "" {
+		repository = t.repository
+	}
+
 	return &ReleaseRecord{
 		ID:              string(releaseID),
-		Repository:      ctx.Repository,
+		Repository:      repository,
 		Version:         ctx.Version,
 		Actor:           ctx.Actor,
 		RiskScore:       ctx.RiskScore,

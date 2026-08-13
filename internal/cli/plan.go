@@ -159,8 +159,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
 	if app.HasGovernance() {
-		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.GovernanceID())
 	}
+
+	storeRecommendation(app, output, riskPreview, persisted, repoInfo.Path)
 
 	// Output results
 	if outputJSON {
@@ -267,8 +269,10 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	// Get governance risk preview if enabled
 	var riskPreview *governanceRiskPreview
 	if app.HasGovernance() {
-		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.RemoteURL)
+		riskPreview = getGovernanceRiskPreview(ctx, app, output, repoInfo.GovernanceID())
 	}
+
+	storeRecommendation(app, output, riskPreview, persistedRun{ID: releaseID}, repoInfo.Path)
 
 	// Output results
 	if outputJSON {
@@ -676,6 +680,9 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun
 		"repository_name": output.RepositoryName,
 		"branch":          output.Branch,
 		"ci_mode":         ciMode,
+		// A consumer needs this to read the commit count correctly: on a first
+		// release it covers the whole history, not the commits since a tag.
+		"first_release": persisted.FirstRelease,
 		"summary": map[string]int{
 			"total":            output.ChangeSet.CommitCount(),
 			"features":         len(cats.Features),
@@ -716,6 +723,13 @@ func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun
 	fmt.Fprintf(w, "  Total commits:\t%d\n", output.ChangeSet.CommitCount())
 	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
 	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
+	if persisted.FirstRelease {
+		// Names the baseline rather than leaving the reader to infer it from a
+		// current version of 0.0.0. Planning used to fail outright here, so this is
+		// also the line that says the situation was understood rather than guessed.
+		fmt.Fprintf(w, "  Baseline:\tno previous release — all %d commits\n",
+			output.ChangeSet.CommitCount())
+	}
 	_ = w.Flush() // Ignore flush error for stdout display
 
 	fmt.Println()
@@ -892,7 +906,7 @@ func getNonCoreCategorizedCommits(cats *changes.Categories) []*changes.Conventio
 }
 
 // getGovernanceRiskPreview performs a quick governance risk assessment for plan preview.
-func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoURL string) *governanceRiskPreview {
+func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoID string) *governanceRiskPreview {
 	govService := app.GovernanceService()
 	if govService == nil {
 		return nil
@@ -916,22 +930,46 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		dryRun,
 	)
 	if err := release.SetPlan(rel, plan); err != nil {
+		// Governance is enabled by default (ADR-011), so its absence from the output
+		// is a claim that needs a reason. Both failure paths here returned nil
+		// silently, which made "governance is disabled", "governance failed" and
+		// "governance found nothing" the same observable outcome: no governance
+		// section at all. A reader could not tell an ungoverned release from a
+		// governed one.
+		printWarning(fmt.Sprintf("governance preview unavailable: could not build a "+
+			"release to evaluate: %v", err))
 		return nil
 	}
 
 	// Create actor (similar to approve.go)
 	actor := createCGPActorForPlan()
 
-	// Evaluate
+	// Evaluate.
+	//
+	// A CGP proposal requires a repository identifier, and this originally passed
+	// the git remote URL straight through — so a repository with no remote produced
+	// "invalid scope: repository is required", governance never ran, and the error
+	// was discarded (#261). The fix then was a local fallback chain here, which made
+	// governance run and keyed it a third way: plan evaluated under the remote URL
+	// or a bare name while publish recorded outcomes under the checkout path, so the
+	// preview never saw the history it should have been learning from.
+	//
+	// The identity now comes from the caller and is the same one every governance
+	// write and read uses, with its own fallback for a repository that has no
+	// remote. One question, one answer.
 	input := governance.EvaluateReleaseInput{
 		Release:    rel,
 		Actor:      actor,
-		Repository: repoURL,
+		Repository: firstNonEmpty(repoID, "local:unknown"),
 	}
 
 	result, err := govService.EvaluateRelease(ctx, input)
 	if err != nil {
-		// Don't fail the plan command if governance fails
+		// Still not fatal — a plan is useful without a risk preview, and failing the
+		// command would make governance a single point of failure for planning. But
+		// it is said out loud, on stderr, so a pipeline that believes it is governed
+		// finds out that this plan was not.
+		printWarning(fmt.Sprintf("governance preview unavailable: %v", err))
 		return nil
 	}
 
@@ -952,6 +990,19 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		Rationale:       result.Rationale,
 		RequiredActions: result.RequiredActions,
 	}
+}
+
+// firstNonEmpty returns the first non-empty string, or "" if all are empty.
+//
+// The final fallback matters: an identifier that is merely readable is better than
+// one that is absent, because absent means governance does not run at all.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // createCGPActorForPlan creates a CGP actor for plan preview.
@@ -1036,10 +1087,45 @@ type persistedRun struct {
 	ID             string
 	AlreadyExisted bool
 	ExistingState  domain.RunState
+
+	// FirstRelease reports that no previous release was found, so the changeset is
+	// the whole history. Said out loud because it changes what the numbers mean: a
+	// reader who cannot tell this from an ordinary release sees a large commit count
+	// as unusual activity rather than as the baseline.
+	FirstRelease bool
 }
 
 func persistReleaseRun(ctx context.Context, app cliApp, output *servicerelease.AnalyzeOutput, repoInfo *sourcecontrol.RepositoryInfo) (persistedRun, error) {
 	return persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{})
+}
+
+// storeRecommendation writes the ADR-009 artifact next to the run it describes.
+//
+// Called after the governance preview rather than inside persistReleaseRun,
+// because the run is saved before governance runs and an artifact stored at that
+// point would carry no assessment — the lossy version this exists to avoid.
+//
+// A failure is reported and not fatal. The release is already planned and the
+// artifact is a record of it; refusing to continue because the record could not
+// be written would turn a storage problem into a blocked release. Silence would
+// be worse than either, since the HTTP endpoint would then 404 with no
+// explanation of why.
+func storeRecommendation(app cliApp, output *servicerelease.AnalyzeOutput,
+	riskPreview *governanceRiskPreview, persisted persistedRun, repoRoot string,
+) {
+	if persisted.ID == "" || !app.HasReleaseServices() {
+		return
+	}
+	services := app.ReleaseServices()
+	if services == nil || services.Repository == nil {
+		return
+	}
+
+	artifact := buildRecommendationArtifact(output, riskPreview)
+	if _, err := recommendation.Persist(services.Repository, repoRoot,
+		domain.RunID(persisted.ID), artifact); err != nil {
+		printWarning(fmt.Sprintf("recommendation artifact not stored: %v", err))
+	}
 }
 
 // persistReleaseRunWithOptions stores the release run with optional tag-push mode support.
@@ -1089,6 +1175,7 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 		ID:             string(planOutput.RunID),
 		AlreadyExisted: planOutput.AlreadyExisted,
 		ExistingState:  planOutput.ExistingState,
+		FirstRelease:   planOutput.FirstRelease,
 	}, nil
 }
 

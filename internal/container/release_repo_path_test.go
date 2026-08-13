@@ -41,7 +41,10 @@ func TestReleaseRepositoryPathIsAnchoredToTheRepoRoot(t *testing.T) {
 			"stray .relicta/releases there")
 	}
 
-	if !strings.Contains(s, "newReleaseRepoBridge(repoRoot)") {
+	// The bridge now also carries the event publisher, so that the commands saving
+	// through it publish their events; the property this test guards is unchanged —
+	// the first argument is the root resolved from git.
+	if !strings.Contains(s, "newReleaseRepoBridge(repoRoot,") {
 		t.Error("expected the release store to be the bridge over the services " +
 			"repository, constructed with the resolved root")
 	}

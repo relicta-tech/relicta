@@ -68,7 +68,12 @@ func TestApplyEarnedTrust_RaisesOnly(t *testing.T) {
 		cgp.ProposalIntent{},
 	)
 
-	info := svc.applyEarnedTrust(context.Background(), "owner/repo", proposal)
+	score, ok := svc.governingActorReputation(context.Background(), "owner/repo", proposal)
+	if !ok {
+		t.Fatal("expected a reputation to be computed with a memory store and earned trust enabled")
+	}
+
+	info := svc.applyEarnedTrust(proposal, score)
 	if info == nil {
 		t.Fatal("expected escalation for strong record")
 	}
@@ -96,7 +101,12 @@ func TestApplyEarnedTrust_NeverLowers(t *testing.T) {
 		cgp.ProposalIntent{},
 	)
 
-	info := svc.applyEarnedTrust(context.Background(), "owner/repo", proposal)
+	score, ok := svc.governingActorReputation(context.Background(), "owner/repo", proposal)
+	if !ok {
+		t.Fatal("expected a reputation to be computed with a memory store and earned trust enabled")
+	}
+
+	info := svc.applyEarnedTrust(proposal, score)
 	if info != nil {
 		t.Fatalf("must not escalate a weak record; got %#v", info)
 	}

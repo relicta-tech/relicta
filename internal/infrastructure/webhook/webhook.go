@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/config"
@@ -61,6 +62,15 @@ type Publisher struct {
 	client   *http.Client
 	next     release.EventPublisher
 	logger   *slog.Logger
+
+	// inFlight tracks the delivery goroutines so Close can wait for them.
+	//
+	// Deliveries are sent concurrently because a slow endpoint must not hold up a
+	// release, but they were sent with a bare `go` and nothing ever waited: the CLI is
+	// one process per command and exits as soon as publish returns, so the goroutines
+	// were killed mid-request. Whether a webhook arrived depended on which won the race
+	// with process exit, and the loser left no trace — no error, no retry, no log.
+	inFlight sync.WaitGroup
 }
 
 // NewPublisher creates a new webhook publisher.
@@ -88,7 +98,11 @@ func (p *Publisher) Publish(ctx context.Context, events ...release.DomainEvent) 
 			}
 
 			payload := p.buildPayload(event)
-			go p.sendWithRetry(ctx, wh, payload)
+			p.inFlight.Add(1)
+			go func() {
+				defer p.inFlight.Done()
+				p.sendWithRetry(ctx, wh, payload)
+			}()
 		}
 	}
 
@@ -301,3 +315,15 @@ func VerifySignature(payload []byte, signature, secret string) bool {
 
 // Ensure Publisher implements release.EventPublisher.
 var _ release.EventPublisher = (*Publisher)(nil)
+
+// Close waits for in-flight webhook deliveries to finish.
+//
+// Registered as a closeable by the container so the CLI drains before the process exits.
+// Without it, delivery from a short-lived command was a race against process teardown:
+// the request was started and then abandoned, which looks identical to an endpoint that
+// was never configured. Retries have their own bounded budget per webhook, so this waits
+// for that budget rather than indefinitely.
+func (p *Publisher) Close() error {
+	p.inFlight.Wait()
+	return nil
+}

@@ -435,8 +435,6 @@ func runApprove(cmd *cobra.Command, args []string) error {
 						return err
 					}
 					approveOut = out
-					// Record successful outcome
-					recordReleaseOutcome(ctx, app, rel, govResult, true)
 				} else if !outputJSON {
 					printWarning("Dry run - approval not saved")
 				}
@@ -513,11 +511,6 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	// Capture the approval outcome for actor/bottleneck analytics.
 	captureApprovalOutcome(ctx, app, string(rel.ID()), "approved", 0)
 
-	// Record successful outcome to Release Memory
-	if govResult != nil {
-		recordReleaseOutcome(ctx, app, rel, govResult, true)
-	}
-
 	if outputJSON {
 		return outputApproveResultJSON(rel, approveOut)
 	}
@@ -569,7 +562,9 @@ func createCGPActor() cgp.Actor {
 		identity = actor
 	}
 
-	id := fmt.Sprintf("%s:%s", kind.String(), identity)
+	// The shared composer, so this actor is keyed identically to one recorded by the
+	// outcome tracker for the same person.
+	id := cgp.QualifiedActorID(kind, identity)
 
 	// Trust level. Trust is NEVER inferred from actor kind or the absence of CI
 	// markers — both are environment signals an attacker can spoof to escalate.
@@ -610,7 +605,7 @@ func evaluateGovernance(ctx context.Context, app cliApp, rel *release.ReleaseRun
 	input := governance.EvaluateReleaseInput{
 		Release:        rel,
 		Actor:          actor,
-		Repository:     repoInfo.Path,
+		Repository:     repoInfo.GovernanceID(),
 		IncludeHistory: cfg.Governance.MemoryEnabled,
 	}
 
@@ -735,41 +730,23 @@ func displayAutoApprovalBlocked(result *governance.EvaluateReleaseOutput) {
 }
 
 // recordReleaseOutcome records the release outcome to Release Memory.
-func recordReleaseOutcome(ctx context.Context, app cliApp, rel *release.ReleaseRun, govResult *governance.EvaluateReleaseOutput, success bool) {
-	govService := app.GovernanceService()
-	if govService == nil || govResult == nil {
-		return
-	}
-
-	// Get repository info
-	gitAdapter := app.GitAdapter()
-	repoInfo, err := gitAdapter.GetInfo(ctx)
-	if err != nil {
-		return
-	}
-
-	outcome := governance.OutcomeSuccess
-	if !success {
-		outcome = governance.OutcomeFailure
-	}
-
-	actor := createCGPActor()
-
-	input := governance.RecordOutcomeInput{
-		ReleaseID:  rel.ID(),
-		Repository: repoInfo.Path,
-		Version:    rel.Summary().VersionNext,
-		Actor:      actor,
-		RiskScore:  govResult.RiskScore,
-		Decision:   govResult.Decision,
-		Outcome:    outcome,
-	}
-
-	if err := govService.RecordReleaseOutcome(ctx, input); err != nil {
-		// Non-fatal - just log the warning
-		printWarning(fmt.Sprintf("Failed to record release outcome: %v", err))
-	}
-}
+// Approval deliberately records no release outcome.
+//
+// It used to record one, marked successful, at the moment of approval — and
+// `relicta publish` records another when the release actually happens. With the
+// repository identity made canonical both landed under the same key, and one
+// release appeared in `relicta history` twice: "Summary: 2 releases, 100% success
+// rate" for a single publish.
+//
+// The duplicate is the visible half. The important half is that an approval is not
+// a release: a change approved and then never published, or one whose publish
+// failed, was recorded as a successful release. Calibration compares predicted risk
+// against actual outcomes and reputation is built from them, so both were being fed
+// an event that had not happened yet, twice.
+//
+// The approval itself is not lost. It is recorded on the run — approver, actor type
+// and justification (#240) — and captured for analytics by captureApprovalOutcome,
+// which is where approval-level events belong.
 
 // displayReleaseSummary displays the release summary for review.
 func displayReleaseSummary(rel *release.ReleaseRun) {
@@ -1048,11 +1025,14 @@ func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.
 		return nil
 	}
 
-	// Get repo info
-	repoURL := ""
+	// The same canonical identity the rest of governance uses. This read the raw
+	// remote URL, so the TUI summary evaluated against a different repository key
+	// than `approve` recorded under — one of three identities in use for the same
+	// repository.
+	repoID := ""
 	if gitAdapter := app.GitAdapter(); gitAdapter != nil {
 		if info, err := gitAdapter.GetInfo(ctx); err == nil {
-			repoURL = info.RemoteURL
+			repoID = info.GovernanceID()
 		}
 	}
 
@@ -1063,7 +1043,7 @@ func buildGovernanceSummaryForTUI(ctx context.Context, app cliApp, rel *release.
 	input := governance.EvaluateReleaseInput{
 		Release:    rel,
 		Actor:      actor,
-		Repository: repoURL,
+		Repository: repoID,
 	}
 
 	result, err := govService.EvaluateRelease(ctx, input)

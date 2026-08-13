@@ -158,12 +158,12 @@ func TestInMemoryEventPublisher_GetEventsByType(t *testing.T) {
 
 	_ = publisher.Publish(ctx, event1, event2, event3)
 
-	initEvents := publisher.GetEventsByType("run.created")
+	initEvents := publisher.GetEventsByType("release.created")
 	if len(initEvents) != 2 {
 		t.Errorf("GetEventsByType() length = %d, want 2", len(initEvents))
 	}
 
-	approveEvents := publisher.GetEventsByType("run.approved")
+	approveEvents := publisher.GetEventsByType("release.approved")
 	if len(approveEvents) != 1 {
 		t.Errorf("GetEventsByType() length = %d, want 1", len(approveEvents))
 	}

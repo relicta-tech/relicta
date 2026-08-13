@@ -50,13 +50,19 @@ rule "agent-requires-human" {
   }
 }
 
-# Trust verified human developers
+# Trust verified human developers.
+#
+# actor.trusted is true once an actor holds Trusted autonomy or better. Three
+# things grant it, and this rule does not care which: the
+# governance.trusted_actors allowlist, an identity-registry grant, or earned
+# trust computed from the actor's own release record. An actor who has not
+# earned it stays Limited and falls through to the defaults below.
 rule "trusted-human" {
   priority = 10
-  description = "Auto-approve low-risk human releases"
+  description = "Auto-approve low-risk releases from humans who have earned trust"
 
   when {
-    actor.kind == "human" AND risk.score < 0.3
+    actor.kind == "human" AND risk.score < 0.3 AND actor.trusted == true
   }
 
   then {

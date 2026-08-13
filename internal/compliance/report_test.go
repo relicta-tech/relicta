@@ -359,9 +359,21 @@ func TestGenerateDORA(t *testing.T) {
 		t.Errorf("PerWeek = %.2f, expected roughly 0.39", dora.DeploymentFrequency.PerWeek)
 	}
 
-	// Lead Time: we have durations 4h, 12h, 48h, 2h, 8h
-	if dora.LeadTimeForChanges.AverageHours < 14 || dora.LeadTimeForChanges.AverageHours > 16 {
-		t.Errorf("AvgLeadTime = %.1f hours, expected ~14.8", dora.LeadTimeForChanges.AverageHours)
+	// Lead time: this fixture records no deployments, so nothing reached production and
+	// there is no arrival to measure to.
+	//
+	// This assertion used to expect ~14.8 hours, the average of the fixture's
+	// ReleaseRecord.Duration values (4h, 12h, 48h, 2h, 8h). Those are release-process
+	// runtimes, not lead times, and averaging them as lead time is the defect fixed in
+	// lead_time_test.go — so the old expectation was pinning the bug rather than
+	// protecting behavior.
+	if dora.LeadTimeForChanges.MeasuredFrom != leadTimeUnavailable {
+		t.Errorf("MeasuredFrom = %q, want %q: with no deployments recorded, lead time cannot "+
+			"be computed", dora.LeadTimeForChanges.MeasuredFrom, leadTimeUnavailable)
+	}
+	if dora.LeadTimeForChanges.AverageHours != 0 {
+		t.Errorf("AverageHours = %.1f, want 0 when nothing could be measured",
+			dora.LeadTimeForChanges.AverageHours)
 	}
 
 	// MTTR: 1 incident with 4h resolution

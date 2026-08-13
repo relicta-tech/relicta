@@ -25,6 +25,24 @@ const (
 	runFileSuffix     = ".json"
 	machineFileSuffix = ".machine.json"
 	stateFileSuffix   = ".state.json"
+
+	// recommendationFileSuffix holds the ADR-009 recommendation artifact for a run.
+	//
+	// Stored rather than recomputed. ADR-009 makes the artifact the contract every
+	// interface returns, and the HTTP API returned no artifact at all — so a Hub
+	// reading over HTTP got a different shape than an agent reading MCP. The
+	// tempting fix is to rebuild one from the stored run, and it is the wrong one:
+	// risk factors and required actions are not persisted on a run, and
+	// Assessment.Factors serializes as [] rather than being omitted, so a
+	// reconstruction would present "no factors were computed" as "no factors
+	// exist". This file's own Policy field documents the alternative — "omitting it
+	// is preferable to inventing it" — and a recommendation that has to be honest
+	// about its provenance cannot be reassembled from a subset of itself.
+	//
+	// So the artifact produced at plan time is written next to the run, and served
+	// back verbatim. The digest it carries then means something over HTTP: it is
+	// the same artifact, not a same-shaped one.
+	recommendationFileSuffix = ".recommendation.json"
 )
 
 // ErrInvalidPath is returned when a path fails security validation.
@@ -99,6 +117,11 @@ func latestPath(repoRoot string) string {
 // It validates that the runID doesn't contain path traversal characters.
 func machinePath(repoRoot string, runID domain.RunID) string {
 	return filepath.Join(runsPath(repoRoot), filepath.Base(string(runID))+machineFileSuffix)
+}
+
+// recommendationPath returns the path to the run's recommendation artifact.
+func recommendationPath(repoRoot string, runID domain.RunID) string {
+	return filepath.Join(runsPath(repoRoot), filepath.Base(string(runID))+recommendationFileSuffix)
 }
 
 // statePath returns the path to the state snapshot JSON.
@@ -477,8 +500,26 @@ func (r *FileReleaseRunRepository) List(ctx context.Context, repoRoot string) ([
 		if entry.Name() == latestFile {
 			continue
 		}
-		// Skip state and machine files (which also end with .json)
-		if strings.HasSuffix(entry.Name(), stateFileSuffix) || strings.HasSuffix(entry.Name(), machineFileSuffix) {
+		// Skip sibling artifacts, which also end with .json.
+		//
+		// This was a list of known suffixes, and adding a new sibling file without
+		// adding it here made List return that file as a run ID. Because
+		// runPath(root, "run-x.recommendation") resolves to the artifact's own path,
+		// LoadBatch then read it and unmarshaled it into a ReleaseRunDTO — JSON
+		// ignores unknown fields — producing a run with an empty ID and a zero risk
+		// score. The dashboard showed a phantom release: {"id":"-decision",
+		// "release_id":"","risk_score":0}. Nothing errored.
+		//
+		// So the rule is structural rather than a list to maintain: a run file is
+		// "<id>.json" and a run ID contains no dots, so exactly one dot. Every
+		// sibling artifact has two. The named suffixes stay as documentation of what
+		// lives here.
+		if strings.Count(entry.Name(), ".") != 1 {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), stateFileSuffix) ||
+			strings.HasSuffix(entry.Name(), machineFileSuffix) ||
+			strings.HasSuffix(entry.Name(), recommendationFileSuffix) {
 			continue
 		}
 
@@ -615,6 +656,53 @@ func (r *FileReleaseRunRepository) SaveMachineJSON(repoRoot string, runID domain
 
 	path := machinePath(repoRoot, runID)
 	return os.WriteFile(path, machineJSON, 0644)
+}
+
+// SaveRecommendation writes a run's recommendation artifact.
+//
+// The bytes are stored as given rather than re-marshaled, so what is served
+// later is what was produced — the artifact's InputsDigest is a claim about
+// exact content, and a re-encode could reorder or reformat it.
+func (r *FileReleaseRunRepository) SaveRecommendation(repoRoot string, runID domain.RunID, artifact []byte) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := ensureDir(repoRoot); err != nil {
+		return err
+	}
+
+	// Atomic write, matching Save: a half-written artifact served to a Hub is
+	// worse than an absent one, because absence is reported and truncation is not.
+	path := recommendationPath(repoRoot, runID)
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, artifact, 0600); err != nil {
+		return fmt.Errorf("failed to write temp recommendation: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename temp recommendation: %w", err)
+	}
+	return nil
+}
+
+// LoadRecommendation returns a run's stored recommendation artifact.
+//
+// A run with no artifact is an ordinary case, not an error condition: runs
+// planned before artifacts were persisted have none, and callers must be able to
+// say so rather than serving an empty object. found=false distinguishes that from
+// a read failure.
+func (r *FileReleaseRunRepository) LoadRecommendation(repoRoot string, runID domain.RunID) (artifact []byte, found bool, err error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	data, readErr := os.ReadFile(recommendationPath(repoRoot, runID))
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("failed to read recommendation: %w", readErr)
+	}
+	return data, true, nil
 }
 
 // Conversion functions

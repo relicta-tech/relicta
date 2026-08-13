@@ -8,6 +8,7 @@ package memory
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -121,7 +122,23 @@ type ReleaseRecord struct {
 	// ReleasedAt is when the release was published.
 	ReleasedAt time.Time `json:"releasedAt"`
 
+	// FirstCommitAt is when the earliest change in this release was committed.
+	//
+	// DORA lead time for changes is the interval from a change being committed to it
+	// running in production, so this is where that interval starts. Without it the
+	// metric has no beginning and can only be approximated from the release itself,
+	// which measures delivery lag rather than lead time.
+	//
+	// Zero for records written before this field existed, and for a release whose
+	// commits are unknown. Readers must treat zero as "unknown" rather than as the
+	// epoch, or every historical release becomes a 56-year lead time.
+	FirstCommitAt time.Time `json:"firstCommitAt,omitempty"`
+
 	// Duration is how long the release process took.
+	//
+	// This is the runtime of the release itself — a few seconds or minutes. It is not
+	// lead time for changes, and reporting it as such rated every project "elite"
+	// regardless of how long its changes actually took to reach users.
 	Duration time.Duration `json:"duration"`
 
 	// Tags are labels for categorization.
@@ -139,12 +156,24 @@ const (
 	OutcomeRollback ReleaseOutcome = "rollback" // Release was rolled back
 	OutcomeFailed   ReleaseOutcome = "failed"   // Release failed to complete
 	OutcomePartial  ReleaseOutcome = "partial"  // Release partially succeeded
+
+	// OutcomeCanceled records a run someone deliberately stopped. It is not a
+	// release: nothing was published and nothing reached users.
+	//
+	// It exists because canceling used to be recorded as OutcomePartial, which
+	// IsNegative counts as a problem and Accumulate counts as a failed release. So
+	// deciding not to ship — the governance system working — damaged the actor's
+	// reliability score and raised change failure rate, while a project that never
+	// reconsidered a release looked flawless. A cancel belongs in the record for audit
+	// and belongs out of every rate computed from releases; CountsAsRelease is what
+	// keeps those two facts from contradicting each other.
+	OutcomeCanceled ReleaseOutcome = "canceled"
 )
 
 // IsValid returns true if the outcome is a valid value.
 func (o ReleaseOutcome) IsValid() bool {
 	switch o {
-	case OutcomeSuccess, OutcomeRollback, OutcomeFailed, OutcomePartial:
+	case OutcomeSuccess, OutcomeRollback, OutcomeFailed, OutcomePartial, OutcomeCanceled:
 		return true
 	default:
 		return false
@@ -152,8 +181,24 @@ func (o ReleaseOutcome) IsValid() bool {
 }
 
 // IsNegative returns true if this outcome indicates a problem.
+//
+// A cancellation is not a problem. Someone looked at a release and decided against it,
+// which is the intended use of a governance gate.
 func (o ReleaseOutcome) IsNegative() bool {
 	return o == OutcomeRollback || o == OutcomeFailed || o == OutcomePartial
+}
+
+// CountsAsRelease reports whether this outcome belongs in the population of releases
+// that rates are computed over.
+//
+// Every rate here is a fraction of releases — success rate, change failure rate,
+// deployment frequency, an actor's reliability. A canceled run is in the store for audit
+// but never became a release, so counting it in the denominator understates every rate
+// derived from it: it would make a team that cancels carefully look worse than one that
+// ships everything. One predicate, so a reader and a writer cannot disagree about which
+// records are releases.
+func (o ReleaseOutcome) CountsAsRelease() bool {
+	return o != OutcomeCanceled
 }
 
 // IncidentRecord stores information about a release incident.
@@ -390,6 +435,7 @@ type IncidentCorrelation struct {
 type InMemoryStore struct {
 	mu             sync.RWMutex
 	releases       map[string][]*ReleaseRecord            // keyed by repository
+	deployments    map[string][]*DeploymentRecord         // keyed by repository
 	incidents      map[string][]*IncidentRecord           // keyed by repository
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
@@ -400,6 +446,7 @@ type InMemoryStore struct {
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		releases:       make(map[string][]*ReleaseRecord),
+		deployments:    make(map[string][]*DeploymentRecord),
 		incidents:      make(map[string][]*IncidentRecord),
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),
@@ -422,12 +469,30 @@ func (s *InMemoryStore) RecordRelease(ctx context.Context, record *ReleaseRecord
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.releases[record.Repository] = append(s.releases[record.Repository], record)
+	records, replaced := UpsertReleaseRecord(s.releases[record.Repository], record)
+	s.releases[record.Repository] = records
 
-	// Update actor metrics
-	s.updateActorMetricsLocked(record)
+	if replaced != nil {
+		// See FileStore.RecordRelease: a replaced record cannot be folded into a
+		// running average, so the affected actors are recomputed instead.
+		s.rebuildActorMetricsLocked(record.Actor.ID, record.Actor.Kind)
+		if replaced.Actor.ID != record.Actor.ID {
+			s.rebuildActorMetricsLocked(replaced.Actor.ID, replaced.Actor.Kind)
+		}
+	} else {
+		s.updateActorMetricsLocked(record)
+	}
 
 	return nil
+}
+
+// rebuildActorMetricsLocked recomputes one actor's metrics from the stored records.
+// Must be called with the lock held.
+func (s *InMemoryStore) rebuildActorMetricsLocked(actorID string, kind cgp.ActorKind) {
+	if actorID == "" {
+		return
+	}
+	s.actors[actorID] = RebuildActorMetrics(actorID, kind, s.releases, s.incidents, time.Now())
 }
 
 // updateActorMetricsLocked updates actor metrics based on a release record.
@@ -436,50 +501,12 @@ func (s *InMemoryStore) updateActorMetricsLocked(record *ReleaseRecord) {
 	actorID := record.Actor.ID
 	metrics, exists := s.actors[actorID]
 	if !exists {
-		metrics = &ActorMetrics{
-			ActorID:   actorID,
-			ActorKind: record.Actor.Kind,
-		}
+		metrics = &ActorMetrics{ActorID: actorID, ActorKind: record.Actor.Kind}
 		s.actors[actorID] = metrics
 	}
-
-	now := time.Now()
-
-	// Update counts
-	metrics.TotalReleases++
-	switch record.Outcome {
-	case OutcomeSuccess:
-		metrics.SuccessfulReleases++
-	case OutcomeFailed, OutcomePartial:
-		metrics.FailedReleases++
-	case OutcomeRollback:
-		metrics.RollbackCount++
-		metrics.FailedReleases++
-	}
-
-	if record.RiskScore > 0.7 {
-		metrics.HighRiskReleases++
-	}
-	if record.BreakingChanges > 0 {
-		metrics.BreakingChangeReleases++
-	}
-
-	// Update average risk score (running average)
-	n := float64(metrics.TotalReleases)
-	metrics.AverageRiskScore = ((n-1)*metrics.AverageRiskScore + record.RiskScore) / n
-
-	// Update success rate
-	metrics.SuccessRate = float64(metrics.SuccessfulReleases) / float64(metrics.TotalReleases)
-
-	// Update timestamps
-	if metrics.FirstReleaseAt == nil {
-		metrics.FirstReleaseAt = &record.ReleasedAt
-	}
-	metrics.LastReleaseAt = &record.ReleasedAt
-	metrics.UpdatedAt = now
-
-	// Recalculate reliability score
-	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
+	// One definition, shared with FileStore and the Mnemos adapter: see
+	// ActorMetrics.Accumulate for why this must not be reimplemented per store.
+	metrics.Accumulate(record, time.Now())
 }
 
 // RecordIncident stores an incident record.
@@ -811,3 +838,140 @@ func (s *InMemoryStore) GetAuditTrail(ctx context.Context, proposalID string) (*
 		UpdatedAt:      latest,
 	}, nil
 }
+
+// UpsertReleaseRecord replaces the record carrying the same ID, or appends it.
+//
+// A ReleaseRecord is the outcome of one release run, so a repository holds at most one
+// per run ID. The stores appended unconditionally, which made two things duplicate
+// history: retrying a publish for the same run, and — once release domain events reach
+// the outcome tracker — the tracker and the CLI's own recordPublishOutcome both writing
+// the result of a single publish. Two records for one run inflate deployment frequency
+// and count the actor's release twice, and nothing reports it because both writes
+// succeed.
+//
+// Reports whether an existing record was replaced, because a replacement invalidates
+// the incrementally accumulated actor metrics and the caller has to rebuild them.
+func UpsertReleaseRecord(records []*ReleaseRecord, record *ReleaseRecord) (result []*ReleaseRecord, replaced *ReleaseRecord) {
+	for i, existing := range records {
+		if existing != nil && existing.ID == record.ID {
+			records[i] = record
+			return records, existing
+		}
+	}
+	return append(records, record), nil
+}
+
+// RebuildActorMetrics recomputes one actor's metrics from the records that define them.
+//
+// Needed whenever a record is replaced rather than added: the release-derived fields are
+// folded in incrementally by Accumulate, and a running average cannot be un-added, so the
+// only honest way to reflect a changed record is to recompute from the set. Incidents are
+// counted here too, since they contribute to the same metrics and a rebuild that ignored
+// them would silently reset an actor's incident history to zero.
+func RebuildActorMetrics(
+	actorID string,
+	kind cgp.ActorKind,
+	releases map[string][]*ReleaseRecord,
+	incidents map[string][]*IncidentRecord,
+	at time.Time,
+) *ActorMetrics {
+	metrics := &ActorMetrics{ActorID: actorID, ActorKind: kind}
+
+	// Ordered by release date so FirstReleaseAt/LastReleaseAt and the running average
+	// land where they would have had the records arrived in order.
+	var owned []*ReleaseRecord
+	for _, records := range releases {
+		for _, record := range records {
+			if record != nil && record.Actor.ID == actorID {
+				owned = append(owned, record)
+			}
+		}
+	}
+	sort.Slice(owned, func(i, j int) bool { return owned[i].ReleasedAt.Before(owned[j].ReleasedAt) })
+
+	for _, record := range owned {
+		metrics.Accumulate(record, at)
+	}
+
+	for _, records := range incidents {
+		for _, incident := range records {
+			if incident != nil && incident.ActorID == actorID {
+				metrics.IncidentCount++
+			}
+		}
+	}
+
+	metrics.UpdatedAt = at
+	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
+	return metrics
+}
+
+// Accumulate folds one release into an actor's running metrics.
+//
+// Extracted because three stores need this and two had already copied it verbatim
+// (InMemoryStore and FileStore), while the Mnemos adapter had no copy at all and
+// therefore counted releases without ever looking at their outcome — an actor with
+// nothing but failures showed a perfect record, and reputation and earned trust read
+// that as grounds to widen the actor's autonomy.
+//
+// One definition matters more here than in most places. These numbers decide whether an
+// actor's next change is auto-approved, so two implementations drifting apart would mean
+// the same history justified different autonomy depending on which backend was
+// configured — and nothing would report the disagreement.
+func (m *ActorMetrics) Accumulate(record *ReleaseRecord, at time.Time) {
+	if m == nil || record == nil {
+		return
+	}
+
+	// A canceled run is recorded but is not a release, so it enters none of these
+	// numbers — not the total, and therefore not the success rate's denominator either.
+	if !record.Outcome.CountsAsRelease() {
+		return
+	}
+
+	m.TotalReleases++
+	switch record.Outcome {
+	case OutcomeSuccess:
+		m.SuccessfulReleases++
+	case OutcomeFailed, OutcomePartial:
+		m.FailedReleases++
+	case OutcomeRollback:
+		// A rollback counts as both: the change was withdrawn, and it failed. Counting it
+		// only as a rollback would leave the failure rate reading clean.
+		m.RollbackCount++
+		m.FailedReleases++
+	}
+
+	if record.RiskScore > highRiskThreshold {
+		m.HighRiskReleases++
+	}
+	if record.BreakingChanges > 0 {
+		m.BreakingChangeReleases++
+	}
+
+	// Running average, so the whole history need not be held in memory.
+	n := float64(m.TotalReleases)
+	m.AverageRiskScore = ((n-1)*m.AverageRiskScore + record.RiskScore) / n
+
+	m.SuccessRate = float64(m.SuccessfulReleases) / float64(m.TotalReleases)
+
+	// A zero ReleasedAt is not a real timestamp and must not become the actor's first
+	// release: it would date the actor's history to year one and make every interval
+	// derived from it meaningless.
+	if !record.ReleasedAt.IsZero() {
+		if m.FirstReleaseAt == nil || record.ReleasedAt.Before(*m.FirstReleaseAt) {
+			releasedAt := record.ReleasedAt
+			m.FirstReleaseAt = &releasedAt
+		}
+		if m.LastReleaseAt == nil || record.ReleasedAt.After(*m.LastReleaseAt) {
+			releasedAt := record.ReleasedAt
+			m.LastReleaseAt = &releasedAt
+		}
+	}
+
+	m.UpdatedAt = at
+	m.ReliabilityScore = m.CalculateReliabilityScore()
+}
+
+// highRiskThreshold is the risk score above which a release counts as high risk.
+const highRiskThreshold = 0.7

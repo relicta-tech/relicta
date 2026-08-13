@@ -2099,7 +2099,7 @@
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-08T09:04:53.000000Z"
+      "created_at": "2026-08-08T09:04:53Z"
     },
     {
       "fingerprint": "afb7223be89ca407c769f3c063ca13f2654ac3625aeae43e02854b965d16405f",
@@ -2114,6 +2114,22 @@
       "file_path": "web/package-lock.json",
       "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
+    },
+    {
+      "fingerprint": "fefbf43884c16766c5ff199b2118e0bfdc0ef156128ecbd4ed14d8210a565850",
+      "rule_id": "DATA-001",
+      "file_path": "internal/domain/sourcecontrol/governance_id_test.go",
+      "severity": "medium",
+      "reason": "DATA-001 matches the SSH user in the scp-style git remotes used as test fixtures in governance_id_test.go. That user is the conventional one every git forge accepts, not a person's address. The fixtures exist because the parser must reduce an scp-style remote to the same identity as the https form, and that branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because an earlier version of this reason quoted one and the baseline file was then flagged by the same rule.",
+      "created_at": "2026-08-10T19:59:54.52539Z"
+    },
+    {
+      "fingerprint": "725920986743a927e7d49451a5b63239adedce2dbfb831762d2c2a18a4a53489",
+      "rule_id": "DATA-001",
+      "file_path": "internal/cgp/memory/outcome_tracker_identity_test.go",
+      "severity": "medium",
+      "created_at": "2026-08-11T16:40:00Z",
+      "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity \u2014 otherwise the same repository is keyed twice depending on how it was cloned \u2014 and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule."
     }
   ]
 }

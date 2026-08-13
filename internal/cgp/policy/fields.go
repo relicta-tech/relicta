@@ -56,7 +56,12 @@ func KnownFieldPaths() []string {
 // only the shape is read.
 func representativeEvalContext() map[string]any {
 	proposal := &cgp.ChangeProposal{
-		Actor: cgp.Actor{Kind: cgp.ActorKindHuman, ID: "human:example", Name: "Example"},
+		Actor: cgp.Actor{
+			Kind:       cgp.ActorKindHuman,
+			ID:         "human:example",
+			Name:       "Example",
+			TrustLevel: cgp.TrustLevelTrusted,
+		},
 		Scope: cgp.ProposalScope{
 			Repository:  "owner/repo",
 			Branch:      "main",
@@ -65,6 +70,19 @@ func representativeEvalContext() map[string]any {
 			Files:       []string{"main.go"},
 		},
 		Intent: cgp.ProposalIntent{Summary: "example", SuggestedBump: cgp.BumpTypeMinor},
+		// actor.reputation.* exists only when the governance service computed a
+		// reputation for this actor, and a context built without one would report
+		// those paths as unknown — `policy validate` would then reject a correct
+		// policy, and `policy fields` would not list fields the evaluator can in
+		// fact resolve. Same reason blastRadius is populated below.
+		Context: &cgp.ProposalContext{
+			ActorReputation: &cgp.ActorReputation{
+				Overall:    0.9,
+				Level:      "trusted",
+				SampleSize: 12,
+				Trend:      "stable",
+			},
+		},
 	}
 
 	analysis := &cgp.ChangeAnalysis{
