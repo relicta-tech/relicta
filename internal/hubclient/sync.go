@@ -150,19 +150,6 @@ func EventsFromReleases(orgID string, records []*memory.ReleaseRecord) []Event {
 			continue
 		}
 
-		// A canceled run never became a release, and Hub's vocabulary has no term for one:
-		// release.planned, release.published, release.failed. Sending it would mean
-		// choosing between two false statements — published, when nothing shipped, or
-		// failed, when nothing went wrong. eventTypeFor's default is release.published, so
-		// without this every cancellation would arrive at Hub as a successful release and
-		// inflate the deployment frequency the local report is careful to exclude it from.
-		//
-		// Skipping is the honest option until Hub can represent it; that is recorded in
-		// docs/backlog.md rather than left as a silent omission.
-		if !rec.Outcome.CountsAsRelease() {
-			continue
-		}
-
 		actor := pubcgp.Actor{Kind: string(rec.Actor.Kind), ID: rec.Actor.ID}
 
 		// Hub keys the release row on release_id, so an event without one materializes a
@@ -238,6 +225,12 @@ func eventTypeFor(outcome memory.ReleaseOutcome) string {
 	switch outcome {
 	case memory.OutcomeSuccess:
 		return "release.published"
+	case memory.OutcomeCanceled:
+		// Hub records this and excludes it from every rate, mirroring
+		// ReleaseOutcome.CountsAsRelease here. Cancellations were skipped entirely while
+		// Hub had no term for them: the default below is release.published, so sending one
+		// would have reported a run nobody shipped as a successful release.
+		return "release.canceled"
 	case memory.OutcomeFailed, memory.OutcomeRollback:
 		return "release.failed"
 	case memory.OutcomePartial:

@@ -276,21 +276,20 @@ remain unreachable. They are now redundant rather than load-bearing — the deco
 publishing — so the open question is whether to delete them or adopt them for the
 transactional boundary they were written for.
 
-## Hub cannot represent a canceled run
+## DONE: Hub represents a canceled run
 
-`relicta hub sync` skips records whose outcome is `canceled`, because Hub's event vocabulary
-is release.planned / release.published / release.failed and none of them is true of a run that
-never shipped. Sending one would mean choosing between two false statements, and
-`eventTypeFor`'s default would have made it the worse one — every cancellation arriving as a
-successful release, inflating the deployment frequency the local report is careful to exclude
-it from.
+`release.canceled` existed in Hub's event vocabulary and was materialized nowhere, so the CLI
+skipped canceled records rather than send an event that would vanish — or worse, be reported
+as a release, since eventTypeFor's default is release.published.
 
-Skipping keeps Hub's numbers agreeing with relicta's own about the same repository, at the
-cost of Hub not knowing a release was deliberately stopped — which is governance-relevant:
-"we decided not to ship this" is a decision an org-wide view should show.
+Both halves moved together, which was the condition this entry set. Hub materializes the
+event into a row with state and outcome "canceled" and excludes it from every rate through
+`Release.CountsAsRelease`, the mirror of `ReleaseOutcome.CountsAsRelease` here; `hub sync`
+sends it. Verified end to end: a repository with one canceled and one published run shows
+both at /releases while /analytics/dora counts one deployment, and the CLI reports the same
+split locally.
 
-Closing it needs a `release.canceled` event type in Hub, materialized into a row that is
-recorded but excluded from every rate, mirroring `ReleaseOutcome.CountsAsRelease` on the CLI
-side. Both halves of that predicate have to move together, or the two sides will disagree
-about which records are releases — which reads as a reporting bug rather than a difference of
-opinion.
+The reason the halves could not move separately is worth keeping: a Hub that counted
+cancellations would disagree with relicta about the same repository, and a disagreement
+between two views of one governance record reads as a reporting bug rather than a difference
+of opinion.

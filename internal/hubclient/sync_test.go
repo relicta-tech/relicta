@@ -284,45 +284,65 @@ func containsAll(s string, subs ...string) bool {
 	return true
 }
 
-// A canceled run must not reach Hub at all.
+// A canceled run reaches Hub as release.canceled.
 //
-// Hub's event vocabulary is planned/published/failed, and eventTypeFor's default is
-// release.published — so once OutcomeCanceled existed locally, every cancellation would have
-// arrived at Hub as a successful release. That is the one outcome the local report goes out
-// of its way to exclude from deployment frequency, so reporting it as a deployment would make
-// Hub's numbers disagree with relicta's own about the same repository.
-func TestACanceledRunIsNotReportedToHub(t *testing.T) {
+// These two tests asserted the opposite — that nothing was sent — and that was right while
+// Hub's vocabulary was planned/published/failed, because eventTypeFor's default is
+// release.published and sending one would have reported a run nobody shipped as a successful
+// release. Hub now has the term, materializes it into a row, and excludes it from every rate
+// through Release.CountsAsRelease, which mirrors ReleaseOutcome.CountsAsRelease here. The
+// skip is gone because the reason for it is.
+//
+// The property that must not change is the one underneath both versions: a cancellation is
+// never reported as a release.
+func TestACanceledRunIsReportedAsCanceled(t *testing.T) {
 	canceled := sampleRecord()
 	canceled.Outcome = memory.OutcomeCanceled
 
 	events := EventsFromReleases("org-1", []*memory.ReleaseRecord{canceled})
 
-	if len(events) != 0 {
-		var types []string
-		for _, e := range events {
-			types = append(types, e.Type)
+	if len(events) != 2 {
+		t.Fatalf("got %d events, want 2 (the plan and the cancellation)", len(events))
+	}
+
+	outcome := eventByType(t, events, "release.canceled")
+	if outcome.Data["release_id"] != canceled.ID {
+		t.Errorf("release_id = %v, want %s", outcome.Data["release_id"], canceled.ID)
+	}
+
+	for _, e := range events {
+		if e.Type == "release.published" || e.Type == "release.failed" {
+			t.Errorf("a canceled run was reported as %s: nothing shipped, and nothing went "+
+				"wrong either", e.Type)
 		}
-		t.Errorf("a canceled run produced %v; Hub has no term for a run that never shipped, "+
-			"so any event here is a false statement about it", types)
 	}
 }
 
-// And a canceled run among real ones must not take them with it.
-func TestACanceledRunDoesNotSuppressTheReleasesAroundIt(t *testing.T) {
+// A cancellation among real releases must not disturb them.
+func TestACanceledRunTravelsAlongsideTheReleasesAroundIt(t *testing.T) {
 	canceled := sampleRecord()
 	canceled.ID = "run-canceled"
 	canceled.Outcome = memory.OutcomeCanceled
 
-	events := EventsFromReleases("org-1", []*memory.ReleaseRecord{
-		canceled, sampleRecord(),
-	})
+	events := EventsFromReleases("org-1", []*memory.ReleaseRecord{canceled, sampleRecord()})
 
-	if len(events) != 2 {
-		t.Fatalf("got %d events, want 2 (the plan and outcome of the one real release)", len(events))
+	if len(events) != 4 {
+		t.Fatalf("got %d events, want 4 (a plan and an outcome for each record)", len(events))
 	}
+
+	var publishedEvents, canceledEvents int
 	for _, e := range events {
-		if e.Data["release_id"] == "run-canceled" {
-			t.Errorf("the canceled run leaked into the batch as %s", e.Type)
+		switch e.Type {
+		case "release.published":
+			publishedEvents++
+		case "release.canceled":
+			canceledEvents++
 		}
+	}
+	if publishedEvents != 1 {
+		t.Errorf("got %d release.published events, want 1", publishedEvents)
+	}
+	if canceledEvents != 1 {
+		t.Errorf("got %d release.canceled events, want 1", canceledEvents)
 	}
 }
