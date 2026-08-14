@@ -749,17 +749,38 @@ func (a *VersionWriterAdapter) WriteChangelog(ctx context.Context, ver version.S
 // It handles creating and pushing git tags during the publish step.
 type TagCreatorAdapter struct {
 	gitAdapter *git.Adapter
+
+	// requireSigning mirrors versioning.git_sign. See NewTagCreatorAdapter.
+	requireSigning bool
 }
 
-// NewTagCreatorAdapter creates a new TagCreatorAdapter.
-func NewTagCreatorAdapter(gitAdapter *git.Adapter) *TagCreatorAdapter {
+// NewTagCreatorAdapter creates the adapter that tags a release.
+//
+// requireSigning comes from versioning.git_sign. It refuses rather than signs, because
+// signing is not implemented: TagOptions.Sign is declared and never read by CreateTag,
+// ServiceConfig.GPGSign is written only by an option nothing calls, and versioning.git_sign
+// itself was read by no code at all. So `git_sign: true` produced an ordinary unsigned tag
+// and said nothing — a false integrity claim, and the one setting where being quietly wrong
+// is worst, since the signature is the evidence.
+//
+// Refusing only affects someone who deliberately set it: the default is false and the wizard
+// writes false. That is exactly the set of people who were being misled.
+func NewTagCreatorAdapter(gitAdapter *git.Adapter, requireSigning bool) *TagCreatorAdapter {
 	return &TagCreatorAdapter{
-		gitAdapter: gitAdapter,
+		gitAdapter:     gitAdapter,
+		requireSigning: requireSigning,
 	}
 }
 
 // CreateTag creates an annotated git tag with the given name and message.
 func (a *TagCreatorAdapter) CreateTag(ctx context.Context, name, message string) error {
+	if a.requireSigning {
+		return fmt.Errorf(
+			"versioning.git_sign is set but signing tags is not implemented: relicta would "+
+				"create %s as an unsigned tag, which for a signed-release policy is worse "+
+				"than failing. Unset versioning.git_sign to tag without a signature",
+			name)
+	}
 	if a.gitAdapter == nil {
 		return fmt.Errorf("git adapter not configured")
 	}
