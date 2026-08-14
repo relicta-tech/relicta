@@ -90,20 +90,38 @@ of those resolves against the process working directory somewhere, and a compone
 silently answered for the invoking repository instead of the member would be worse than the
 refusal it replaced.
 
-STILL OPEN: actually publishing a member. Two things stand in the way, and only the first is a
-decision.
+DONE: a group release publishes its members. Both blockers are cleared.
 
-1. Whether a group release may approve on behalf of a member whose policy requires a human.
-   The readiness check takes the conservative position — it never approves, and reports the
-   member as needing approval — which is a defensible default and reversible, but "execute
-   what is already approved" still needs someone to confirm that is the intended workflow.
+The decision, confirmed rather than assumed: a group release **publishes what was already
+approved and approves nothing itself**. Otherwise adding a repository to a group would be a
+way around its own policy — the release would run under an approval nobody gave. Readiness
+reports which members need approval; the executor refuses again at publish time, because the
+two checks are separated by however long the earlier members took.
 
-2. The container is bound to the invoking repository. `git.NewService()` takes no path, and
-   `blast.WithRepoPath(".")` and one other site assume the working directory, so pointing
-   release services at a member's root would leave the git adapter operating on the repository
-   relicta was invoked in — publishing that repository's tags. Executing safely means auditing
-   every cwd assumption in the container and adding a repo-path option; the failure mode is
-   silent misrouting on the publish path, which is why it is not a small change.
+The risk, removed: every path in a container derives from its git service, and that service
+took no path, so it opened the process working directory. Pointing release services at a
+member's root while the git adapter still pointed at the invoking repository would have
+published the *invoking* repository's tags — silently, and unrecoverably. `NewForRepo` scopes
+the whole container; `blast.WithRepoPath(".")` is scoped with it, and the third site was only
+a fallback for when the git adapter fails, so it followed. Containers built with `New` behave
+exactly as before.
+
+Verified with three repositories — a caller and two members, both approved, `group release`
+run from the caller:
+
+    gm-caller: v1.0.0            (unchanged — no tag from someone else's release)
+    gm-a:      v1.0.0 v1.1.0
+    gm-b:      v1.0.0 v1.1.0
+
+and with one member left unapproved, where nothing published at all and no tag moved. A test
+asserts the scoping directly, and reverting it reproduces the misrouting: the container
+resolves the caller instead of the member.
+
+Two smaller decisions inside it. The publish is not forced — `relicta publish` forces because
+an operator has just been shown the plan and confirmed it, while here nobody is watching this
+particular member, so a repository whose HEAD moved since approval stops rather than shipping
+something unreviewed. And the audit trail records the actor as the group release rather than
+"cli", since the run's own approval already records who authorized it.
 
 ## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
 
