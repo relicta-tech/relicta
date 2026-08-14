@@ -36,6 +36,12 @@ func repoForCommit(t *testing.T) (dir string, git func(args ...string)) {
 	}
 
 	git("init", "-q", "-b", "main")
+	// Configured in the repository rather than the environment, because CommitPaths runs git
+	// itself and resolves the identity the way git does — which is the point of shelling out.
+	// Setting GIT_AUTHOR_* on this helper's own commands left CI, which has no user.email
+	// anywhere, refusing the release commit with "Please tell me who you are".
+	git("config", "user.name", "Test")
+	git("config", "user.email", "test@example.com")
 	// The ambient user may sign every commit; a temporary repository has no key for it.
 	git("config", "commit.gpgsign", "false")
 	write(t, dir, "README.md", "x\n")
