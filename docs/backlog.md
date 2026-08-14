@@ -352,3 +352,40 @@ The reason the halves could not move separately is worth keeping: a Hub that cou
 cancellations would disagree with relicta about the same repository, and a disagreement
 between two views of one governance record reads as a reporting bug rather than a difference
 of opinion.
+
+## The observability integration is not wired at all
+
+Configuring `observability.providers` does nothing. The subsystem is complete in parts and
+connected at none of them:
+
+- `ObservabilityProviderConfig` — name, type, endpoint, basic auth, bearer token — is
+  consumed by **no code anywhere**. Nothing reads `cfg.Observability.Providers`.
+- `providers.NewPrometheusProvider` has no production caller, so its auth options
+  (`WithBasicAuth`, `WithBearerToken`) are unreachable too.
+- `monitor.NewHealthMonitor` has no production caller, so "deployment health monitoring after
+  releases" and `auto_record` never run.
+- `handlers.SetObservabilityService` has no production caller, so `observabilitySvc` is always
+  nil and the four `/api/v1/observability/*` routes answer from that branch every time.
+- No implementation of the `ObservabilityService` interface exists in the tree. The interface
+  is declared by the handlers and satisfied by nothing.
+
+FIXED HERE, because it is wrong regardless of the feature: the three read routes returned a
+bare empty collection with 200, so a caller could not tell "no providers configured" from
+"everything healthy" — and an empty health list reads as the second. They now report
+`status: not_configured` alongside the empty collection. The webhook route already answered
+503 honestly.
+
+WHAT BUILDING IT NEEDS, and why it was not done in the same pass: a provider factory and
+registry from config, an `ObservabilityService` implementation, and the health monitor wired
+to run after a deployment. The last carries decisions that are not the implementer's to make:
+
+1. When does monitoring start and for how long — the release, the deployment record, or a
+   configured window?
+2. What does `auto_record` write when a threshold is crossed? A deployment outcome of failed
+   is the obvious candidate, and it feeds change failure rate, so getting it wrong misreports
+   DORA rather than merely missing a feature.
+3. What counts as unhealthy — error rate, latency, a firing alert, or a combination — and does
+   an unhealthy window roll the release back or only record it?
+
+Until those are answered, the honest state is the one now shipped: the routes say the
+subsystem is not configured rather than implying health.
