@@ -48,6 +48,17 @@ type App struct {
 	mu     sync.RWMutex
 	closed bool
 
+	// repoPath is the repository this container serves, empty for the one relicta was
+	// invoked in.
+	//
+	// Everything else that needs a path derives from c.gitService, so this is the single
+	// point that decides which repository a container operates on. It exists because a
+	// group release has to drive a member's checkout: without it, git.NewService() opens
+	// the working directory, and release services pointed at a member's root would publish
+	// the *invoking* repository's tags — silent misrouting on the one path where being
+	// wrong is unrecoverable.
+	repoPath string
+
 	// allowUntrustedPlugins mirrors the CLI's --allow-untrusted-plugins flag.
 	// Default false — plugin manager refuses to load plugins on best-effort
 	// sandbox platforms until signing infrastructure ships. CLI sets this
@@ -109,6 +120,21 @@ func New(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
+// NewForRepo creates a container that operates on the repository at repoPath rather than the
+// process working directory.
+//
+// For driving a repository that is not the one relicta was invoked in — a group member. An
+// empty repoPath behaves exactly like New, so this is not a second code path for the ordinary
+// case.
+func NewForRepo(cfg *config.Config, repoPath string) (*App, error) {
+	app, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	app.repoPath = repoPath
+	return app, nil
+}
+
 // registerCloseable registers a component for cleanup during shutdown.
 func (c *App) registerCloseable(closeable Closeable) {
 	if closeable != nil {
@@ -155,8 +181,16 @@ func (c *App) Initialize(ctx context.Context) error {
 func (c *App) initInfrastructure(ctx context.Context) error {
 	var err error
 
-	// Initialize existing git service
-	c.gitService, err = git.NewService()
+	// Initialize existing git service, on this container's repository.
+	//
+	// Every other path in this container is derived from this service, so scoping it here
+	// scopes all of them. Nothing passed means the working directory, which is what every
+	// caller but a group release wants.
+	gitOpts := []git.ServiceOption{}
+	if c.repoPath != "" {
+		gitOpts = append(gitOpts, git.WithRepoPath(c.repoPath))
+	}
+	c.gitService, err = git.NewService(gitOpts...)
 	if err != nil {
 		return errors.GitWrap(err, "initInfrastructure", "failed to initialize git service")
 	}
@@ -456,8 +490,14 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	c.tagCreator = NewTagCreatorAdapter(c.gitAdapter)
 
 	// Initialize blast radius service for monorepo analysis
+	// Blast analyzes this container's repository, not the caller's. It took "." literally,
+	// which for a member-scoped container would have analyzed the wrong tree.
+	blastPath := c.repoPath
+	if blastPath == "" {
+		blastPath = "."
+	}
 	c.blastService = blast.NewService(
-		blast.WithRepoPath("."),
+		blast.WithRepoPath(blastPath),
 		blast.WithMonorepoConfig(blast.DefaultMonorepoConfig()),
 	)
 
