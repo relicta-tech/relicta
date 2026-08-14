@@ -15,6 +15,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/application/blast"
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
@@ -589,8 +590,22 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	// The CLI's --skip-push folds into the same field before the container is
 	// built, so there is one answer to "should this push" rather than a flag and
 	// a setting that can disagree.
+	// The attestation configuration, which nothing passed.
+	//
+	// `attestation:` is a documented config section and executeAttestationStep reads
+	// a.attestationConfig, so with the option never called the field was always nil and the
+	// step returned "Attestation generation skipped (not enabled)" — reporting Success. A
+	// user who enabled attestation got a release that said it succeeded and produced no
+	// attestation, and `relicta verify`, whose whole purpose is checking one, had nothing to
+	// check. Verified before the fix: a full publish with attestation.enabled: true wrote no
+	// attestation and said nothing about it.
+	//
+	// The audit chain travels with it because the generator takes one; without it the
+	// attestation carries no record of the decisions behind the release.
 	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator,
-		WithPushTags(c.config.Versioning.GitPush))
+		WithPushTags(c.config.Versioning.GitPush),
+		WithAttestationConfig(&c.config.Attestation),
+		WithAuditChain(audit.NewChain()))
 	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
 
 	// Configure release services
@@ -603,6 +618,8 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 		// The composed chain built in initEventPublishing: outcome tracker, webhook
 		// delivery, then the in-memory publisher the dashboard subscribes to.
 		EventPublisher: c.eventPublisher,
+		// So approval plans the attestation step the publisher knows how to run.
+		AttestationEnabled: c.config.Attestation.Enabled,
 	}
 
 	var err error

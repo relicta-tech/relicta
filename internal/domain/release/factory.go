@@ -44,6 +44,14 @@ type Config struct {
 	// VersionWriter writes version files. Optional.
 	VersionWriter ports.VersionWriter
 
+	// AttestationEnabled adds an attestation step to the execution plan at approval.
+	//
+	// Without it the step is never planned, so `attestation: enabled: true` produced no
+	// attestation however the publisher was configured — the feature was dead at two
+	// levels, and the publish step that would have generated one reported success while
+	// skipping. `relicta verify` exists to check an attestation and had nothing to check.
+	AttestationEnabled bool
+
 	// EventPublisher receives the aggregate's domain events after each successful
 	// save. Optional; without it a release emits no events.
 	//
@@ -111,6 +119,10 @@ func NewServices(cfg Config) (*Services, error) {
 		lockManager,
 		stateMachine,
 	)
+	// Planned at approval, because that is when the execution plan is fixed. Nothing
+	// called this, so the step was never in the plan and the attestation the publisher
+	// would have generated was never asked for.
+	approveRelease.SetAttestationEnabled(cfg.AttestationEnabled)
 
 	publishRelease := app.NewPublishReleaseUseCase(
 		repository,
