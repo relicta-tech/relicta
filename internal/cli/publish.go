@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -83,8 +84,17 @@ func outputStepResults(results []releaseapp.StepResult) {
 }
 
 // handleChangelogUpdate updates the changelog file if configured.
+//
+// Skips a version already present, which is what makes a retried publish safe: the changelog
+// is now written before the tag, so a publish that fails afterwards leaves an entry behind,
+// and the second attempt must not insert it twice.
 func handleChangelogUpdate(rel *release.ReleaseRun) {
 	if cfg.Changelog.File == "" || rel.Notes() == nil || rel.Notes().Text == "" {
+		return
+	}
+
+	if changelogAlreadyContains(cfg.Changelog.File, rel.Notes().Text) {
+		printInfo(fmt.Sprintf("%s already describes this release", cfg.Changelog.File))
 		return
 	}
 
@@ -94,6 +104,91 @@ func handleChangelogUpdate(rel *release.ReleaseRun) {
 	} else {
 		printSuccess(fmt.Sprintf("Updated %s", cfg.Changelog.File))
 	}
+}
+
+// changelogAlreadyContains reports whether the changelog already carries this release's notes.
+func changelogAlreadyContains(filename, notes string) bool {
+	data, err := os.ReadFile(filename) // #nosec G304 -- user-specified changelog path
+	if err != nil {
+		return false
+	}
+	entry := strings.TrimSpace(stripChangelogHeader(notes))
+	return entry != "" && strings.Contains(string(data), entry)
+}
+
+// releaseCommitPaths lists the files relicta itself writes as part of a release: the changelog
+// it renders, and every version-bearing manifest `relicta bump` updated.
+//
+// These are the paths the release commit covers, and — because they are relicta's own edits
+// rather than the operator's uncommitted work — the paths the clean-tree gate ignores when
+// that commit is going to happen.
+func releaseCommitPaths() []string {
+	if cfg == nil {
+		return nil
+	}
+
+	paths := make([]string, 0, 4)
+	if cfg.Changelog.File != "" {
+		paths = append(paths, cfg.Changelog.File)
+	}
+	for _, target := range cfg.Versioning.ResolvedVersionFiles() {
+		if target.Path != "" {
+			paths = append(paths, target.Path)
+		}
+	}
+	return paths
+}
+
+// commitReleaseArtifacts writes the changelog and commits it with the version files, so the
+// tag that follows points at a commit containing both.
+//
+// workflow.auto_commit_changelog defaults to true and was read by nothing, which left the
+// release incoherent in two ways at once. The changelog was written after the tag was created,
+// so the tag never contained the release notes describing it; and `relicta bump` writes the
+// configured version manifests without committing them, so the tagged package.json still
+// carried the previous version. Verified against the shipped binary: after a full release the
+// tree held an uncommitted CHANGELOG.md and a modified package.json, and `git show v0.1.0:
+// package.json` reported 0.0.0 for a release tagged 0.1.0.
+//
+// Once require_clean_working_tree was enforced, the same gap stopped the release outright —
+// bump dirtied package.json and publish then refused it. A release tool has to commit what it
+// writes, or it cannot honestly ask for a clean tree.
+func commitReleaseArtifacts(ctx context.Context, rel *release.ReleaseRun, ver string) error {
+	handleChangelogUpdate(rel)
+
+	if cfg == nil || !cfg.Workflow.AutoCommitChangelog {
+		return nil
+	}
+
+	paths := releaseCommitPaths()
+	if len(paths) == 0 {
+		return nil
+	}
+
+	svc, err := gitservice.NewService()
+	if err != nil {
+		return fmt.Errorf("failed to open repository for the release commit: %w", err)
+	}
+
+	message := strings.ReplaceAll(cfg.Workflow.ChangelogCommitMessage, "${version}", ver)
+	if message == "" {
+		message = "chore(release): " + ver
+	}
+
+	hash, err := svc.CommitPaths(ctx, paths, message)
+	if err != nil {
+		// Refuse rather than tag: the alternative is a tag on a commit that lacks the
+		// changelog and version files, which is the state this exists to prevent.
+		return fmt.Errorf("failed to commit the release files: %w", err)
+	}
+	if hash == "" {
+		// Nothing differed — a re-run after the commit already landed, or a project that
+		// keeps no changelog and no version files.
+		return nil
+	}
+
+	printSuccess(fmt.Sprintf("Committed release files (%s)", hash[:min(len(hash), 7)]))
+	return nil
 }
 
 // printPublishSummary prints the final release summary.
@@ -226,6 +321,15 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		return nil
 	}
 
+	// Write and commit the changelog and version files before the tag is created, so the
+	// tag points at a commit that contains them. Publishing first and writing afterwards —
+	// what this used to do — tags a commit that describes none of the release.
+	if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
+		if err := commitReleaseArtifacts(ctx, rel, nextVersion); err != nil {
+			return err
+		}
+	}
+
 	// Track publish start time for duration recording
 	publishStart := time.Now()
 
@@ -272,11 +376,6 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 
 	// Output step results
 	outputStepResults(output.StepResults)
-
-	// Handle changelog update
-	if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
-		handleChangelogUpdate(rel)
-	}
 
 	// Determine tag name from version
 	tagName := cfg.Versioning.TagPrefix + nextVersion
@@ -559,6 +658,8 @@ func enforceCleanWorkingTree(ctx context.Context) error {
 		return fmt.Errorf("could not determine whether the working tree is clean, and "+
 			"workflow.require_clean_working_tree requires it: %w", err)
 	}
+
+	modified = withoutReleaseCommitPaths(modified)
 	if len(modified) == 0 {
 		return nil
 	}
@@ -579,4 +680,48 @@ func enforceCleanWorkingTree(ctx context.Context) error {
 		"workflow.require_clean_working_tree is set: the tag would point at a commit that "+
 		"does not contain them. Commit or stash them, or set "+
 		"workflow.require_clean_working_tree: false", len(modified))
+}
+
+// withoutReleaseCommitPaths drops the files this release is about to commit itself.
+//
+// `relicta bump` writes the configured version manifests, so by publish time package.json is
+// modified — by relicta, one step earlier in the same release. Counting that as the operator's
+// uncommitted work made the two settings contradict each other: with version_files configured
+// and require_clean_working_tree at its default, every publish refused a dirty tree that
+// relicta had dirtied.
+//
+// Only excluded when auto_commit_changelog is on, because only then does relicta commit them.
+// With it off nothing here is committed by relicta, the operator is managing these files by
+// hand, and their being uncommitted is exactly what the gate should report.
+func withoutReleaseCommitPaths(modified []string) []string {
+	managed := make(map[string]struct{}, 4)
+	if cfg != nil && cfg.Workflow.AutoCommitChangelog {
+		for _, path := range releaseCommitPaths() {
+			managed[filepath.ToSlash(filepath.Clean(path))] = struct{}{}
+		}
+	}
+
+	kept := make([]string, 0, len(modified))
+	for _, path := range modified {
+		clean := filepath.ToSlash(filepath.Clean(path))
+		if _, isManaged := managed[clean]; isManaged {
+			continue
+		}
+		if isRelictaStorePath(clean) {
+			continue
+		}
+		kept = append(kept, path)
+	}
+	return kept
+}
+
+// isRelictaStorePath reports whether a path belongs to relicta's own release store.
+//
+// .relicta/ holds the run state relicta writes during every release. Projects that commit it —
+// the natural result of `git add -A` once, and the way a team keeps its governance history in
+// the repository — otherwise found the second release blocked by the first release's own
+// bookkeeping. That is relicta's state, not the operator's uncommitted work, and the gate is
+// only asking about the latter.
+func isRelictaStorePath(cleanPath string) bool {
+	return cleanPath == ".relicta" || strings.HasPrefix(cleanPath, ".relicta/")
 }
