@@ -175,10 +175,24 @@ func initializeAppContainer(ctx context.Context, cfg *config.Config) (*container
 		return nil, fmt.Errorf("failed to initialize container: %w", err)
 	}
 
-	// Initialize release services with current working directory
-	repoRoot, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get working directory: %w", err)
+	// The repository root, not the working directory.
+	//
+	// Started from a subdirectory, os.Getwd() rooted the release store there — so the
+	// dashboard served an empty release history for a repository that had one, exactly the
+	// way `relicta cancel` reported "no release run found" before #246. The git service the
+	// container already built answers this correctly from anywhere in the tree.
+	repoRoot := ""
+	if info, infoErr := app.GitAdapter().GetInfo(ctx); infoErr == nil {
+		repoRoot = info.Path
+	}
+	if repoRoot == "" {
+		// Outside a repository the dashboard still starts; release services simply have
+		// nothing to serve, which the caller below already tolerates.
+		var err error
+		repoRoot, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get working directory: %w", err)
+		}
 	}
 
 	if err := app.InitReleaseServices(ctx, repoRoot); err != nil {
