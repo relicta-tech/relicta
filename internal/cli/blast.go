@@ -75,8 +75,9 @@ func runBlast(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	// Get the repository path
-	repoPath := "."
+	// The repository root, not the working directory. Blast radius feeds the risk score,
+	// and analyzing a subdirectory produces a confident answer over the wrong file set.
+	repoPath := repositoryRoot(ctx)
 
 	// Build monorepo config from flags
 	monorepoConfig := blast.DefaultMonorepoConfig()
