@@ -418,3 +418,39 @@ has the shape for it (`signing_mode`, `key_path`). What it needs:
 
 Until then the refusal is the honest state: a release either has the signature its policy
 asked for, or it does not happen.
+
+## Config fields that nothing reads
+
+A sweep of every `mapstructure` field against its readers found 68 with no consumer outside
+the config package and the wizard. Most are plugin settings — a GitHub or Slack plugin reads
+its own config through the plugin interface, so "unread here" is correct for those.
+
+The rest are settings the CLI is expected to honor and does not. Two are now fixed
+(`versioning.git_sign`, `workflow.require_clean_working_tree`); these remain, roughly in
+descending order of how badly a user would be surprised:
+
+- `workflow.require_up_to_date` — the branch-freshness gate, unread like its sibling was.
+  Same shape as require_clean_working_tree: it needs a remote comparison, and deciding what
+  to do when the remote is unreachable is the only real question in it.
+- `versioning.version_files` and the monorepo `version_field` / `changelog_file` /
+  `skip_versioning` / `package_overrides` — writing the new version into package.json,
+  pyproject.toml and friends. Unread, so a release tags a version the files do not state.
+- `workflow.pre_release_hook` / `post_release_hook` — configured commands that never run.
+- `workflow.auto_commit_changelog` / `changelog_commit_message` — the changelog is written and
+  never committed, so the next release starts from a dirty tree (which the gate above now
+  refuses, making this pair more visible than it was).
+- `changelog.group_by` / `include_commit_hash` / `include_author` / `include_date` /
+  `link_commits` / `link_issues` — changelog rendering options with no effect.
+- `versioning.prerelease_suffix` / `bump_from`.
+- `git.ssh_key_path` / `ssh_key_password` — the git service has WithAuthToken and
+  WithAuthUsername with no callers either, so authenticated push relies entirely on ambient
+  credentials.
+- `attestation.rekor_url` / `fulcio_url` — keyless signing endpoints, unused because keyless
+  signing is not implemented.
+- `telemetry` and `persistence` — whole sections with no reader.
+
+The method is worth keeping: extract every field with a `mapstructure` tag, count references
+to the Go field name outside `internal/config`, `internal/ui/wizard` and
+`internal/cli/templates`, and read what is left. A setting that does nothing is worse than a
+missing one, because the user believes it is in force — `require_clean_working_tree` defaults
+to **true**, so every user had a safety gate switched on that never ran.
