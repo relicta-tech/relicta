@@ -32,13 +32,31 @@ func SetObservabilityService(svc ObservabilityService) {
 	observabilitySvc = svc
 }
 
+// notConfigured reports that the observability subsystem is not wired, alongside the empty
+// collection callers already expect.
+//
+// These routes returned a bare empty array with 200, so a caller could not tell "no providers
+// are configured" from "everything is healthy" — and the second is what an empty health list
+// reads as. Nothing constructs an ObservabilityService today: no implementation of the
+// interface exists, ObservabilityProviderConfig is consumed nowhere, and NewHealthMonitor has
+// no caller, so this is the answer every one of these routes gives. Saying so is the
+// difference between an unconfigured feature and a false all-clear.
+//
+// The empty collection stays in the payload so existing consumers keep parsing; the status
+// field is additive.
+func notConfigured(key string, empty any) map[string]any {
+	return map[string]any{
+		key:       empty,
+		"status":  "not_configured",
+		"details": "no observability provider is configured; see the observability section in .relicta.yaml",
+	}
+}
+
 // GetObservabilityHealth handles GET /api/v1/observability/health.
 // Returns current deployment health statuses for all active watches.
 func GetObservabilityHealth(w http.ResponseWriter, r *http.Request) {
 	if observabilitySvc == nil {
-		respondJSON(w, http.StatusOK, map[string]any{
-			"health": []monitor.HealthStatus{},
-		})
+		respondJSON(w, http.StatusOK, notConfigured("health", []monitor.HealthStatus{}))
 		return
 	}
 
@@ -56,9 +74,7 @@ func GetObservabilityHealth(w http.ResponseWriter, r *http.Request) {
 // Returns incident correlations for a specific release.
 func GetObservabilityCorrelations(w http.ResponseWriter, r *http.Request) {
 	if observabilitySvc == nil {
-		respondJSON(w, http.StatusOK, map[string]any{
-			"correlations": []correlation.ReleaseCorrelation{},
-		})
+		respondJSON(w, http.StatusOK, notConfigured("correlations", []correlation.ReleaseCorrelation{}))
 		return
 	}
 
@@ -83,9 +99,7 @@ func GetObservabilityCorrelations(w http.ResponseWriter, r *http.Request) {
 // Returns the status of all configured observability providers.
 func GetObservabilityProviders(w http.ResponseWriter, r *http.Request) {
 	if observabilitySvc == nil {
-		respondJSON(w, http.StatusOK, map[string]any{
-			"providers": []providers.ProviderStatus{},
-		})
+		respondJSON(w, http.StatusOK, notConfigured("providers", []providers.ProviderStatus{}))
 		return
 	}
 
