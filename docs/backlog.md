@@ -425,22 +425,23 @@ A sweep of every `mapstructure` field against its readers found 68 with no consu
 the config package and the wizard. Most are plugin settings — a GitHub or Slack plugin reads
 its own config through the plugin interface, so "unread here" is correct for those.
 
-The rest are settings the CLI is expected to honor and does not. Two are now fixed
-(`versioning.git_sign`, `workflow.require_clean_working_tree`); these remain, roughly in
-descending order of how badly a user would be surprised:
+The rest are settings the CLI is expected to honor and does not. Three are now fixed
+(`versioning.git_sign`, `workflow.require_clean_working_tree`, `workflow.auto_commit_changelog`
+with `changelog_commit_message`); these remain, roughly in descending order of how badly a user
+would be surprised:
 
 - `workflow.require_up_to_date` — the branch-freshness gate, unread like its sibling was.
   Same shape as require_clean_working_tree: it needs a remote comparison, and deciding what
   to do when the remote is unreachable is the only real question in it.
-- `versioning.version_files` and the monorepo `version_field` / `changelog_file` /
-  `skip_versioning` / `package_overrides` — writing the new version into package.json,
-  pyproject.toml and friends. Unread, so a release tags a version the files do not state.
 - `workflow.pre_release_hook` / `post_release_hook` — configured commands that never run.
-- `workflow.auto_commit_changelog` / `changelog_commit_message` — the changelog is written and
-  never committed, so the next release starts from a dirty tree (which the gate above now
-  refuses, making this pair more visible than it was).
 - `changelog.group_by` / `include_commit_hash` / `include_author` / `include_date` /
-  `link_commits` / `link_issues` — changelog rendering options with no effect.
+  `link_commits` / `link_issues` — changelog rendering options with no effect. Worth more than
+  the list suggests: the rendered changelog carries no version headings at all, just a flat
+  list of commit subjects, so consecutive releases run together in one undifferentiated file.
+- The monorepo `version_field` / `changelog_file` / `skip_versioning` / `package_overrides` —
+  per-package versioning settings with no reader. (`versioning.version_files` at the top level
+  *is* honored — `relicta bump` writes every configured manifest; the earlier note here was
+  wrong, corrected after checking against a real package.json.)
 - `versioning.prerelease_suffix` / `bump_from`.
 - `git.ssh_key_path` / `ssh_key_password` — the git service has WithAuthToken and
   WithAuthUsername with no callers either, so authenticated push relies entirely on ambient
