@@ -30,3 +30,12 @@ func NewMultirepoCoordinator(tagPrefix string) *appmultirepo.Coordinator {
 		inframultirepo.NewPlanner(tagPrefix),
 	)
 }
+
+// NewMultirepoReadiness returns the readiness reporter for group commands.
+//
+// Here for the same reason the coordinator is: the CLI reports readiness and must not import
+// internal/infrastructure. The types it renders live in internal/application/multirepo, which
+// it may.
+func NewMultirepoReadiness() appmultirepo.ReadinessChecker {
+	return inframultirepo.NewReadiness()
+}

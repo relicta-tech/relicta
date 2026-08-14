@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -131,6 +132,18 @@ func runGroupRelease(cmd *cobra.Command, _ []string) error {
 		fmt.Println(styles.Warning.Render("Dry run - no changes will be made."))
 		printGroupPlan(plan)
 		return nil
+	}
+
+	// Readiness before execution, and reported for every member at once.
+	//
+	// Execute refused on the first member with "no release executor is configured", which
+	// told the operator that something was unimplemented and nothing about their group.
+	// This answers what they were asking: what is blocking this release, and where.
+	//
+	// Checked before anything runs, because a coordinated release that publishes two of
+	// four repositories and then stops leaves the group in a state nobody chose.
+	if err := reportGroupReadiness(cmd.Context(), group); err != nil {
+		return err
 	}
 
 	// Execute
@@ -298,4 +311,61 @@ func stateIcon(state appmultirepo.RepoReleaseState) string {
 	default:
 		return string(state)
 	}
+}
+
+// reportGroupReadiness prints each member's readiness and refuses the group unless every
+// member could be released.
+//
+// It never approves on behalf of a member. Whether a group release may do that for a
+// repository whose policy requires a human is undecided (docs/backlog.md), and until it is,
+// naming the member that needs approval is the honest answer.
+func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup) error {
+	members := make([]appmultirepo.Member, 0, len(group.Repositories))
+	for _, repo := range group.Repositories {
+		members = append(members, appmultirepo.Member{Name: repo.Name, Path: repo.Path})
+	}
+
+	states := container.NewMultirepoReadiness().Check(ctx, members)
+	ready, blocked := appmultirepo.AllReady(states)
+	if ready {
+		return nil
+	}
+
+	if outputJSON {
+		// Refusing is still an answer, and a caller parsing output needs it in the shape
+		// they asked for rather than as prose on stderr.
+		if encErr := json.NewEncoder(os.Stdout).Encode(map[string]any{
+			"released": false,
+			"reason":   "not every member is ready to release",
+			"members":  states,
+		}); encErr != nil {
+			return encErr
+		}
+		return fmt.Errorf("%d of %d repositories are not ready to release", len(blocked), len(states))
+	}
+
+	fmt.Println(styles.Warning.Render("This group is not ready to release."))
+	fmt.Println()
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "  REPOSITORY	STATE	VERSION	WHAT IS NEEDED")
+	for _, s := range states {
+		state, version, needed := s.State, s.Version, s.Blocker
+		if state == "" {
+			state = "-"
+		}
+		if version == "" {
+			version = "-"
+		}
+		if s.Ready {
+			needed = "ready"
+		}
+		fmt.Fprintf(w, "  %s	%s	%s	%s\n", s.Name, state, version, needed)
+	}
+	_ = w.Flush()
+	fmt.Println()
+	fmt.Println("Nothing was released. A coordinated release that publishes some members and")
+	fmt.Println("stops leaves the group in a state nobody chose, so it is refused as a whole.")
+
+	return fmt.Errorf("%d of %d repositories are not ready to release", len(blocked), len(states))
 }

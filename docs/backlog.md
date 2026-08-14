@@ -79,13 +79,31 @@ depending on which command ran, and neither answer would be wrong on its own ter
 test asserting chores produce no version, which is not this tool's rule — DetectReleaseType
 treats any commit as at least a patch — and corrected the test rather than the behavior.)
 
-STILL OPEN: running a release. `relicta group release` refuses, and the refusal names what is
-undecided rather than reading as a defect: whether a group release may approve on behalf of a
-member whose policy requires a human. That is a governance decision, not a wiring gap, and
-guessing at it would be the worst kind of convenience — the pipeline would run inside somebody
-else's checkout under an approval they did not give. Everything else it needs (that
-repository's config, its plugins, its release services) is constructible per path the way the
-planner is.
+SINCE: the refusal now reports the group instead of the implementation. `relicta group
+release` checks every member's stored run first and prints what each one needs — no plan, not
+approved, already published, canceled, failed — with the repository named, refusing the group
+as a whole. A coordinated release that publishes two of four repositories and then stops
+leaves the group in a state nobody chose, so readiness is checked before anything runs.
+
+That check reads stored runs and nothing else: no container, no git service, no config. Each
+of those resolves against the process working directory somewhere, and a component that
+silently answered for the invoking repository instead of the member would be worse than the
+refusal it replaced.
+
+STILL OPEN: actually publishing a member. Two things stand in the way, and only the first is a
+decision.
+
+1. Whether a group release may approve on behalf of a member whose policy requires a human.
+   The readiness check takes the conservative position — it never approves, and reports the
+   member as needing approval — which is a defensible default and reversible, but "execute
+   what is already approved" still needs someone to confirm that is the intended workflow.
+
+2. The container is bound to the invoking repository. `git.NewService()` takes no path, and
+   `blast.WithRepoPath(".")` and one other site assume the working directory, so pointing
+   release services at a member's root would leave the git adapter operating on the repository
+   relicta was invoked in — publishing that repository's tags. Executing safely means auditing
+   every cwd assumption in the container and adding a repo-path option; the failure mode is
+   silent misrouting on the publish path, which is why it is not a small change.
 
 ## DONE: the cgp_* MCP tools are wired, and the RELATED audit was partly wrong
 
