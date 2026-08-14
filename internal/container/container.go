@@ -488,7 +488,7 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	)
 
 	// Initialize TagCreator adapter for tag operations in publish step
-	c.tagCreator = NewTagCreatorAdapter(c.gitAdapter)
+	c.tagCreator = NewTagCreatorAdapter(c.gitAdapter, c.config.Versioning.GitSign)
 
 	// Initialize blast radius service for monorepo analysis
 	// Blast analyzes this container's repository, not the caller's. It took "." literally,

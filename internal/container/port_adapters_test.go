@@ -52,14 +52,14 @@ func (m *mockTagCreator) TagExists(_ context.Context, _ string) (bool, error) {
 }
 
 func TestNewTagCreatorAdapter(t *testing.T) {
-	adapter := NewTagCreatorAdapter(nil)
+	adapter := NewTagCreatorAdapter(nil, false)
 	if adapter == nil {
 		t.Error("NewTagCreatorAdapter should return non-nil adapter")
 	}
 }
 
 func TestTagCreatorAdapter_CreateTag_NilGitAdapter(t *testing.T) {
-	adapter := NewTagCreatorAdapter(nil)
+	adapter := NewTagCreatorAdapter(nil, false)
 	err := adapter.CreateTag(context.Background(), "v1.0.0", "Release 1.0.0")
 	if err == nil {
 		t.Error("CreateTag should return error when git adapter is nil")
@@ -70,7 +70,7 @@ func TestTagCreatorAdapter_CreateTag_NilGitAdapter(t *testing.T) {
 }
 
 func TestTagCreatorAdapter_PushTag_NilGitAdapter(t *testing.T) {
-	adapter := NewTagCreatorAdapter(nil)
+	adapter := NewTagCreatorAdapter(nil, false)
 	err := adapter.PushTag(context.Background(), "v1.0.0", "origin")
 	if err == nil {
 		t.Error("PushTag should return error when git adapter is nil")
@@ -81,7 +81,7 @@ func TestTagCreatorAdapter_PushTag_NilGitAdapter(t *testing.T) {
 }
 
 func TestTagCreatorAdapter_TagExists_NilGitAdapter(t *testing.T) {
-	adapter := NewTagCreatorAdapter(nil)
+	adapter := NewTagCreatorAdapter(nil, false)
 	exists, err := adapter.TagExists(context.Background(), "v1.0.0")
 	if err == nil {
 		t.Error("TagExists should return error when git adapter is nil")

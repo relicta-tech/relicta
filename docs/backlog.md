@@ -389,3 +389,32 @@ to run after a deployment. The last carries decisions that are not the implement
 
 Until those are answered, the honest state is the one now shipped: the routes say the
 subsystem is not configured rather than implying health.
+
+## Sign git tags, or stop offering the setting
+
+`versioning.git_sign: true` produced an ordinary unsigned tag and said nothing. The chain was
+dead at every link: `versioning.git_sign` was read by no code at all, `TagOptions.Sign` is
+declared and never read by `CreateTag`, and `ServiceConfig.GPGSign` is written only by
+`WithGPGSign`, which nothing calls. Confirmed against the shipped binary — with the setting
+on, publish created v0.1.0 and `git tag -v` answered "error: no signature found".
+
+FIXED HERE by refusing: with `git_sign` set, tagging fails and names the setting, rather than
+producing an unsigned tag under a policy that asks for a signed one. For most settings
+silently doing nothing is a bug; for this one it is a false integrity claim, because the
+signature is the evidence. It affects only someone who deliberately set it — the default is
+false and the wizard writes false — which is exactly who was being misled.
+
+STILL OPEN: actually signing. go-git's `CreateTag` accepts a `SignKey *openpgp.Entity`, so the
+mechanism is a key-loading problem rather than a git one, and the attestation config already
+has the shape for it (`signing_mode`, `key_path`). What it needs:
+
+1. Where the key comes from — a keyring path, a GPG agent, or the same key attestation signing
+   uses. Sharing one key for both is the tidier story and should be a deliberate choice, not
+   an accident of whichever was implemented first.
+2. Passphrase handling in a non-interactive release. A prompt is impossible in CI, and an
+   environment variable holding a passphrase is a decision with its own consequences.
+3. Whether verification belongs in `relicta verify` alongside the attestation check, so a
+   signed tag and a signed attestation are reported together rather than by two commands.
+
+Until then the refusal is the honest state: a release either has the signature its policy
+asked for, or it does not happen.
