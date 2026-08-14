@@ -18,6 +18,7 @@ import (
 	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
 	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 var (
@@ -186,6 +187,13 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	// Enforce the per-actor autonomy budget before publishing — the CLI
 	// previously skipped this gate that the MCP surface applies.
 	if err := enforceActorBudget("publish", run.RiskScore()); err != nil {
+		return err
+	}
+
+	// And the working-tree gate, which nothing enforced. Checked here because it must run
+	// before the release mutates anything: publish writes the changelog, so a check any
+	// later would be reporting on relicta's own edits.
+	if err := enforceCleanWorkingTree(ctx); err != nil {
 		return err
 	}
 
@@ -516,4 +524,59 @@ func earliestCommitDate(commits []*changes.ConventionalCommit) time.Time {
 		}
 	}
 	return earliest
+}
+
+// enforceCleanWorkingTree refuses to publish with uncommitted changes when
+// workflow.require_clean_working_tree asks for a clean tree.
+//
+// The setting defaults to true and was read by no code at all, so every user had this gate
+// switched on and relicta published from dirty trees regardless — verified against the
+// shipped binary, which tagged v0.1.0 with a modified tracked file present and reported
+// "Release completed successfully!".
+//
+// Why it matters more than tidiness: the tag points at a commit, so uncommitted work is
+// precisely the code that is NOT in the release. Publishing from a dirty tree ships a version
+// whose author has changes they believe are in it.
+//
+// Untracked files do not count — see ModifiedTrackedFiles. relicta's own .relicta/ directory
+// is untracked in any repository that has not ignored it, and a gate that refused every
+// release would be switched off rather than obeyed.
+func enforceCleanWorkingTree(ctx context.Context) error {
+	if cfg == nil || !cfg.Workflow.RequireCleanWorkingTree {
+		return nil
+	}
+
+	svc, err := gitservice.NewService()
+	if err != nil {
+		return fmt.Errorf("could not read the working tree, and "+
+			"workflow.require_clean_working_tree requires it: %w", err)
+	}
+
+	modified, err := svc.ModifiedTrackedFiles(ctx)
+	if err != nil {
+		// Unreadable status is not permission to publish: this gate exists to stop a
+		// release the operator did not intend, and "I could not tell" is not "it is fine".
+		return fmt.Errorf("could not determine whether the working tree is clean, and "+
+			"workflow.require_clean_working_tree requires it: %w", err)
+	}
+	if len(modified) == 0 {
+		return nil
+	}
+
+	shown := modified
+	if len(shown) > 10 {
+		shown = shown[:10]
+	}
+	printWarning("Uncommitted changes to tracked files:")
+	for _, path := range shown {
+		fmt.Fprintf(os.Stderr, "    %s\n", path)
+	}
+	if len(modified) > len(shown) {
+		fmt.Fprintf(os.Stderr, "    ... and %d more\n", len(modified)-len(shown))
+	}
+
+	return fmt.Errorf("%d uncommitted change(s) to tracked files, and "+
+		"workflow.require_clean_working_tree is set: the tag would point at a commit that "+
+		"does not contain them. Commit or stash them, or set "+
+		"workflow.require_clean_working_tree: false", len(modified))
 }
