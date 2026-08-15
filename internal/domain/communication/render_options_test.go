@@ -202,3 +202,208 @@ func TestTheDateIsOmittedWhenNotWanted(t *testing.T) {
 		t.Errorf("heading = %q, want \"## [1.2.3]\" with include_date off", got)
 	}
 }
+
+// changelog.group_by shipped with a default of "type", three documented values, and validation
+// that accepts all three — while the renderer always grouped by type. "type" was accidentally
+// right; "scope" and "none" were silently ignored.
+
+func TestGroupingByScopeGivesEachComponentItsOwnSection(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.GroupBy = GroupByScope
+
+	entry := BuildEntry(version.MustParse("1.0.0"), changeSetOf(
+		commit(changes.CommitTypeFeat, "add pagination", changes.WithScope("api")),
+		commit(changes.CommitTypeFix, "reject expired tokens", changes.WithScope("api")),
+		commit(changes.CommitTypeFeat, "add --json", changes.WithScope("cli")),
+	), opts)
+
+	titles := sectionTitles(entry)
+	if len(titles) != 2 || titles[0] != "api" || titles[1] != "cli" {
+		t.Fatalf("titles = %v, want [api cli]: group_by scope asks for one section per "+
+			"component, in a stable order", titles)
+	}
+	if len(entry.Sections[0].Items) != 2 {
+		t.Errorf("api section has %d items, want both api commits regardless of their type",
+			len(entry.Sections[0].Items))
+	}
+}
+
+// The heading names the scope, so repeating "**api:**" on every line beneath it is noise.
+func TestGroupingByScopeDropsTheRepeatedScopePrefix(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.GroupBy = GroupByScope
+
+	got := RenderSections(BuildEntry(version.MustParse("1.0.0"), changeSetOf(
+		commit(changes.CommitTypeFeat, "add pagination", changes.WithScope("api")),
+	), opts), opts)
+
+	if strings.Contains(got, "**api:**") {
+		t.Errorf("rendered %q, want no scope prefix under the scope's own heading", got)
+	}
+}
+
+// A change with no scope is still a change. Dropping it would lose it, and inventing a scope
+// would print a component name the project does not use.
+func TestUnscopedChangesGetTheCatchAllSectionLast(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.GroupBy = GroupByScope
+
+	entry := BuildEntry(version.MustParse("1.0.0"), changeSetOf(
+		commit(changes.CommitTypeFix, "stop panicking"),
+		commit(changes.CommitTypeFeat, "add pagination", changes.WithScope("api")),
+	), opts)
+
+	titles := sectionTitles(entry)
+	if len(titles) != 2 || titles[0] != "api" || titles[1] != otherChangesTitle {
+		t.Fatalf("titles = %v, want [api %q]: the unscoped change must appear, and after the "+
+			"named components", titles, otherChangesTitle)
+	}
+	if got := entry.Sections[1].Items[0].Description; got != "stop panicking" {
+		t.Errorf("catch-all item = %q, want the unscoped commit", got)
+	}
+}
+
+// Exclude names commit types, and it goes on naming them whatever the sections are made of.
+func TestExcludedTypesStayOutWhenGroupingByScope(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.GroupBy = GroupByScope
+
+	entry := BuildEntry(version.MustParse("1.0.0"), changeSetOf(
+		commit(changes.CommitTypeChore, "bump the linter", changes.WithScope("deps")),
+		commit(changes.CommitTypeFeat, "add pagination", changes.WithScope("api")),
+	), opts)
+
+	if titles := sectionTitles(entry); len(titles) != 1 || titles[0] != "api" {
+		t.Errorf("titles = %v, want [api]: a chore is a chore whether sections are types or "+
+			"scopes", titles)
+	}
+}
+
+func TestNoGroupingRendersOneUnheadedList(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.GroupBy = GroupByNone
+
+	entry := BuildEntry(version.MustParse("1.0.0"), changeSetOf(
+		commit(changes.CommitTypeFeat, "add pagination"),
+		commit(changes.CommitTypeFix, "reject expired tokens"),
+		commit(changes.CommitTypePerf, "cache the tag lookup"),
+	), opts)
+
+	if len(entry.Sections) != 1 {
+		t.Fatalf("sections = %v, want one flat list", sectionTitles(entry))
+	}
+	if len(entry.Sections[0].Items) != 3 {
+		t.Errorf("items = %d, want all three: a flat list still lists everything",
+			len(entry.Sections[0].Items))
+	}
+
+	if got := RenderSections(entry, opts); strings.Contains(got, "###") {
+		t.Errorf("rendered %q, want no section heading with group_by none", got)
+	}
+}
+
+// group_by says how the ordinary changes are organized. It is not a statement that the reader
+// stopped caring what breaks, so the guarantee that a break leads and is never dropped holds
+// under every grouping — folding those items namelessly into a flat list would leave a
+// compatibility break rendered indistinguishably from a typo fix.
+func TestABreakingChangeStillLeadsUnderEveryGrouping(t *testing.T) {
+	for _, grouping := range []ChangelogGrouping{GroupByType, GroupByScope, GroupByNone} {
+		t.Run(string(grouping), func(t *testing.T) {
+			opts := DefaultRenderOptions()
+			opts.GroupBy = grouping
+
+			entry := BuildEntry(version.MustParse("2.0.0"), changeSetOf(
+				commit(changes.CommitTypeFeat, "add pagination", changes.WithScope("api")),
+				commit(changes.CommitTypeChore, "retire the old runtime",
+					changes.WithBreaking("the v1 runtime is gone")),
+			), opts)
+
+			titles := sectionTitles(entry)
+			if len(titles) == 0 || titles[0] != breakingSectionTitle {
+				t.Fatalf("titles = %v, want the breaking section first with group_by %q",
+					titles, grouping)
+			}
+			if got := entry.Sections[0].Items[0].Description; got != "the v1 runtime is gone" {
+				t.Errorf("description = %q, want the breaking message: excluding \"chore\" "+
+					"must not hide a break under any grouping", got)
+			}
+		})
+	}
+}
+
+// changelog.link_issues and changelog.issue_url were both validated and both unread, because
+// ChangelogItem.IssueRefs was populated by nothing.
+
+func issueCommit(t *testing.T) *changes.ConventionalCommit {
+	t.Helper()
+
+	message := "feat(api): add cursor pagination\n\nCloses: #123\n"
+	parsed := changes.ParseConventionalCommit("abcdef1234567890", message,
+		changes.WithRawMessage(message))
+	if parsed == nil {
+		t.Fatal("ParseConventionalCommit returned nil")
+	}
+	return parsed
+}
+
+func TestIssueReferencesLinkIntoTheIssueTracker(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.LinkIssues = true
+	opts.IssueURL = "https://github.com/owner/repo/issues"
+
+	got := RenderSections(BuildEntry(version.MustParse("1.0.0"),
+		changeSetOf(issueCommit(t)), opts), opts)
+
+	if !strings.Contains(got, "[#123](https://github.com/owner/repo/issues/123)") {
+		t.Errorf("rendered %q, want #123 linked into the tracker: an issue_url with no "+
+			"placeholder is the tracker's base URL and the number is appended", got)
+	}
+}
+
+// The setting is described as a URL pattern, and "{id}" is the placeholder the codebase
+// already spells. A tracker whose issue number is not at the end of the path needs it.
+func TestAnIssueURLPatternPutsTheNumberWhereItBelongs(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.LinkIssues = true
+	opts.IssueURL = "https://jira.example.com/browse/PROJ-" + IssueIDPlaceholder + "?src=changelog"
+
+	got := RenderSections(BuildEntry(version.MustParse("1.0.0"),
+		changeSetOf(issueCommit(t)), opts), opts)
+
+	want := "[#123](https://jira.example.com/browse/PROJ-123?src=changelog)"
+	if !strings.Contains(got, want) {
+		t.Errorf("rendered %q, want %q: the number goes where the pattern puts it, not at the "+
+			"end of the URL", got, want)
+	}
+}
+
+// Validation rejects this combination, but a renderer handed it anyway must not emit a link to
+// nothing — a reader who sees "#123" can find the issue, while "[#123]()" wastes a click.
+func TestIssueReferencesStayPlainTextWithoutATrackerURL(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.LinkIssues = true
+
+	got := RenderSections(BuildEntry(version.MustParse("1.0.0"),
+		changeSetOf(issueCommit(t)), opts), opts)
+
+	if !strings.Contains(got, "#123") {
+		t.Errorf("rendered %q, want the reference kept as text", got)
+	}
+	if strings.Contains(got, "[#123](") {
+		t.Errorf("rendered %q, want no link when no issue URL is configured", got)
+	}
+}
+
+// link_issues is the only setting that asks for issue references at all, so with it off an
+// entry has to look exactly as it did before any of this existed.
+func TestNoIssueReferencesAppearWhenLinkIssuesIsOff(t *testing.T) {
+	opts := DefaultRenderOptions()
+	opts.IssueURL = "https://github.com/owner/repo/issues"
+
+	got := RenderSections(BuildEntry(version.MustParse("1.0.0"),
+		changeSetOf(issueCommit(t)), opts), opts)
+
+	if strings.Contains(got, "#123") {
+		t.Errorf("rendered %q, want no issue reference with link_issues off", got)
+	}
+}

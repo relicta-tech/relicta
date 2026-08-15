@@ -83,6 +83,50 @@ func TestAnEmptyExcludeListIsHonored(t *testing.T) {
 	}
 }
 
+// group_by is validated against exactly these three values and the renderer honored none of
+// them: it always grouped by type, so "type" was accidentally right.
+func TestEachGroupingReachesTheRenderer(t *testing.T) {
+	for _, grouping := range []string{"type", "scope", "none"} {
+		t.Run(grouping, func(t *testing.T) {
+			app := appWithChangelog(t, func(c *config.ChangelogConfig) { c.GroupBy = grouping })
+
+			if got := app.changelogRenderOptions().GroupBy; string(got) != grouping {
+				t.Errorf("GroupBy = %q, want %q: the config accepts this value, so the "+
+					"changelog has to be grouped that way", got, grouping)
+			}
+		})
+	}
+}
+
+func TestAnInvalidGroupingFallsBackRatherThanBreakingTheRelease(t *testing.T) {
+	app := appWithChangelog(t, func(c *config.ChangelogConfig) { c.GroupBy = "by-phase-of-moon" })
+
+	if got := app.changelogRenderOptions().GroupBy; got != communication.GroupByType {
+		t.Errorf("GroupBy = %q, want the default: a typo in the config should not stop a "+
+			"release, and validation reports it separately", got)
+	}
+}
+
+// The issue tracker settings were validated — link_issues without issue_url is an error — and
+// then read by nothing, so a project that configured both got a changelog with no issue links.
+func TestTheIssueTrackerConfigurationReachesTheRenderer(t *testing.T) {
+	app := appWithChangelog(t, func(c *config.ChangelogConfig) {
+		c.LinkIssues = true
+		c.IssueURL = "  https://github.com/owner/repo/issues  "
+	})
+
+	opts := app.changelogRenderOptions()
+
+	if !opts.LinkIssues {
+		t.Error("LinkIssues is off despite link_issues: true, so no issue reference is rendered")
+	}
+	// Trimmed of surrounding space but not of a trailing slash: the value may be a pattern
+	// whose placeholder sits at the end.
+	if opts.IssueURL != "https://github.com/owner/repo/issues" {
+		t.Errorf("IssueURL = %q, want the configured tracker URL", opts.IssueURL)
+	}
+}
+
 func TestAnInvalidFormatFallsBackRatherThanBreakingTheRelease(t *testing.T) {
 	app := appWithChangelog(t, func(c *config.ChangelogConfig) { c.Format = "not-a-format" })
 

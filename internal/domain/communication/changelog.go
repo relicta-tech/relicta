@@ -205,9 +205,13 @@ func RenderSections(entry ChangelogEntry, opts RenderOptions) string {
 	var sb strings.Builder
 
 	for _, section := range entry.Sections {
-		sb.WriteString("### ")
-		sb.WriteString(section.Title)
-		sb.WriteString("\n\n")
+		// An untitled section is the flat list group_by: none asks for. Writing "### "
+		// with nothing after it would leave an empty heading in the markdown.
+		if section.Title != "" {
+			sb.WriteString("### ")
+			sb.WriteString(section.Title)
+			sb.WriteString("\n\n")
+		}
 
 		for _, item := range section.Items {
 			sb.WriteString("- ")
@@ -226,10 +230,10 @@ func RenderSections(entry ChangelogEntry, opts RenderOptions) string {
 	return sb.String()
 }
 
-// renderItemSuffix renders the trailing "(hash, author)" an item carries, linking the hash
-// when asked and when there is a repository to link into.
+// renderItemSuffix renders the trailing "(hash, author, #123)" an item carries, linking the
+// hash and the issue references when asked and when there is somewhere for a link to point.
 func renderItemSuffix(item ChangelogItem, opts RenderOptions) string {
-	parts := make([]string, 0, 2)
+	parts := make([]string, 0, 2+len(item.IssueRefs))
 
 	if item.CommitHash != "" {
 		hash := item.CommitHash
@@ -241,9 +245,32 @@ func renderItemSuffix(item ChangelogItem, opts RenderOptions) string {
 	if item.Author != "" {
 		parts = append(parts, item.Author)
 	}
+	for _, ref := range item.IssueRefs {
+		parts = append(parts, renderIssueRef(ref, opts.IssueURL))
+	}
 
 	if len(parts) == 0 {
 		return ""
 	}
 	return " (" + strings.Join(parts, ", ") + ")"
+}
+
+// renderIssueRef renders one "#123", as a link when there is a tracker to link into.
+//
+// The plain-text fallback matters because link_issues without issue_url is a configuration the
+// validator rejects but the renderer can still be handed — and a reader who sees "#123" can
+// find the issue, while "[#123]()" only wastes a click.
+func renderIssueRef(ref, issueURL string) string {
+	if issueURL == "" {
+		return ref
+	}
+
+	number := strings.TrimPrefix(ref, "#")
+	target := strings.ReplaceAll(issueURL, IssueIDPlaceholder, number)
+	if target == issueURL {
+		// No placeholder, so the setting is the tracker's base URL rather than a
+		// pattern: "https://github.com/owner/repo/issues" + "/123".
+		target = strings.TrimSuffix(issueURL, "/") + "/" + number
+	}
+	return "[" + ref + "](" + target + ")"
 }
