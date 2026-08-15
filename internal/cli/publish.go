@@ -61,6 +61,14 @@ func displayPublishActions(nextVersion string) {
 	fmt.Printf("  Create tag: %v\n", shouldCreateTag())
 	fmt.Printf("  Push:       %v\n", shouldPushTag())
 	fmt.Printf("  Plugins:    %v\n", shouldRunPlugins())
+	// Listed because --dry-run does not run them, and a preview that omits the two commands
+	// the real publish would execute is not previewing the release the operator configured.
+	if cfg.Workflow.PreReleaseHook != "" {
+		fmt.Printf("  Pre hook:   %s\n", cfg.Workflow.PreReleaseHook)
+	}
+	if cfg.Workflow.PostReleaseHook != "" {
+		fmt.Printf("  Post hook:  %s\n", cfg.Workflow.PostReleaseHook)
+	}
 	fmt.Println()
 }
 
@@ -320,6 +328,13 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		return err
 	}
 
+	// And the branch-freshness gate, likewise unread. After the clean-tree check because that
+	// one is local and instant, and there is no reason to spend a network round trip
+	// establishing that a branch is current only to refuse the release for a dirty tree.
+	if err := enforceUpToDate(ctx); err != nil {
+		return err
+	}
+
 	nextVersion := run.VersionNext().String()
 
 	// Output JSON if requested
@@ -347,6 +362,18 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	// Dry run - skip actual changes
 	if dryRun {
 		return nil
+	}
+
+	tagName := cfg.Versioning.TagPrefix + nextVersion
+
+	// The pre-release hook runs here: after the gates, which are cheap and would otherwise
+	// refuse the release only once the operator's test suite had finished for nothing, and
+	// before commitReleaseArtifacts, which writes the changelog and makes the release commit
+	// and is therefore the first thing this command mutates. A hook that can veto has to run
+	// while there is still nothing to undo. It is below the dry-run return for the obvious
+	// reason: --dry-run promises to change nothing, and a hook is somebody else's code.
+	if err := runPreReleaseHook(ctx, nextVersion, tagName); err != nil {
+		return err
 	}
 
 	// Write and commit the changelog and version files before the tag is created, so the
@@ -405,8 +432,12 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	// Output step results
 	outputStepResults(output.StepResults)
 
-	// Determine tag name from version
-	tagName := cfg.Versioning.TagPrefix + nextVersion
+	// The post-release hook runs here: the tag exists and every step has reported, so the
+	// release the hook is announcing has actually happened. Before the summary rather than
+	// after, because the summary is this command's closing statement — it should stay last,
+	// and it stays true either way, since a failing hook does not un-ship a release.
+	runPostReleaseHook(ctx, nextVersion, tagName)
+
 	printPublishSummary(nextVersion, tagName, remoteURL)
 
 	return nil
@@ -708,6 +739,81 @@ func enforceCleanWorkingTree(ctx context.Context) error {
 		"workflow.require_clean_working_tree is set: the tag would point at a commit that "+
 		"does not contain them. Commit or stash them, or set "+
 		"workflow.require_clean_working_tree: false", len(modified))
+}
+
+// enforceUpToDate refuses to publish from a branch that trails its remote when
+// workflow.require_up_to_date asks for a fresh branch.
+//
+// The setting was read by nothing. Verified against the shipped binary: with
+// require_up_to_date: true and a colleague's "fix: urgent fix from someone else" sitting on
+// origin/main unmerged, publish tagged v0.1.0 and reported "Release completed successfully!".
+// The tag named the tip of main and did not contain the fix, and the notes did not mention it.
+//
+// It fetches — see BehindRemote for why a comparison against whatever the last `git fetch`
+// left behind is worse than no check at all. The fetch is announced, because a release command
+// that silently opens a network connection is a surprise the operator should not have to read
+// the source to discover.
+//
+// The three answers this gate can get, and why they end differently:
+//
+// Behind: refuse. The tag would name a commit that is missing work already on the remote,
+// which is the whole condition the operator switched this on to prevent.
+//
+// Cannot tell — the fetch failed, the credentials expired, HEAD is detached and belongs to no
+// branch: refuse. #302 settled this: for a gate the operator deliberately switched on, "I
+// could not tell" is not "it is fine". The gate defaults to false, so nobody arrives here by
+// accident; whoever did asked relicta to prove the branch is current, and an unreachable
+// remote is the absence of that proof, not its substitute.
+//
+// Nothing to trail — no remote is configured, or the branch has never been pushed: pass, with
+// a note saying the check was vacuous. This is a determinate answer, not an unknown one: a
+// repository with no remote cannot fall behind one, and no amount of operator action would
+// ever satisfy a gate that refused it. A gate that can never be satisfied gets switched off
+// rather than obeyed — the same reasoning that keeps untracked files out of the clean-tree
+// gate — and the setting would become a permanent publish ban instead of a check.
+func enforceUpToDate(ctx context.Context) error {
+	if cfg == nil || !cfg.Workflow.RequireUpToDate {
+		return nil
+	}
+
+	svc, err := gitservice.NewService()
+	if err != nil {
+		return fmt.Errorf("could not open the repository, and "+
+			"workflow.require_up_to_date requires reading it: %w", err)
+	}
+
+	announce := func(remote string) {
+		printInfo(fmt.Sprintf("Fetching %s to check the branch is up to date "+
+			"(workflow.require_up_to_date)...", remote))
+	}
+
+	fresh, err := svc.BehindRemote(ctx, announce)
+	if err != nil {
+		return fmt.Errorf("could not determine whether the branch is up to date, and "+
+			"workflow.require_up_to_date requires knowing: %w. Fix the remote access, or "+
+			"set workflow.require_up_to_date: false", err)
+	}
+
+	switch {
+	case !fresh.HasRemote():
+		printInfo("No remote is configured, so there is nothing for this branch to trail.")
+		return nil
+	case !fresh.IsPublished():
+		printInfo(fmt.Sprintf("Branch %s is not on %s yet, so there is nothing for it to trail.",
+			fresh.Branch, fresh.Remote))
+		return nil
+	case fresh.Behind > 0:
+		printWarning(fmt.Sprintf("%s is %d commit(s) ahead of this branch.",
+			fresh.RemoteRef, fresh.Behind))
+		return fmt.Errorf("branch %s is %d commit(s) behind %s, and "+
+			"workflow.require_up_to_date is set: the tag would name a commit that does not "+
+			"contain work already on the remote. Pull or rebase first, or set "+
+			"workflow.require_up_to_date: false",
+			fresh.Branch, fresh.Behind, fresh.RemoteRef)
+	}
+
+	printSuccess(fmt.Sprintf("Branch %s is up to date with %s", fresh.Branch, fresh.RemoteRef))
+	return nil
 }
 
 // withoutReleaseCommitPaths drops the files this release is about to commit itself.

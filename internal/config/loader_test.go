@@ -45,6 +45,47 @@ func TestLoaderExpandEnvVar(t *testing.T) {
 	}
 }
 
+// Hooks used to be expanded here alongside the API keys, back when they were never executed.
+// Now that `sh -c` runs them, substituting a variable's value into the command string before
+// the shell parses it is the textbook injection: a variable holding `; rm -rf /` stops being a
+// value and becomes a second command. The shell expands $VAR itself, after parsing, where it
+// can only ever be an argument — so the string must reach it verbatim.
+func TestAHookReachesTheShellVerbatimRatherThanPreExpanded(t *testing.T) {
+	t.Setenv("RELEASE_TARGET", "staging; touch /tmp/pwned")
+
+	cfg := DefaultConfig()
+	cfg.Workflow.PreReleaseHook = "./deploy.sh ${RELEASE_TARGET}"
+	cfg.Workflow.PostReleaseHook = "./notify.sh $RELEASE_TARGET"
+
+	NewLoader().expandEnvVars(cfg)
+
+	if cfg.Workflow.PreReleaseHook != "./deploy.sh ${RELEASE_TARGET}" {
+		t.Errorf("pre_release_hook was rewritten to %q before the shell saw it: the "+
+			"variable's value is now part of the command text, so anything that can set "+
+			"RELEASE_TARGET can append a second command", cfg.Workflow.PreReleaseHook)
+	}
+	if cfg.Workflow.PostReleaseHook != "./notify.sh $RELEASE_TARGET" {
+		t.Errorf("post_release_hook was rewritten to %q before the shell saw it",
+			cfg.Workflow.PostReleaseHook)
+	}
+}
+
+// The fields that are still expanded here, so removing the hooks did not quietly remove them
+// too. These reach HTTP clients and file paths, never a shell.
+func TestCredentialsAndURLsAreStillExpanded(t *testing.T) {
+	t.Setenv("RELICTA_TEST_KEY", "sk-expanded")
+
+	cfg := DefaultConfig()
+	cfg.AI.APIKey = "${RELICTA_TEST_KEY}"
+
+	NewLoader().expandEnvVars(cfg)
+
+	if cfg.AI.APIKey != "sk-expanded" {
+		t.Errorf("ai.api_key = %q, want the expanded value: credentials are configured as "+
+			"${VAR} precisely so they stay out of the file", cfg.AI.APIKey)
+	}
+}
+
 func TestLoaderExpandPluginConfig(t *testing.T) {
 	cleanup := cleanupEnv("PLUGIN_TOKEN")
 	defer cleanup()
