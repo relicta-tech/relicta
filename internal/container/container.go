@@ -922,9 +922,14 @@ func NewInitialized(ctx context.Context, cfg *config.Config) (*App, error) {
 // The translation lives here, at the edge, so the renderer stays a domain value with no
 // knowledge of Viper or of the config struct. It exists at all because the entire
 // `changelog.*` block — format, group_by, exclude, categories, include_commit_hash,
-// include_author, include_date, link_commits, link_issues — had no reader outside the config
-// package: the defaults described a Keep a Changelog renderer while releases wrote a flat list
-// of commit subjects.
+// include_author, include_date, link_commits, link_issues, issue_url — had no reader outside
+// the config package: the defaults described a Keep a Changelog renderer while releases wrote
+// a flat list of commit subjects.
+//
+// changelog.template is the one setting still unread. It names a file this renderer has no way
+// to apply: the template engine in internal/infrastructure/template renders a different data
+// model (git.CategorizedChanges) than the entry built here, and choosing which shape a user's
+// template sees is a public contract, not a wiring gap.
 func (c *App) changelogRenderOptions() communication.RenderOptions {
 	opts := communication.DefaultRenderOptions()
 	if c.config == nil {
@@ -935,6 +940,12 @@ func (c *App) changelogRenderOptions() communication.RenderOptions {
 
 	if format := communication.ChangelogFormat(cfg.Format); format.IsValid() {
 		opts.Format = format
+	}
+	// group_by decided nothing: the renderer always grouped by type, so "type" was
+	// accidentally right and "scope" and "none" were silently ignored by a validator that
+	// accepts all three.
+	if grouping := communication.ChangelogGrouping(cfg.GroupBy); grouping.IsValid() {
+		opts.GroupBy = grouping
 	}
 	// An empty Exclude is a real choice — "include everything" — so it is only the absence
 	// of the key that falls back to the default, which config loading has already applied.
@@ -947,6 +958,11 @@ func (c *App) changelogRenderOptions() communication.RenderOptions {
 	opts.IncludeDate = cfg.IncludeDate
 	opts.LinkCommits = cfg.LinkCommits
 	opts.RepositoryURL = strings.TrimSuffix(cfg.RepositoryURL, "/")
+	opts.LinkIssues = cfg.LinkIssues
+	// Not stripped of a trailing slash the way RepositoryURL is: this one may be a pattern
+	// whose placeholder sits at the end, and the renderer trims the separator itself in the
+	// base-URL case.
+	opts.IssueURL = strings.TrimSpace(cfg.IssueURL)
 
 	return opts
 }
