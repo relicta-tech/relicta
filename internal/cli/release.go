@@ -295,12 +295,18 @@ func runReleasePlan(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 		return nil, fmt.Errorf("release analyzer not available")
 	}
 
+	configuredCurrent, err := configuredCurrentVersion(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+
 	input := servicerelease.AnalyzeInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        fromRef,
 		ToRef:          toRef,
 		TagPrefix:      cfg.Versioning.TagPrefix,
+		CurrentVersion: configuredCurrent,
 	}
 
 	output, err := analyzer.Analyze(ctx, input)

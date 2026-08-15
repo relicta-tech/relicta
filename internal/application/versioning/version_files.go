@@ -220,11 +220,19 @@ func (w *VersionFileWriter) renderFrom(t config.VersionTarget, v version.Semanti
 // resolve turns a repo-relative target path into an absolute one, refusing paths
 // that escape the repository root.
 func (w *VersionFileWriter) resolve(rel string) (string, error) {
+	return resolveInRepo(w.repoRoot, rel)
+}
+
+// resolveInRepo turns a repo-relative path into an absolute one, refusing paths
+// that escape the repository root. Package-level because reading a version out
+// of a manifest needs the same confinement as writing one into it, and a path
+// that is unsafe to write is equally unsafe to read.
+func resolveInRepo(repoRoot, rel string) (string, error) {
 	if filepath.IsAbs(rel) {
 		return "", fmt.Errorf("path must be relative to the repository root")
 	}
 
-	root, err := filepath.Abs(w.repoRoot)
+	root, err := filepath.Abs(repoRoot)
 	if err != nil {
 		return "", err
 	}

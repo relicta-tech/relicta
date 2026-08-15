@@ -222,7 +222,7 @@ func TestBuildCalculateVersionInput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bumpPrerelease = tt.prerelease
-			input := buildCalculateVersionInput(tt.bumpType, tt.auto)
+			input := buildCalculateVersionInput(tt.bumpType, tt.auto, nil)
 
 			if input.BumpType != tt.bumpType {
 				t.Errorf("buildCalculateVersionInput() BumpType = %v, want %v", input.BumpType, tt.bumpType)
