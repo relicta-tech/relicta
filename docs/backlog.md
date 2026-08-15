@@ -425,26 +425,37 @@ A sweep of every `mapstructure` field against its readers found 68 with no consu
 the config package and the wizard. Most are plugin settings — a GitHub or Slack plugin reads
 its own config through the plugin interface, so "unread here" is correct for those.
 
-The rest are settings the CLI is expected to honor and does not. Now fixed:
-`versioning.git_sign`, `workflow.require_clean_working_tree` (#302), `workflow.auto_commit_changelog`
-with `changelog_commit_message` (#303), and the changelog rendering block — `format`, `exclude`,
-`categories`, `include_commit_hash`, `include_author`, `include_date`, `link_commits`.
+The rest are settings the CLI is expected to honor and does not. Now fixed: `versioning.git_sign`,
+`workflow.require_clean_working_tree` (#302), `workflow.auto_commit_changelog` with
+`changelog_commit_message` (#303), the changelog rendering block (#304, #307 — `format`,
+`exclude`, `categories`, `include_commit_hash`, `include_author`, `include_date`,
+`link_commits`, `group_by`, `link_issues`/`issue_url`), `workflow.require_up_to_date` and the
+pre/post release hooks (#308), and `versioning.bump_from` (#306).
 
-These remain, roughly in descending order of how badly a user would be surprised:
+These remain:
 
-- `workflow.require_up_to_date` — the branch-freshness gate, unread like its sibling was.
-  Same shape as require_clean_working_tree: it needs a remote comparison, and deciding what
-  to do when the remote is unreachable is the only real question in it.
-- `workflow.pre_release_hook` / `post_release_hook` — configured commands that never run.
-- `changelog.group_by` (the `scope` and `none` modes; `type` is what the renderer does),
-  `changelog.link_issues` / `issue_url`, and `changelog.template` — the rest of the changelog
-  block is now honored. `link_issues` needs issue references parsed out of commit footers,
-  which `ChangelogItem.IssueRefs` has a field for and nothing populates.
+- `versioning.prerelease_suffix` — unread, and **deliberately left unread pending a product
+  decision**. The only reading that makes it do anything is "every bump becomes a prerelease",
+  which would mean the project can never cut a stable release through `bump` again: measured,
+  `1.3.0-beta.1` bumps to `1.3.0-beta.2`, never to `1.3.0`. `--prerelease beta` / `--channel
+  beta` and `promote --from beta --to stable` already cover the workflow and were measured
+  working. Honor it, or deprecate it in favour of `--channel` and `promote`.
+- `changelog.template` **and** `changelog.format` — one piece of work, not two. There is a
+  template engine in `internal/infrastructure/template` (embedded `changelog.tmpl`, custom-dir
+  loader, func map, execution timeout) whose only non-test importer is a benchmark. The blocker
+  is a public contract, not wiring: **which data model does a user's template receive?** Its
+  `ChangelogData` is built from `git.CategorizedChanges`, a different shape from the
+  `ChangelogEntry` that `group_by`, `categories` and `exclude` now shape. Choosing
+  `CategorizedChanges` silently stops those three applying to template users; choosing
+  `ChangelogEntry` stops the three shipped `.tmpl` files parsing. Two adjacent facts: `format:
+  custom` is accepted by `validate.go` but unknown to `ChangelogFormat.IsValid()`, so it is
+  silently downgraded today; and `RenderOptions.Format` is translated from config and never
+  branched on, so all formats currently render identically.
 - The monorepo `version_field` / `changelog_file` / `skip_versioning` / `package_overrides` —
-  per-package versioning settings with no reader. (`versioning.version_files` at the top level
+  per-package versioning settings with no reader. The whole `PackageOverrideConfig` struct is
+  unread, and `versioning.build_metadata` with it. (`versioning.version_files` at the top level
   *is* honored — `relicta bump` writes every configured manifest; the earlier note here was
   wrong, corrected after checking against a real package.json.)
-- `versioning.prerelease_suffix` / `bump_from`.
 - `git.ssh_key_path` / `ssh_key_password` — the git service has WithAuthToken and
   WithAuthUsername with no callers either, so authenticated push relies entirely on ambient
   credentials.
@@ -452,6 +463,19 @@ These remain, roughly in descending order of how badly a user would be surprised
   signing is not implemented.
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
+
+## Gates apply to `publish` but not to `release`
+
+`relicta release`, the one-shot workflow, has its own publish step in `runReleasePublish` that
+calls the use case directly. It applies **none** of the gates: not `require_clean_working_tree`
+(#302), not `require_up_to_date` (#308), not the actor budget, and it runs neither release
+hook. Every gate added to `publish` has to be added twice or moved somewhere both paths reach,
+and right now the one-shot path is the unguarded one — which is the path CI is most likely to
+use.
+
+The same shape once more: `internal/mcp/adapters.go` ignores `bump_from` at three `AnalyzeInput`
+sites, and two of them do not set `TagPrefix` either. The adapter holds no config; closing it is
+a container-wiring decision rather than a patch.
 
 ## The PostgreSQL backend is unreachable
 
