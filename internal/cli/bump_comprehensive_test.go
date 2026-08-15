@@ -65,7 +65,7 @@ func TestBuildCalculateVersionInputExtended(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			bumpPrerelease = tt.prerelease
 
-			input := buildCalculateVersionInput(tt.bumpType, tt.auto)
+			input := buildCalculateVersionInput(tt.bumpType, tt.auto, nil)
 
 			if input.Auto != tt.wantAuto {
 				t.Errorf("buildCalculateVersionInput() Auto = %v, want %v", input.Auto, tt.wantAuto)

@@ -108,12 +108,18 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Prepare input
+	configuredCurrent, err := configuredCurrentVersion(ctx, app)
+	if err != nil {
+		return err
+	}
+
 	input := servicerelease.AnalyzeInput{
 		RepositoryPath: repoInfo.Path,
 		Branch:         repoInfo.CurrentBranch,
 		FromRef:        planFromRef,
 		ToRef:          planToRef,
 		TagPrefix:      cfg.Versioning.TagPrefix,
+		CurrentVersion: configuredCurrent,
 	}
 
 	minConfidenceSet := cmd.Flags().Changed("min-confidence")

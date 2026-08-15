@@ -662,3 +662,83 @@ func (m *mockGitRepoWithDiffStats) GetBatchCommitDiffStats(ctx context.Context, 
 	}
 	return result, nil
 }
+
+// TestThePlannedVersionStartsFromTheConfiguredCurrentVersion covers the plan side
+// of versioning.bump_from.
+//
+// `bump` applies the version `plan` recorded rather than recomputing it, so a
+// bump_from honored only in the bump use case would still produce a release
+// planned from the git tag. This is the path that actually decides.
+func TestThePlannedVersionStartsFromTheConfiguredCurrentVersion(t *testing.T) {
+	fromFile, err := version.Parse("2.5.0")
+	if err != nil {
+		t.Fatalf("version.Parse() error = %v", err)
+	}
+
+	gitRepo := &mockGitRepo{
+		info: &sourcecontrol.RepositoryInfo{
+			Name:          "test-repo",
+			Owner:         "owner",
+			CurrentBranch: "main",
+		},
+		tags: sourcecontrol.TagList{},
+		commits: []*sourcecontrol.Commit{
+			newTestCommit("abc123", "feat: add a feature"),
+		},
+	}
+
+	analyzer := NewAnalyzer(gitRepo, version.NewDefaultVersionCalculator(), analysisfactory.NewFactory(nil))
+
+	output, err := analyzer.Analyze(context.Background(), AnalyzeInput{
+		RepositoryPath: "/test/repo",
+		Branch:         "main",
+		TagPrefix:      "v",
+		CurrentVersion: &fromFile,
+	})
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+
+	if output.CurrentVersion.String() != "2.5.0" {
+		t.Errorf("current version = %q, want 2.5.0; plan ignored the configured version source, so bump would apply a version derived from the git tag instead", output.CurrentVersion.String())
+	}
+	if output.NextVersion.String() != "2.6.0" {
+		t.Errorf("next version = %q, want 2.6.0; the release would be planned below the version the manifest already publishes", output.NextVersion.String())
+	}
+}
+
+// TestThePlannedVersionFallsBackToTheTagWhenNoneIsConfigured guards the default:
+// every project that never set bump_from must keep planning from its tags.
+func TestThePlannedVersionFallsBackToTheTagWhenNoneIsConfigured(t *testing.T) {
+	gitRepo := &mockGitRepo{
+		info: &sourcecontrol.RepositoryInfo{
+			Name:          "test-repo",
+			Owner:         "owner",
+			CurrentBranch: "main",
+		},
+		tags: sourcecontrol.TagList{},
+		commits: []*sourcecontrol.Commit{
+			newTestCommit("abc123", "feat: add a feature"),
+		},
+	}
+
+	analyzer := NewAnalyzer(gitRepo, version.NewDefaultVersionCalculator(), analysisfactory.NewFactory(nil))
+
+	output, err := analyzer.Analyze(context.Background(), AnalyzeInput{
+		RepositoryPath: "/test/repo",
+		Branch:         "main",
+		TagPrefix:      "v",
+	})
+	if err != nil {
+		t.Fatalf("Analyze() error = %v", err)
+	}
+
+	// No tags in this repository, so the current version is the zero value and the
+	// feature commit takes it to 0.1.0 — unchanged from before bump_from existed.
+	if output.CurrentVersion.String() != "0.0.0" {
+		t.Errorf("current version = %q, want 0.0.0; the default path no longer derives the version from the repository's tags", output.CurrentVersion.String())
+	}
+	if output.NextVersion.String() != "0.1.0" {
+		t.Errorf("next version = %q, want 0.1.0", output.NextVersion.String())
+	}
+}

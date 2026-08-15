@@ -88,11 +88,12 @@ func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr strin
 }
 
 // buildCalculateVersionInput creates the input for the CalculateVersion use case.
-func buildCalculateVersionInput(bumpType version.BumpType, auto bool) versioning.CalculateVersionInput {
+func buildCalculateVersionInput(bumpType version.BumpType, auto bool, current *version.SemanticVersion) versioning.CalculateVersionInput {
 	input := versioning.CalculateVersionInput{
-		TagPrefix: cfg.Versioning.TagPrefix,
-		BumpType:  bumpType,
-		Auto:      auto,
+		TagPrefix:      cfg.Versioning.TagPrefix,
+		BumpType:       bumpType,
+		Auto:           auto,
+		CurrentVersion: current,
 	}
 
 	if bumpPrerelease != "" {
@@ -210,7 +211,15 @@ func runVersion(cmd *cobra.Command, args []string) error {
 			printInfo(fmt.Sprintf("Applying the planned version from %s", shortenID(string(planned.RunID))))
 		}
 	} else {
-		calcInput := buildCalculateVersionInput(bumpType, auto)
+		configuredCurrent, cvErr := configuredCurrentVersion(ctx, app)
+		if cvErr != nil {
+			if spinner != nil {
+				spinner.Stop()
+			}
+			return cvErr
+		}
+
+		calcInput := buildCalculateVersionInput(bumpType, auto, configuredCurrent)
 		calcOutput, err = app.CalculateVersion().Execute(ctx, calcInput)
 
 		if spinner != nil {
@@ -278,7 +287,12 @@ func runBumpTagPush(ctx context.Context, app cliApp, existingVer version.Semanti
 	printInfo(fmt.Sprintf("HEAD is already tagged: %s", existingTag))
 
 	// Calculate what version would be needed based on commits
-	calcInput := buildCalculateVersionInput(version.BumpType(""), true)
+	configuredCurrent, err := configuredCurrentVersion(ctx, app)
+	if err != nil {
+		return err
+	}
+
+	calcInput := buildCalculateVersionInput(version.BumpType(""), true, configuredCurrent)
 	calcOutput, err := app.CalculateVersion().Execute(ctx, calcInput)
 	if err != nil {
 		// Can't calculate - use existing version
@@ -505,6 +519,38 @@ func reportVersionFilePlan(ctx context.Context, app cliApp, ver version.Semantic
 		}
 	}
 	return nil
+}
+
+// configuredCurrentVersion resolves the version to bump from when
+// versioning.bump_from names a manifest instead of the git tags.
+//
+// Returns nil for the default, bump_from = "tag", which leaves every caller on
+// the git discovery it already did.
+//
+// Errors are returned, never swallowed. Quietly falling back to the tag is how
+// this setting came to look like it worked: the tag and the manifest disagree —
+// that is the whole reason to configure it — so a silent fallback releases the
+// wrong version and says nothing.
+func configuredCurrentVersion(ctx context.Context, app cliApp) (*version.SemanticVersion, error) {
+	target, ok, err := versioning.CurrentVersionTarget(cfg.Versioning)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
+	repoRoot, err := versionFileRoot(ctx, app)
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := versioning.ReadCurrentVersion(repoRoot, target)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the current version (versioning.bump_from is %q): %w",
+			cfg.Versioning.BumpFrom, err)
+	}
+	return &current, nil
 }
 
 // versionFileRoot resolves the repository root that version file paths are

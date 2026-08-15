@@ -45,6 +45,17 @@ type AnalyzeInput struct {
 	// AnalysisConfig overrides analyzer defaults.
 	AnalysisConfig *analysis.AnalyzerConfig
 
+	// CurrentVersion supplies the version to plan from, for projects whose
+	// manifest rather than whose tags is the record of what shipped
+	// (versioning.bump_from). Nil reads it off the tag that starts the commit
+	// range, which is the default.
+	//
+	// Set here as well as on CalculateVersionInput because `bump` applies the
+	// version `plan` recorded rather than recomputing it (see bump_plan.go).
+	// Honoring bump_from in only one of the two would put them back into the
+	// disagreement that arrangement exists to prevent.
+	CurrentVersion *version.SemanticVersion
+
 	// CommitClassifications allows manual overrides keyed by commit hash.
 	CommitClassifications map[sourcecontrol.CommitHash]*analysis.CommitClassification
 }
@@ -344,6 +355,13 @@ func (a *Analyzer) collectCommits(ctx context.Context, input AnalyzeInput) (*sou
 		if v, err := version.Parse(strings.TrimPrefix(fromRef, input.TagPrefix)); err == nil {
 			currentVersion = v
 		}
+	}
+
+	// The tag still delimits the commit range above; only the version it implies
+	// is superseded. A manifest records which version a project is on, not the
+	// point in history it was cut at, so there is nothing else to range from.
+	if input.CurrentVersion != nil {
+		currentVersion = *input.CurrentVersion
 	}
 
 	toRef := input.ToRef

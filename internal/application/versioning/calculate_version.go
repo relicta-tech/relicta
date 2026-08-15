@@ -18,6 +18,15 @@ type CalculateVersionInput struct {
 	BumpType       version.BumpType
 	Prerelease     version.Prerelease
 	Auto           bool // Auto-detect bump type from commits
+
+	// CurrentVersion supplies the version to bump from, for projects whose
+	// manifest rather than whose tags is the record of what shipped
+	// (versioning.bump_from). Nil asks git, which is the default.
+	//
+	// Only the starting version is overridden. Auto-detection still reads the
+	// commits since the latest tag, because a manifest says which version a
+	// project is on and not where that version was cut.
+	CurrentVersion *version.SemanticVersion
 }
 
 // CalculateVersionOutput represents output of the CalculateVersion use case.
@@ -54,13 +63,21 @@ func (uc *CalculateVersionUseCase) Execute(ctx context.Context, input CalculateV
 		tagPrefix = "v"
 	}
 
-	// Discover current version
-	versionDiscovery := sourcecontrol.NewVersionDiscovery(tagPrefix)
-	currentVersion, err := versionDiscovery.DiscoverCurrentVersion(ctx, uc.gitRepo)
-	if err != nil {
-		// Same reasoning as DiscoverCurrentVersion's own no-tag case: a failure to
-		// discover a released version is not evidence that 0.1.0 was released.
-		currentVersion = version.Zero
+	// Discover current version. A caller that already knows it — because
+	// versioning.bump_from names a manifest as authoritative — supplies it, and
+	// git is not consulted for it at all.
+	var currentVersion version.SemanticVersion
+	if input.CurrentVersion != nil {
+		currentVersion = *input.CurrentVersion
+	} else {
+		versionDiscovery := sourcecontrol.NewVersionDiscovery(tagPrefix)
+		discovered, err := versionDiscovery.DiscoverCurrentVersion(ctx, uc.gitRepo)
+		if err != nil {
+			// Same reasoning as DiscoverCurrentVersion's own no-tag case: a failure to
+			// discover a released version is not evidence that 0.1.0 was released.
+			discovered = version.Zero
+		}
+		currentVersion = discovered
 	}
 
 	var bumpType version.BumpType
@@ -77,6 +94,7 @@ func (uc *CalculateVersionUseCase) Execute(ctx context.Context, input CalculateV
 		}
 
 		var commits []*sourcecontrol.Commit
+		var err error
 		if latestTag != nil {
 			commits, err = uc.gitRepo.GetCommitsBetween(ctx, latestTag.Name(), "HEAD")
 		} else {
