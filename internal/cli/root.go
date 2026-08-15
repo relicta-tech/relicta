@@ -270,8 +270,10 @@ func init() {
 	healthCmd.GroupID = "ops"
 	cleanCmd.GroupID = "ops"
 	demoCmd.GroupID = "ops"
+	dbCmd.GroupID = "ops"
 
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(dbCmd)
 	rootCmd.AddCommand(hubCmd)
 	hubCmd.GroupID = "integrations"
 	rootCmd.AddCommand(initCmd)

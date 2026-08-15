@@ -450,7 +450,40 @@ These remain, roughly in descending order of how badly a user would be surprised
   credentials.
 - `attestation.rekor_url` / `fulcio_url` — keyless signing endpoints, unused because keyless
   signing is not implemented.
-- `telemetry` and `persistence` — whole sections with no reader.
+- `telemetry` — a whole section with no reader. Belongs with the observability entry above,
+  which carries the decisions it needs.
+
+## The PostgreSQL backend is unreachable
+
+Recorded rather than fixed, because closing it needs a decision rather than wiring.
+
+`persistence.backend: postgres` is **silently ignored** for releases. Verified against the
+built binary with a deliberately unreachable connection string: `relicta plan` reported
+"Release plan saved" and wrote `.relicta/releases/run-*.json`. A team that configures
+PostgreSQL for shared governance state believes its release history is in the database; it is
+in each developer's working copy.
+
+The parts all exist and none of them are reached:
+
+- `persistence.NewEventStore` — the factory that selects postgres by config: no caller.
+- `adapters.NewFileEventStore` — the other implementation: no caller either.
+- `LoadEvents` / `LoadAllEvents` — no caller outside the implementations, so nothing reads an
+  event stream back.
+
+So `EventPublishingConfig.EventStore` is always nil and the event-sourcing layer never runs at
+all. Both implementations satisfy `ports.EventStore` and the factory compiles, so this is not
+far from working — but wiring it would add writes that nothing reads.
+
+**The decision needed first: is the event store the system of record, or a second mechanism
+alongside the run JSON and the CGP audit chain?** Releases already persist as
+`.relicta/releases/run-*.json`, and governance history has its own store in `internal/cgp`.
+Until that is settled, wiring the event store would produce a third copy of the truth, which is
+worse than none. Once settled, a postgres release repository — not just an event store — is
+what a shared backend actually requires.
+
+Fixed alongside this entry: the `db` command is now registered (it was documented in CLAUDE.md
+and absent from the binary), and `persistence` has defaults (`DefaultPersistenceConfig` existed
+and was called from nowhere, so the backend was "" and the pool size 0).
 
 The method is worth keeping: extract every field with a `mapstructure` tag, count references
 to the Go field name outside `internal/config`, `internal/ui/wizard` and
