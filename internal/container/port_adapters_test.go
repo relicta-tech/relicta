@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
@@ -378,14 +379,14 @@ func TestPublisherAdapter_mapStepTypeToHook(t *testing.T) {
 }
 
 func TestNewNotesGeneratorAdapter(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 	if adapter == nil {
 		t.Error("NewNotesGeneratorAdapter should return non-nil adapter")
 	}
 }
 
 func TestNotesGeneratorAdapter_Generate_NoAIService(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	run := createTestReleaseRunWithChangeset(t)
 	options := ports.NotesOptions{
@@ -439,7 +440,7 @@ func (s *panickyAIService) Complete(context.Context, string, string) (string, er
 func (s *panickyAIService) IsAvailable() bool { return true }
 
 func TestNotesGeneratorAdapter_Generate_UseAIFalse_SkipsAvailableService(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(&panickyAIService{t: t}, nil)
+	adapter := NewNotesGeneratorAdapter(&panickyAIService{t: t}, nil, communication.DefaultRenderOptions())
 
 	run := createTestReleaseRunWithChangeset(t)
 	options := ports.NotesOptions{
@@ -461,7 +462,7 @@ func TestNotesGeneratorAdapter_Generate_UseAIFalse_SkipsAvailableService(t *test
 }
 
 func TestNotesGeneratorAdapter_Generate_NoChangeset(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	run := createTestReleaseRun(t)
 	options := ports.NotesOptions{
@@ -482,7 +483,7 @@ func TestNotesGeneratorAdapter_Generate_NoChangeset(t *testing.T) {
 }
 
 func TestNotesGeneratorAdapter_ComputeInputsHash(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	run := createTestReleaseRun(t)
 	options := ports.NotesOptions{
@@ -510,7 +511,7 @@ func TestNotesGeneratorAdapter_ComputeInputsHash(t *testing.T) {
 }
 
 func TestNotesGeneratorAdapter_mapTone(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	tests := []struct {
 		preset string
@@ -534,7 +535,7 @@ func TestNotesGeneratorAdapter_mapTone(t *testing.T) {
 }
 
 func TestNotesGeneratorAdapter_mapAudience(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	tests := []struct {
 		preset string
@@ -583,7 +584,7 @@ func TestVersionWriterAdapter_WriteChangelog_NilGitAdapter(t *testing.T) {
 }
 
 func TestNotesGeneratorAdapter_convertToCategorizedChanges(t *testing.T) {
-	adapter := NewNotesGeneratorAdapter(nil, nil)
+	adapter := NewNotesGeneratorAdapter(nil, nil, communication.DefaultRenderOptions())
 
 	// Create a changeset with various commit types
 	cs := changes.NewChangeSet("test-cs", "v0.9.0", "HEAD")

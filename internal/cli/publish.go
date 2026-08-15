@@ -15,6 +15,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
 	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
@@ -93,17 +94,44 @@ func handleChangelogUpdate(rel *release.ReleaseRun) {
 		return
 	}
 
-	if changelogAlreadyContains(cfg.Changelog.File, rel.Notes().Text) {
+	entry := changelogEntryFor(rel)
+	if changelogAlreadyContains(cfg.Changelog.File, entry) {
 		printInfo(fmt.Sprintf("%s already describes this release", cfg.Changelog.File))
 		return
 	}
 
 	printInfo(fmt.Sprintf("Updating %s...", cfg.Changelog.File))
-	if err := updateChangelogFile(cfg.Changelog.File, rel.Notes().Text); err != nil {
+	if err := updateChangelogFile(cfg.Changelog.File, entry); err != nil {
 		printWarning(fmt.Sprintf("Failed to update changelog: %v", err))
 	} else {
 		printSuccess(fmt.Sprintf("Updated %s", cfg.Changelog.File))
 	}
+}
+
+// changelogEntryFor renders the entry to insert into the changelog: the release notes under a
+// version heading.
+//
+// The heading is added here rather than baked into the notes because the notes are shown
+// wherever a release is announced, while the heading is what makes a changelog *file* a
+// sequence of releases. Without it every release ran into the previous one — the file was a
+// flat list of bullets with nothing marking where 0.2.0 ended and 0.1.0 began — and
+// findVersionEntryPoint, which inserts a new release above the last one, had no "## [" to find
+// and appended to the bottom instead.
+//
+// Notes that already open with their own version heading — an AI provider asked to write in
+// Keep a Changelog style will — are left as they are rather than given a second one.
+func changelogEntryFor(rel *release.ReleaseRun) string {
+	notes := strings.TrimSpace(stripChangelogHeader(rel.Notes().Text))
+
+	heading := communication.RenderVersionHeading(communication.ChangelogEntry{
+		Version: rel.VersionNext(),
+		Date:    time.Now(),
+	})
+
+	if strings.HasPrefix(notes, "## ") {
+		return notes
+	}
+	return heading + "\n\n" + notes
 }
 
 // changelogAlreadyContains reports whether the changelog already carries this release's notes.

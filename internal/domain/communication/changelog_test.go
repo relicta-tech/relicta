@@ -215,7 +215,7 @@ func TestChangelogItem_AllFields(t *testing.T) {
 	}
 }
 
-func TestCreateEntryFromChangeSet(t *testing.T) {
+func TestBuildEntry(t *testing.T) {
 	ver := version.MustParse("1.0.0")
 
 	// Create test commits
@@ -227,7 +227,9 @@ func TestCreateEntryFromChangeSet(t *testing.T) {
 	cs := changes.NewChangeSet("test", "v0.9.0", "HEAD")
 	cs.AddCommits([]*changes.ConventionalCommit{feat, fix, breaking, perf})
 
-	entry := CreateEntryFromChangeSet(ver, cs, "https://github.com/owner/repo")
+	opts := DefaultRenderOptions()
+	opts.RepositoryURL = "https://github.com/owner/repo"
+	entry := BuildEntry(ver, cs, opts)
 
 	if entry.Version.String() != "1.0.0" {
 		t.Errorf("Version = %v, want 1.0.0", entry.Version.String())
@@ -248,7 +250,7 @@ func TestCreateEntryFromChangeSet(t *testing.T) {
 	}
 }
 
-func TestCreateEntryFromChangeSet_BreakingMessageUsed(t *testing.T) {
+func TestBuildEntry_BreakingMessageUsed(t *testing.T) {
 	ver := version.MustParse("2.0.0")
 
 	breaking := changes.NewConventionalCommit("abc123", changes.CommitTypeFeat, "breaking change",
@@ -257,7 +259,7 @@ func TestCreateEntryFromChangeSet_BreakingMessageUsed(t *testing.T) {
 	cs := changes.NewChangeSet("test", "v1.0.0", "HEAD")
 	cs.AddCommits([]*changes.ConventionalCommit{breaking})
 
-	entry := CreateEntryFromChangeSet(ver, cs, "")
+	entry := BuildEntry(ver, cs, DefaultRenderOptions())
 
 	// First section should be breaking changes
 	if len(entry.Sections) < 1 {
@@ -277,11 +279,11 @@ func TestCreateEntryFromChangeSet_BreakingMessageUsed(t *testing.T) {
 	}
 }
 
-func TestCreateEntryFromChangeSet_NoRepoURL(t *testing.T) {
+func TestBuildEntry_NoRepoURL(t *testing.T) {
 	ver := version.MustParse("1.0.0")
 	cs := changes.NewChangeSet("test", "v0.9.0", "HEAD")
 
-	entry := CreateEntryFromChangeSet(ver, cs, "")
+	entry := BuildEntry(ver, cs, DefaultRenderOptions())
 
 	if entry.CompareURL != "" {
 		t.Errorf("CompareURL should be empty when no repo URL, got %v", entry.CompareURL)

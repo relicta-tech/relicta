@@ -14,6 +14,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
@@ -27,13 +28,23 @@ import (
 type NotesGeneratorAdapter struct {
 	aiService  ai.Service
 	gitAdapter *git.Adapter
+
+	// changelog is how the non-AI path renders notes. Passed as a parameter rather than
+	// set afterwards because the whole changelog.* configuration was unread until this
+	// existed, and an option nobody calls is how that happens.
+	changelog communication.RenderOptions
 }
 
 // NewNotesGeneratorAdapter creates a new NotesGeneratorAdapter.
-func NewNotesGeneratorAdapter(aiService ai.Service, gitAdapter *git.Adapter) *NotesGeneratorAdapter {
+func NewNotesGeneratorAdapter(
+	aiService ai.Service,
+	gitAdapter *git.Adapter,
+	changelog communication.RenderOptions,
+) *NotesGeneratorAdapter {
 	return &NotesGeneratorAdapter{
 		aiService:  aiService,
 		gitAdapter: gitAdapter,
+		changelog:  changelog,
 	}
 }
 
@@ -266,11 +277,16 @@ func (a *NotesGeneratorAdapter) generateBasicNotes(ctx context.Context, run *dom
 		}, nil
 	}
 
-	// Build basic changelog from commits
-	var changelog string
-	for _, commit := range changeSet.Commits() {
-		changelog += fmt.Sprintf("- %s\n", commit.Subject())
-	}
+	// Rendered through the changelog domain rather than as a flat list of subjects.
+	//
+	// This path runs whenever no AI provider is configured, which is the default, so it is
+	// what most changelogs are made of. It used to emit "- subject" per commit with no
+	// grouping, no version heading, no date and no hashes — while every one of those was
+	// described by a `changelog.*` setting that shipped with a default and was read by
+	// nothing, and while a renderer producing exactly that output already existed in
+	// internal/domain/communication with no caller.
+	entry := communication.BuildEntry(run.VersionNext(), changeSet, a.changelog)
+	changelog := communication.RenderSections(entry, a.changelog)
 
 	return &domain.ReleaseNotes{
 		Text:           changelog,

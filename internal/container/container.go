@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
@@ -579,7 +581,7 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	}
 
 	// Create port adapters
-	notesGenerator := NewNotesGeneratorAdapter(c.aiService, c.gitAdapter)
+	notesGenerator := NewNotesGeneratorAdapter(c.aiService, c.gitAdapter, c.changelogRenderOptions())
 	// Honor versioning.git_push. WithSkipPush existed and was called from
 	// nowhere, so skipPush stayed false and executeTagStep pushed the tag on
 	// every publish — including when the config said not to. `relicta publish`
@@ -912,4 +914,39 @@ func NewInitialized(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	return c, nil
+}
+
+// changelogRenderOptions translates the changelog configuration into the domain's rendering
+// options.
+//
+// The translation lives here, at the edge, so the renderer stays a domain value with no
+// knowledge of Viper or of the config struct. It exists at all because the entire
+// `changelog.*` block — format, group_by, exclude, categories, include_commit_hash,
+// include_author, include_date, link_commits, link_issues — had no reader outside the config
+// package: the defaults described a Keep a Changelog renderer while releases wrote a flat list
+// of commit subjects.
+func (c *App) changelogRenderOptions() communication.RenderOptions {
+	opts := communication.DefaultRenderOptions()
+	if c.config == nil {
+		return opts
+	}
+
+	cfg := c.config.Changelog
+
+	if format := communication.ChangelogFormat(cfg.Format); format.IsValid() {
+		opts.Format = format
+	}
+	// An empty Exclude is a real choice — "include everything" — so it is only the absence
+	// of the key that falls back to the default, which config loading has already applied.
+	opts.Exclude = cfg.Exclude
+	if len(cfg.Categories) > 0 {
+		opts.Categories = cfg.Categories
+	}
+	opts.IncludeCommitHash = cfg.IncludeCommitHash
+	opts.IncludeAuthor = cfg.IncludeAuthor
+	opts.IncludeDate = cfg.IncludeDate
+	opts.LinkCommits = cfg.LinkCommits
+	opts.RepositoryURL = strings.TrimSuffix(cfg.RepositoryURL, "/")
+
+	return opts
 }

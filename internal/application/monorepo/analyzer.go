@@ -341,7 +341,7 @@ func (a *MonorepoAnalyzer) analyzePackage(
 			changes.WithScope(classification.Scope),
 		}
 		if classification.IsBreaking {
-			opts = append(opts, changes.WithBreaking("breaking change"))
+			opts = append(opts, changes.WithBreaking(changes.BreakingMessageFromMessage(commit.Message())))
 		}
 		convCommit := changes.NewConventionalCommit(
 			string(commit.Hash()),
