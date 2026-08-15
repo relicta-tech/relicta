@@ -895,6 +895,13 @@ func DefaultConfig() *Config {
 			Threads:  4,
 			Metrics:  []string{"risk_score", "release_frequency", "lead_time"},
 		},
+		// DefaultPersistenceConfig existed and was called from nowhere, so this section
+		// stayed at its zero value: backend "" rather than "file", pool_size 0 rather than
+		// 10. The empty backend reached the user as `db commands require postgres backend
+		// (current: )`, and the zero pool size would have failed a postgres config that
+		// named only a backend and a connection string — on a default the operator never
+		// saw and could not have known to set.
+		Persistence: DefaultPersistenceConfig(),
 	}
 }
 

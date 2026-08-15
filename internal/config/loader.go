@@ -161,6 +161,14 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("output.quiet", defaults.Output.Quiet)
 	l.v.SetDefault("output.log_level", defaults.Output.LogLevel)
 
+	// Set per key rather than per section: a config naming only backend and
+	// connection_string must still inherit pool_size and migration_mode, and viper
+	// merges defaults key by key.
+	l.v.SetDefault("persistence.backend", defaults.Persistence.Backend)
+	l.v.SetDefault("persistence.pool_size", defaults.Persistence.PoolSize)
+	l.v.SetDefault("persistence.migration_mode", defaults.Persistence.MigrationMode)
+	l.v.SetDefault("persistence.file_path", defaults.Persistence.FilePath)
+
 	// Governance defaults (CGP)
 	l.v.SetDefault("governance.enabled", defaults.Governance.Enabled)
 	l.v.SetDefault("governance.strict_mode", defaults.Governance.StrictMode)
