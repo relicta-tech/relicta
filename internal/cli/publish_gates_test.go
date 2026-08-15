@@ -67,8 +67,26 @@ func budgetDenyingPublish(t *testing.T) {
 	cfg.Governance.ActorBudgetPath = path
 }
 
+// budgetPermittingPublish makes the actor a human, whose default budget allows a publish.
+//
+// Without it these tests inherit whatever environment they run in: CI sets CI=true and
+// GITHUB_ACTIONS=true, the actor resolves as a bot, and the restrictive default budget refuses
+// the publish before the gate under test is ever reached. That is a correct refusal for the
+// wrong reason — it passed locally and failed in CI, which is the tell.
+//
+// A test about one gate has to hold the others still.
+func budgetPermittingPublish(t *testing.T) {
+	t.Helper()
+
+	for _, key := range []string{"CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "BUILDKITE", "CIRCLECI", "GITHUB_ACTOR"} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("USER", "alice")
+}
+
 func TestUncommittedWorkRefusesEveryPathToATag(t *testing.T) {
 	withConfig(t)
+	budgetPermittingPublish(t)
 	repoWithUncommittedWork(t)
 
 	err := enforcePrePublishGates(context.Background(), 0)
@@ -106,6 +124,7 @@ func TestTheAutonomyBudgetIsAskedBeforeTheGatesThatReadDiskAndNetwork(t *testing
 // also reports the wrong problem.
 func TestTheWorkingTreeIsCheckedBeforeTheBranchIsFetched(t *testing.T) {
 	c := withConfig(t)
+	budgetPermittingPublish(t)
 	c.Workflow.RequireUpToDate = true
 	dir := repoWithUncommittedWork(t)
 
