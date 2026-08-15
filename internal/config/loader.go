@@ -462,16 +462,20 @@ func findConfigInAncestors() string {
 //   - Plugin configurations (for tokens/credentials)
 //   - Changelog URLs (repository_url, issue_url)
 //   - Output log file path
-//   - Workflow hooks (pre/post release - NOT YET EXECUTED)
 //
 // Expanded values are used for:
 //   - HTTP API calls (safe - no shell interpretation)
 //   - File paths (validated separately)
 //   - Display purposes
 //
-// The workflow hooks (PreReleaseHook, PostReleaseHook) are stored but NOT
-// currently executed. If implemented, they MUST use exec.Command with
-// argument splitting, NOT shell interpretation.
+// The workflow hooks (PreReleaseHook, PostReleaseHook) are deliberately NOT on
+// that list, though they used to be. They are now executed, by `sh -c` in
+// internal/cli/release_hooks.go, and expanding a variable into a command string
+// before the shell parses it is the textbook injection: a variable holding
+// `; rm -rf /` stops being a value and becomes a second command. The shell does
+// the expansion itself, after parsing, where `$VAR` can only ever be an argument.
+// Hooks keep working exactly as written; they simply expand at the moment they
+// run, which is also the moment whose environment they meant.
 func (l *Loader) expandEnvVars(cfg *Config) {
 	// Expand AI API key
 	cfg.AI.APIKey = expandEnvVar(cfg.AI.APIKey)
@@ -482,9 +486,8 @@ func (l *Loader) expandEnvVars(cfg *Config) {
 		expandPluginConfig(cfg.Plugins[i].Config)
 	}
 
-	// Expand workflow hooks
-	cfg.Workflow.PreReleaseHook = expandEnvVar(cfg.Workflow.PreReleaseHook)
-	cfg.Workflow.PostReleaseHook = expandEnvVar(cfg.Workflow.PostReleaseHook)
+	// Workflow hooks are not expanded here on purpose — see above. `sh -c` expands
+	// them when it runs them.
 
 	// Expand changelog URLs
 	cfg.Changelog.RepositoryURL = expandEnvVar(cfg.Changelog.RepositoryURL)
