@@ -195,6 +195,23 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	fmt.Printf("  Commits: %d\n", commitCount)
 	fmt.Println()
 
+	// The gates every release must clear before it is tagged, applied here rather than beside
+	// the publish call in step 5.
+	//
+	// Here because this is the first moment they can all be answered — the budget gate needs
+	// the risk the plan just recorded — and the last moment before the release starts costing
+	// anything. A release refused at step 5 has already spent an AI provider's tokens on notes
+	// nobody will read and asked the operator to approve something relicta was always going to
+	// refuse, and in the step-by-step flow bump is what writes the version manifests, so a
+	// clean-tree check after it reports on relicta's own edits.
+	//
+	// Here also because step 5 returns early under --dry-run: gates below that return would
+	// make `relicta release --dry-run` report success for a release the real command refuses,
+	// which is the one thing a dry run must never do.
+	if err := enforcePrePublishGates(ctx, plannedRiskScore(ctx, app)); err != nil {
+		return err
+	}
+
 	// Step 2: Bump version
 	printStep(2, releaseWorkflowSteps, "Bumping version")
 	bumpOutput, err := runReleaseBump(ctx, app, wfCtx, planOutput)
@@ -231,12 +248,21 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	// Step 5: Publish
 	printStep(5, releaseWorkflowSteps, "Publishing release")
 	if dryRun {
+		// Named because --dry-run does not run them, and a preview that omits the two
+		// commands the real release would execute is not previewing the release the
+		// operator configured.
+		if cfg.Workflow.PreReleaseHook != "" {
+			printInfo("Pre-release hook (not run): " + cfg.Workflow.PreReleaseHook)
+		}
+		if cfg.Workflow.PostReleaseHook != "" {
+			printInfo("Post-release hook (not run): " + cfg.Workflow.PostReleaseHook)
+		}
 		printInfo("Dry run - skipping actual publish")
 		printSuccess("Release workflow completed (dry run)")
 		return nil
 	}
 
-	publishOutput, err := runReleasePublish(ctx, app, planOutput)
+	publishOutput, err := runReleasePublish(ctx, app)
 	if err != nil {
 		return fmt.Errorf("publish failed: %w", err)
 	}
@@ -372,6 +398,34 @@ func persistReleasePlan(ctx context.Context, c cliApp, output *servicerelease.An
 
 	_, err := services.PlanRelease.Execute(ctx, planInput)
 	return err
+}
+
+// plannedRiskScore returns the risk the plan step recorded for this release.
+//
+// Zero when there is no run to read it from, which is the honest answer rather than a guess.
+// The case it happens in is --dry-run, where the plan step deliberately persists nothing, so no
+// evaluated risk exists to read. The budget gate still does most of its job on zero — a denied
+// tool, a required cosigner and a time window all constrain the operation rather than the
+// change, and only the risk cap has nothing to weigh. A dry run mutates nothing either way, so
+// what that costs is a dry run that fails to warn about a risk cap, not a release that escapes
+// one: the real release persists its plan and is measured against the risk it recorded.
+func plannedRiskScore(ctx context.Context, c cliApp) float64 {
+	repoInfo, err := c.GitAdapter().GetInfo(ctx)
+	if err != nil {
+		return 0
+	}
+	if err := c.InitReleaseServices(ctx, repoInfo.Path); err != nil || !c.HasReleaseServices() {
+		return 0
+	}
+	services := c.ReleaseServices()
+	if services == nil || services.Repository == nil {
+		return 0
+	}
+	run, err := services.Repository.LoadLatest(ctx, repoInfo.Path)
+	if err != nil || run == nil {
+		return 0
+	}
+	return run.RiskScore()
 }
 
 // releaseTypeToBumpKind converts changes.ReleaseType to domain.BumpKind.
@@ -579,7 +633,7 @@ func runReleaseApproveExecute(ctx context.Context, c cliApp, approvedBy string) 
 
 // runReleasePublish executes the publish step using DDD services.
 // Tag creation is handled as the first step in publish (StepTypeTag).
-func runReleasePublish(ctx context.Context, c cliApp, plan *servicerelease.AnalyzeOutput) (*releasePublishResult, error) {
+func runReleasePublish(ctx context.Context, c cliApp) (*releasePublishResult, error) {
 	gitAdapter := c.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
@@ -597,12 +651,36 @@ func runReleasePublish(ctx context.Context, c cliApp, plan *servicerelease.Analy
 		return nil, fmt.Errorf("PublishRelease use case not available")
 	}
 
+	// The version off the run rather than off the plan, because they can differ: `relicta
+	// release --force v2.0.0` bumps the run to the forced version and leaves plan.NextVersion
+	// on the computed one. The run is what the tag step reads, so the hooks, the changelog and
+	// the summary have to name the same thing it will.
+	run, err := services.Repository.LoadLatest(ctx, repoInfo.Path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load release: %w", err)
+	}
+	nextVersion := run.VersionNext().String()
+	tagName := cfg.Versioning.TagPrefix + nextVersion
+
+	// The pre-release hook, then the changelog and version files committed so the tag contains
+	// them. Shared with `relicta publish` — see publish_gates.go.
+	if err := prepareReleaseForPublish(ctx, c, nextVersion, tagName); err != nil {
+		return nil, err
+	}
+
 	input := releaseapp.PublishReleaseInput{
 		RepoRoot: repoInfo.Path,
 		Actor: ports.ActorInfo{
 			Type: "user",
 			ID:   "cli",
 		},
+		// Forced for a different reason than publish's, and a stronger one. `relicta publish`
+		// forces because an operator was shown the plan and confirmed it, so HEAD having moved
+		// since is their business. Here HEAD has certainly moved, and relicta moved it: the
+		// release commit one line above is a new commit, so the plan-time HEAD this would
+		// otherwise be checked against is guaranteed stale. Refusing on that would make the
+		// release commit and the tag mutually exclusive — the tag could only ever point at a
+		// commit without the changelog, which is the state committing it exists to prevent.
 		Force:  true,
 		DryRun: dryRun,
 	}
@@ -612,9 +690,14 @@ func runReleasePublish(ctx context.Context, c cliApp, plan *servicerelease.Analy
 		return nil, fmt.Errorf("failed to publish release: %w", err)
 	}
 
+	// The post-release hook: the tag exists and every step has reported, so the release the
+	// hook announces has actually happened. A failure here warns and the command still
+	// succeeds — see runPostReleaseHook for why a shipped release must not report failure.
+	runPostReleaseHook(ctx, nextVersion, tagName)
+
 	// Build result
 	result := &releasePublishResult{
-		TagName: cfg.Versioning.TagPrefix + plan.NextVersion.String(),
+		TagName: tagName,
 	}
 
 	// Convert step results to plugin results format
