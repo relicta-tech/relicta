@@ -315,23 +315,11 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		return fmt.Errorf("failed to load release: %w", err)
 	}
 
-	// Enforce the per-actor autonomy budget before publishing — the CLI
-	// previously skipped this gate that the MCP surface applies.
-	if err := enforceActorBudget("publish", run.RiskScore()); err != nil {
-		return err
-	}
-
-	// And the working-tree gate, which nothing enforced. Checked here because it must run
-	// before the release mutates anything: publish writes the changelog, so a check any
-	// later would be reporting on relicta's own edits.
-	if err := enforceCleanWorkingTree(ctx); err != nil {
-		return err
-	}
-
-	// And the branch-freshness gate, likewise unread. After the clean-tree check because that
-	// one is local and instant, and there is no reason to spend a network round trip
-	// establishing that a branch is current only to refuse the release for a dirty tree.
-	if err := enforceUpToDate(ctx); err != nil {
+	// The gates every tagging path applies, in the one place both of them read from — the
+	// autonomy budget, then require_clean_working_tree, then require_up_to_date. See
+	// publish_gates.go for why they run in that order and what happened while `relicta
+	// release` had its own copy of none of them.
+	if err := enforcePrePublishGates(ctx, run.RiskScore()); err != nil {
 		return err
 	}
 
@@ -366,23 +354,11 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 
 	tagName := cfg.Versioning.TagPrefix + nextVersion
 
-	// The pre-release hook runs here: after the gates, which are cheap and would otherwise
-	// refuse the release only once the operator's test suite had finished for nothing, and
-	// before commitReleaseArtifacts, which writes the changelog and makes the release commit
-	// and is therefore the first thing this command mutates. A hook that can veto has to run
-	// while there is still nothing to undo. It is below the dry-run return for the obvious
-	// reason: --dry-run promises to change nothing, and a hook is somebody else's code.
-	if err := runPreReleaseHook(ctx, nextVersion, tagName); err != nil {
+	// The pre-release hook and then the release commit, below the dry-run return for the
+	// obvious reason: --dry-run promises to change nothing, and a hook is somebody else's
+	// code. Shared with `relicta release` — see publish_gates.go.
+	if err := prepareReleaseForPublish(ctx, app, nextVersion, tagName); err != nil {
 		return err
-	}
-
-	// Write and commit the changelog and version files before the tag is created, so the
-	// tag points at a commit that contains them. Publishing first and writing afterwards —
-	// what this used to do — tags a commit that describes none of the release.
-	if rel, relErr := getLatestRelease(ctx, app); relErr == nil {
-		if err := commitReleaseArtifacts(ctx, rel, nextVersion); err != nil {
-			return err
-		}
 	}
 
 	// Track publish start time for duration recording
