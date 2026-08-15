@@ -434,7 +434,7 @@ func classificationToCommit(commit *sourcecontrol.Commit, classification *analys
 	}
 
 	if classification.IsBreaking {
-		opts = append(opts, changes.WithBreaking("breaking change"))
+		opts = append(opts, changes.WithBreaking(changes.BreakingMessageFromMessage(commit.Message())))
 	}
 
 	return changes.NewConventionalCommit(

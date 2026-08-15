@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/relicta-tech/relicta/v4/internal/config"
@@ -137,4 +138,42 @@ func TestAnAbsentChangelogIsNotReportedAsAlreadyWritten(t *testing.T) {
 	if _, err := os.Stat(missing); !os.IsNotExist(err) {
 		t.Error("changelogAlreadyContains created the file")
 	}
+}
+
+// Before this, the changelog file was a flat list of bullets with nothing marking where one
+// release ended and the next began — and findVersionEntryPoint, which exists to insert a new
+// release above the last one, had no "## [" to find and appended to the bottom instead, so the
+// file also ran backwards.
+func TestTheChangelogEntryOpensWithAVersionHeading(t *testing.T) {
+	rel := newNotesReadyRelease(t, "heading")
+
+	entry := changelogEntryFor(rel)
+	if !strings.HasPrefix(entry, "## [1.0.0] - ") {
+		t.Errorf("entry begins %q, want a \"## [1.0.0] - <date>\" heading: without one every "+
+			"release runs into the previous one", firstLine(entry))
+	}
+	if !strings.Contains(entry, "Test release notes") {
+		t.Error("the notes are missing from the entry")
+	}
+}
+
+// An AI provider asked to write in Keep a Changelog style supplies its own heading. Adding a
+// second one would leave the file with two headings for one release.
+func TestNotesThatAlreadyCarryAHeadingAreNotGivenASecond(t *testing.T) {
+	rel := newNotesReadyRelease(t, "own-heading")
+	if err := rel.UpdateNotesText("## [1.0.0] - 2026-08-15\n\n### Features\n\n- something"); err != nil {
+		t.Fatalf("UpdateNotesText: %v", err)
+	}
+
+	entry := changelogEntryFor(rel)
+	if strings.Count(entry, "## [1.0.0]") != 1 {
+		t.Errorf("entry carries %d version headings:\n%s", strings.Count(entry, "## [1.0.0]"), entry)
+	}
+}
+
+func firstLine(s string) string {
+	if i := strings.Index(s, "\n"); i >= 0 {
+		return s[:i]
+	}
+	return s
 }

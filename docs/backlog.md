@@ -425,19 +425,21 @@ A sweep of every `mapstructure` field against its readers found 68 with no consu
 the config package and the wizard. Most are plugin settings — a GitHub or Slack plugin reads
 its own config through the plugin interface, so "unread here" is correct for those.
 
-The rest are settings the CLI is expected to honor and does not. Three are now fixed
-(`versioning.git_sign`, `workflow.require_clean_working_tree`, `workflow.auto_commit_changelog`
-with `changelog_commit_message`); these remain, roughly in descending order of how badly a user
-would be surprised:
+The rest are settings the CLI is expected to honor and does not. Now fixed:
+`versioning.git_sign`, `workflow.require_clean_working_tree` (#302), `workflow.auto_commit_changelog`
+with `changelog_commit_message` (#303), and the changelog rendering block — `format`, `exclude`,
+`categories`, `include_commit_hash`, `include_author`, `include_date`, `link_commits`.
+
+These remain, roughly in descending order of how badly a user would be surprised:
 
 - `workflow.require_up_to_date` — the branch-freshness gate, unread like its sibling was.
   Same shape as require_clean_working_tree: it needs a remote comparison, and deciding what
   to do when the remote is unreachable is the only real question in it.
 - `workflow.pre_release_hook` / `post_release_hook` — configured commands that never run.
-- `changelog.group_by` / `include_commit_hash` / `include_author` / `include_date` /
-  `link_commits` / `link_issues` — changelog rendering options with no effect. Worth more than
-  the list suggests: the rendered changelog carries no version headings at all, just a flat
-  list of commit subjects, so consecutive releases run together in one undifferentiated file.
+- `changelog.group_by` (the `scope` and `none` modes; `type` is what the renderer does),
+  `changelog.link_issues` / `issue_url`, and `changelog.template` — the rest of the changelog
+  block is now honored. `link_issues` needs issue references parsed out of commit footers,
+  which `ChangelogItem.IssueRefs` has a field for and nothing populates.
 - The monorepo `version_field` / `changelog_file` / `skip_versioning` / `package_overrides` —
   per-package versioning settings with no reader. (`versioning.version_files` at the top level
   *is* honored — `relicta bump` writes every configured manifest; the earlier note here was

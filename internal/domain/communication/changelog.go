@@ -2,11 +2,9 @@
 package communication
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
@@ -113,78 +111,6 @@ func (c *Changelog) LatestEntry() *ChangelogEntry {
 	return &c.entries[0]
 }
 
-// CreateEntryFromChangeSet creates a changelog entry from a changeset.
-func CreateEntryFromChangeSet(ver version.SemanticVersion, cs *changes.ChangeSet, repoURL string) ChangelogEntry {
-	entry := ChangelogEntry{
-		Version: ver,
-		Date:    time.Now(),
-	}
-
-	if repoURL != "" && cs.FromRef() != "" {
-		entry.CompareURL = fmt.Sprintf("%s/compare/%s...%s", repoURL, cs.FromRef(), ver.TagString())
-	}
-
-	cats := cs.Categories()
-
-	// Breaking changes
-	if len(cats.Breaking) > 0 {
-		section := ChangelogSection{Title: "⚠ BREAKING CHANGES"}
-		for _, commit := range cats.Breaking {
-			item := ChangelogItem{
-				Description: commit.Subject(),
-				Scope:       commit.Scope(),
-				CommitHash:  commit.ShortHash(),
-			}
-			if commit.BreakingMessage() != "" {
-				item.Description = commit.BreakingMessage()
-			}
-			section.Items = append(section.Items, item)
-		}
-		entry.Sections = append(entry.Sections, section)
-	}
-
-	// Features
-	if len(cats.Features) > 0 {
-		section := ChangelogSection{Title: "Features"}
-		for _, commit := range cats.Features {
-			section.Items = append(section.Items, ChangelogItem{
-				Description: commit.Subject(),
-				Scope:       commit.Scope(),
-				CommitHash:  commit.ShortHash(),
-			})
-		}
-		entry.Sections = append(entry.Sections, section)
-	}
-
-	// Bug Fixes
-	if len(cats.Fixes) > 0 {
-		section := ChangelogSection{Title: "Bug Fixes"}
-		for _, commit := range cats.Fixes {
-			section.Items = append(section.Items, ChangelogItem{
-				Description: commit.Subject(),
-				Scope:       commit.Scope(),
-				CommitHash:  commit.ShortHash(),
-			})
-		}
-		entry.Sections = append(entry.Sections, section)
-	}
-
-	// Performance
-	if len(cats.Perf) > 0 {
-		section := ChangelogSection{Title: "Performance Improvements"}
-		for _, commit := range cats.Perf {
-			section.Items = append(section.Items, ChangelogItem{
-				Description: commit.Subject(),
-				Scope:       commit.Scope(),
-				CommitHash:  commit.ShortHash(),
-			})
-		}
-		entry.Sections = append(entry.Sections, section)
-	}
-
-	return entry
-}
-
 // Render renders the changelog to a string including header.
 func (c *Changelog) Render() string {
 	var sb strings.Builder
@@ -250,21 +176,34 @@ func (c *Changelog) RenderEntries() string {
 
 // renderEntry renders a single changelog entry.
 func (c *Changelog) renderEntry(sb *strings.Builder, entry ChangelogEntry) {
-	// Version header
-	if entry.IsUnreleased {
-		sb.WriteString("## [Unreleased]")
-	} else {
-		sb.WriteString("## [")
-		sb.WriteString(entry.Version.String())
-		sb.WriteString("]")
-		if !entry.Date.IsZero() {
-			sb.WriteString(" - ")
-			sb.WriteString(entry.Date.Format("2006-01-02"))
-		}
-	}
+	sb.WriteString(RenderVersionHeading(entry))
 	sb.WriteString("\n\n")
+	sb.WriteString(RenderSections(entry, RenderOptions{}))
+}
 
-	// Sections
+// RenderVersionHeading renders the "## [1.2.0] - 2026-08-15" line that separates one release
+// from the next.
+//
+// Separated from the sections because the two belong to different places: the notes describe
+// what changed and are shown wherever a release is announced, while the heading is what makes
+// a changelog *file* a sequence of releases rather than one long list. Publish writes the
+// heading when it inserts an entry, so notes written by an AI provider get one too.
+func RenderVersionHeading(entry ChangelogEntry) string {
+	if entry.IsUnreleased {
+		return "## [Unreleased]"
+	}
+
+	heading := "## [" + entry.Version.String() + "]"
+	if !entry.Date.IsZero() {
+		heading += " - " + entry.Date.Format("2006-01-02")
+	}
+	return heading
+}
+
+// RenderSections renders an entry's sections without its version heading.
+func RenderSections(entry ChangelogEntry, opts RenderOptions) string {
+	var sb strings.Builder
+
 	for _, section := range entry.Sections {
 		sb.WriteString("### ")
 		sb.WriteString(section.Title)
@@ -278,13 +217,33 @@ func (c *Changelog) renderEntry(sb *strings.Builder, entry ChangelogEntry) {
 				sb.WriteString(":** ")
 			}
 			sb.WriteString(item.Description)
-			if item.CommitHash != "" {
-				sb.WriteString(" (")
-				sb.WriteString(item.CommitHash)
-				sb.WriteString(")")
-			}
+			sb.WriteString(renderItemSuffix(item, opts))
 			sb.WriteString("\n")
 		}
 		sb.WriteString("\n")
 	}
+
+	return sb.String()
+}
+
+// renderItemSuffix renders the trailing "(hash, author)" an item carries, linking the hash
+// when asked and when there is a repository to link into.
+func renderItemSuffix(item ChangelogItem, opts RenderOptions) string {
+	parts := make([]string, 0, 2)
+
+	if item.CommitHash != "" {
+		hash := item.CommitHash
+		if opts.LinkCommits && opts.RepositoryURL != "" {
+			hash = "[" + hash + "](" + opts.RepositoryURL + "/commit/" + item.CommitHash + ")"
+		}
+		parts = append(parts, hash)
+	}
+	if item.Author != "" {
+		parts = append(parts, item.Author)
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
 }
