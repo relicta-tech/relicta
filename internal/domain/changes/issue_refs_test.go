@@ -82,7 +82,7 @@ func TestAnIssueNamedTwiceIsListedOnce(t *testing.T) {
 // Commits rebuilt from the state file carry their parsed parts rather than a raw message, and a
 // changelog is rendered from a run that was planned earlier.
 func TestReferencesAreFoundWithoutARawMessage(t *testing.T) {
-	commit := NewConventionalCommit("abcdef1234567890", CommitTypeFix, "reject expired tokens",
+	commit := NewConventionalCommit("abc123", CommitTypeFix, "reject expired tokens",
 		WithFooter("Closes: #123"))
 
 	if refs := commit.IssueRefs(); len(refs) != 1 || refs[0] != "#123" {
