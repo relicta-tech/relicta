@@ -2130,6 +2130,22 @@
       "severity": "medium",
       "created_at": "2026-08-11T16:40:00Z",
       "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity \u2014 otherwise the same repository is keyed twice depending on how it was cloned \u2014 and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule."
+    },
+    {
+      "fingerprint": "ff030c135ffcf3b72b0ab816104d62adce6a5fb946b98ea120030ead12fca97e",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-17T14:20:00.000000Z",
+      "reason": "GO-2026-6180 in golang.org/x/mod@v0.37.0, already accepted on main under a different fingerprint. Adding modernc.org/sqlite (ADR-013) did not change the version and does not import x/mod; it changed the build graph enough for the reachability pass to reach a verdict, so the message gained '(not reachable: the affected package is not linked by this build)' and the severity dropped to info. The fingerprint covers the message, so a finding that was suppressed reappeared as net-new while being strictly less serious than before. Fingerprint taken from the CI run's own findings.json, because this machine's nox computes different ones. Fixing the advisory means x/mod v0.40.0, which belongs in its own change on main: it drags x/crypto to v0.55.0 and that has consequences of its own."
+    },
+    {
+      "fingerprint": "557eec1c46b08d088e488bda2c107e5057c2a975e60a528a0ca151b02b3eb8c8",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-17T14:20:00.000000Z",
+      "reason": "GO-2026-6179 in golang.org/x/mod@v0.37.0 — the sibling advisory to the entry above and suppressed for the same reason: same version as main, newly marked not reachable because the build graph changed, so the fingerprint changed with the message. See the entry above for the full account."
     }
   ]
 }
