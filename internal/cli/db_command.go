@@ -19,17 +19,22 @@ import (
 // been read, so a value captured here would always be the zero one.
 var dbCmd = &cobra.Command{
 	Use:   "db",
-	Short: "Manage the PostgreSQL database (migrations and status)",
-	Long: `Manage the PostgreSQL database backing relicta's event store.
+	Short: "Manage the database backing relicta's release history",
+	Long: `Manage the database relicta keeps its release history in.
 
-These commands require persistence.backend to be "postgres" in .relicta.yaml.
-The connection string supports environment expansion, so it can be kept out of
-the file entirely:
+migrate, migrate-down and status drive the PostgreSQL migrator, so they require
+persistence.backend to be "postgres". The connection string supports environment
+expansion, so it can be kept out of the file entirely:
 
   persistence:
     backend: postgres
     connection_string: "${DATABASE_URL}"
-    pool_size: 10`,
+    pool_size: 10
+
+import is not tied to postgres: it reads the existing .relicta/releases tree into
+whichever backend persistence.backend selects, so it works for sqlite too. The
+one backend it refuses is "file", where the source and the destination would be
+the same store.`,
 }
 
 var dbMigrateCmd = &cobra.Command{
@@ -67,5 +72,5 @@ func newDBCommands() *DBCommands {
 }
 
 func init() {
-	dbCmd.AddCommand(dbMigrateCmd, dbMigrateDownCmd, dbStatusCmd)
+	dbCmd.AddCommand(dbMigrateCmd, dbMigrateDownCmd, dbStatusCmd, dbImportCmd)
 }

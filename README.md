@@ -85,7 +85,10 @@ See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approv
 ### Persistence
 
 - **File-based** (default): Zero-dependency local state
+- **SQLite** (opt-in): One database per repository, no server and no cgo
 - **PostgreSQL** (opt-in): Shared state for teams with `db migrate` and `db status` commands
+- **Migration is explicit**: switching `persistence.backend` leaves the existing history where
+  it is — `relicta db import` moves it, and never deletes the JSON tree it read
 
 ### Dashboard & API
 
@@ -318,6 +321,7 @@ workflow:
 | `group status` | View status of all repos in a group |
 | `db migrate` | Run database migrations (PostgreSQL persistence) |
 | `db status` | Show current migration status |
+| `db import` | Import an existing `.relicta/releases` history into the configured backend |
 | `server` | Start standalone API server (dashboard backend) |
 | `mcp serve` | Start MCP server for AI agent integration |
 | `eval run` | Run AI eval harness against the embedded golden corpus (gates model bumps) |
