@@ -15,7 +15,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -106,9 +105,9 @@ func (r *ReleaseRunRepository) Save(ctx context.Context, run *domain.ReleaseRun)
 		return fmt.Errorf("cannot save a nil run")
 	}
 
-	payload, err := json.Marshal(adapters.ToDTO(run))
+	payload, err := adapters.MarshalRun(run)
 	if err != nil {
-		return fmt.Errorf("marshaling run %s: %w", run.ID(), err)
+		return err
 	}
 
 	_, err = r.pool.Exec(ctx, `
@@ -449,18 +448,12 @@ func (r *ReleaseRunRepository) queryRuns(
 
 // runFromPayload reconstructs a run from its stored JSON.
 //
-// Through the same DTO the file backend writes, deliberately. Two serializations of one
-// aggregate is how BaseRef came back filled from the branch and `relicta evaluate`
-// refused every release; see adapters.ToDTO.
+// Through the same encoding the file backend writes and the sqlite backend stores,
+// deliberately: adapters.MarshalRun and adapters.UnmarshalRun are the one conversion, so a
+// field added to ReleaseRunDTO reaches all three backends at once and the round trip test that
+// guards it guards all three. Two serializations of one aggregate is how BaseRef came back
+// filled from the branch, which made `relicta evaluate` refuse every release — a run that is
+// wrong rather than absent.
 func runFromPayload(payload []byte) (*domain.ReleaseRun, error) {
-	var dto adapters.ReleaseRunDTO
-	if err := json.Unmarshal(payload, &dto); err != nil {
-		return nil, fmt.Errorf("unmarshaling run payload: %w", err)
-	}
-
-	run, err := adapters.FromDTO(&dto)
-	if err != nil {
-		return nil, fmt.Errorf("reconstructing run %s: %w", dto.ID, err)
-	}
-	return run, nil
+	return adapters.UnmarshalRun(payload)
 }
