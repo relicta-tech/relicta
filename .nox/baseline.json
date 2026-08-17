@@ -2128,8 +2128,16 @@
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/memory/outcome_tracker_identity_test.go",
       "severity": "medium",
-      "created_at": "2026-08-11T16:40:00Z",
-      "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity \u2014 otherwise the same repository is keyed twice depending on how it was cloned \u2014 and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule."
+      "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity — otherwise the same repository is keyed twice depending on how it was cloned — and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule.",
+      "created_at": "2026-08-11T16:40:00Z"
+    },
+    {
+      "fingerprint": "4f0b64b6a65d98c006bae5c810d8376ca3bd7090dece22816499d670f2efc000",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "GO-2026-5932 reports that golang.org/x/crypto/openpgp is unmaintained. It has no fixed version, and relicta imports neither openpgp nor any other x/crypto package: 'go mod why golang.org/x/crypto' answers 'main module does not need package'. It is in the module graph only, arriving with modernc.org/sqlite (ADR-013), and reaching x/mod v0.40.0 for GO-2026-6179 and GO-2026-6180 -- two real sumdb CVEs -- requires x/crypto v0.55.0. Taking two fixes for an advisory about a package nothing imports.",
+      "created_at": "2026-08-17T13:23:07.156166Z"
     }
   ]
 }
