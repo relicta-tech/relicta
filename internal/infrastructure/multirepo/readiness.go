@@ -3,10 +3,13 @@ package multirepo
 import (
 	"context"
 	"fmt"
+	"io"
 
 	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
 )
 
 // Readiness reports whether each member of a group could be released right now.
@@ -16,21 +19,55 @@ import (
 // their group. This answers the question they were actually asking: what is blocking this
 // release, and in which repository.
 //
-// It reads each member's stored run from disk and nothing else. No container, no git service,
-// no configuration — deliberately, because every one of those resolves against the process
-// working directory somewhere, and a component that silently answered for the invoking
-// repository instead of the member would be worse than the refusal it replaced.
+// It reads each member's stored run and nothing else — no container and no git service,
+// deliberately, because both resolve against the process working directory somewhere, and a
+// component that silently answered for the invoking repository instead of the member would be
+// worse than the refusal it replaced.
+//
+// It does read each member's *own* configuration, which is not the same concession. This used
+// to construct a file repository unconditionally, and once persistence.backend began selecting
+// (ADR-013) that turned into a confident wrong answer: a member whose run was approved and
+// stored in SQLite was reported as "no release has been planned — run 'relicta plan'", which
+// the operator had already done. Verified against the shipped binary before the fix.
+//
+// Per member, not once for the group, because the backend is a property of the repository being
+// released. A team may keep one service on the shared postgres store and another on files, and
+// the invoking repository's configuration says nothing about either. The working-directory
+// hazard above does not apply: the path comes from the group declaration, and the config is
+// loaded from that path rather than found by searching upward from the process.
 //
 // It also never approves. Whether a group release may approve on behalf of a member whose
 // policy requires a human is undecided (see docs/backlog.md), and reporting that a member
 // needs approval is the honest thing to do while it stays that way.
 type Readiness struct {
-	repo *adapters.FileReleaseRunRepository
+	// storeFor opens the run store for one member. Injected so the tests in this package can
+	// supply a repository directly, and so that resolving configuration stays one function
+	// rather than something every method has to remember to do.
+	storeFor func(ctx context.Context, repoRoot string) (ports.ReleaseRunRepository, io.Closer, error)
 }
 
 // NewReadiness returns a readiness reporter over the release runs stored in each repository.
 func NewReadiness() *Readiness {
-	return &Readiness{repo: adapters.NewFileReleaseRunRepository()}
+	return &Readiness{storeFor: openConfiguredStore}
+}
+
+// openConfiguredStore opens a member's run store using that member's own .relicta.yaml.
+//
+// A member with no configuration file is not an error: config loading returns defaults, and the
+// default backend is the file adapter, which is what such a repository has always used.
+func openConfiguredStore(
+	ctx context.Context, repoRoot string,
+) (ports.ReleaseRunRepository, io.Closer, error) {
+	cfg, err := config.LoadFromDirectory(repoRoot)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading configuration in %s: %w", repoRoot, err)
+	}
+
+	store, err := persistence.OpenReleaseRunStore(ctx, cfg.Persistence, repoRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+	return store.Repository, store.Closer, nil
 }
 
 var _ appmultirepo.ReadinessChecker = (*Readiness)(nil)
@@ -47,7 +84,20 @@ func (r *Readiness) Check(ctx context.Context, members []appmultirepo.Member) []
 func (r *Readiness) checkOne(ctx context.Context, m appmultirepo.Member) appmultirepo.MemberState {
 	state := appmultirepo.MemberState{Name: m.Name, Path: m.Path}
 
-	run, err := r.repo.LoadLatest(ctx, m.Path)
+	repo, closer, err := r.storeFor(ctx, m.Path)
+	if err != nil {
+		// A store that cannot be opened is reported as its own blocker rather than as "no
+		// release has been planned". The two send the operator to different places, and
+		// telling someone whose database is unreachable to run 'relicta plan' would send
+		// them to the wrong one.
+		state.Blocker = fmt.Sprintf("its release store could not be opened: %v", err)
+		return state
+	}
+	if closer != nil {
+		defer func() { _ = closer.Close() }()
+	}
+
+	run, err := repo.LoadLatest(ctx, m.Path)
 	if err != nil || run == nil {
 		// No stored run is the ordinary starting point, not a failure: nobody has planned
 		// a release in that repository yet.

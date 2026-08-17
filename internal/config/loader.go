@@ -39,6 +39,15 @@ type Loader struct {
 	configPath  string
 	searchPaths []string
 
+	// onlySearchPaths stops the ancestor walk below from running.
+	//
+	// The walk exists so that relicta run from a subdirectory still finds the repository's
+	// own config, and it searches upward from the *process* working directory. That is
+	// right for the invoking repository and wrong for any other: a caller asking about a
+	// group member's checkout wants that member's config or the defaults, never the
+	// ancestors of wherever the command happened to be run.
+	onlySearchPaths bool
+
 	// detectedProviders / autoSelectedProvider record the outcome of
 	// zero-config AI provider auto-detection. They are surfaced on the
 	// loaded Config so callers can tell the user which provider was
@@ -408,6 +417,12 @@ func (l *Loader) loadConfigFile() error {
 	// defaults include versioning.git_tag and versioning.git_push = true, so a
 	// project that had deliberately disabled pushing would get a tag pushed
 	// anyway purely because of the directory the command ran in.
+	if l.onlySearchPaths {
+		// The caller named a directory explicitly. Its config or the defaults; the
+		// working directory's ancestors are somebody else's answer.
+		return nil
+	}
+
 	if configFile := findConfigInAncestors(); configFile != "" {
 		l.v.SetConfigFile(configFile)
 		if err := l.v.ReadInConfig(); err != nil {
@@ -826,9 +841,26 @@ func LoadFromFile(path string) (*Config, error) {
 	return NewLoader().WithConfigPath(path).Load()
 }
 
-// LoadFromDirectory loads configuration from a directory.
+// LoadFromDirectory loads configuration from a directory, and only from that directory.
+//
+// It used to be NewLoader().WithSearchPaths(dir), which does not mean this: NewLoader seeds the
+// search path with "." and WithSearchPaths appends, so the *process working directory* was
+// searched first and won. Every caller names a directory precisely because it is not the working
+// directory — a group member's checkout, or a repository the dashboard server was asked about —
+// so each of them silently got the invoking repository's configuration instead.
+//
+// That was not cosmetic once persistence.backend began selecting a store (ADR-013). Verified
+// against the shipped binary: a group member whose approved run was in SQLite while the calling
+// repository used files was reported as "no release has been planned", and the group executor
+// would have published it through the caller's store rather than its own.
+//
+// A directory with no config file is not an error. The loader returns defaults, which is what a
+// repository that has never been configured has always had.
 func LoadFromDirectory(dir string) (*Config, error) {
-	return NewLoader().WithSearchPaths(dir).Load()
+	loader := NewLoader()
+	loader.searchPaths = []string{dir}
+	loader.onlySearchPaths = true
+	return loader.Load()
 }
 
 // MustLoad loads configuration and panics on error.
