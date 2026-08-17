@@ -21,7 +21,11 @@ type RunReader interface {
 	// LoadLatest retrieves the latest release run for a repository.
 	LoadLatest(ctx context.Context, repoRoot string) (*domain.ReleaseRun, error)
 
-	// List returns all run IDs for a repository, ordered by creation time (newest first).
+	// List returns all run IDs for a repository, most recently saved first.
+	//
+	// Saved, not created: a run that was planned first and updated last leads. This said
+	// "creation time" and every implementation sorted by modification time, which is what
+	// callers were written against — see the conformance suite, which pins it.
 	List(ctx context.Context, repoRoot string) ([]domain.RunID, error)
 }
 
