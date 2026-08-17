@@ -2130,6 +2130,22 @@
       "severity": "medium",
       "created_at": "2026-08-11T16:40:00Z",
       "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity \u2014 otherwise the same repository is keyed twice depending on how it was cloned \u2014 and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule."
+    },
+    {
+      "fingerprint": "4f0b64b6a65d98c006bae5c810d8376ca3bd7090dece22816499d670f2efc000",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-17T14:45:00Z",
+      "reason": "GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained and unsafe by design. It has no fixed version, so it cannot be cleared by upgrading. relicta imports no x/crypto package at all -- 'go mod why golang.org/x/crypto' answers 'main module does not need package' -- and the scan configured with reachability analysis reports the same finding as info with '(not reachable: the affected package is not linked by this build)'. It is in the module graph because modernc.org/sqlite (ADR-013) promotes golang.org/x/mod into go.mod, and clearing GO-2026-6179 and GO-2026-6180 there requires x/mod v0.40.0, which requires x/crypto v0.55.0. One unfixable and unreachable advisory accepted to fix two real ones. This fingerprint is the one the CI workflow computes; see the entry below for the other configuration."
+    },
+    {
+      "fingerprint": "966fddcbb45646aae656edfc396afafd6040f19011271cc0448f3c9ad206ed57",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-17T14:45:00Z",
+      "reason": "The same GO-2026-5932 advisory as the entry above. Two entries for one finding because this repository runs nox in two configurations -- one with reachability analysis, one without -- and they fingerprint it differently: the reachability pass appends '(not reachable: the affected package is not linked by this build)' to the message and lowers the severity to info, and the fingerprint covers the message. Both were read from the failing runs' own findings.json artifacts, which is the only reliable source: a local nox is a different version again and matches neither."
     }
   ]
 }
