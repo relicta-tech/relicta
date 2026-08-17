@@ -477,33 +477,62 @@ The same shape once more: `internal/mcp/adapters.go` ignores `bump_from` at thre
 sites, and two of them do not set `TagPrefix` either. The adapter holds no config; closing it is
 a container-wiring decision rather than a patch.
 
-## The PostgreSQL backend is unreachable
+## DONE: three backends behind one contract (ADR-013)
 
-Recorded rather than fixed, because closing it needs a decision rather than wiring.
+The decision that blocked this is taken and written down: **the system of record is the release
+run and the governance record, not an event log.** Wiring the event store without answering that
+would have produced a third copy of the truth beside the run JSON and the CGP audit chain.
 
-`persistence.backend: postgres` is **silently ignored** for releases. Verified against the
-built binary with a deliberately unreachable connection string: `relicta plan` reported
-"Release plan saved" and wrote `.relicta/releases/run-*.json`. A team that configures
-PostgreSQL for shared governance state believes its release history is in the database; it is
-in each developer's working copy.
+Landed: ADR-013 and the conformance suite (#310), the SQLite adapter (#311), the PostgreSQL run
+repository (#312). All three implementations pass one shared suite — 45 cases across the three —
+and `file` remains the default until parity is proven, per the ADR.
 
-The parts all exist and none of them are reached:
+The suite earned itself on the first day. It caught the file and sqlite adapters returning
+different orderings for the same repository (`[older, newer]` versus `[newer, older]`) before
+either could be selected, and correcting that exposed two more mistakes: the port documented
+"creation time" when no implementation had ever done that, and my own first ordering case pinned
+when a *row was written* rather than when the *run changed* — which the sqlite adapter was right
+to fail. One repository with two histories depending on a config key is exactly the drift three
+adapters produce unsupervised.
+
+Still open on the storage work:
+
+- `persistence.backend` selection itself — the adapters exist and are proven; nothing chooses
+  between them yet, so `file` is still the only backend that runs.
+- `relicta db import`, to read an existing `.relicta/` tree into a database. ADR-013 requires
+  migration to be explicit and non-destructive: relicta must not move an operator's audit trail
+  because they edited a config key, and it does not delete the JSON afterwards.
+- The other four stores. Release runs have a port and now three adapters; governance memory,
+  analytics, the CGP protocol store and attestations each still invent their own persistence
+  under `.relicta/`, so a backend setting cannot yet mean "all of it". Governance memory is the
+  one that matters next, because a run and the record it produces should be writable in one
+  transaction — which is the atomicity argument the ADR makes and the file backend cannot offer.
+- Flipping the default, which the ADR says happens on evidence: the conformance suite passing on
+  all three adapters (done) plus an importer with a round trip test (not done).
+
+## The event store is still unreachable, and now needs a smaller decision
+
+ADR-013 answered the question this entry used to be blocked on: **the event store is not the
+system of record.** The release run and the governance record are. So what remains is narrower
+than it was.
+
+Nothing constructs an event store of either kind:
 
 - `persistence.NewEventStore` — the factory that selects postgres by config: no caller.
 - `adapters.NewFileEventStore` — the other implementation: no caller either.
 - `LoadEvents` / `LoadAllEvents` — no caller outside the implementations, so nothing reads an
   event stream back.
 
-So `EventPublishingConfig.EventStore` is always nil and the event-sourcing layer never runs at
-all. Both implementations satisfy `ports.EventStore` and the factory compiles, so this is not
-far from working — but wiring it would add writes that nothing reads.
+`EventPublishingConfig.EventStore` is therefore always nil and the event-sourcing layer never
+runs. Both implementations satisfy `ports.EventStore` and the factory compiles, so it is not far
+from working — and that is the trap, because wiring it today adds writes nothing reads.
 
-**The decision needed first: is the event store the system of record, or a second mechanism
-alongside the run JSON and the CGP audit chain?** Releases already persist as
-`.relicta/releases/run-*.json`, and governance history has its own store in `internal/cgp`.
-Until that is settled, wiring the event store would produce a third copy of the truth, which is
-worse than none. Once settled, a postgres release repository — not just an event store — is
-what a shared backend actually requires.
+**The decision left is whether the event log is worth keeping at all.** Its plausible value is
+an append-only record for auditors, distinct from the run aggregate's current state: what
+happened in order, rather than where the release ended up. If that is worth having, wire it and
+give something a reason to read it — `relicta audit` is the obvious candidate. If it is not, the
+factory, both implementations and the `events` table are dead weight that reads as a feature,
+and deleting them is the honest outcome. Either answer is better than the present one.
 
 Fixed alongside this entry: the `db` command is now registered (it was documented in CLAUDE.md
 and absent from the binary), and `persistence` has defaults (`DefaultPersistenceConfig` existed
