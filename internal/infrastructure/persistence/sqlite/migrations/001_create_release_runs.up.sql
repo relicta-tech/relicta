@@ -53,9 +53,18 @@ CREATE TABLE IF NOT EXISTS release_runs (
     document   TEXT    NOT NULL
 ) STRICT;
 
--- List and every Find, which order newest first within one repository.
-CREATE INDEX IF NOT EXISTS idx_release_runs_repo_root_created_at
-    ON release_runs (repo_root, created_at DESC, run_id DESC);
+-- List and every Find, which order most-recently-saved first within one repository.
+--
+-- updated_at, not created_at. A column can hold the real creation time and the file adapter
+-- only approximates it with the run file's modification time, so ordering by creation looks
+-- like the better answer and is what the port's comment used to claim. It was written that
+-- way here first, and the conformance suite caught it: the file backend returned
+-- [older, newer] and this one [newer, older] for the same two runs, which is one repository
+-- with two histories depending on a config key. Matching the reference is what makes the
+-- backends interchangeable; changing what `relicta history` shows is a separate decision,
+-- taken once, with all three adapters moving together.
+CREATE INDEX IF NOT EXISTS idx_release_runs_repo_root_updated_at
+    ON release_runs (repo_root, updated_at DESC, run_id DESC);
 
 -- FindByState and FindActive.
 CREATE INDEX IF NOT EXISTS idx_release_runs_repo_root_state

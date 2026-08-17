@@ -82,9 +82,11 @@ func TestOneDatabaseKeepsTwoRepositoriesApart(t *testing.T) {
 }
 
 // The port documents List as newest first, and callers page through it. The file
-// adapter approximates that with file modification time; a column can hold the real
-// creation time, so it should be the real one.
-func TestListReturnsRunsNewestFirst(t *testing.T) {
+// adapter approximates that with file modification time, and a column could hold the real
+// creation time — but the contract is the reference's behavior, because callers were written
+// against it. Ordering by creation here gave one repository two histories depending on which
+// backend read it, which the conformance suite caught.
+func TestListReturnsRunsMostRecentlySavedFirst(t *testing.T) {
 	store := newStore(t, filepath.Join(t.TempDir(), "relicta.db"))
 	root := t.TempDir()
 
@@ -93,11 +95,12 @@ func TestListReturnsRunsNewestFirst(t *testing.T) {
 	newest := plannedRun(t, root, "run-newest")
 	middle := plannedRun(t, root, "run-middle")
 	oldest := plannedRun(t, root, "run-oldest")
+	// Saved oldest last, so insertion order cannot be what produces the answer.
 	backdate(t, newest, 0)
 	backdate(t, middle, 1)
 	backdate(t, oldest, 2)
-	mustSave(t, store, middle)
 	mustSave(t, store, oldest)
+	mustSave(t, store, middle)
 	mustSave(t, store, newest)
 
 	ids, err := store.List(context.Background(), root)
@@ -133,7 +136,10 @@ func backdate(t *testing.T, run *domainrelease.ReleaseRun, hours int) {
 		State:      run.State(),
 		StepStatus: map[string]*domain.StepStatus{},
 		CreatedAt:  run.CreatedAt().Add(-time.Duration(hours) * time.Hour),
-		UpdatedAt:  run.UpdatedAt(),
+		// Rewound with it: List orders by when a run last changed, and a fixture whose
+		// creation moves while its update time stays put describes a run that was
+		// modified before it existed.
+		UpdatedAt: run.UpdatedAt().Add(-time.Duration(hours) * time.Hour),
 	}
 	run.ReconstructState(snapshot)
 }

@@ -18,10 +18,12 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // Factory builds a repository for one test, along with the repository root it serves.
@@ -58,6 +60,7 @@ var cases = []testCase{
 	{"the latest pointer survives a round trip", theLatestPointerRoundTrips},
 	{"latest is absent before anything is saved", latestIsAbsentInitially},
 	{"list returns every saved run", listReturnsEverySavedRun},
+	{"list puts the most recently saved run first", listOrdersByMostRecentlySaved},
 	{"list is empty for an untouched repository", listIsEmptyInitially},
 	{"a deleted run is gone", aDeletedRunIsGone},
 	{"deleting an unknown run reports it", deletingAnUnknownRunReportsIt},
@@ -184,6 +187,55 @@ func listReturnsEverySavedRun(t *testing.T, repo ports.ReleaseRunRepository, roo
 	if !found[first.ID()] || !found[second.ID()] {
 		t.Errorf("List returned %v, want both saved runs: history and audit read this, so a "+
 			"missing run is a missing record", ids)
+	}
+}
+
+// Ordering, pinned because the suite did not pin it and three adapters could each have chosen
+// differently while all passing. The port said "creation time" and the reference sorts by the
+// run file's modification time, so the two disagree for a run planned early and advanced late.
+//
+// What the contract pins is **most recently changed first**, and getting here took two wrong
+// answers worth recording.
+//
+// The port's comment was the first: it claims creation order, no implementation does that, and
+// callers have always seen most-recently-touched. It is corrected alongside this case.
+//
+// The second was mine. This case first saved an unchanged run twice and asserted it led, which
+// pins the moment a row was *written* rather than the moment the run changed. The file adapter
+// passed it (mtime moves on any write) and a database adapter storing the aggregate's own
+// UpdatedAt failed it — and the database was right. Writing a run that did not change is
+// something no release flow does; manufacturing it made an implementation accident into the
+// specification. So the run genuinely advances here, and both answers coincide, which is why
+// they coincide in practice too: every save in a real flow follows a mutation.
+func listOrdersByMostRecentlySaved(t *testing.T, repo ports.ReleaseRunRepository, root string) {
+	older := newRun(t, root, "run-older")
+	newer := newRun(t, root, "run-newer")
+
+	save(t, repo, older)
+	// Filesystem timestamps are the coarsest clock any adapter uses, so the gap has to be
+	// wide enough for one to resolve. Without it this case passes on arbitrary ordering.
+	time.Sleep(20 * time.Millisecond)
+	save(t, repo, newer)
+	time.Sleep(20 * time.Millisecond)
+
+	// The older run advances, which is what a release does between saves.
+	if err := older.SetVersion(version.MustParse("1.0.0"), "v1.0.0"); err != nil {
+		t.Fatalf("SetVersion: %v", err)
+	}
+	save(t, repo, older)
+
+	ids, err := repo.List(context.Background(), root)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("List returned %v, want both runs", ids)
+	}
+	if ids[0] != older.ID() {
+		t.Errorf("List returned %v, want the run that changed most recently (%q) first: an "+
+			"adapter ordering by creation instead gives one repository two histories "+
+			"depending on a config key, and an operator meets the difference only after "+
+			"switching backend", ids, older.ID())
 	}
 }
 

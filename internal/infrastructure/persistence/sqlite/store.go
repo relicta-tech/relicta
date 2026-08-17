@@ -396,7 +396,7 @@ func (s *Store) List(ctx context.Context, repoRoot string) ([]domain.RunID, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT run_id FROM release_runs
 		WHERE repo_root = ?
-		ORDER BY created_at DESC, run_id DESC`, normalizeRepoRoot(repoRoot))
+		ORDER BY updated_at DESC, run_id DESC`, normalizeRepoRoot(repoRoot))
 	if err != nil {
 		return nil, fmt.Errorf("listing release runs for %s: %w", repoRoot, err)
 	}
@@ -451,7 +451,7 @@ func (s *Store) FindByState(
 	return s.queryRuns(ctx, `
 		SELECT document FROM release_runs
 		WHERE repo_root = ? AND state = ?
-		ORDER BY created_at DESC, run_id DESC`,
+		ORDER BY updated_at DESC, run_id DESC`,
 		normalizeRepoRoot(repoRoot), string(state))
 }
 
@@ -476,7 +476,7 @@ func (s *Store) FindActive(ctx context.Context, repoRoot string) ([]*domain.Rele
 	return s.queryRuns(ctx, `
 		SELECT document FROM release_runs
 		WHERE repo_root = ? AND state IN (`+placeholders(len(states))+`)
-		ORDER BY created_at DESC, run_id DESC`, args...)
+		ORDER BY updated_at DESC, run_id DESC`, args...)
 }
 
 // FindByPlanHash returns the run planned under a hash, or nil, nil when there is none.
@@ -493,7 +493,7 @@ func (s *Store) FindByPlanHash(
 	err := s.db.QueryRowContext(ctx, `
 		SELECT document FROM release_runs
 		WHERE repo_root = ? AND plan_hash = ?
-		ORDER BY created_at DESC, run_id DESC
+		ORDER BY updated_at DESC, run_id DESC
 		LIMIT 1`, normalizeRepoRoot(repoRoot), planHash,
 	).Scan(&document)
 	if errors.Is(err, sql.ErrNoRows) {
