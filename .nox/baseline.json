@@ -2140,12 +2140,12 @@
       "created_at": "2026-08-17T13:23:07.156166Z"
     },
     {
-      "fingerprint": "b62da69cd1ae1b20a84d8d2fb34245808534f773c52626fd51c346e8717cab2c",
+      "fingerprint": "966fddcbb45646aae656edfc396afafd6040f19011271cc0448f3c9ad206ed57",
       "rule_id": "",
       "file_path": "",
       "severity": "",
-      "reason": "Same GO-2026-5932 openpgp advisory as the entry above, fingerprinted by the nox in CI (1.26.0) rather than the newer one on a developer machine. Two entries for one finding because the fingerprint is version-dependent and the scan fails on anything unsuppressed; removing the dependency is what removes both. relicta imports no x/crypto package at all -- 'go mod why' answers 'main module does not need package'.",
-      "created_at": "2026-08-17T13:56:55.250908Z"
+      "reason": "GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained. No fixed version exists, and nox's own message says '(not reachable: the affected package is not linked by this build)' -- relicta imports no x/crypto package at all, which 'go mod why golang.org/x/crypto' confirms. It is in the module graph because modernc.org/sqlite (ADR-013) brings golang.org/x/mod, and reaching x/mod v0.40.0 for GO-2026-6179 and GO-2026-6180 -- two real sumdb CVEs -- requires x/crypto v0.55.0. Two fixes taken for one unreachable advisory.",
+      "created_at": "2026-08-17T14:09:01.700997Z"
     }
   ]
 }
