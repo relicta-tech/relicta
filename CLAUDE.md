@@ -105,6 +105,7 @@ web/                        # Vue 3 + Vite + Tailwind dashboard frontend
 | `relicta mcp serve` | MCP server for AI agent integration |
 | `relicta server` | Standalone dashboard API server |
 | `relicta db migrate` | PostgreSQL migration runner |
+| `relicta db import` | Import the `.relicta/releases` history into the configured backend |
 | `relicta plugin` | Plugin management (list/create/dev/registry/search) |
 
 ## Plugin System

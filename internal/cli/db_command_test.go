@@ -25,7 +25,7 @@ func TestTheDatabaseCommandIsRegistered(t *testing.T) {
 			"from the binary", sub, err)
 	}
 
-	for _, name := range []string{"migrate", "migrate-down", "status"} {
+	for _, name := range []string{"migrate", "migrate-down", "status", "import"} {
 		t.Run(name, func(t *testing.T) {
 			found, _, findErr := rootCmd.Find([]string{"db", name})
 			if findErr != nil || found == nil || found.Name() != name {
@@ -55,6 +55,34 @@ func TestTheDatabaseCommandReadsConfigWhenItRuns(t *testing.T) {
 	}
 	if got.ConnectionString != "postgres://example/db" {
 		t.Errorf("ConnectionString = %q, want the configured one", got.ConnectionString)
+	}
+}
+
+// `db import` is not postgres-only, and its help has to say so.
+//
+// migrate, migrate-down and status refuse anything but postgres because they drive the postgres
+// migrator. Import drives no migrator: it writes through whichever ReleaseRunRepository the
+// setting selected, which includes sqlite. An operator who read the group's help and concluded
+// otherwise would go on believing there is no way to migrate a local history.
+//
+// The promise about the JSON tree is asserted here too, because it is a promise: ADR-013 leaves
+// the export in place until the operator removes it, and the only place they learn that before
+// running the command is this text.
+func TestTheImportCommandDocumentsWhatItAcceptsAndWhatItLeavesAlone(t *testing.T) {
+	found, _, err := rootCmd.Find([]string{"db", "import"})
+	if err != nil || found == nil {
+		t.Fatalf("db import is not registered: %v", err)
+	}
+
+	help := found.Long + " " + found.Short
+	if !strings.Contains(help, "sqlite") && !strings.Contains(dbCmd.Long, "sqlite") {
+		t.Error("neither `db import`'s help nor the db group's help mentions sqlite, so an " +
+			"operator reading \"these commands require postgres\" concludes a local history " +
+			"cannot be migrated at all")
+	}
+	if !strings.Contains(help, "left exactly as it was") {
+		t.Error("db import's help does not say the JSON tree is left in place: ADR-013 keeps " +
+			"it as an export until the operator removes it, and this is where they find out")
 	}
 }
 
