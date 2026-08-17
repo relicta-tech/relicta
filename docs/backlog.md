@@ -495,10 +495,14 @@ when a *row was written* rather than when the *run changed* — which the sqlite
 to fail. One repository with two histories depending on a config key is exactly the drift three
 adapters produce unsupervised.
 
-Still open on the storage work:
+`persistence.backend` now selects (#324), and #325 fixed what selection exposed: `relicta group
+release` read every member through a file repository, so a member whose approved run sat in SQLite
+was reported as "no release has been planned" — a confident wrong answer, not a gap. Underneath it,
+`config.LoadFromDirectory(dir)` did not load from `dir`: the process working directory was searched
+first and the ancestor walk started there too, so all three callers that name another repository
+were answered about the invoking one.
 
-- `persistence.backend` selection itself — the adapters exist and are proven; nothing chooses
-  between them yet, so `file` is still the only backend that runs.
+Still open on the storage work:
 - `relicta db import`, to read an existing `.relicta/` tree into a database. ADR-013 requires
   migration to be explicit and non-destructive: relicta must not move an operator's audit trail
   because they edited a config key, and it does not delete the JSON afterwards.
