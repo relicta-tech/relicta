@@ -52,6 +52,19 @@ type Config struct {
 	// skipping. `relicta verify` exists to check an attestation and had nothing to check.
 	AttestationEnabled bool
 
+	// Repository is the store the use cases persist runs through. Optional; without it
+	// they get the file adapter, which is what every caller had before the setting was
+	// wired.
+	//
+	// Injected rather than selected here, because selecting means reading
+	// persistence.backend and opening a database, and this package is the domain — it may
+	// not import internal/infrastructure, and the fitness functions in
+	// internal/architecture exist to keep it that way. The composition root resolves the
+	// backend once through persistence.OpenReleaseRunStore and hands the result to both
+	// this factory and the container's bridge, so one repository configuration cannot
+	// produce two stores.
+	Repository ports.ReleaseRunRepository
+
 	// EventPublisher receives the aggregate's domain events after each successful
 	// save. Optional; without it a release emits no events.
 	//
@@ -76,8 +89,11 @@ func NewServices(cfg Config) (*Services, error) {
 	// Create infrastructure adapters
 	repoInspector := adapters.NewGitRepoInspector(cfg.GitAdapter)
 
-	// Create file-based repository and lock manager
-	var repository ports.ReleaseRunRepository = adapters.NewFileReleaseRunRepository()
+	// The configured store, or the file adapter for a caller that resolved none.
+	repository := cfg.Repository
+	if repository == nil {
+		repository = adapters.NewFileReleaseRunRepository()
+	}
 	lockManager := adapters.NewFileLockManager()
 
 	// Publication is a decorator on save rather than a call in each use case: every use

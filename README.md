@@ -243,8 +243,9 @@ ai:
   audience: developers
 
 persistence:
-  backend: file            # file | postgres
+  backend: file            # file | sqlite | postgres — selects the release run store
   connection_string: ""    # DATABASE_URL for postgres
+  migration_mode: manual   # postgres only: manual runs `relicta db migrate`, auto migrates on start
 
 channels:
   enabled: true
