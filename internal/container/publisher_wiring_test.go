@@ -112,7 +112,10 @@ func TestTheBridgePublishesOnSave(t *testing.T) {
 	repoRoot := t.TempDir()
 	publisher := &recordingPublisher{}
 
-	bridge := newReleaseRepoBridge(repoRoot, publisher)
+	// nil store, so the bridge falls back to the file adapter: this case is about the
+	// publisher seam, and the store the container resolves is covered in
+	// release_run_backend_test.go.
+	bridge := newReleaseRepoBridge(repoRoot, publisher, nil)
 	if err := bridge.Save(context.Background(), runIn(t, repoRoot)); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -125,7 +128,7 @@ func TestTheBridgePublishesOnSave(t *testing.T) {
 
 func TestTheBridgeWorksWithoutAPublisher(t *testing.T) {
 	repoRoot := t.TempDir()
-	bridge := newReleaseRepoBridge(repoRoot, nil)
+	bridge := newReleaseRepoBridge(repoRoot, nil, nil)
 	if err := bridge.Save(context.Background(), runIn(t, repoRoot)); err != nil {
 		t.Fatalf("Save without a publisher: %v", err)
 	}

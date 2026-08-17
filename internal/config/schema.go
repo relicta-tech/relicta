@@ -1506,13 +1506,16 @@ type ObservabilityHealthCheckConfig struct {
 	ProviderName string `mapstructure:"provider_name" json:"provider_name,omitempty"`
 }
 
-// PersistenceBackend defines the event store backend type.
+// PersistenceBackend names the store relicta keeps its release runs in.
 type PersistenceBackend string
 
 const (
-	// BackendFile uses the local file-based event store.
+	// BackendFile uses the local file-based store under .relicta/. The default, and
+	// ADR-013 keeps it the default until parity is proven on evidence.
 	BackendFile PersistenceBackend = "file"
-	// BackendPostgres uses a PostgreSQL-backed event store.
+	// BackendSQLite uses one SQLite file per repository, for local and CI use.
+	BackendSQLite PersistenceBackend = "sqlite"
+	// BackendPostgres uses PostgreSQL, for teams sharing governance state.
 	BackendPostgres PersistenceBackend = "postgres"
 )
 
@@ -1526,9 +1529,9 @@ const (
 	MigrationModeAuto MigrationMode = "auto"
 )
 
-// PersistenceConfig configures the event store persistence backend.
+// PersistenceConfig configures the store relicta keeps its release runs in.
 type PersistenceConfig struct {
-	// Backend is the persistence backend (file, postgres).
+	// Backend is the persistence backend (file, sqlite, postgres).
 	Backend PersistenceBackend `mapstructure:"backend" json:"backend"`
 	// ConnectionString is the PostgreSQL connection string (required for postgres backend).
 	// Supports environment variable expansion (e.g., "${DATABASE_URL}").
@@ -1536,8 +1539,17 @@ type PersistenceConfig struct {
 	// PoolSize is the maximum number of connections in the pool (postgres only).
 	PoolSize int32 `mapstructure:"pool_size" json:"pool_size,omitempty"`
 	// MigrationMode controls how database migrations are applied (manual, auto).
+	//
+	// Postgres only. A PostgreSQL schema belongs to an operator who provisioned the
+	// database, so relicta asks before changing it; the SQLite file is one relicta
+	// creates itself in .relicta/, and `relicta db migrate` does not speak SQLite, so
+	// honoring "manual" there would leave no way to migrate at all.
 	MigrationMode MigrationMode `mapstructure:"migration_mode" json:"migration_mode,omitempty"`
 	// FilePath is the directory for file-based event storage.
+	//
+	// It names a *directory*, from the event-store design where each event was a file,
+	// and neither database backend uses it: a database is one file, and the SQLite
+	// store lives at .relicta/relicta.db beside the WAL files SQLite puts next to it.
 	FilePath string `mapstructure:"file_path" json:"file_path,omitempty"`
 }
 
@@ -1552,9 +1564,18 @@ func DefaultPersistenceConfig() PersistenceConfig {
 }
 
 // Validate checks the PersistenceConfig for correctness.
+//
+// Reached from config.Validate on the load path, so a backend the build cannot honor is
+// refused before a command runs rather than ignored — ADR-013's first consequence. It was
+// previously called only by persistence.NewEventStore, which has no production caller, so
+// `backend: postgress` loaded silently and wrote files.
 func (c PersistenceConfig) Validate() error {
 	switch c.Backend {
 	case BackendFile:
+		return nil
+	case BackendSQLite:
+		// No connection string, no pool, and migration_mode does not apply: the store is
+		// a file in .relicta/ that Open creates and migrates. See MigrationMode.
 		return nil
 	case BackendPostgres:
 		if c.ConnectionString == "" {
@@ -1571,7 +1592,8 @@ func (c PersistenceConfig) Validate() error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("unsupported persistence backend: %q", c.Backend)
+		return fmt.Errorf("unsupported persistence backend: %q (must be %q, %q or %q)",
+			c.Backend, BackendFile, BackendSQLite, BackendPostgres)
 	}
 }
 

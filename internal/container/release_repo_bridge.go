@@ -43,19 +43,33 @@ type releaseRepoBridge struct {
 	repoRoot string
 }
 
-// newReleaseRepoBridge builds the bridge over a fresh services-format repository.
+// newReleaseRepoBridge builds the bridge over the configured release run store.
 //
-// It constructs its own rather than borrowing App.releaseServices, because those
-// are initialized lazily by commands that need them and this must work before
-// then — several commands call ReleaseRepository() without ever calling
-// InitReleaseServices. Both point at the same files, so there is one store either
-// way.
+// It wraps a repository rather than borrowing App.releaseServices, because those are
+// initialized lazily by commands that need them and this must work before then —
+// several commands call ReleaseRepository() without ever calling
+// InitReleaseServices. Both are handed the same store, so there is one store either
+// way, and since persistence.backend was wired that identity is what makes the
+// setting mean anything: a bridge that kept constructing its own file adapter would
+// have `relicta cancel` reading JSON while `relicta plan` wrote to a database.
+//
 // The publisher is the same composed chain the release services receive, so a run saved
 // through this bridge emits its events exactly as one saved by plan or publish does.
 // Without it, the commands reaching the aggregate through here — cancel, clean, rollback,
 // bump, approve — were the half of the workflow that recorded nothing.
-func newReleaseRepoBridge(repoRoot string, publisher ports.EventPublisher) *releaseRepoBridge {
-	var inner ports.ReleaseRunRepository = adapters.NewFileReleaseRunRepository()
+//
+// A nil backend falls back to the file adapter, for a caller that builds a bridge
+// without resolving a store — the tests in this package. It cannot mean a database
+// that failed to open: persistence.OpenReleaseRunStore returns a repository or an
+// error, never nil and no error, so the configured backend never degrades to files
+// without someone being told.
+func newReleaseRepoBridge(
+	repoRoot string, publisher ports.EventPublisher, backend ports.ReleaseRunRepository,
+) *releaseRepoBridge {
+	inner := backend
+	if inner == nil {
+		inner = adapters.NewFileReleaseRunRepository()
+	}
 	if publisher != nil {
 		inner = adapters.NewEventPublishingRepository(adapters.EventPublishingConfig{
 			Repository: inner,

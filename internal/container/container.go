@@ -22,6 +22,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
 	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 	"github.com/relicta-tech/relicta/v4/internal/errors"
@@ -69,7 +70,13 @@ type App struct {
 	allowUntrustedPlugins bool
 
 	// Infrastructure layer
-	gitAdapter         *git.Adapter
+	gitAdapter *git.Adapter
+
+	// releaseRunStore is the adapter persistence.backend selected, held so the release
+	// services get the same one the bridge wraps. Resolved in initInfrastructure; nil only
+	// in a container that was never initialized.
+	releaseRunStore ports.ReleaseRunRepository
+
 	releaseRepo        domainrelease.Repository
 	baseEventPublisher *persistence.InMemoryEventPublisher
 	eventPublisher     domainrelease.EventPublisher // Composed publisher chain
@@ -321,12 +328,39 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	c.eventPublisher = publisher
 
+	// Resolve persistence.backend, once, for everything in this container that needs a
+	// release run repository.
+	//
+	// This is the point of ADR-013's first phase: the setting had never been read, so a
+	// team that configured PostgreSQL for shared governance state got JSON files in each
+	// developer's working copy and a command that reported success. It is resolved here
+	// rather than at each use site for the same reason the ADR has one conformance suite
+	// for three adapters — two selection sites are two answers waiting to disagree, and
+	// the way that shows up is `relicta plan` writing to a database while `relicta cancel`
+	// reads a file.
+	//
+	// A failure to open is returned, not logged: falling back to files for someone who
+	// asked for postgres is the exact defect this replaces.
+	releaseStore, storeErr := persistence.OpenReleaseRunStore(ctx, c.config.Persistence, repoRoot)
+	if storeErr != nil {
+		return errors.ConfigWrap(storeErr, "initInfrastructure", "failed to open the release run store")
+	}
+	// Registered before anything can use it, so a connection is released on shutdown even
+	// if a later step of initialization fails. Nil for the file backend, which holds none,
+	// and registerCloseable already ignores that.
+	if releaseStore.Closer != nil {
+		c.registerCloseable(releaseStore.Closer)
+	}
+	c.releaseRunStore = releaseStore.Repository
+	c.logger.Debug("release run store opened",
+		"backend", string(releaseStore.Backend), "location", releaseStore.Location)
+
 	// The bridge is built here, after the chain, because it carries it: the commands
 	// that save through app.ReleaseRepository() — cancel, clean, rollback, bump,
 	// approve — must publish their events too. Built before the chain existed, the
 	// bridge wrapped a bare repository, so canceling a release recorded nothing and
 	// change failure rate never saw a canceled run.
-	c.releaseRepo = newReleaseRepoBridge(repoRoot, c.eventPublisher)
+	c.releaseRepo = newReleaseRepoBridge(repoRoot, c.eventPublisher, c.releaseRunStore)
 
 	// Initialize UnitOfWork factory for transactional operations.
 	//
@@ -620,6 +654,10 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 		// The composed chain built in initEventPublishing: outcome tracker, webhook
 		// delivery, then the in-memory publisher the dashboard subscribes to.
 		EventPublisher: c.eventPublisher,
+		// The store persistence.backend selected, resolved once in initInfrastructure.
+		// Without it the factory builds its own file adapter, which is how `plan` could
+		// write JSON in a container whose bridge was reading a database.
+		Repository: c.releaseRunStore,
 		// So approval plans the attestation step the publisher knows how to run.
 		AttestationEnabled: c.config.Attestation.Enabled,
 	}

@@ -86,6 +86,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validatePlugins(cfg.Plugins)
 	v.validateWorkflow(cfg.Workflow)
 	v.validateOutput(cfg.Output)
+	v.validatePersistence(cfg.Persistence)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -487,6 +488,29 @@ func (v *Validator) validateOutput(cfg OutputConfig) {
 				v.errors.Addf("output.log_file: directory does not exist: %s", dir)
 			}
 		}
+	}
+}
+
+// validatePersistence refuses a backend the build cannot honor, at load.
+//
+// ADR-013's first consequence is that `persistence.backend` stops lying, and half of that
+// is refusing a value nothing can serve instead of ignoring it. PersistenceConfig.Validate
+// held the rule already and no load path called it, so a typo — `backend: postgress` — read
+// as "not postgres", and relicta wrote the team's audit trail to local files while they
+// believed it was in their database.
+//
+// Delegating rather than restating the rule keeps one definition of a valid persistence
+// section; the resolver that opens the store checks the same one, because a config that
+// loads and then cannot be served is the same lie one step later.
+func (v *Validator) validatePersistence(cfg PersistenceConfig) {
+	// An unset backend is not a choice the operator made. The loader defaults it to
+	// "file", so an empty value here means a Config assembled in code, and telling such a
+	// caller that "" is unsupported would report a problem they do not have.
+	if cfg.Backend == "" {
+		return
+	}
+	if err := cfg.Validate(); err != nil {
+		v.errors.Addf("persistence: %v", err)
 	}
 }
 
