@@ -2146,6 +2146,46 @@
       "severity": "info",
       "created_at": "2026-08-17T14:45:00Z",
       "reason": "The same GO-2026-5932 advisory as the entry above. Two entries for one finding because this repository runs nox in two configurations -- one with reachability analysis, one without -- and they fingerprint it differently: the reachability pass appends '(not reachable: the affected package is not linked by this build)' to the message and lowers the severity to info, and the fingerprint covers the message. Both were read from the failing runs' own findings.json artifacts, which is the only reliable source: a local nox is a different version again and matches neither."
+    },
+    {
+      "fingerprint": "5fd38944836d1d6ee20ef4b15039119f017c83209655a90d9f2fbf41d352af58",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-18T15:30:00Z",
+      "reason": "GO-2026-6172 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+    },
+    {
+      "fingerprint": "69d8d809851ac12cd4ec1da136b8a0c10b47a1b4757529af7af48d9bd653c944",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-18T15:30:00Z",
+      "reason": "GO-2026-6171 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+    },
+    {
+      "fingerprint": "12e6b3e0f0e9f1a0b9cec42424c80419840798e7e450fd6ee6685608c62aaff2",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-18T15:30:00Z",
+      "reason": "GO-2026-6170 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+    },
+    {
+      "fingerprint": "695da6dad5e65d724637495be449da223acfbac267b0d810479b96d097d4ec68",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-18T15:30:00Z",
+      "reason": "GO-2026-6168 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+    },
+    {
+      "fingerprint": "402cbe078729ab7dac815e48c9d16ccbbcb63ed16211edea5da052270b166831",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-08-18T15:30:00Z",
+      "reason": "GO-2026-6166 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
     }
   ]
 }
