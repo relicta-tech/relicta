@@ -96,6 +96,20 @@ func runRelease(cmd *cobra.Command, args []string) error {
 		printDryRunBanner()
 	}
 
+	// Fold --skip-push into the config before the container reads it, exactly as publish
+	// does and for the same reason: the publisher is configured from
+	// cfg.Versioning.GitPush at construction, so a flag that only reaches the summary
+	// changes nothing that matters.
+	//
+	// Here it was worse than ignored. `relicta release --skip-push` printed "Created
+	// 0.1.0 locally (push skipped)" and "Run 'git push origin --tags' to publish when
+	// ready" while the tag was already on the remote — verified against a bare remote.
+	// The command asserted the opposite of what it had done, about the one action that
+	// cannot be taken back, and told the operator to repeat it.
+	if releaseSkipPush {
+		cfg.Versioning.GitPush = false
+	}
+
 	// Initialize container
 	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
@@ -218,6 +232,19 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	if err != nil {
 		return fmt.Errorf("bump failed: %w", err)
 	}
+
+	// Write the configured manifests, which `relicta bump` does and this workflow did not.
+	// Verified against the built binary: a repository with version_files: package.json was
+	// tagged v0.1.0 while package.json still read 0.0.0, so the commit the tag names did
+	// not state the version it was tagged as — the defect version_files exists to prevent.
+	//
+	// After the bump rather than inside it, because runReleaseBump goes through the use
+	// case and this is the CLI's own step; before the release commit in publish, which is
+	// what puts the manifest into the tagged commit.
+	if err := applyVersionFiles(ctx, app, bumpOutput.Version); err != nil {
+		return fmt.Errorf("bump failed: %w", err)
+	}
+
 	fmt.Printf("  Version: %s\n", bumpOutput.Version.String())
 	fmt.Printf("  Tag %s will be created during publish\n", bumpOutput.TagName)
 	fmt.Println()
