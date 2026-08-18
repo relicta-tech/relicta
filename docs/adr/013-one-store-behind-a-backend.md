@@ -97,6 +97,10 @@ build cannot honor is refused at load rather than ignored.
 Go". This matters most for `report` and the dashboard, which are the paths that read
 the whole history.
 
+> **Amended 2026-08-19, after measuring it.** True, but by less than this implies:
+> `FindByState` gains ~3–5×, not the order of magnitude `List` gains, because the index
+> removes the scan and not the parse. See "What the measurement changed" below.
+
 **Atomicity becomes available.** A run and the governance record it produces can be
 written in one transaction under sqlite and postgres. The file backend cannot offer
 that, which is a reason to move rather than a reason not to have the file backend —
@@ -114,3 +118,54 @@ round trip test — rather than on the day the code lands.
 
 **The `events` table is not the schema.** It survives for the event log; the runs and
 governance tables are new. Migration `001_create_events` stays where it is.
+
+## What the measurement changed (2026-08-19)
+
+The Context argues that a database helps a single local user because every query walks
+the tree and parses every file. That was asserted three times in this document and its
+commit messages before anyone measured it. It is now measured, by
+`BenchmarkReleaseRunQueries` in the sqlite package, at `-benchtime 10x -count 2`:
+
+| runs | `List` (file → sqlite) | `FindByState` (file → sqlite) |
+|---|---|---|
+| 100 | 0.74ms → 0.13ms (~6×) | 4.4–5.8ms → 1.3–1.5ms (~3.5×) |
+| 500 | 4.2ms → 0.70ms (~6×) | 24.5–26.8ms → 9.6–10.2ms (~2.6×) |
+| 2000 | 15.8ms → 1.6ms (~10×) | 534–797ms → 132–135ms (~4–6×) |
+
+**The direction holds. The shape of the win is not what the Context implies.**
+
+`List` improves by roughly an order of magnitude, and for the stated reason: it answers
+from directory entries or an index without materializing anything.
+
+`FindByState` improves by three to five times — real, but visibly less. The index removes
+the *scan*; it does not remove the *parse*. Both backends still deserialize every
+matching run, so that shared work sets a floor no schema can lift. If this query ever
+needs to be dramatically faster, the change is to the port rather than any adapter:
+filtering runs does not require materializing them, so `FindByState` could return
+identities, or select the projected columns and load documents only for what the caller
+keeps. That moves all four implementations together, which is what the conformance suite
+exists to make possible.
+
+### A correction to this correction
+
+The first version of this section, written earlier the same day, claimed `FindByState`
+was *not faster at all* and at small histories was *slower*. That was measured with a
+single untimed call per backend against cold caches — one sample, no warmup — and it was
+wrong. The benchmark disagrees consistently across sizes and repeats.
+
+Both mistakes have the same cause and it is worth naming, because this document is where
+someone will come looking for justification: a number asserted from reasoning is a guess,
+and a number from one unrepeated sample is barely better. The benchmark is committed for
+that reason, and it is a benchmark rather than a test because it measures rather than
+asserts — a threshold that fails on a busy machine teaches people to ignore it.
+
+Reproduce with:
+
+    go test ./internal/infrastructure/persistence/sqlite/ \
+      -bench BenchmarkReleaseRunQueries -run '^$' -benchtime 10x -count 2
+
+### What this does not change
+
+The case for this decision was never mainly speed, and the parts that carry it are
+untouched: one schema instead of five ad-hoc encodings, a run and its governance record
+writable in one transaction, and a store a team can share. Those remain the reasons.
