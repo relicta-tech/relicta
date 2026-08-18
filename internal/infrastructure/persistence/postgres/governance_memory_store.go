@@ -359,13 +359,16 @@ func (s *GovernanceMemoryStore) GetActorMetrics(
 	if err != nil {
 		return nil, err
 	}
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no metrics found for actor: %s", actorID)
-	}
-
 	incidents, err := s.incidentsByActor(ctx, actorID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Releases alone decide whether the actor is known: an actor nobody has seen release
+	// anything is unknown rather than clean. Their incidents still count once a release makes
+	// them known — see the contract's arrival-order case.
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no metrics found for actor: %s", actorID)
 	}
 
 	// Grouped by repository because that is the shape RebuildActorMetrics reads, and the
@@ -380,8 +383,15 @@ func (s *GovernanceMemoryStore) GetActorMetrics(
 		incidentsByRepo[i.Repository] = append(incidentsByRepo[i.Repository], i)
 	}
 
+	// An IncidentRecord names an actor without their kind, so an actor known only by an
+	// incident has none to read and it stays zero rather than being guessed.
+	var kind cgp.ActorKind
+	if len(releases) > 0 {
+		kind = releases[0].Actor.Kind
+	}
+
 	return cgpmemory.RebuildActorMetrics(
-		actorID, releases[0].Actor.Kind, byRepo, incidentsByRepo, time.Now(),
+		actorID, kind, byRepo, incidentsByRepo, time.Now(),
 	), nil
 }
 

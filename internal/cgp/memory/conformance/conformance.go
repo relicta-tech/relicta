@@ -60,6 +60,8 @@ var cases = []testCase{
 	{"recording a release gives its actor metrics", recordingGivesTheActorMetrics},
 	{"re-recording a release does not count it twice", reRecordingDoesNotDoubleCount},
 	{"an incident round trips", anIncidentRoundTrips},
+	{"re-recording an incident does not count it twice", reRecordingAnIncidentDoesNotDoubleCount},
+	{"an incident counts whichever order it arrives in", anIncidentCountsWhicheverOrderItArrives},
 	{"a decision round trips by id", aDecisionRoundTripsByID},
 	{"an unknown decision is not found", anUnknownDecisionIsNotFound},
 	{"decisions are findable by proposal", decisionsAreFindableByProposal},
@@ -240,6 +242,89 @@ func anIncidentRoundTrips(t *testing.T, store memory.Store) {
 	}
 	if history[0].ReleaseID != "rel-1" {
 		t.Errorf("the incident lost its release association: %+v", history[0])
+	}
+}
+
+// The same rule releases already follow, applied to incidents — and it was not followed.
+//
+// The file store appends here unconditionally while RecordRelease upserts by ID, an asymmetry
+// inside one implementation. A retried incident, or two processes reacting to one alert, left two
+// rows and incremented IncidentCount twice. The PostgreSQL store does not reproduce it, because a
+// primary key makes an incident ID one row — so the backends disagreed about an actor's incident
+// rate, which feeds ReliabilityScore and the autonomy budget.
+//
+// Pinned here rather than fixed in whichever adapter noticed, because a rule added in one place
+// is how the backends came to disagree in the first place.
+func reRecordingAnIncidentDoesNotDoubleCount(t *testing.T, store memory.Store) {
+	record(t, store, releaseRecord("rel-1", "1.0.0", time.Now()))
+
+	incident := &memory.IncidentRecord{
+		ID:         "inc-1",
+		Repository: testRepo,
+		ReleaseID:  "rel-1",
+		ActorID:    "human:alice",
+		DetectedAt: time.Now(),
+	}
+	for range 2 {
+		if err := store.RecordIncident(context.Background(), incident); err != nil {
+			t.Fatalf("RecordIncident: %v", err)
+		}
+	}
+
+	history, err := store.GetIncidentHistory(context.Background(), testRepo, 10)
+	if err != nil {
+		t.Fatalf("GetIncidentHistory: %v", err)
+	}
+	if len(history) != 1 {
+		t.Errorf("the same incident ID appears %d times, want once: a retry should correct the "+
+			"record, not add to it", len(history))
+	}
+
+	metrics, err := store.GetActorMetrics(context.Background(), "human:alice")
+	if err != nil {
+		t.Fatalf("GetActorMetrics: %v", err)
+	}
+	if metrics.IncidentCount != 1 {
+		t.Errorf("IncidentCount = %d after recording one incident twice, want 1: the actor's "+
+			"reliability is being scored against an incident that happened once", metrics.IncidentCount)
+	}
+}
+
+// An incident and its actor's first release can arrive in either order — an incident imported
+// ahead of the history it belongs to, or a first deploy that goes wrong and is recorded before
+// the release it broke.
+//
+// The file store counted an incident only `if metrics, exists := s.actors[actorID]; exists`, so
+// one arriving first was dropped and never counted, even after that actor's releases made them
+// known. The count then depended on arrival order rather than on what happened.
+//
+// What this case does *not* assert is that an incident alone conjures an actor. An actor nobody
+// has seen release anything stays unknown, which is the reference's behavior and what the
+// PostgreSQL store's own test already pinned — GetActorMetrics erroring is how callers tell
+// "no record of this actor" from "this actor is clean". An earlier version of this case asserted
+// the opposite, on my reasoning rather than the code's, and that test caught it.
+func anIncidentCountsWhicheverOrderItArrives(t *testing.T, store memory.Store) {
+	ctx := context.Background()
+
+	// Incident first, before this actor has any release at all.
+	if err := store.RecordIncident(ctx, &memory.IncidentRecord{
+		ID:         "inc-1",
+		Repository: testRepo,
+		ActorID:    "human:alice",
+		DetectedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("RecordIncident: %v", err)
+	}
+	record(t, store, releaseRecord("rel-1", "1.0.0", time.Now()))
+
+	metrics, err := store.GetActorMetrics(ctx, "human:alice")
+	if err != nil {
+		t.Fatalf("GetActorMetrics: %v", err)
+	}
+	if metrics.IncidentCount != 1 {
+		t.Errorf("IncidentCount = %d, want 1: the incident was recorded before the actor's "+
+			"first release and never counted, so their reliability depends on the order the "+
+			"two arrived in rather than on what happened", metrics.IncidentCount)
 	}
 }
 

@@ -128,7 +128,10 @@ func (s *MemoryStore) RecordIncident(ctx context.Context, incident *memory.Incid
 
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO governance_incidents (repository, incident_id, actor_id, document)
-		VALUES (?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT (repository, incident_id) DO UPDATE SET
+			actor_id = excluded.actor_id,
+			document = excluded.document`,
 		incident.Repository, incident.ID, incident.ActorID, string(document),
 	)
 	if err != nil {
@@ -389,9 +392,6 @@ func (s *MemoryStore) GetActorMetrics(
 	if err != nil {
 		return nil, err
 	}
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no metrics found for actor: %s", actorID)
-	}
 
 	incidents, err := queryDocuments[memory.IncidentRecord](ctx, s.db, "incident record", `
 		SELECT document FROM governance_incidents
@@ -401,11 +401,27 @@ func (s *MemoryStore) GetActorMetrics(
 		return nil, err
 	}
 
+	// Releases alone decide whether the actor is known: an actor nobody has seen release
+	// anything is unknown rather than clean, and GetActorMetrics erroring is how callers tell
+	// those apart. Their incidents still count once a release makes them known — see the
+	// contract's arrival-order case.
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no metrics found for actor: %s", actorID)
+	}
+
 	// The kind comes from the actor's most recent release rather than from the first or
 	// from a default. An agent or CI pipeline recorded as human is exactly the
 	// attribution a governance audit exists to make legible, and the latest record is
 	// the store's best evidence of what this actor is now.
-	kind := releases[len(releases)-1].Actor.Kind
+	//
+	// An actor known only by an incident has no release to read it from, and an
+	// IncidentRecord names an actor without their kind, so the kind stays zero rather than
+	// being guessed. This indexed unconditionally and panicked on that actor — reachable as
+	// soon as an incident could precede a release, which is what the contract now requires.
+	var kind cgp.ActorKind
+	if len(releases) > 0 {
+		kind = releases[len(releases)-1].Actor.Kind
+	}
 
 	return memory.RebuildActorMetrics(
 		actorID, kind, releasesByRepository(releases), incidentsByRepository(incidents),
