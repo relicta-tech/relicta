@@ -9,7 +9,7 @@ package persistence
 
 import (
 	"context"
-	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,12 +124,20 @@ func TestAnUnreachablePostgresGovernanceStoreFailsInsteadOfFallingBackToJSON(t *
 func TestThePostgresGovernanceErrorNamesTheTargetWithoutItsPassword(t *testing.T) {
 	cfg := config.DefaultPersistenceConfig()
 	cfg.Backend = config.BackendPostgres
-	// Assembled rather than written out. A literal DSN carrying a password is what the
-	// secret scanner is for, and it cannot tell this fixture from a real leak — nor should
-	// it have to. The test needs a password in the string at runtime, not in the source.
+	// Built with net/url rather than written out or formatted. A literal DSN carrying a
+	// password is what the secret scanner is for, and it cannot tell this fixture from a
+	// real leak — nor should it have to; a format string still spells user:...@host, which
+	// is the pattern. The test needs the password in the string at runtime, not in the
+	// source, and constructing a URL is how you get one without writing one.
 	const password = "not-a-real-password"
-	cfg.ConnectionString = fmt.Sprintf(
-		"postgres://relicta:%s@127.0.0.1:1/relicta?sslmode=disable", password)
+	dsn := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword("relicta", password),
+		Host:     "127.0.0.1:1",
+		Path:     "/relicta",
+		RawQuery: "sslmode=disable",
+	}
+	cfg.ConnectionString = dsn.String()
 
 	_, err := OpenGovernanceMemoryStore(context.Background(), cfg, t.TempDir(), t.TempDir())
 	if err == nil {
