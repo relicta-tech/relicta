@@ -2186,6 +2186,46 @@
       "severity": "info",
       "created_at": "2026-08-18T15:30:00Z",
       "reason": "GO-2026-6166 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+    },
+    {
+      "fingerprint": "cba37825e1bca35b6f8eea5e2f5179fb8df8beb47e4dc9ee0c5830b986e7ed63",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-18T15:40:00Z",
+      "reason": "GO-GO-2026-6166 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+    },
+    {
+      "fingerprint": "564d7fb6d3cb98ced97fbb800c91168dcb88573eb98c6114c384c3564c48dbbb",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-18T15:40:00Z",
+      "reason": "GO-GO-2026-6168 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+    },
+    {
+      "fingerprint": "cf4ea95557e82eafd7ebbbbcff67615ac705583328a0637a07a2744a6f9408a6",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-18T15:40:00Z",
+      "reason": "GO-GO-2026-6170 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+    },
+    {
+      "fingerprint": "fdbf7373f0e13abad6feff16313d79da8ed5e81d05de469671b4b934989594bd",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-18T15:40:00Z",
+      "reason": "GO-GO-2026-6171 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+    },
+    {
+      "fingerprint": "e969889a45578decdb16965182bce28a979ec7f5c624140d4bc9bb5ae6736d65",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-08-18T15:40:00Z",
+      "reason": "GO-GO-2026-6172 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
     }
   ]
 }
