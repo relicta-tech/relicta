@@ -1,5 +1,6 @@
 // Package migrations embeds SQL migration files for the PostgreSQL backend — the event
-// log in 001, and the release runs that are the system of record under ADR-013 in 002.
+// log in 001, the release runs that are the system of record under ADR-013 in 002, and
+// the governance memory that records what was decided about them in 003.
 package migrations
 
 import "embed"
