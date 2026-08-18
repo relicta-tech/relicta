@@ -54,9 +54,6 @@ func OpenMemoryStore(ctx context.Context, path string) (*MemoryStore, error) {
 	return &MemoryStore{db: db, path: path}, nil
 }
 
-// Path returns the database file this store was opened on.
-func (s *MemoryStore) Path() string { return s.path }
-
 // Close releases the connection pool.
 func (s *MemoryStore) Close() error {
 	if err := s.db.Close(); err != nil {
