@@ -178,6 +178,19 @@ func (s *FileStore) RecordRelease(ctx context.Context, record *ReleaseRecord) er
 	return s.save()
 }
 
+// knownActorKindLocked returns the kind already recorded for an actor, or the zero kind.
+//
+// An IncidentRecord names an actor but not their kind, so an incident cannot introduce one.
+// Reading the kind back rather than passing a blank preserves what a release already established;
+// an actor known only by an incident has no kind yet, and inventing one would be a claim about
+// them that nothing recorded. Must be called with the lock held.
+func (s *FileStore) knownActorKindLocked(actorID string) cgp.ActorKind {
+	if metrics, exists := s.actors[actorID]; exists {
+		return metrics.ActorKind
+	}
+	return ""
+}
+
 // rebuildActorMetricsLocked recomputes one actor's metrics from the stored records.
 // Must be called with the lock held.
 func (s *FileStore) rebuildActorMetricsLocked(actorID string, kind cgp.ActorKind) {
@@ -215,15 +228,19 @@ func (s *FileStore) RecordIncident(ctx context.Context, incident *IncidentRecord
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.incidents[incident.Repository] = append(s.incidents[incident.Repository], incident)
+	records, replaced := UpsertIncidentRecord(s.incidents[incident.Repository], incident)
+	s.incidents[incident.Repository] = records
 
-	// Update actor incident count
+	// Rebuilt rather than incremented, for the reason RecordRelease rebuilds on a
+	// replacement: a counter cannot be un-added, so a corrected incident would leave the
+	// actor scored against one that happened once. Rebuilding also covers the actor an
+	// incident names before they have any release — the old code only incremented
+	// `if metrics, exists`, so that incident was dropped and reputation read them as clean.
 	if incident.ActorID != "" {
-		if metrics, exists := s.actors[incident.ActorID]; exists {
-			metrics.IncidentCount++
-			metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
-			metrics.UpdatedAt = time.Now()
-		}
+		s.rebuildActorMetricsLocked(incident.ActorID, s.knownActorKindLocked(incident.ActorID))
+	}
+	if replaced != nil && replaced.ActorID != "" && replaced.ActorID != incident.ActorID {
+		s.rebuildActorMetricsLocked(replaced.ActorID, s.knownActorKindLocked(replaced.ActorID))
 	}
 
 	return s.save()

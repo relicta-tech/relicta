@@ -514,30 +514,32 @@ Still open on the storage work:
 - Flipping the default, which the ADR says happens on evidence: the conformance suite passing on
   all three adapters (done) plus an importer with a round trip test (not done).
 
-## Incident recording disagrees between backends
+## DONE: incident recording agrees across all four backends
 
-Found while implementing the PostgreSQL governance memory store (#329), which deliberately does
-not reproduce two file-store behaviors. Both are defects in the reference rather than choices,
-and both corrupt the numbers reputation and the autonomy budget read:
+Found while implementing the PostgreSQL governance memory store, which declined to reproduce two
+file-store behaviors. Both were defects rather than choices, and both corrupted the numbers
+reputation and the autonomy budget read:
 
-1. **`RecordIncident` appends unconditionally** while `RecordRelease` upserts by ID — an
-   asymmetry inside one store. A retried incident, or two processes reacting to one alert, leaves
-   two rows and increments `IncidentCount` twice.
-2. **An incident only counts if its actor already has metrics** — `if metrics, exists :=
-   s.actors[incident.ActorID]; exists`. An incident recorded before that actor's first release is
-   silently dropped from their count.
+1. `RecordIncident` appended unconditionally while `RecordRelease` upserted by ID — an asymmetry
+   inside one implementation. A retried incident left two rows and counted twice.
+2. An incident counted only `if metrics, exists := s.actors[actorID]; exists`, so one recorded
+   before that actor's first release never counted — even after later releases made them known.
+   The count depended on arrival order rather than on what happened.
 
-PostgreSQL avoids both structurally: the primary key makes an incident ID one row, and metrics
-are derived from the stored rows rather than materialized as they arrive.
+Fixed as one change across all four implementations, driven by two new contract cases, with
+`UpsertIncidentRecord` added beside `UpsertReleaseRecord` so the rule has one definition.
 
-Nothing can hit the divergence today — governance memory has no backend selection, so every
-caller gets the file store. That is the whole window in which to close it.
+Worth recording how the second case reached its final shape. It first asserted that an incident
+*alone* should conjure an actor — that an actor known only by an incident gets metrics. The
+PostgreSQL store's own test asserted the opposite and caught it, and the reference agrees with
+the test: an actor nobody has seen release anything is unknown rather than clean, and
+`GetActorMetrics` erroring is how callers tell those apart. The case now pins arrival-order
+independence and nothing more. It was my reasoning against the code's, which is the rule this
+suite exists to enforce and the one I broke writing it.
 
-**The fix is one change touching all implementations together**, which is what the conformance
-suite exists to make possible: pin both behaviors as contract cases, then fix `FileStore` and
-`InMemoryStore` to satisfy them. The alternative — making PostgreSQL reproduce the bugs — keeps
-the backends consistent and the data wrong. Deferred only until the SQLite memory store lands, so
-all three move in the same commit rather than two of them twice.
+The corrected case also exposed a latent panic in the SQLite store: `releases[len(releases)-1]`
+indexed unconditionally to read the actor's kind, reachable as soon as an incident could precede
+a release.
 
 ## The event store is still unreachable, and now needs a smaller decision
 

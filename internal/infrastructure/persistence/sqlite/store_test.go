@@ -464,11 +464,21 @@ func TestTheMigrationRollsBackAndReapplies(t *testing.T) {
 	migrator := sqlite.NewMigrator(db)
 
 	// Down rolls back one migration, most recently applied first, so undoing the whole
-	// schema takes as many calls as there are migrations — 002 (governance memory) and
-	// then 001 (release runs). Rolling back only the newest is the behavior an operator
-	// who ran `relicta db migrate` against the wrong file needs; rolling back everything
-	// on one call would be a data-loss surprise.
-	const migrationCount = 2
+	// schema takes as many calls as there are migrations. Rolling back only the newest is
+	// the behavior an operator who ran `relicta db migrate` against the wrong file needs;
+	// rolling back everything on one call would be a data-loss surprise.
+	//
+	// Counted from the migrator rather than written down. A hardcoded 2 became wrong the
+	// moment a third migration landed, and it failed as "Down did not drop the schema",
+	// which describes the migrator rather than the test.
+	status, err := migrator.Status(ctx)
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	migrationCount := len(status)
+	if migrationCount == 0 {
+		t.Fatal("the migrator reports no migrations, so this test would assert nothing")
+	}
 	for range migrationCount {
 		if err := migrator.Down(ctx); err != nil {
 			t.Fatalf("Down: %v", err)

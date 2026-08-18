@@ -524,18 +524,32 @@ func (s *InMemoryStore) RecordIncident(ctx context.Context, incident *IncidentRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.incidents[incident.Repository] = append(s.incidents[incident.Repository], incident)
+	records, replaced := UpsertIncidentRecord(s.incidents[incident.Repository], incident)
+	s.incidents[incident.Repository] = records
 
-	// Update actor incident count
+	// Rebuilt rather than incremented, matching RecordRelease and the file store: a counter
+	// cannot be un-added, so a corrected incident would leave the actor scored against one
+	// that happened once. Rebuilding also covers an actor an incident names before they have
+	// any release, whom the old `if metrics, exists` dropped entirely.
 	if incident.ActorID != "" {
-		if metrics, exists := s.actors[incident.ActorID]; exists {
-			metrics.IncidentCount++
-			metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
-			metrics.UpdatedAt = time.Now()
-		}
+		s.rebuildActorMetricsLocked(incident.ActorID, s.knownActorKindLocked(incident.ActorID))
+	}
+	if replaced != nil && replaced.ActorID != "" && replaced.ActorID != incident.ActorID {
+		s.rebuildActorMetricsLocked(replaced.ActorID, s.knownActorKindLocked(replaced.ActorID))
 	}
 
 	return nil
+}
+
+// knownActorKindLocked returns the kind already recorded for an actor, or the zero kind.
+//
+// An IncidentRecord names an actor but not their kind, so an incident cannot introduce one.
+// Must be called with the lock held.
+func (s *InMemoryStore) knownActorKindLocked(actorID string) cgp.ActorKind {
+	if metrics, exists := s.actors[actorID]; exists {
+		return metrics.ActorKind
+	}
+	return ""
 }
 
 // GetReleaseHistory returns release records for a repository.
@@ -781,6 +795,25 @@ func (s *InMemoryStore) GetAuditTrail(ctx context.Context, proposalID string) (*
 // succeed.
 //
 // Reports whether an existing record was replaced, because a replacement invalidates
+// UpsertIncidentRecord replaces the incident sharing an ID, or appends a new one.
+//
+// The counterpart of UpsertReleaseRecord, and it did not exist: every store appended incidents
+// unconditionally while upserting releases, an asymmetry inside one implementation rather than a
+// decision. A retried incident, or two processes reacting to one alert, left two rows and counted
+// twice against the actor's incident rate — which feeds ReliabilityScore and the autonomy budget.
+//
+// One definition, shared, for the same reason the release one is: a rule added in whichever
+// adapter noticed is how the backends came to disagree.
+func UpsertIncidentRecord(records []*IncidentRecord, record *IncidentRecord) (result []*IncidentRecord, replaced *IncidentRecord) {
+	for i, existing := range records {
+		if existing != nil && existing.ID == record.ID {
+			records[i] = record
+			return records, existing
+		}
+	}
+	return append(records, record), nil
+}
+
 // the incrementally accumulated actor metrics and the caller has to rebuild them.
 func UpsertReleaseRecord(records []*ReleaseRecord, record *ReleaseRecord) (result []*ReleaseRecord, replaced *ReleaseRecord) {
 	for i, existing := range records {
