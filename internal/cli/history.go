@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
@@ -23,8 +22,13 @@ var (
 	historyActorID  string
 	historyShowRisk bool
 
-	// getMemoryStoreFunc is the function used to get the memory store.
-	// It can be overridden in tests.
+	// getMemoryStoreFunc is the function every command in this package reaches the
+	// governance store through, and the seam tests replace.
+	//
+	// The context-taking variants used to bypass it and call the resolver directly, so
+	// `relicta audit`, `relicta deploy`, `relicta hub sync` and `relicta integrations`
+	// could not be tested against a store at all — and, more to the point here, each was
+	// a place that could be given a different answer to "which backend". One seam.
 	getMemoryStoreFunc = getMemoryStore
 )
 
@@ -112,10 +116,11 @@ func runHistory(cmd *cobra.Command, args []string) error {
 
 func runHistoryReleases(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStoreFunc()
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
+	defer releaseStore()
 
 	repo := historyRepo
 	if repo == "" {
@@ -188,10 +193,11 @@ func runHistoryReleases(cmd *cobra.Command, args []string) error {
 
 func runHistoryActor(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStoreFunc()
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
+	defer releaseStore()
 
 	actorID := historyActorID
 	if len(args) > 0 {
@@ -244,10 +250,11 @@ func runHistoryActor(cmd *cobra.Command, args []string) error {
 
 func runHistoryRisk(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	store, err := getMemoryStoreFunc()
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to access history store: %w", err)
 	}
+	defer releaseStore()
 
 	repo := historyRepo
 	if repo == "" {
@@ -313,13 +320,18 @@ func runHistoryRisk(cmd *cobra.Command, args []string) error {
 // history together had anything ever been written there.
 //
 // One resolver now answers where the store is, and both sides call it.
-func getMemoryStore() (memory.Store, error) {
-	return getMemoryStoreCtx(context.Background())
-}
-
-// getMemoryStoreCtx is the context-taking form, so a caller inside a request or
-// command scope does not silently start a detached one.
-func getMemoryStoreCtx(ctx context.Context) (memory.Store, error) {
+//
+// "Where" became "which" when persistence.backend started selecting a governance store:
+// a build that read the setting for release runs and opened a FileStore here would
+// answer `relicta history` out of a JSON file that `relicta publish` had stopped
+// writing to. So this goes through internal/container, which is the composition root
+// and the single importer of internal/infrastructure/persistence — FF#1 in
+// internal/architecture forbids reaching into infrastructure from here, and the answer
+// to that is routing rather than an allowlist entry.
+//
+// The returned release function closes whatever the store holds open — nothing for the
+// file backend, a connection for sqlite and postgres. Callers defer it.
+func getMemoryStore(ctx context.Context) (memory.Store, func(), error) {
 	repoRoot := ""
 	if svc, err := gitservice.NewService(); err == nil {
 		if info, infoErr := gitservice.NewAdapter(svc).GetInfo(ctx); infoErr == nil {
@@ -327,12 +339,16 @@ func getMemoryStoreCtx(ctx context.Context) (memory.Store, error) {
 		}
 	}
 
-	configured := ""
-	if cfg != nil {
-		configured = cfg.Governance.MemoryPath
+	resolved, err := container.OpenGovernanceMemory(ctx, cfg, repoRoot)
+	if err != nil {
+		return nil, func() {}, err
 	}
 
-	return memory.NewFileStore(filepath.Dir(governance.MemoryStorePath(configured, repoRoot)))
+	release := func() {}
+	if resolved.Closer != nil {
+		release = func() { _ = resolved.Closer.Close() }
+	}
+	return resolved.Store, release, nil
 }
 
 // getRepositoryName resolves the current repository as "owner/name".

@@ -84,10 +84,11 @@ func runHubSync(cmd *cobra.Command, _ []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Second)
 	defer cancel()
 
-	store, err := getMemoryStoreCtx(ctx)
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open the governance store: %w", err)
 	}
+	defer releaseStore()
 
 	// The governance identity, the same key the local readers use — so a repository is one
 	// repository on both sides rather than two records that never join.

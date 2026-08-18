@@ -84,7 +84,13 @@ func Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store, repository, err := deploymentStoreForRequest(r)
+	// The full governance store, not the deployment-recording narrowing of it. This gate
+	// only reads release history, which every backend can answer; asking for
+	// memory.DeploymentStore here would have refused a decision under `backend: sqlite`
+	// for want of a table it never touches — and a gate that cannot decide is a gate that
+	// blocks every deployment.
+	store, repository, releaseStore, err := governanceStoreForRequest(r)
+	defer releaseStore()
 	if err != nil {
 		// Deliberately an error rather than a permissive decision. A caller cannot tell
 		// an allow-because-broken from an allow-because-governed, so answering "allowed"
@@ -94,14 +100,7 @@ func Authorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reader, ok := store.(memory.Store)
-	if !ok {
-		writeError(w, r, http.StatusServiceUnavailable, ErrCodeInternal,
-			"the governance store cannot read release history", "store does not implement memory.Store")
-		return
-	}
-
-	releases, err := reader.GetReleaseHistory(r.Context(), repository, releaseHistoryLimit)
+	releases, err := store.GetReleaseHistory(r.Context(), repository, releaseHistoryLimit)
 	if err != nil {
 		writeError(w, r, http.StatusServiceUnavailable, ErrCodeInternal,
 			"release history could not be read, so no decision can be made", err.Error())

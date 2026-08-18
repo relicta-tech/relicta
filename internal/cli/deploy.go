@@ -154,7 +154,8 @@ func runDeployRecord(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	store, repository, err := deploymentStore(ctx)
+	store, repository, releaseStore, err := deploymentStore(ctx)
+	defer releaseStore()
 	if err != nil {
 		return err
 	}
@@ -197,7 +198,8 @@ func runDeployList(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	store, repository, err := deploymentStore(ctx)
+	store, repository, releaseStore, err := deploymentStore(ctx)
+	defer releaseStore()
 	if err != nil {
 		return err
 	}
@@ -241,25 +243,33 @@ func runDeployList(cmd *cobra.Command, _ []string) error {
 
 // deploymentStore opens the governance store and resolves the repository identity,
 // so deployments are keyed exactly as releases are and the report path finds both.
-func deploymentStore(ctx context.Context) (memory.DeploymentStore, string, error) {
-	store, err := getMemoryStoreCtx(ctx)
+//
+// The release function closes whatever the resolved backend holds open — nothing for
+// the file store, a connection for sqlite and postgres — and is returned rather than
+// deferred here because the store outlives this call. It is non-nil on every path,
+// including the error ones, so a caller can defer it before checking err.
+func deploymentStore(ctx context.Context) (memory.DeploymentStore, string, func(), error) {
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open the governance store: %w", err)
+		return nil, "", releaseStore, fmt.Errorf("failed to open the governance store: %w", err)
 	}
 
 	deployments, ok := store.(memory.DeploymentStore)
 	if !ok {
 		// An honest refusal rather than a silent no-op: a configured store that
 		// cannot hold deployments would otherwise accept the command and record
-		// nothing.
-		return nil, "", fmt.Errorf("the configured governance store does not record deployments")
+		// nothing. The message names the backend, because the way an operator now
+		// reaches this is by setting persistence.backend rather than by having an
+		// exotic store.
+		return nil, "", releaseStore, fmt.Errorf(
+			"the configured governance store (%T) does not record deployments", store)
 	}
 
 	repository := getRepositoryName(ctx)
 	if repository == "" {
-		return nil, "", fmt.Errorf("could not determine the repository identity")
+		return nil, "", releaseStore, fmt.Errorf("could not determine the repository identity")
 	}
-	return deployments, repository, nil
+	return deployments, repository, releaseStore, nil
 }
 
 // timeNowFunc is swappable so tests can pin deployment timestamps.
@@ -307,7 +317,8 @@ to fail on both.`,
 func runDeployAudit(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	store, repository, err := deploymentStore(ctx)
+	store, repository, releaseStore, err := deploymentStore(ctx)
+	defer releaseStore()
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 )
 
@@ -67,7 +68,7 @@ func TestNewServiceFromConfig(t *testing.T) {
 			tmpDir := t.TempDir()
 
 			logger := slog.Default()
-			svc, err := NewServiceFromConfig(context.Background(), tt.cfg, tmpDir, logger)
+			svc, err := NewServiceFromConfig(context.Background(), tt.cfg, tmpDir, logger, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewServiceFromConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -79,30 +80,51 @@ func TestNewServiceFromConfig(t *testing.T) {
 	}
 }
 
-func TestNewServiceFromConfig_WithMemory(t *testing.T) {
-	tmpDir := t.TempDir()
+// The service records history into the store it was handed, and never into one of its own.
+//
+// It used to call memory.NewFileStore on MemoryStorePath itself. That was a second answer to
+// "where does governance memory live", and once persistence.backend began selecting a
+// governance store it became the ADR-013 defect in miniature: the service would keep writing
+// .relicta/governance/memory.json while everything else wrote to the configured database.
+func TestTheGovernanceServiceUsesTheMemoryStoreItWasGiven(t *testing.T) {
+	store := memory.NewInMemoryStore()
 
-	cfg := &config.GovernanceConfig{
-		Enabled:              true,
-		AutoApproveThreshold: 0.3,
-		MaxAutoApproveRisk:   0.5,
-		MemoryEnabled:        true,
-		MemoryPath:           "governance/memory.json",
-	}
-
-	logger := slog.Default()
-	svc, err := NewServiceFromConfig(context.Background(), cfg, tmpDir, logger)
+	svc, err := NewServiceFromConfig(context.Background(), &config.GovernanceConfig{
+		Enabled:       true,
+		MemoryEnabled: true,
+		MemoryPath:    "governance/memory.json",
+	}, t.TempDir(), slog.Default(), store)
 	if err != nil {
-		t.Fatalf("NewServiceFromConfig() error = %v", err)
-	}
-	if svc == nil {
-		t.Fatal("NewServiceFromConfig() returned nil service")
+		t.Fatalf("NewServiceFromConfig: %v", err)
 	}
 
-	// Verify memory directory was created
-	memoryDir := filepath.Join(tmpDir, "governance")
-	if _, err := os.Stat(memoryDir); os.IsNotExist(err) {
-		t.Errorf("Memory directory was not created: %s", memoryDir)
+	if svc.memoryStore != memory.Store(store) {
+		t.Errorf("the service records into %T rather than the store it was given: a "+
+			"governance service with its own store writes an audit trail nothing else reads",
+			svc.memoryStore)
+	}
+}
+
+// And when there is no store to give, it opens nothing — no store, and no directory for one.
+func TestTheGovernanceServiceOpensNoStoreOfItsOwnWhenGivenNone(t *testing.T) {
+	repoPath := t.TempDir()
+
+	svc, err := NewServiceFromConfig(context.Background(), &config.GovernanceConfig{
+		Enabled:       true,
+		MemoryEnabled: true,
+		MemoryPath:    "governance/memory.json",
+	}, repoPath, slog.Default(), nil)
+	if err != nil {
+		t.Fatalf("NewServiceFromConfig: %v", err)
+	}
+
+	if svc.memoryStore != nil {
+		t.Errorf("the service attached %T without being given a store", svc.memoryStore)
+	}
+	if _, err := os.Stat(filepath.Join(repoPath, "governance")); err == nil {
+		t.Errorf("%s was created by a service that was given no store: constructing a "+
+			"governance service must not decide where governance memory lives",
+			filepath.Join(repoPath, "governance"))
 	}
 }
 

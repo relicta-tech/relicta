@@ -369,7 +369,8 @@ func TestGetRepositoryName_NoGitDir(t *testing.T) {
 
 func TestGetMemoryStore_Fallback(t *testing.T) {
 	// Test that getMemoryStore returns a store (using fallback paths)
-	store, err := getMemoryStore()
+	store, releaseStore, err := getMemoryStore(context.Background())
+	defer releaseStore()
 	if err != nil {
 		t.Logf("getMemoryStore() error = %v (expected in test env)", err)
 	}
@@ -478,8 +479,8 @@ func TestRunHistoryReleases_WithMockStore(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 
@@ -504,8 +505,8 @@ func TestRunHistoryReleases_EmptyHistory(t *testing.T) {
 		releases: []*memory.ReleaseRecord{},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 
@@ -528,8 +529,8 @@ func TestRunHistoryReleases_NoRepo(t *testing.T) {
 
 	mockStore := &historyMockStore{}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = ""
 
@@ -560,8 +561,8 @@ func TestRunHistoryReleases_StoreError(t *testing.T) {
 		storeError: fmt.Errorf("database error"),
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 
@@ -596,8 +597,8 @@ func TestRunHistoryReleases_WithJSONOutput(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 	outputJSON = true
@@ -640,8 +641,8 @@ func TestRunHistoryReleases_WithVerboseRisk(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 	verbose = true
@@ -683,8 +684,8 @@ func TestRunHistoryActor_WithMockStore(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyActorID = "human:dev"
 
@@ -707,8 +708,8 @@ func TestRunHistoryActor_NoActorID(t *testing.T) {
 
 	mockStore := &historyMockStore{}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyActorID = ""
 
@@ -739,8 +740,8 @@ func TestRunHistoryActor_WithArg(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyActorID = ""
 
@@ -770,8 +771,8 @@ func TestRunHistoryActor_WithJSONOutput(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyActorID = "human:test"
 	outputJSON = true
@@ -808,8 +809,8 @@ func TestRunHistoryRisk_WithMockStore(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 
@@ -832,8 +833,8 @@ func TestRunHistoryRisk_NoRepo(t *testing.T) {
 
 	mockStore := &historyMockStore{}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = ""
 
@@ -871,8 +872,8 @@ func TestRunHistoryRisk_WithJSONOutput(t *testing.T) {
 		},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 	outputJSON = true
@@ -898,8 +899,8 @@ func TestRunHistory_CallsReleases(t *testing.T) {
 		releases: []*memory.ReleaseRecord{},
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 
@@ -918,8 +919,8 @@ func TestGetMemoryStore_InitError(t *testing.T) {
 		getMemoryStoreFunc = origGetMemoryStoreFunc
 	}()
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return nil, fmt.Errorf("failed to initialize store")
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return nil, func() {}, fmt.Errorf("failed to initialize store")
 	}
 
 	cmd := historyReleasesCmd
@@ -984,8 +985,8 @@ func TestRunHistoryActor_StoreError(t *testing.T) {
 		storeError: fmt.Errorf("database error"),
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyActorID = "human:test"
 
@@ -1010,8 +1011,8 @@ func TestRunHistoryRisk_StoreError(t *testing.T) {
 		storeError: fmt.Errorf("database error"),
 	}
 
-	getMemoryStoreFunc = func() (memory.Store, error) {
-		return mockStore, nil
+	getMemoryStoreFunc = func(context.Context) (memory.Store, func(), error) {
+		return mockStore, func() {}, nil
 	}
 	historyRepo = "test/repo"
 

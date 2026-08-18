@@ -254,19 +254,45 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	// Add outcome tracker if governance memory is enabled
 	if c.config.Governance.MemoryEnabled {
-		// The one resolver both sides call. This used to hardcode a cwd-relative
-		// ".relicta/memory" while every reader — `relicta history`, the DORA and SOC 2
-		// reports, the deployment gate, `hub sync` — resolves the store through
-		// governance.MemoryStorePath, which defaults to ".relicta/governance/memory.json"
-		// against the repository root. So the tracker wrote to a different directory than
-		// anything reads, and a relative path also made the location depend on which
-		// subdirectory the command happened to run from. Reading and writing one store is
-		// the whole point of a store.
-		memoryPath := filepath.Dir(governance.MemoryStorePath(c.config.Governance.MemoryPath, repoRoot))
-		c.memoryStore, err = cgpmemory.NewFileStore(memoryPath)
-		if err != nil {
-			c.logger.Warn("failed to initialize memory store", "error", err)
-		} else {
+		// Resolve persistence.backend, once, for everything in this container that needs a
+		// governance memory store — the outcome tracker here and the governance service in
+		// initGovernanceService, which used to open its own.
+		//
+		// The path this resolves for the file backend is governance.MemoryStorePath. That
+		// used to be a cwd-relative ".relicta/memory" here while every reader — `relicta
+		// history`, the DORA and SOC 2 reports, the deployment gate, `hub sync` — read
+		// ".relicta/governance/memory.json" against the repository root, so the tracker
+		// wrote where nothing looked. Reading and writing one store is the whole point of a
+		// store, and that is now true of the backend as well as the path.
+		memoryStore, memErr := OpenGovernanceMemory(ctx, c.config, repoRoot)
+		switch {
+		case memErr != nil && c.config.Persistence.Backend != "" &&
+			c.config.Persistence.Backend != config.BackendFile:
+			// A database the operator asked for and relicta could not open is the
+			// command's error. Warning and continuing would leave the tracker unbuilt,
+			// so the release would publish, report success, and record nothing at all —
+			// the shape of defect ADR-013 exists to remove, with the audit trail as the
+			// thing that goes missing.
+			return errors.ConfigWrap(memErr, "initInfrastructure",
+				"failed to open the governance memory store")
+		case memErr != nil:
+			// The file backend keeps the behavior it has always had. Nothing was
+			// selected here, so nothing fell back: this is a local filesystem refusing
+			// the directory relicta would have created itself, and downgrading to no
+			// historical tracking is what every previous release did. ADR-013 flips the
+			// default on evidence and in its own change, so this branch is deliberately
+			// not tightened along with the one above.
+			c.logger.Warn("failed to initialize memory store", "error", memErr)
+		default:
+			c.memoryStore = memoryStore.Store
+			// Registered before anything can use it, so a connection is released on
+			// shutdown even if a later step of initialization fails. Nil for the file
+			// backend, which holds none, and registerCloseable already ignores that.
+			if memoryStore.Closer != nil {
+				c.registerCloseable(memoryStore.Closer)
+			}
+			c.logger.Debug("governance memory store opened",
+				"backend", string(memoryStore.Backend), "location", memoryStore.Location)
 			// The same governance identity the CLI's recordPublishOutcome records
 			// against, resolved once here. The tracker's own per-run context cache is
 			// empty in a fresh process, so without this a terminal event arriving on its
@@ -277,11 +303,26 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 				governanceID = repoInfo.GovernanceID()
 			}
 			publisher = cgpmemory.NewOutcomeTracker(c.memoryStore, publisher, governanceID)
-			c.logger.Debug("outcome tracker initialized", "path", memoryPath, "repository", governanceID)
+			c.logger.Debug("outcome tracker initialized",
+				"location", memoryStore.Location, "repository", governanceID)
 		}
 	}
 
-	// Initialize Mnemos memory backend (optional — replaces file store when enabled)
+	// Initialize the Mnemos client (optional — reachable through MnemosStore()).
+	//
+	// It used to end with `c.memoryStore = c.mnemosStore`, which made it a second answer to
+	// "which governance store", and now that persistence.backend gives the first answer the
+	// two cannot both stand. The assignment also never did what its comment claimed: the
+	// outcome tracker above was already built around the store resolved before this block, so
+	// with mnemos enabled — which is the default — the tracker wrote to the file store while
+	// the accessor handed out the Mnemos adapter. Nothing in the tree calls MemoryStore(), so
+	// the only thing the line achieved was to make the two disagree, and had it reached the
+	// governance service it would have silenced every governance record in the default
+	// configuration: the Mnemos adapter logs and drops a write when no daemon answers.
+	//
+	// Mnemos is unchanged and unaffected — MnemosStore() returns it, HasMnemos() reports it.
+	// It is a cognitive backend, not a persistence backend, and persistence.backend is where
+	// the governance store is chosen.
 	if c.config.Mnemos.Enabled {
 		mnemosEndpoint := c.config.Mnemos.Endpoint
 		if mnemosEndpoint == "" {
@@ -303,8 +344,6 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 			mnemosNamespace,
 			&http.Client{Timeout: mnemosTimeout},
 		)
-		// Make Mnemos the primary governance memory backend when enabled.
-		c.memoryStore = c.mnemosStore
 		c.logger.Info("Mnemos memory backend initialized", "endpoint", mnemosEndpoint, "namespace", mnemosNamespace)
 	}
 
@@ -588,11 +627,17 @@ func (c *App) initGovernanceService(ctx context.Context) error {
 	}
 
 	var err error
+	// The store initInfrastructure resolved, rather than one the service opens for
+	// itself. persistence.backend is read in one place; a service that built its own
+	// would be the second, and the two would disagree the moment the setting was not
+	// `file` — the service recording releases in memory.json while the outcome tracker
+	// recorded them in the database.
 	c.governanceService, err = governance.NewServiceFromConfig(
 		ctx,
 		&c.config.Governance,
 		repoPath,
 		c.logger,
+		c.memoryStore,
 	)
 	if err != nil {
 		return errors.StateWrap(err, "initGovernanceService", "failed to create governance service")
