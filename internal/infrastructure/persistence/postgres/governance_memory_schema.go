@@ -28,22 +28,39 @@ var ErrGovernanceSchemaMissing = errors.New("governance memory schema is missing
 // VerifyGovernanceMemorySchema reports whether the governance memory tables exist, naming the
 // command that creates them when they do not.
 //
-// governance_releases alone is probed, not all four tables. Migration 003 creates them in one
-// transaction, so they arrive together or not at all, and a database that has some of them has
-// been edited by hand — a state a probe cannot repair and should not pretend to diagnose.
+// Two relations are probed, one per migration, and not all six tables. Within a migration the
+// tables arrive together or not at all — each runs in one transaction — so a database holding
+// some of 003's tables has been edited by hand, a state a probe cannot repair and should not
+// pretend to diagnose. Across migrations is different: a database stopped at 003 is an
+// ordinary upgrade that has not been run yet, and the audit chain it lacks is where every
+// governance event is about to be recorded. Probing only governance_releases would let such a
+// database open cleanly and then fail at the first append, mid-release, with a relation an
+// operator has never heard of.
 func VerifyGovernanceMemorySchema(ctx context.Context, pool *pgxpool.Pool) error {
 	// LIMIT 0 so the plan touches no rows: this asks whether the relation exists, and a
 	// database holding years of governance history should not pay for the question.
-	_, err := pool.Exec(ctx, `SELECT 1 FROM governance_releases LIMIT 0`)
-	if err == nil {
-		return nil
+	// Whole statements rather than a table name spliced into one. Nothing here is
+	// caller-supplied, so it is not an injection today; a literal per probe means it
+	// cannot become one when somebody later makes the list configurable.
+	probes := []struct {
+		relation string
+		query    string
+	}{
+		{"governance_releases", `SELECT 1 FROM governance_releases LIMIT 0`},
+		{"governance_audit_entries", `SELECT 1 FROM governance_audit_entries LIMIT 0`},
 	}
 
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == undefinedTable {
-		return fmt.Errorf("%w: run 'relicta db migrate' to create it, or set "+
-			"persistence.migration_mode to 'auto' to have relicta apply migrations itself",
-			ErrGovernanceSchemaMissing)
+	for _, probe := range probes {
+		if _, err := pool.Exec(ctx, probe.query); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == undefinedTable {
+				return fmt.Errorf("%w: %s is not there; run 'relicta db migrate' to "+
+					"create it, or set persistence.migration_mode to 'auto' to have "+
+					"relicta apply migrations itself",
+					ErrGovernanceSchemaMissing, probe.relation)
+			}
+			return fmt.Errorf("checking the governance memory schema: %w", err)
+		}
 	}
-	return fmt.Errorf("checking the governance memory schema: %w", err)
+	return nil
 }

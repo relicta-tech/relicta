@@ -967,6 +967,11 @@ func getGovernanceRiskPreview(ctx context.Context, app cliApp, output *servicere
 		Release:    rel,
 		Actor:      actor,
 		Repository: firstNonEmpty(repoID, "local:unknown"),
+
+		// rel is built here to answer "what would this cost", with a plan hash and
+		// therefore a run ID that the release being planned will not carry. The
+		// evaluation is real and it authorizes nothing, so it is not evidence.
+		Preview: true,
 	}
 
 	result, err := govService.EvaluateRelease(ctx, input)

@@ -130,7 +130,7 @@ Get started with 'relicta init' to set up your project.`,
 		// "info" default the flag carries when untouched.
 		logLevelExplicit = cmd.Flags().Changed("log-level") || cmd.Flags().Changed("log")
 		// Skip config loading for commands that don't need it
-		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "verify" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Name() == "policy" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp" || cmd.Parent().Name() == "policy") {
+		if cmd.Name() == "init" || cmd.Name() == "version" || cmd.Name() == "help" || cmd.Name() == "plugin" || cmd.Name() == "mcp" || cmd.Name() == "policy" || cmd.Parent() != nil && (cmd.Parent().Name() == "plugin" || cmd.Parent().Name() == "mcp" || cmd.Parent().Name() == "policy") {
 			return nil
 		}
 
@@ -150,6 +150,30 @@ Get started with 'relicta init' to set up your project.`,
 		if cmd.Name() == "report" {
 			if err := initConfig(); err != nil {
 				printWarning(fmt.Sprintf("config not loaded, reporting with defaults: %v", err))
+			}
+			return nil
+		}
+
+		// `verify` reads config but must not require it, for the same reason and with
+		// the same history as `report`.
+		//
+		// It was in the skip list above, which was harmless while it only read an
+		// attestation file. Now that it also checks the governance audit chain the
+		// attestation anchors into, it needs to know which persistence.backend holds
+		// that chain — and with cfg nil the resolver returns the default file store, so
+		// a repository configured for sqlite or postgres had its chain read from a
+		// memory.json that does not exist. Verified against the built binary: `relicta
+		// audit` reported a verified 16-entry chain and `relicta verify`, in the same
+		// directory a second later, reported the chain holding 0 and failed the release
+		// for entries that were never missing.
+		//
+		// Tolerant rather than required, because verifying an attestation downloaded
+		// from a release page — outside any repository, with no config to find — is
+		// exactly what this command is for. Without config it falls back to the default
+		// backend and reports the chain as unavailable rather than absent.
+		if cmd.Name() == "verify" {
+			if err := initConfig(); err != nil {
+				logger.Debug("config not loaded; verifying the attestation alone", "error", err)
 			}
 			return nil
 		}

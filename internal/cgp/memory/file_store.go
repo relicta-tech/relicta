@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/fileutil"
 )
 
@@ -29,6 +30,7 @@ type FileStore struct {
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
 	authorizations map[string]*cgp.ExecutionAuthorization // keyed by authorization ID
+	chains         map[string][]*audit.Entry              // keyed by repository, in append order
 
 	// Track if data has been loaded
 	loaded bool
@@ -49,6 +51,7 @@ func NewFileStore(basePath string) (*FileStore, error) {
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),
 		authorizations: make(map[string]*cgp.ExecutionAuthorization),
+		chains:         make(map[string][]*audit.Entry),
 	}
 
 	// Load existing data
@@ -67,7 +70,15 @@ type fileData struct {
 	Actors         map[string]*ActorMetrics               `json:"actors"`
 	Decisions      map[string]*cgp.GovernanceDecision     `json:"decisions,omitempty"`
 	Authorizations map[string]*cgp.ExecutionAuthorization `json:"authorizations,omitempty"`
-	UpdatedAt      time.Time                              `json:"updatedAt"`
+
+	// AuditChains is one hash-linked chain per repository, in append order.
+	//
+	// A JSON array and not a map, because order is the evidence: each entry names its
+	// predecessor's hash, so a chain read back in a different order does not verify.
+	// The other collections here are maps because their order carries nothing.
+	AuditChains map[string][]*audit.Entry `json:"auditChains,omitempty"`
+
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // dataFilePath returns the path to the main data file.
@@ -115,6 +126,9 @@ func (s *FileStore) load() error {
 	if fd.Authorizations != nil {
 		s.authorizations = fd.Authorizations
 	}
+	if fd.AuditChains != nil {
+		s.chains = fd.AuditChains
+	}
 
 	s.loaded = true
 	return nil
@@ -129,6 +143,7 @@ func (s *FileStore) save() error {
 		Actors:         s.actors,
 		Decisions:      s.decisions,
 		Authorizations: s.authorizations,
+		AuditChains:    s.chains,
 		UpdatedAt:      time.Now(),
 	}
 
@@ -586,4 +601,58 @@ func (s *FileStore) GetAuditTrail(ctx context.Context, proposalID string) (*Audi
 		CreatedAt:      earliest,
 		UpdatedAt:      latest,
 	}, nil
+}
+
+// AppendAuditEntry appends one linked entry to a repository's chain and writes the file.
+//
+// The write is not batched. Every other record here can be reconstructed from the run
+// directory or re-derived, so losing the last one to a crash costs an entry in a history;
+// an audit chain entry that was never written is a governance event with no evidence,
+// and the release it belongs to has already happened by the time the process exits.
+//
+// This is also the backend where the chain has a ceiling. memory.json is one document read
+// under MaxMemoryFileSize, and a chain entry costs roughly 550 bytes of it — about eight
+// entries per release, so the 5 MB limit is reached somewhere near a thousand releases, and
+// reaching it fails the whole store rather than only the chain. Not raised here, because a
+// larger number would move the wall rather than remove it and would silently change what
+// every existing memory.json is allowed to grow to. ADR-013 already names sqlite as the
+// destination for a repository with real history; this is the compatibility path, and a
+// thousand releases is where it stops being one.
+func (s *FileStore) AppendAuditEntry(
+	_ context.Context, repository string, entry *audit.Entry,
+) error {
+	if repository == "" {
+		return fmt.Errorf("repository is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries, err := appendAuditEntry(s.chains[repository], entry)
+	if err != nil {
+		return err
+	}
+	s.chains[repository] = entries
+
+	return s.save()
+}
+
+// LastAuditEntry returns the repository's tail entry, or nil when it has no chain yet.
+func (s *FileStore) LastAuditEntry(
+	_ context.Context, repository string,
+) (*audit.Entry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return lastAuditEntry(s.chains[repository]), nil
+}
+
+// AuditChain returns the repository's entries in append order.
+func (s *FileStore) AuditChain(
+	_ context.Context, repository string,
+) ([]*audit.Entry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return copyAuditEntries(s.chains[repository]), nil
 }

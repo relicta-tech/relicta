@@ -578,6 +578,15 @@ func queryDocuments[T any](
 	return records, nil
 }
 
+// encodeDocument turns one record into the JSON document a row stores.
+func encodeDocument(record any, what string) (string, error) {
+	document, err := json.Marshal(record)
+	if err != nil {
+		return "", fmt.Errorf("encoding %s: %w", what, err)
+	}
+	return string(document), nil
+}
+
 // decodeDocument turns one stored JSON document back into its record.
 //
 // A document that will not decode is reported, not skipped. The run store skips such a

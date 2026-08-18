@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 )
 
 // Store provides access to release memory for historical analysis.
@@ -58,6 +59,20 @@ type Store interface {
 
 	// GetAuditTrail returns the complete audit trail for a proposal.
 	GetAuditTrail(ctx context.Context, proposalID string) (*AuditTrail, error)
+
+	// audit.Store is the append-only half of the governance record: the hash-linked
+	// chain of governance events, embedded here rather than resolved separately.
+	//
+	// The records above are mutable by contract — RecordDecision replaces a decision
+	// already stored under its ID, which is what assigning into a map does — and that
+	// is the right behavior for a record a later run can correct. It is the wrong
+	// behavior for evidence, so the chain is written once per event and never revised.
+	//
+	// One interface, because ADR-013 put one port set behind persistence.backend. A
+	// separate chain port with its own resolver would be the fifth store that ADR
+	// exists to prevent: an operator switching to sqlite would move their decisions
+	// and leave the evidence for them in a file the new backend never reads.
+	audit.Store
 }
 
 // AuditTrail provides a complete governance history for a release proposal.
@@ -440,6 +455,7 @@ type InMemoryStore struct {
 	actors         map[string]*ActorMetrics               // keyed by actor ID
 	decisions      map[string]*cgp.GovernanceDecision     // keyed by decision ID
 	authorizations map[string]*cgp.ExecutionAuthorization // keyed by authorization ID
+	chains         map[string][]*audit.Entry              // keyed by repository, in append order
 }
 
 // NewInMemoryStore creates a new in-memory store.
@@ -451,7 +467,47 @@ func NewInMemoryStore() *InMemoryStore {
 		actors:         make(map[string]*ActorMetrics),
 		decisions:      make(map[string]*cgp.GovernanceDecision),
 		authorizations: make(map[string]*cgp.ExecutionAuthorization),
+		chains:         make(map[string][]*audit.Entry),
 	}
+}
+
+// AppendAuditEntry appends one linked entry to a repository's chain.
+func (s *InMemoryStore) AppendAuditEntry(
+	_ context.Context, repository string, entry *audit.Entry,
+) error {
+	if repository == "" {
+		return fmt.Errorf("repository is required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entries, err := appendAuditEntry(s.chains[repository], entry)
+	if err != nil {
+		return err
+	}
+	s.chains[repository] = entries
+	return nil
+}
+
+// LastAuditEntry returns the repository's tail entry, or nil when it has no chain yet.
+func (s *InMemoryStore) LastAuditEntry(
+	_ context.Context, repository string,
+) (*audit.Entry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return lastAuditEntry(s.chains[repository]), nil
+}
+
+// AuditChain returns the repository's entries in append order.
+func (s *InMemoryStore) AuditChain(
+	_ context.Context, repository string,
+) ([]*audit.Entry, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return copyAuditEntries(s.chains[repository]), nil
 }
 
 // RecordRelease stores a release record.

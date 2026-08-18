@@ -13,6 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
@@ -455,6 +456,22 @@ func (m *historyMockStore) UpdateActorMetrics(ctx context.Context, actorID strin
 }
 
 func (m *historyMockStore) GetAuditTrail(ctx context.Context, proposalID string) (*memory.AuditTrail, error) {
+	return nil, m.storeError
+}
+
+// The audit chain half of the port. These commands read release history, not evidence, so
+// the mock holds an empty chain rather than pretending to one: a stub that invented
+// entries would let a test assert an audit trail nothing recorded.
+
+func (m *historyMockStore) AppendAuditEntry(context.Context, string, *audit.Entry) error {
+	return m.storeError
+}
+
+func (m *historyMockStore) LastAuditEntry(context.Context, string) (*audit.Entry, error) {
+	return nil, m.storeError
+}
+
+func (m *historyMockStore) AuditChain(context.Context, string) ([]*audit.Entry, error) {
 	return nil, m.storeError
 }
 

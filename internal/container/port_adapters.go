@@ -399,7 +399,22 @@ type PublisherAdapter struct {
 	// called, every publish pushed regardless of configuration.
 	pushTags          bool
 	attestationConfig *config.AttestationConfig
-	auditChain        *audit.Chain
+
+	// auditChainStore and auditChainRepo say where the governance evidence lives, so
+	// the attestation can be anchored to it.
+	//
+	// A loaded *audit.Chain used to be passed here instead, and the container passed
+	// audit.NewChain() — a fresh, empty, process-local chain that nothing ever appended
+	// to. Every attestation shipped `"auditChainHash": ""` and `"auditEntryCount": 0`:
+	// two fields asserting a governance audit chain and certifying an empty one.
+	//
+	// A store rather than a chain because the chain has to be read at the moment the
+	// attestation is sealed. The entries that matter most — the publish-time evaluation
+	// and decision — are appended during the same command, after this adapter was
+	// built, so a chain captured at construction would be missing exactly the evidence
+	// the attestation is about.
+	auditChainStore audit.Store
+	auditChainRepo  string
 }
 
 // PublisherAdapterOption configures the PublisherAdapter.
@@ -421,10 +436,16 @@ func WithAttestationConfig(cfg *config.AttestationConfig) PublisherAdapterOption
 	}
 }
 
-// WithAuditChain provides an audit chain for attestation generation.
-func WithAuditChain(chain *audit.Chain) PublisherAdapterOption {
+// WithAuditChain points the adapter at the stored governance audit chain, so an
+// attestation can name the evidence behind the release it attests to.
+//
+// repository is the governance identity ("owner/repo"), the same key everything else
+// records against. Both must be supplied: a store with no repository has no chain to
+// read, and the attestation reports an empty one rather than guessing.
+func WithAuditChain(store audit.Store, repository string) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
-		a.auditChain = chain
+		a.auditChainStore = store
+		a.auditChainRepo = repository
 	}
 }
 
@@ -568,10 +589,6 @@ func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *doma
 		}, nil
 	}
 
-	// Build the attestation generator
-	repoID := run.RepoRoot()
-	gen := attestation.NewGenerator(repoID, a.auditChain)
-
 	// attestationFailure reports an attestation error. When the operator
 	// marked attestation Required, the failure blocks the publish step
 	// instead of being silently swallowed as success (the previous
@@ -586,6 +603,24 @@ func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *doma
 			Output:  fmt.Sprintf("Attestation %s failed (non-blocking): %v", stage, cause),
 		}, nil
 	}
+
+	// Read the chain now, not at construction: the publish-time evaluation and decision
+	// were appended a few steps ago, in this same command, and they are precisely what
+	// this attestation is evidence of.
+	//
+	// A chain that does not verify stops the attestation. Sealing and signing a
+	// statement whose auditChainHash points into a tampered chain would launder the
+	// tampering — the signature would vouch for the anchor, and the anchor would name
+	// entries that no longer say what they said. Better no attestation, loudly, than a
+	// signed one that certifies a broken record.
+	chain, err := audit.LoadChain(ctx, a.auditChainStore, a.auditChainRepo)
+	if err != nil {
+		return attestationFailure("audit chain load", err)
+	}
+
+	// Build the attestation generator
+	repoID := run.RepoRoot()
+	gen := attestation.NewGenerator(repoID, chain)
 
 	// Generate the attestation statement
 	stmt, err := gen.Generate(ctx, run)

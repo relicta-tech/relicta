@@ -456,7 +456,7 @@ func truncateGovernanceMemory(t *testing.T, pool *pgxpool.Pool) {
 	defer cancel()
 
 	if _, err := pool.Exec(ctx, `TRUNCATE governance_releases, governance_incidents,
-		governance_decisions, governance_authorizations`); err != nil {
+		governance_decisions, governance_authorizations, governance_audit_entries`); err != nil {
 		t.Fatalf("truncating governance tables: %v; a later case would read this one's rows", err)
 	}
 }

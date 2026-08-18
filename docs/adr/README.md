@@ -21,6 +21,7 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-011](011-governance-on-by-default.md) | Governance On By Default | Accepted (Option C) | 2026-08 |
 | [ADR-012](012-deployment-evidence-over-a-protocol.md) | Deployment Evidence Crosses a Protocol, Not a Dependency | Accepted | 2026-08 |
 | [ADR-013](013-one-store-behind-a-backend.md) | One Store Behind a Backend, and SQLite Is the Shape of It | Accepted | 2026-08 |
+| [ADR-014](014-the-audit-chain-is-appended-not-derived.md) | The Audit Chain Is Appended, Not Derived | Accepted | 2026-08 |
 
 > **ADR-001 to ADR-006 have no document.** The decisions were made and are
 > implemented, but the records were never committed — the index linked to six
