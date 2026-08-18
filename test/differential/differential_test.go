@@ -259,6 +259,20 @@ func runBackend(t *testing.T, b backend) string {
 		{"report", "--type", "dora", "--period", "2020-01-01:2099-12-31"},
 		{"audit"},
 		{"clean", "--dry-run"},
+
+		// clean --all is where List ordering becomes destructive, and it is the reason
+		// this entry exists rather than the count-only `clean --dry-run` above.
+		//
+		// It keeps the run at index 0 and deletes the rest ("Keep the first (latest)
+		// run"), so a backend that returned oldest-first would delete every release
+		// record except the oldest. Reversing sqlite's ORDER BY — a divergence a reader
+		// would notice — passed this harness until this line was added, because no other
+		// compared command prints run identities in List order: `history` reads governance
+		// memory, and `clean --dry-run` prints only a count.
+		//
+		// --dry-run, obviously: the point is to compare which runs each backend *would*
+		// destroy.
+		{"clean", "--all", "--dry-run"},
 	} {
 		tr.exec(t, repo, env, relictaBin, args...)
 	}
