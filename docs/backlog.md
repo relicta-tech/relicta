@@ -514,6 +514,31 @@ Still open on the storage work:
 - Flipping the default, which the ADR says happens on evidence: the conformance suite passing on
   all three adapters (done) plus an importer with a round trip test (not done).
 
+## Incident recording disagrees between backends
+
+Found while implementing the PostgreSQL governance memory store (#329), which deliberately does
+not reproduce two file-store behaviors. Both are defects in the reference rather than choices,
+and both corrupt the numbers reputation and the autonomy budget read:
+
+1. **`RecordIncident` appends unconditionally** while `RecordRelease` upserts by ID — an
+   asymmetry inside one store. A retried incident, or two processes reacting to one alert, leaves
+   two rows and increments `IncidentCount` twice.
+2. **An incident only counts if its actor already has metrics** — `if metrics, exists :=
+   s.actors[incident.ActorID]; exists`. An incident recorded before that actor's first release is
+   silently dropped from their count.
+
+PostgreSQL avoids both structurally: the primary key makes an incident ID one row, and metrics
+are derived from the stored rows rather than materialized as they arrive.
+
+Nothing can hit the divergence today — governance memory has no backend selection, so every
+caller gets the file store. That is the whole window in which to close it.
+
+**The fix is one change touching all implementations together**, which is what the conformance
+suite exists to make possible: pin both behaviors as contract cases, then fix `FileStore` and
+`InMemoryStore` to satisfy them. The alternative — making PostgreSQL reproduce the bugs — keeps
+the backends consistent and the data wrong. Deferred only until the SQLite memory store lands, so
+all three move in the same commit rather than two of them twice.
+
 ## The event store is still unreachable, and now needs a smaller decision
 
 ADR-013 answered the question this entry used to be blocked on: **the event store is not the
