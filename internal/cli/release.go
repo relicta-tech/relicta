@@ -249,28 +249,52 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	fmt.Printf("  Tag %s will be created during publish\n", bumpOutput.TagName)
 	fmt.Println()
 
-	// Step 3: Generate notes
-	printStep(3, releaseWorkflowSteps, "Generating release notes")
-	notesOutput, err := runReleaseNotes(ctx, app, planOutput)
-	if err != nil {
-		return fmt.Errorf("notes failed: %w", err)
-	}
-	if notesOutput.ReleaseNotes != nil {
-		fmt.Printf("  Generated release notes: %s\n", notesOutput.ReleaseNotes.Title())
-	}
-	fmt.Println()
+	// Steps 3 and 4 both go through use cases that load the stored run, and step 1
+	// deliberately persists nothing under --dry-run. So a preview reached step 2 and died
+	// with "release run not found" — the preview failing on its own earlier step, on the
+	// one command a cautious operator runs *before* doing something irreversible.
+	//
+	// Described rather than executed, which is what publish already does below and what
+	// --dry-run means everywhere else in this tool. The alternative — persisting a run
+	// somewhere temporary so the real use cases run — would preview more faithfully, and
+	// it is a larger change than a broken flag justifies: repoRoot reaches the store, the
+	// git service and the governance identity, and pointing only one of them elsewhere is
+	// how a preview starts lying about which repository it describes.
+	var notesOutput *releaseNotesResult
+	if dryRun {
+		printStep(3, releaseWorkflowSteps, "Generating release notes")
+		printInfo("Not generated in a dry run: notes are written against the stored release, " +
+			"which a preview does not create.")
+		fmt.Println()
 
-	// Step 4: Approve
-	printStep(4, releaseWorkflowSteps, "Reviewing release")
-	approved, err := runReleaseApprove(ctx, app, planOutput, notesOutput, releaseAutoApprove)
-	if err != nil {
-		return fmt.Errorf("approval failed: %w", err)
+		printStep(4, releaseWorkflowSteps, "Reviewing release")
+		printInfo("Not evaluated in a dry run. Run 'relicta plan' then 'relicta evaluate' to " +
+			"see the governance decision without publishing.")
+		fmt.Println()
+	} else {
+		// Step 3: Generate notes
+		printStep(3, releaseWorkflowSteps, "Generating release notes")
+		notesOutput, err = runReleaseNotes(ctx, app, planOutput)
+		if err != nil {
+			return fmt.Errorf("notes failed: %w", err)
+		}
+		if notesOutput.ReleaseNotes != nil {
+			fmt.Printf("  Generated release notes: %s\n", notesOutput.ReleaseNotes.Title())
+		}
+		fmt.Println()
+
+		// Step 4: Approve
+		printStep(4, releaseWorkflowSteps, "Reviewing release")
+		approved, approveErr := runReleaseApprove(ctx, app, planOutput, notesOutput, releaseAutoApprove)
+		if approveErr != nil {
+			return fmt.Errorf("approval failed: %w", approveErr)
+		}
+		if !approved {
+			printWarning("Release canceled by user")
+			return nil
+		}
+		fmt.Println()
 	}
-	if !approved {
-		printWarning("Release canceled by user")
-		return nil
-	}
-	fmt.Println()
 
 	// Step 5: Publish
 	printStep(5, releaseWorkflowSteps, "Publishing release")
@@ -493,8 +517,17 @@ func runReleaseBump(ctx context.Context, c cliApp, wfCtx *releaseWorkflowContext
 
 	// Update release state - MUST succeed for workflow to continue
 	// Note: Tag creation has been moved to the publish step
-	if err := updateReleaseVersion(ctx, c, ver); err != nil {
-		return nil, fmt.Errorf("failed to update release state: %w", err)
+	//
+	// Except under --dry-run, where there is no state to update. The plan step deliberately
+	// does not persist a run when previewing, so this asked for a run that was never
+	// written and the workflow died at step 2 of 5 with "release run not found" — the
+	// preview failing on its own previous step. That made --dry-run useless on the one
+	// command it matters most for: it is what an operator runs *before* doing something
+	// they cannot take back.
+	if !dryRun {
+		if err := updateReleaseVersion(ctx, c, ver); err != nil {
+			return nil, fmt.Errorf("failed to update release state: %w", err)
+		}
 	}
 
 	return &releaseBumpOutput{

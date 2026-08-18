@@ -22,6 +22,22 @@ import (
 // flag reaches the configuration the publisher is built from at all — a container is
 // constructed once, from cfg, before any of this runs.
 
+// runReleaseBumpBody returns just that function, so an assertion about it cannot be satisfied
+// by matching text somewhere else in a 700-line file.
+func runReleaseBumpBody(t *testing.T, source string) string {
+	t.Helper()
+
+	start := strings.Index(source, "func runReleaseBump(")
+	if start < 0 {
+		t.Fatal("runReleaseBump is gone; this test is out of date")
+	}
+	end := strings.Index(source[start:], "\n}\n")
+	if end < 0 {
+		t.Fatal("could not find the end of runReleaseBump")
+	}
+	return source[start : start+end]
+}
+
 func releaseSource(t *testing.T) string {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Clean("release.go"))
@@ -93,5 +109,55 @@ func TestTheFoldIsGuardedByTheFlag(t *testing.T) {
 		t.Error("versioning.git_push now defaults to true: pushing a tag is irreversible, so " +
 			"it is opt-in, and a default flip would push from every repository that never " +
 			"asked")
+	}
+}
+
+// `relicta release --dry-run` died at step 2 of 5 with "release run not found" — the preview
+// failing on its own earlier step. Step 1 deliberately does not persist a run when previewing,
+// and steps 2 through 4 all went through use cases that load one.
+//
+// That made the flag useless on the command it matters most for: --dry-run is what an operator
+// runs *before* doing something they cannot take back, so the safe path was the broken one.
+func TestTheDryRunReachesTheEndOfTheWorkflow(t *testing.T) {
+	source := releaseSource(t)
+
+	// The bump step's state update is the first thing that needed a stored run.
+	//
+	// Scoped to that function's own body. This first searched the whole file before the
+	// call site, which passed while the guard was absent because the plan step further up
+	// also contains `if !dryRun {` — a revert-check caught it only because I asserted the
+	// revert had actually changed the file before believing the result.
+	body := runReleaseBumpBody(t, source)
+	if !strings.Contains(body, "updateReleaseVersion(ctx, c, ver)") {
+		t.Fatal("the bump step no longer updates release state; this test is out of date")
+	}
+	if !strings.Contains(body, "if !dryRun {") {
+		t.Error("the bump step updates release state unconditionally, so a preview asks for " +
+			"a run step 1 deliberately did not write and the workflow dies at step 2 of 5")
+	}
+
+	// Steps 3 and 4 are described rather than executed, matching what publish already does.
+	if !strings.Contains(source, "Not generated in a dry run") {
+		t.Error("the notes step still runs its use case under --dry-run, which loads the " +
+			"stored release a preview does not create")
+	}
+	if !strings.Contains(source, "Not evaluated in a dry run") {
+		t.Error("the approval step still runs under --dry-run for the same reason")
+	}
+}
+
+// A preview that says what it did not do is honest; one that silently reports nothing invites
+// the reader to believe the notes were checked.
+func TestTheDryRunSaysWhatItDidNotDo(t *testing.T) {
+	source := releaseSource(t)
+
+	for _, want := range []string{
+		"notes are written against the stored release",
+		"relicta evaluate",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("the dry run does not explain %q, so an operator cannot tell a step that "+
+				"was skipped from one that found nothing to report", want)
+		}
 	}
 }
