@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
 )
@@ -24,14 +25,19 @@ func TestWithAttestationConfig(t *testing.T) {
 }
 
 func TestWithAuditChain(t *testing.T) {
-	chain := audit.NewChain()
-	opt := WithAuditChain(chain)
+	store := cgpmemory.NewInMemoryStore()
+	opt := WithAuditChain(store, "acme/widget")
 
 	adapter := &PublisherAdapter{}
 	opt(adapter)
 
-	if adapter.auditChain != chain {
-		t.Error("WithAuditChain did not set chain")
+	if adapter.auditChainStore != audit.Store(store) {
+		t.Error("WithAuditChain did not set the store the attestation reads its chain from")
+	}
+	if adapter.auditChainRepo != "acme/widget" {
+		t.Errorf("WithAuditChain set repository %q, want acme/widget: the attestation "+
+			"would anchor to another repository's chain or to none",
+			adapter.auditChainRepo)
 	}
 }
 
@@ -102,12 +108,12 @@ func TestExecuteAttestationStep_EnabledNoAuditChain(t *testing.T) {
 
 func TestNewPublisherAdapter_WithOptions(t *testing.T) {
 	cfg := &config.AttestationConfig{Enabled: true}
-	chain := audit.NewChain()
+	store := cgpmemory.NewInMemoryStore()
 
 	adapter := NewPublisherAdapter(nil, nil, nil,
 		WithPushTags(true),
 		WithAttestationConfig(cfg),
-		WithAuditChain(chain),
+		WithAuditChain(store, "acme/widget"),
 	)
 
 	if adapter == nil {
@@ -119,7 +125,7 @@ func TestNewPublisherAdapter_WithOptions(t *testing.T) {
 	if adapter.attestationConfig != cfg {
 		t.Error("expected attestation config to be set")
 	}
-	if adapter.auditChain != chain {
-		t.Error("expected audit chain to be set")
+	if adapter.auditChainStore != audit.Store(store) || adapter.auditChainRepo != "acme/widget" {
+		t.Error("expected the audit chain store and repository to be set")
 	}
 }

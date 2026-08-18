@@ -257,6 +257,17 @@ func runBackend(t *testing.T, b backend) string {
 		// --period is required, and a fixed range keeps it out of the normalizer's way.
 		{"report", "--type", "summary", "--period", "2020-01-01:2099-12-31"},
 		{"report", "--type", "dora", "--period", "2020-01-01:2099-12-31"},
+		// `audit` now also carries the governance audit chain's state, which is the
+		// one thing in this transcript that is evidence rather than a report. Its
+		// entry count and its integrity verdict must be identical on every backend:
+		// the chain is hash-linked, so a backend that stored an entry differently,
+		// returned the chain in another order, or dropped one would print a different
+		// count or fail verification outright, and the difference lands here.
+		//
+		// The tail hash is deliberately not printed by the command — see
+		// printAuditChain — which is also what keeps this comparable, since the
+		// entries carry per-run timestamps and no two backends could hash to the same
+		// value.
 		{"audit"},
 		{"clean", "--dry-run"},
 

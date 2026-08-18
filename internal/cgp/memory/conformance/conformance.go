@@ -38,7 +38,7 @@ type Factory func(t *testing.T) memory.Store
 func Run(t *testing.T, newStore Factory) {
 	t.Helper()
 
-	for _, c := range cases {
+	for _, c := range append(append([]testCase{}, cases...), auditChainCases...) {
 		t.Run(c.name, func(t *testing.T) {
 			c.run(t, newStore(t))
 		})

@@ -114,10 +114,51 @@ func runAudit(cmd *cobra.Command, _ []string) error {
 	}
 
 	if outputJSON {
+		// The JSON output stays the array it has always been. The chain status is a
+		// property of the repository rather than of any entry in the timeline, so it
+		// has nowhere to go in an array, and wrapping the array in an object to make
+		// room would break every consumer that already parses this. `relicta verify
+		// --json` reports the chain, with the attestation it anchors, which is where
+		// a machine reader should be asking.
 		return printJSONOutput(entries)
 	}
 	printAudit(repository, entries)
+	printAuditChain(readAuditChain(ctx))
 	return nil
+}
+
+// printAuditChain reports whether the repository's governance evidence holds up.
+//
+// It belongs in `relicta audit` because this command is where an operator goes to read the
+// governance record, and a record with no statement about its own integrity invites the
+// reader to assume it has one. The counts also make an omission visible: a chain far
+// shorter than the release history means entries were not written, which nothing else in
+// the tool would show.
+//
+// The tail hash is deliberately not printed. It is the anchor an attestation carries and
+// `relicta verify` is where it is checked against one; printing it here would invite
+// eyeball comparison of two 64-character strings, which is not a verification and reads
+// like one.
+func printAuditChain(report auditChainReport) {
+	fmt.Println()
+
+	switch report.Status {
+	case chainBroken:
+		printError(fmt.Sprintf("Audit chain: INTEGRITY FAILURE — %s", report.Detail))
+		fmt.Println()
+		fmt.Println("A governance event recorded in this repository is no longer the event that")
+		fmt.Println("was recorded. Run 'relicta verify' for the release it belongs to.")
+
+	case chainUnavailable:
+		printWarning(fmt.Sprintf("Audit chain: not read — %s", report.Detail))
+
+	case chainVerified:
+		if report.Entries == 0 {
+			printInfo("Audit chain: empty — no governance events have been recorded yet")
+			return
+		}
+		printSuccess(fmt.Sprintf("Audit chain: verified, %d entries", report.Entries))
+	}
 }
 
 // auditReleases reads the release trail through the same resolver history uses.

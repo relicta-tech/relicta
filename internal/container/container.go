@@ -87,6 +87,14 @@ type App struct {
 	pluginManager      *plugin.Manager
 	memoryStore        cgpmemory.Store
 
+	// governanceID is the repository's governance identity ("owner/repo"), resolved once
+	// in initInfrastructure and reused by everything that records against it.
+	//
+	// Resolved once because it comes from the git remote and two derivations of it
+	// eventually disagree — which shows up as one repository's history split in two, and
+	// as an audit chain whose entries are filed under a key nothing reads.
+	governanceID string
+
 	// Cognitive layer (optional — wired when configured)
 	mnemosStore   cgpmemory.Store              // Mnemos-backed memory store (optional)
 	chronosClient *chronosinfra.ChronosAdapter // Chronos pattern detection client
@@ -302,9 +310,27 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 			if repoInfo, infoErr := c.gitAdapter.GetInfo(ctx); infoErr == nil {
 				governanceID = repoInfo.GovernanceID()
 			}
+			c.governanceID = governanceID
 			publisher = cgpmemory.NewOutcomeTracker(c.memoryStore, publisher, governanceID)
 			c.logger.Debug("outcome tracker initialized",
 				"location", memoryStore.Location, "repository", governanceID)
+
+			// The audit chain sits outside the outcome tracker so that it sees the
+			// same events, unfiltered, and appends its evidence before the tracker's
+			// record is written. Order between the two does not matter for
+			// correctness — neither reads the other — but it does for reading the
+			// code: the chain is the outermost thing in the release's path, which is
+			// what "recorded at the moment it happened" means.
+			//
+			// Skipped without a governance identity, rather than filed under "".
+			// Entries for every repository that failed to resolve one would land in
+			// a single chain, verify perfectly, and attribute one project's releases
+			// to another.
+			if governanceID != "" {
+				publisher = audit.NewEventRecorder(c.memoryStore, governanceID, publisher)
+				c.logger.Debug("audit chain recorder initialized",
+					"repository", governanceID)
+			}
 		}
 	}
 
@@ -652,6 +678,22 @@ func (c *App) initGovernanceService(ctx context.Context) error {
 	return nil
 }
 
+// auditChainStore reports where the governance audit chain lives, for the attestation to
+// anchor itself to.
+//
+// Both values or neither. A store with no governance identity has no chain to read: the
+// event recorder was skipped for the same reason, so there is nothing recorded under any
+// key this could guess, and the attestation should report an empty chain because there
+// genuinely is one. Passing the store with an empty repository would instead fail the
+// attestation with a configuration error, which is a worse answer to "we could not work
+// out what this repository is called".
+func (c *App) auditChainStore() (audit.Store, string) {
+	if c.governanceID == "" || c.memoryStore == nil {
+		return nil, ""
+	}
+	return c.memoryStore, c.governanceID
+}
+
 // initReleaseServices initializes the release workflow services.
 func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	// Check for early cancellation
@@ -681,12 +723,16 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	// check. Verified before the fix: a full publish with attestation.enabled: true wrote no
 	// attestation and said nothing about it.
 	//
-	// The audit chain travels with it because the generator takes one; without it the
-	// attestation carries no record of the decisions behind the release.
+	// The audit chain travels with it as a store and a repository rather than as a
+	// chain. It used to be audit.NewChain() — a fresh, empty, process-local chain that
+	// nothing appended to — so every attestation shipped auditChainHash "" and
+	// auditEntryCount 0: a supply-chain attestation asserting a governance audit chain
+	// and certifying an empty one. Both are nil/empty when governance memory is off,
+	// and the attestation then reports an empty chain because there is one.
 	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator,
 		WithPushTags(c.config.Versioning.GitPush),
 		WithAttestationConfig(&c.config.Attestation),
-		WithAuditChain(audit.NewChain()))
+		WithAuditChain(c.auditChainStore()))
 	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
 
 	// Configure release services

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
@@ -350,3 +352,38 @@ func (a *ChronosAdapter) querySignals(ctx context.Context, params map[string]str
 
 	return signalsResp.Signals, nil
 }
+
+// The audit chain is deliberately not stored here, for the same reason the Mnemos adapter
+// refuses it: this adapter's defining behavior is that it fails gracefully. With Chronos
+// not running, an operation becomes a no-op with a warning. That is right for a
+// pattern-detection feed and fatal for evidence — a chain that silently loses entries
+// still verifies, because the entries that survive link to each other, so the loss leaves
+// no trace at all.
+//
+// These methods exist so the claim at the top of this file — that the adapter implements
+// memory.Store — stays true, and so that a future caller who reaches for it gets an
+// error instead of an audit trail with holes in it.
+
+// AppendAuditEntry reports that this adapter cannot hold audit evidence.
+func (a *ChronosAdapter) AppendAuditEntry(
+	_ context.Context, _ string, _ *audit.Entry,
+) error {
+	return errNoChronosAuditChain
+}
+
+// LastAuditEntry reports that this adapter cannot hold audit evidence.
+//
+// Not "no tail": a caller told the chain is empty would start a new one and believe it.
+func (a *ChronosAdapter) LastAuditEntry(_ context.Context, _ string) (*audit.Entry, error) {
+	return nil, errNoChronosAuditChain
+}
+
+// AuditChain reports that this adapter cannot hold audit evidence.
+func (a *ChronosAdapter) AuditChain(_ context.Context, _ string) ([]*audit.Entry, error) {
+	return nil, errNoChronosAuditChain
+}
+
+var errNoChronosAuditChain = errors.New(
+	"the chronos adapter does not store the governance audit chain: it is a pattern-detection " +
+		"feed that no-ops when Chronos is unreachable, and an audit chain that loses entries " +
+		"silently still verifies; the chain lives in the store persistence.backend selects")

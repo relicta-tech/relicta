@@ -11,6 +11,7 @@ import (
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
@@ -194,6 +195,21 @@ type EvaluateReleaseInput struct {
 
 	// IncludeHistory indicates whether to include historical analysis.
 	IncludeHistory bool
+
+	// Preview marks an advisory evaluation that governs nothing, so it is not
+	// appended to the audit chain.
+	//
+	// `relicta plan` shows a risk preview by evaluating a run it built to answer the
+	// question and then discards — a different plan hash, so a different run ID from
+	// the one the release will eventually carry. Recorded, those entries sit in the
+	// chain naming a run that no release, no attestation and no history entry refers
+	// to, and an auditor reading the evidence cannot tell an advisory preview from a
+	// decision that authorized something.
+	//
+	// A field rather than a guess, because the service cannot tell the two apart: a
+	// preview evaluation is identical to a real one except in what the caller intends
+	// to do with the answer.
+	Preview bool
 }
 
 // EvaluateReleaseOutput represents the result of governance evaluation.
@@ -394,6 +410,8 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 		}
 	}
 
+	s.recordEvaluation(ctx, input, proposal, result, output)
+
 	s.logger.Info("release evaluated",
 		"release_id", input.Release.ID(),
 		"decision", output.Decision,
@@ -402,6 +420,85 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 		"can_auto_approve", output.CanAutoApprove)
 
 	return output, nil
+}
+
+// recordEvaluation appends the risk assessment and the verdict to the audit chain.
+//
+// Two entries for one call, on purpose. `evaluation.completed` is what the risk model
+// concluded — the score, the severity, how many factors contributed — and `decision.made`
+// is what governance did with it. They can differ: the reputation guard above downgrades
+// an auto-approval for an actor with a poor record, so a proposal the model scored as low
+// risk can end up requiring a human. A chain carrying only the verdict cannot show that
+// happened, and a chain carrying only the score cannot show what was allowed.
+//
+// This is also where a rejection is recorded. A rejected release raises no domain event —
+// the CLI refuses and exits — so the event stream the rest of the chain is built from
+// never sees it. Without this entry the only governance outcome missing from the evidence
+// would be the one where governance said no.
+//
+// Appended here rather than at the CLI call sites because `relicta approve` and `relicta
+// publish` both evaluate, and both must be recorded: an approval evaluated at one risk
+// score and published at another is a fact an auditor needs, and asking each command to
+// remember to record it is how the chain ends up recording only the paths someone thought
+// of.
+//
+// Failures are logged and do not fail the evaluation, matching every other governance
+// memory write on this path. See EventRecorder.Publish for why that trade is acceptable
+// and what makes the loss visible.
+func (s *Service) recordEvaluation(
+	ctx context.Context,
+	input EvaluateReleaseInput,
+	proposal *cgp.ChangeProposal,
+	result *evaluator.EvaluationResult,
+	output *EvaluateReleaseOutput,
+) {
+	if input.Preview || s.memoryStore == nil || input.Repository == "" ||
+		result == nil || result.Decision == nil {
+		return
+	}
+
+	// The release run, not the CGP proposal, is what ties the entries together. A
+	// proposal ID is generated per evaluation and per process, so approve and publish —
+	// separate invocations — produce different ones for the same release; the run ID is
+	// the identity that survives both. The proposal's own ID travels in the details, so
+	// nothing is lost.
+	runID := string(input.Release.ID())
+	decisionID := result.Decision.ID
+
+	recorder := audit.NewRecorder(s.memoryStore, input.Repository)
+	actorID := proposal.Actor.ID
+	actorKind := proposal.Actor.Kind
+
+	evaluation := audit.NewEntry(runID+":evaluation:"+decisionID, audit.EventEvaluationCompleted).
+		WithProposal(runID).
+		WithActor(actorID, actorKind).
+		WithTimestamp(result.EvaluatedAt).
+		WithDetail("cgpProposalId", proposal.ID).
+		WithDetail("riskScore", result.Decision.RiskScore).
+		WithDetail("severity", string(result.RiskAssessment.Severity)).
+		WithDetail("riskFactorCount", len(result.Decision.RiskFactors)).
+		Build()
+	if err := recorder.RecordIgnoringDuplicate(ctx, evaluation); err != nil {
+		s.logger.Warn("failed to append the risk evaluation to the audit chain",
+			"release_id", runID, "error", err)
+	}
+
+	// The verdict as it stands after every guard has run, which is what the release is
+	// actually allowed to do. Recording result.Decision.Decision instead would record
+	// what the evaluator said before the reputation guard tightened it.
+	decision := audit.NewEntry(runID+":decision:"+decisionID, audit.EventDecisionMade).
+		WithProposal(runID).
+		WithActor(actorID, actorKind).
+		WithTimestamp(result.Decision.Timestamp).
+		WithDetail("cgpDecisionId", decisionID).
+		WithDetail("decisionType", string(output.Decision)).
+		WithDetail("riskScore", output.RiskScore).
+		WithDetail("rationale", output.Rationale).
+		Build()
+	if err := recorder.RecordIgnoringDuplicate(ctx, decision); err != nil {
+		s.logger.Warn("failed to append the governance decision to the audit chain",
+			"release_id", runID, "error", err)
+	}
 }
 
 // buildProposalAndAnalysis creates CGP proposal and analysis from a release.

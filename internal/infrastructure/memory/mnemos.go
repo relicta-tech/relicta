@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 )
 
@@ -534,3 +536,43 @@ func metaTime(timestamp string) time.Time {
 func generateID() string {
 	return fmt.Sprintf("evt-%d", time.Now().UnixNano())
 }
+
+// The audit chain is deliberately not stored here, and these three methods say so rather
+// than pretending.
+//
+// Mnemos is a cognitive backend, not a persistence backend — persistence.backend is where
+// the governance store is chosen, and this adapter is reachable only through
+// MnemosStore(). Its defining behavior is that it degrades gracefully: with no daemon
+// answering, a write is logged and dropped. That is the right trade for release memory
+// feeding risk scores, and it is the exact defect an audit chain exists to prevent. A
+// chain that silently loses entries still verifies — the surviving entries link to each
+// other — so the loss is invisible, which is worse than having no chain at all.
+//
+// Refusing is also cheap to recover from: nothing appends through this adapter, because
+// the recorder is built around the store persistence.backend resolved.
+
+// AppendAuditEntry reports that this adapter cannot hold audit evidence.
+func (a *MnemosAdapter) AppendAuditEntry(
+	_ context.Context, _ string, _ *audit.Entry,
+) error {
+	return errNoMnemosAuditChain
+}
+
+// LastAuditEntry reports that this adapter cannot hold audit evidence.
+//
+// It does not return "no tail". A caller told the chain is empty would append a genesis
+// entry and believe the chain started; an error is the only answer that cannot be
+// mistaken for an empty chain.
+func (a *MnemosAdapter) LastAuditEntry(_ context.Context, _ string) (*audit.Entry, error) {
+	return nil, errNoMnemosAuditChain
+}
+
+// AuditChain reports that this adapter cannot hold audit evidence.
+func (a *MnemosAdapter) AuditChain(_ context.Context, _ string) ([]*audit.Entry, error) {
+	return nil, errNoMnemosAuditChain
+}
+
+var errNoMnemosAuditChain = errors.New(
+	"the mnemos adapter does not store the governance audit chain: it drops writes when no " +
+		"daemon answers, and an audit chain that loses entries silently still verifies; " +
+		"the chain lives in the store persistence.backend selects")
