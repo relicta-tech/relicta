@@ -295,76 +295,7 @@ func (s *FileStore) GetRiskPatterns(ctx context.Context, repository string) (*Ri
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	releases := s.releases[repository]
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for repository: %s", repository)
-	}
-
-	// Calculate patterns from historical data
-	patterns := &RiskPatterns{
-		Repository:    repository,
-		TotalReleases: len(releases),
-		UpdatedAt:     time.Now(),
-	}
-
-	// Calculate average risk score
-	var totalRisk float64
-	riskFactorCounts := make(map[string]int)
-
-	var minTime, maxTime time.Time
-	for i, r := range releases {
-		totalRisk += r.RiskScore
-
-		if i == 0 || r.ReleasedAt.Before(minTime) {
-			minTime = r.ReleasedAt
-		}
-		if i == 0 || r.ReleasedAt.After(maxTime) {
-			maxTime = r.ReleasedAt
-		}
-
-		// Count risk factors from tags
-		for _, tag := range r.Tags {
-			riskFactorCounts[tag]++
-		}
-	}
-
-	patterns.AverageRiskScore = totalRisk / float64(len(releases))
-	patterns.AnalysisPeriod = TimePeriod{Start: minTime, End: maxTime}
-
-	// Determine trend (comparing first half to second half)
-	if len(releases) >= 4 {
-		mid := len(releases) / 2
-		var firstHalfRisk, secondHalfRisk float64
-		for i := 0; i < mid; i++ {
-			firstHalfRisk += releases[i].RiskScore
-		}
-		for i := mid; i < len(releases); i++ {
-			secondHalfRisk += releases[i].RiskScore
-		}
-		firstHalfAvg := firstHalfRisk / float64(mid)
-		secondHalfAvg := secondHalfRisk / float64(len(releases)-mid)
-
-		diff := secondHalfAvg - firstHalfAvg
-		if diff > 0.1 {
-			patterns.RiskTrend = TrendIncreasing
-		} else if diff < -0.1 {
-			patterns.RiskTrend = TrendDecreasing
-		} else {
-			patterns.RiskTrend = TrendStable
-		}
-	} else {
-		patterns.RiskTrend = TrendStable
-	}
-
-	// Build common risk factor patterns
-	for factor, count := range riskFactorCounts {
-		patterns.CommonRiskFactors = append(patterns.CommonRiskFactors, RiskFactorPattern{
-			Category:  factor,
-			Frequency: float64(count) / float64(len(releases)),
-		})
-	}
-
-	return patterns, nil
+	return RiskPatternsFrom(repository, s.releases[repository], time.Now())
 }
 
 // UpdateActorMetrics updates metrics for an actor based on a release outcome.

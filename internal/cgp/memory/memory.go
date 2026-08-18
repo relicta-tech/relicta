@@ -604,76 +604,7 @@ func (s *InMemoryStore) GetRiskPatterns(ctx context.Context, repository string) 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	releases := s.releases[repository]
-	if len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for repository: %s", repository)
-	}
-
-	// Calculate patterns from historical data
-	patterns := &RiskPatterns{
-		Repository:    repository,
-		TotalReleases: len(releases),
-		UpdatedAt:     time.Now(),
-	}
-
-	// Calculate average risk score
-	var totalRisk float64
-	riskFactorCounts := make(map[string]int)
-
-	var minTime, maxTime time.Time
-	for i, r := range releases {
-		totalRisk += r.RiskScore
-
-		if i == 0 || r.ReleasedAt.Before(minTime) {
-			minTime = r.ReleasedAt
-		}
-		if i == 0 || r.ReleasedAt.After(maxTime) {
-			maxTime = r.ReleasedAt
-		}
-
-		// Count risk factors from tags
-		for _, tag := range r.Tags {
-			riskFactorCounts[tag]++
-		}
-	}
-
-	patterns.AverageRiskScore = totalRisk / float64(len(releases))
-	patterns.AnalysisPeriod = TimePeriod{Start: minTime, End: maxTime}
-
-	// Determine trend (comparing first half to second half)
-	if len(releases) >= 4 {
-		mid := len(releases) / 2
-		var firstHalfRisk, secondHalfRisk float64
-		for i := 0; i < mid; i++ {
-			firstHalfRisk += releases[i].RiskScore
-		}
-		for i := mid; i < len(releases); i++ {
-			secondHalfRisk += releases[i].RiskScore
-		}
-		firstHalfAvg := firstHalfRisk / float64(mid)
-		secondHalfAvg := secondHalfRisk / float64(len(releases)-mid)
-
-		diff := secondHalfAvg - firstHalfAvg
-		if diff > 0.1 {
-			patterns.RiskTrend = TrendIncreasing
-		} else if diff < -0.1 {
-			patterns.RiskTrend = TrendDecreasing
-		} else {
-			patterns.RiskTrend = TrendStable
-		}
-	} else {
-		patterns.RiskTrend = TrendStable
-	}
-
-	// Build common risk factor patterns
-	for factor, count := range riskFactorCounts {
-		patterns.CommonRiskFactors = append(patterns.CommonRiskFactors, RiskFactorPattern{
-			Category:  factor,
-			Frequency: float64(count) / float64(len(releases)),
-		})
-	}
-
-	return patterns, nil
+	return RiskPatternsFrom(repository, s.releases[repository], time.Now())
 }
 
 // UpdateActorMetrics updates metrics for an actor based on a release outcome.
@@ -904,6 +835,94 @@ func RebuildActorMetrics(
 	metrics.UpdatedAt = at
 	metrics.ReliabilityScore = metrics.CalculateReliabilityScore()
 	return metrics
+}
+
+// RiskPatternsFrom derives a repository's risk patterns from its release records.
+//
+// Extracted for the same reason Accumulate was: FileStore and InMemoryStore held
+// identical copies of this arithmetic, and every backend added since would have written
+// a third. What comes out of here feeds HistoricalContext straight into risk evaluation,
+// so two implementations drifting apart would mean the same history justified different
+// decisions depending on which backend was configured — and nothing would report it.
+//
+// Reports an error rather than zeroed patterns for a repository with no releases: a
+// zeroed RiskPatterns reads as "this repository has never shipped anything risky", which
+// is an assertion about history rather than an admission that there is none.
+//
+// The records are expected in the order the store holds them; the trend compares the
+// first half against the second. RiskTrendOf in insights.go is a second definition of
+// that comparison, sorted by release date and ignoring records with no timestamp.
+// Reconciling the two changes what the reference reports, so it is a decision to take
+// once for every adapter rather than here.
+func RiskPatternsFrom(repository string, releases []*ReleaseRecord, at time.Time) (*RiskPatterns, error) {
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no releases found for repository: %s", repository)
+	}
+
+	patterns := &RiskPatterns{
+		Repository:    repository,
+		TotalReleases: len(releases),
+		UpdatedAt:     at,
+	}
+
+	// Calculate average risk score
+	var totalRisk float64
+	riskFactorCounts := make(map[string]int)
+
+	var minTime, maxTime time.Time
+	for i, r := range releases {
+		totalRisk += r.RiskScore
+
+		if i == 0 || r.ReleasedAt.Before(minTime) {
+			minTime = r.ReleasedAt
+		}
+		if i == 0 || r.ReleasedAt.After(maxTime) {
+			maxTime = r.ReleasedAt
+		}
+
+		// Count risk factors from tags
+		for _, tag := range r.Tags {
+			riskFactorCounts[tag]++
+		}
+	}
+
+	patterns.AverageRiskScore = totalRisk / float64(len(releases))
+	patterns.AnalysisPeriod = TimePeriod{Start: minTime, End: maxTime}
+
+	// Determine trend (comparing first half to second half)
+	if len(releases) >= minimumReleasesForATrend {
+		mid := len(releases) / 2
+		var firstHalfRisk, secondHalfRisk float64
+		for i := 0; i < mid; i++ {
+			firstHalfRisk += releases[i].RiskScore
+		}
+		for i := mid; i < len(releases); i++ {
+			secondHalfRisk += releases[i].RiskScore
+		}
+		firstHalfAvg := firstHalfRisk / float64(mid)
+		secondHalfAvg := secondHalfRisk / float64(len(releases)-mid)
+
+		switch diff := secondHalfAvg - firstHalfAvg; {
+		case diff > riskTrendTolerance:
+			patterns.RiskTrend = TrendIncreasing
+		case diff < -riskTrendTolerance:
+			patterns.RiskTrend = TrendDecreasing
+		default:
+			patterns.RiskTrend = TrendStable
+		}
+	} else {
+		patterns.RiskTrend = TrendStable
+	}
+
+	// Build common risk factor patterns
+	for factor, count := range riskFactorCounts {
+		patterns.CommonRiskFactors = append(patterns.CommonRiskFactors, RiskFactorPattern{
+			Category:  factor,
+			Frequency: float64(count) / float64(len(releases)),
+		})
+	}
+
+	return patterns, nil
 }
 
 // Accumulate folds one release into an actor's running metrics.

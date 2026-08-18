@@ -463,8 +463,16 @@ func TestTheMigrationRollsBackAndReapplies(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	migrator := sqlite.NewMigrator(db)
 
-	if err := migrator.Down(ctx); err != nil {
-		t.Fatalf("Down: %v", err)
+	// Down rolls back one migration, most recently applied first, so undoing the whole
+	// schema takes as many calls as there are migrations — 002 (governance memory) and
+	// then 001 (release runs). Rolling back only the newest is the behavior an operator
+	// who ran `relicta db migrate` against the wrong file needs; rolling back everything
+	// on one call would be a data-loss surprise.
+	const migrationCount = 2
+	for range migrationCount {
+		if err := migrator.Down(ctx); err != nil {
+			t.Fatalf("Down: %v", err)
+		}
 	}
 	if _, err := store.List(ctx, root); err == nil {
 		t.Error("List still worked after the schema was dropped, so Down did not drop it")
@@ -474,9 +482,10 @@ func TestTheMigrationRollsBackAndReapplies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Up after Down: %v", err)
 	}
-	if applied != 1 {
-		t.Errorf("Up reapplied %d migrations, want 1: a rolled-back migration that Up "+
-			"skips leaves the database without its schema and every command failing", applied)
+	if applied != migrationCount {
+		t.Errorf("Up reapplied %d migrations, want %d: a rolled-back migration that Up "+
+			"skips leaves the database without its schema and every command failing",
+			applied, migrationCount)
 	}
 
 	ids, err := store.List(ctx, root)
