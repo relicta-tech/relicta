@@ -9,13 +9,13 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
@@ -122,7 +122,8 @@ func DeploymentWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	store, repository, err := deploymentStoreForRequest(r)
+	store, repository, releaseStore, err := deploymentStoreForRequest(r)
+	defer releaseStore()
 	if err != nil {
 		writeError(w, r, http.StatusServiceUnavailable, ErrCodeInternal,
 			"deployment recording is not available", err.Error())
@@ -242,31 +243,96 @@ func errUnknownField(field, got, accepted string) error {
 	return fmt.Errorf("%s %q is not recognized; accepted values are %s", field, got, accepted)
 }
 
-// deploymentStoreForRequest opens the governance store and resolves the repository
-// this server is serving.
-func deploymentStoreForRequest(r *http.Request) (memory.DeploymentStore, string, error) {
+// governanceStoreForRequest opens the governance store persistence.backend selects for
+// the repository this server serves, and resolves that repository's identity.
+//
+// The store is per request rather than per server, and stays that way. A handler that
+// cached one would hold a database connection for the life of the process and would keep
+// serving a repository whose configuration had since changed; a request is short, and the
+// file backend costs a read of memory.json while the database backends cost a connect. The
+// release function is what makes that affordable — every caller defers it, or the server
+// leaks one connection per request.
+//
+// Which backend to open is now a question, and the answer is the repository's own
+// configuration rather than the process's. config.LoadFromDirectory(info.Path) reads
+// .relicta.yaml from the repository root this server resolved; it used to prefer the
+// process working directory, which would have meant a server started one directory up
+// silently opening the wrong backend for the repository it was serving. A directory with
+// no config file is not an error there — it yields defaults, which is the file backend,
+// which is what an unconfigured repository has always had. A config that exists and cannot
+// be parsed *is* an error and is returned: guessing `file` for a repository whose
+// configuration says `postgres` would write governance evidence into a JSON file nothing
+// reads, and then answer the deployment gate out of it.
+//
+// Resolution goes through internal/container, the one place persistence.backend is read.
+// Opening an adapter here would be the second, and the two would disagree the first time
+// someone set the value: the CLI recording releases in a database while this endpoint
+// recorded deployments in a file.
+func governanceStoreForRequest(r *http.Request) (memory.Store, string, func(), error) {
+	noRelease := func() {}
+
 	repoRoot, err := os.Getwd()
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to resolve the working directory: %w", err)
+		return nil, "", noRelease, fmt.Errorf("failed to resolve the working directory: %w", err)
 	}
 
 	svc, err := gitservice.NewService(gitservice.WithRepoPath(repoRoot))
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open the repository: %w", err)
+		return nil, "", noRelease, fmt.Errorf("failed to open the repository: %w", err)
 	}
 	info, err := gitservice.NewAdapter(svc).GetInfo(r.Context())
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read repository info: %w", err)
+		return nil, "", noRelease, fmt.Errorf("failed to read repository info: %w", err)
 	}
 
 	repository := info.GovernanceID()
 	if repository == "" {
-		return nil, "", fmt.Errorf("could not determine the repository identity")
+		return nil, "", noRelease, fmt.Errorf("could not determine the repository identity")
 	}
 
-	store, err := memory.NewFileStore(filepath.Dir(governance.MemoryStorePath("", info.Path)))
+	cfg, err := config.LoadFromDirectory(info.Path)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open the governance store: %w", err)
+		return nil, "", noRelease, fmt.Errorf(
+			"failed to read the configuration in %s, so the governance store cannot be "+
+				"selected: %w", info.Path, err)
 	}
-	return store, repository, nil
+
+	resolved, err := container.OpenGovernanceMemory(r.Context(), cfg, info.Path)
+	if err != nil {
+		return nil, "", noRelease, fmt.Errorf("failed to open the governance store: %w", err)
+	}
+
+	release := noRelease
+	if resolved.Closer != nil {
+		release = func() { _ = resolved.Closer.Close() }
+	}
+	return resolved.Store, repository, release, nil
+}
+
+// deploymentStoreForRequest narrows that store to the one interface this endpoint needs.
+//
+// Separate from governanceStoreForRequest because the two endpoints need different things:
+// /authorize only reads release history, which every backend can do, while recording a
+// deployment needs memory.DeploymentStore — segregated from memory.Store precisely because
+// not every implementation can hold one. The SQLite and PostgreSQL governance stores are
+// two that cannot: ADR-013's migration gives them releases, incidents, decisions and
+// authorizations, and no deployments table.
+//
+// The refusal is honest rather than a silent no-op, matching `relicta deploy`. Accepting
+// the POST and dropping the record would put a hole in the evidence the DORA report and
+// the deployment gate are computed from, and would tell the reporter it succeeded.
+func deploymentStoreForRequest(r *http.Request) (memory.DeploymentStore, string, func(), error) {
+	store, repository, release, err := governanceStoreForRequest(r)
+	if err != nil {
+		return nil, "", release, err
+	}
+
+	deployments, ok := store.(memory.DeploymentStore)
+	if !ok {
+		release()
+		return nil, "", func() {}, fmt.Errorf(
+			"the configured governance backend (%T) does not record deployments; set "+
+				"persistence.backend to file to record them", store)
+	}
+	return deployments, repository, release, nil
 }

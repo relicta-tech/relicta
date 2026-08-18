@@ -44,10 +44,31 @@ func MemoryStorePath(configured, repoRoot string) string {
 }
 
 // NewServiceFromConfig creates a governance service from configuration.
-// It sets up the evaluator, policy engine, and optionally the memory store
-// based on the provided configuration. Construction reads from disk (identity
-// registry), so ctx governs that I/O rather than being started afresh here.
-func NewServiceFromConfig(ctx context.Context, cfg *config.GovernanceConfig, repoPath string, logger *slog.Logger) (*Service, error) {
+// It sets up the evaluator and policy engine from the provided configuration.
+// Construction reads from disk (identity registry), so ctx governs that I/O
+// rather than being started afresh here.
+//
+// memoryStore is the governance store the composition root resolved, and nil means
+// "no historical tracking" — the state a container with governance.memory_enabled
+// false has always been in.
+//
+// It is a parameter rather than something built here, and that is the point of the
+// change that introduced it. This function used to call memory.NewFileStore on
+// MemoryStorePath itself, which made it a second answer to "where does governance
+// memory live". Two answers were already visibly wrong: with mnemos enabled the
+// container's store was the Mnemos adapter and this one was still a file, and with
+// the file backend the two were separate FileStore instances over one memory.json,
+// each holding the whole document in memory and rewriting all of it on every write —
+// so whichever wrote last erased what the other had recorded. Once persistence.backend
+// selects a governance store the same duplication becomes the ADR-013 defect itself:
+// the service would keep writing JSON while the tracker wrote to the database.
+func NewServiceFromConfig(
+	ctx context.Context,
+	cfg *config.GovernanceConfig,
+	repoPath string,
+	logger *slog.Logger,
+	memoryStore memory.Store,
+) (*Service, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -90,20 +111,15 @@ func NewServiceFromConfig(ctx context.Context, cfg *config.GovernanceConfig, rep
 		WithEarnedTrustSamples(cfg.EarnedTrustMinSamples, cfg.EarnedTrustFullSamples),
 	}
 
-	// Set up memory store if enabled
-	if cfg.MemoryEnabled {
-		memoryPath := MemoryStorePath(cfg.MemoryPath, repoPath)
-
-		// Create FileStore for persistence
-		store, err := memory.NewFileStore(filepath.Dir(memoryPath))
-		if err != nil {
-			logger.Warn("failed to create memory store, proceeding without historical tracking",
-				"error", err,
-				"path", memoryPath,
-			)
-		} else {
-			opts = append(opts, WithMemoryStore(store))
-		}
+	// Historical tracking runs on the store the caller resolved, and on nothing else.
+	//
+	// Both conditions are checked because they answer different questions and can
+	// disagree: memory_enabled is the operator's intent, and a nil store is the
+	// composition root reporting that it could not open one. Attaching a nil store
+	// would turn every read into a nil dereference on a path — reputation, calibration,
+	// earned trust — that is meant to degrade to "no history" instead.
+	if cfg.MemoryEnabled && memoryStore != nil {
+		opts = append(opts, WithMemoryStore(memoryStore))
 	}
 
 	// Set up identity registry if configured

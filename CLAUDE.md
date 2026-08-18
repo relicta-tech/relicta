@@ -40,7 +40,7 @@ make release                  # Full release with goreleaser
 | Plugin System | HashiCorp go-plugin (gRPC) |
 | Terminal UI | Charmbracelet (bubbletea, lipgloss) |
 | HTTP Server | chi router |
-| Persistence | File-based (default) or PostgreSQL via pgx/v5 |
+| Persistence | `persistence.backend`: `file` (default), `sqlite` via modernc.org/sqlite, or `postgres` via pgx/v5 |
 | AI Clients | go-openai, anthropic-sdk-go, HTTP for Gemini and Ollama |
 
 ## Architecture
@@ -105,7 +105,7 @@ web/                        # Vue 3 + Vite + Tailwind dashboard frontend
 | `relicta mcp serve` | MCP server for AI agent integration |
 | `relicta server` | Standalone dashboard API server |
 | `relicta db migrate` | PostgreSQL migration runner |
-| `relicta db import` | Import the `.relicta/releases` history into the configured backend |
+| `relicta db import` | Import the `.relicta` history — release runs and governance memory — into the configured backend |
 | `relicta plugin` | Plugin management (list/create/dev/registry/search) |
 
 ## Plugin System

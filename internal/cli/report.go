@@ -120,10 +120,11 @@ func runReport(cmd *cobra.Command, args []string) error {
 	// failures — asserted from data that was never read is an affirmative false
 	// statement, not a missing feature. A report that cannot see the history has to
 	// say so rather than report zeros.
-	store, err := getMemoryStore()
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open the governance history store: %w", err)
 	}
+	defer releaseStore()
 
 	gen := compliance.NewGenerator(store, nil)
 

@@ -370,6 +370,76 @@ func (s *FileStore) Stats() StoreStats {
 	}
 }
 
+// Snapshot is everything a store holds, as records rather than as counts.
+//
+// The Store interface cannot answer "give me everything": GetReleaseHistory needs a
+// repository, GetDecision needs an ID, and nothing enumerates either. That is right for the
+// readers — every one of them is asking about a repository, an actor or a proposal — and
+// wrong for the one caller that has to move an audit trail from one backend to another.
+// Hence this, next to the file store rather than on the port: only the store being migrated
+// away from has to be readable this way.
+type Snapshot struct {
+	// Releases and Incidents are keyed by repository, as they are on disk.
+	Releases  map[string][]*ReleaseRecord
+	Incidents map[string][]*IncidentRecord
+
+	// Decisions and Authorizations are keyed by their own ID, because neither carries a
+	// repository — a decision hangs off a proposal.
+	Decisions      map[string]*cgp.GovernanceDecision
+	Authorizations map[string]*cgp.ExecutionAuthorization
+
+	// Deployments are keyed by repository. They are in the snapshot even though no
+	// database adapter can hold one, because a caller that cannot move them has to be able
+	// to say how many it is leaving behind. Silence there would be the thing this whole
+	// exercise is about.
+	Deployments map[string][]*DeploymentRecord
+}
+
+// ActorMetrics are deliberately absent from Snapshot.
+//
+// The file store accumulates them; the database adapters derive them from the releases and
+// incidents they hold, through the same memory.RebuildActorMetrics. Copying a materialized
+// figure into a store that recomputes it would either be ignored or, worse, disagree with
+// what the rows say — and the number in question is the one that decides whether an actor's
+// next change is auto-approved.
+
+// Snapshot returns a copy of everything this store holds.
+//
+// The maps and slices are fresh, so a caller iterating a snapshot cannot be tripped by a
+// concurrent write, but the records inside are shared pointers. That is deliberate and safe
+// for the only caller: the importer reads them and writes them elsewhere, and a deep copy of
+// an entire audit trail would double the memory for no property anyone needs.
+func (s *FileStore) Snapshot(_ context.Context) (*Snapshot, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	snapshot := &Snapshot{
+		Releases:       make(map[string][]*ReleaseRecord, len(s.releases)),
+		Incidents:      make(map[string][]*IncidentRecord, len(s.incidents)),
+		Decisions:      make(map[string]*cgp.GovernanceDecision, len(s.decisions)),
+		Authorizations: make(map[string]*cgp.ExecutionAuthorization, len(s.authorizations)),
+		Deployments:    make(map[string][]*DeploymentRecord, len(s.deployments)),
+	}
+
+	for repository, records := range s.releases {
+		snapshot.Releases[repository] = append([]*ReleaseRecord(nil), records...)
+	}
+	for repository, records := range s.incidents {
+		snapshot.Incidents[repository] = append([]*IncidentRecord(nil), records...)
+	}
+	for repository, records := range s.deployments {
+		snapshot.Deployments[repository] = append([]*DeploymentRecord(nil), records...)
+	}
+	for id, decision := range s.decisions {
+		snapshot.Decisions[id] = decision
+	}
+	for id, auth := range s.authorizations {
+		snapshot.Authorizations[id] = auth
+	}
+
+	return snapshot, nil
+}
+
 // StoreStats contains store statistics.
 type StoreStats struct {
 	Repositories        int `json:"repositories"`

@@ -126,10 +126,11 @@ func runVantaPush(cmd *cobra.Command, args []string) error {
 	// artifact showing no incidents and no failed releases, asserted from a store that
 	// was never read, is an affirmative false statement about a controlled system, not
 	// a blank report someone will notice is blank.
-	store, err := getMemoryStoreCtx(cmd.Context())
+	store, releaseStore, err := getMemoryStoreFunc(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("failed to open the governance history store: %w", err)
 	}
+	defer releaseStore()
 
 	gen := compliance.NewGenerator(store, nil)
 
@@ -252,10 +253,11 @@ func runDrataPush(cmd *cobra.Command, args []string) error {
 	// The persisted governance store, not a fresh one — same reasoning as the Vanta
 	// push above: this evidence is read by an auditor, so generating it from an empty
 	// store asserts a clean compliance record rather than reporting one.
-	store, err := getMemoryStoreCtx(cmd.Context())
+	store, releaseStore, err := getMemoryStoreFunc(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("failed to open the governance history store: %w", err)
 	}
+	defer releaseStore()
 
 	gen := compliance.NewGenerator(store, nil)
 

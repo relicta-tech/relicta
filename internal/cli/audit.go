@@ -122,10 +122,11 @@ func runAudit(cmd *cobra.Command, _ []string) error {
 
 // auditReleases reads the release trail through the same resolver history uses.
 func auditReleases(ctx context.Context, repository string) ([]*memory.ReleaseRecord, error) {
-	store, err := getMemoryStoreCtx(ctx)
+	store, releaseStore, err := getMemoryStoreFunc(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open the governance history store: %w", err)
 	}
+	defer releaseStore()
 
 	// A generous window: this command exists to answer questions about the past, and the
 	// display limit is applied after the join rather than before it — truncating the

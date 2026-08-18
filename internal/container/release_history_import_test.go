@@ -25,8 +25,11 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/application/releasehistory"
+	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
@@ -46,10 +49,11 @@ func TestAFileHistoryRoundTripsThroughTheImporterIntoSQLite(t *testing.T) {
 	before := snapshotTree(t, filepath.Join(repoRoot, ".relicta"))
 
 	ctx := context.Background()
-	report, into, err := ImportReleaseHistory(ctx, sqliteConfig(), repoRoot, releasehistory.Options{})
+	result, err := ImportHistory(ctx, sqliteConfig(), repoRoot, releasehistory.Options{})
 	if err != nil {
-		t.Fatalf("ImportReleaseHistory: %v", err)
+		t.Fatalf("ImportHistory: %v", err)
 	}
+	report, into := result.Runs, result.Into
 
 	if into.Backend != config.BackendSQLite {
 		t.Errorf("imported into backend %q, want sqlite: the report is what tells an operator "+
@@ -111,10 +115,11 @@ func TestAFileHistoryRoundTripsThroughTheImporterIntoSQLite(t *testing.T) {
 	// Idempotent. Both database adapters upsert by run ID, which is a claim about SQL; this
 	// is the claim about the command, and it is the property an operator relies on when an
 	// import failed halfway and they run it again.
-	second, _, err := ImportReleaseHistory(ctx, sqliteConfig(), repoRoot, releasehistory.Options{})
+	secondResult, err := ImportHistory(ctx, sqliteConfig(), repoRoot, releasehistory.Options{})
 	if err != nil {
-		t.Fatalf("second ImportReleaseHistory: %v", err)
+		t.Fatalf("second ImportHistory: %v", err)
 	}
+	second := secondResult.Runs
 	if second.Created != 0 || second.Replaced != len(source.runs) {
 		t.Errorf("the second import reports %d new and %d replaced, want 0 new and %d "+
 			"replaced: an import that creates rows again has duplicated the history",
@@ -153,11 +158,12 @@ func TestADryRunImportReportsTheHistoryAndWritesNoRuns(t *testing.T) {
 	before := snapshotTree(t, filepath.Join(repoRoot, ".relicta"))
 
 	ctx := context.Background()
-	report, _, err := ImportReleaseHistory(ctx, sqliteConfig(), repoRoot,
+	dryRun, err := ImportHistory(ctx, sqliteConfig(), repoRoot,
 		releasehistory.Options{DryRun: true})
 	if err != nil {
-		t.Fatalf("ImportReleaseHistory --dry-run: %v", err)
+		t.Fatalf("ImportHistory --dry-run: %v", err)
 	}
+	report := dryRun.Runs
 
 	if report.Runs != len(source.runs) {
 		t.Errorf("the dry run reports %d runs, want %d", report.Runs, len(source.runs))
@@ -183,7 +189,7 @@ func TestImportRefusesTheFileBackendBecauseItWouldBeTheSourceAndTheDestination(t
 	repoRoot := repoDir(t)
 	writeFileHistory(t, repoRoot)
 
-	_, _, err := ImportReleaseHistory(context.Background(), config.DefaultPersistenceConfig(),
+	_, err := ImportHistory(context.Background(), config.DefaultConfig(),
 		repoRoot, releasehistory.Options{})
 
 	if err == nil {
@@ -202,8 +208,9 @@ func TestImportRefusesTheFileBackendBecauseItWouldBeTheSourceAndTheDestination(t
 func TestImportingARepositoryWithNoHistoryReportsNothingToDo(t *testing.T) {
 	repoRoot := repoDir(t)
 
-	report, _, err := ImportReleaseHistory(context.Background(), sqliteConfig(), repoRoot,
+	empty, err := ImportHistory(context.Background(), sqliteConfig(), repoRoot,
 		releasehistory.Options{})
+	report := empty.Runs
 
 	if err != nil {
 		t.Fatalf("importing a repository with no history: %v — nothing to move is not a "+
@@ -214,6 +221,121 @@ func TestImportingARepositoryWithNoHistoryReportsNothingToDo(t *testing.T) {
 		t.Errorf("report says %d runs and %d written for a repository with no history",
 			report.Runs, report.Written())
 	}
+}
+
+// The governance record moves too, and this is the test that says so.
+//
+// `relicta db import` covered release runs only. Once persistence.backend selects the
+// governance store as well, that is not an incomplete feature but a trap: an operator switches
+// to sqlite, runs the importer, is told their history moved, and then finds `relicta history`
+// empty, the DORA and SOC 2 reports computed from nothing, and the deployment gate authorizing
+// against a record with no releases in it. Nothing fails.
+func TestTheImporterMovesTheGovernanceRecordAndNotOnlyTheRuns(t *testing.T) {
+	repoRoot := repoDir(t)
+	writeFileHistory(t, repoRoot)
+	writeGovernanceHistory(t, repoRoot)
+
+	ctx := context.Background()
+	result, err := ImportHistory(ctx, sqliteConfig(), repoRoot, releasehistory.Options{})
+	if err != nil {
+		t.Fatalf("ImportHistory: %v", err)
+	}
+
+	if result.Governance.Releases != 2 || result.Governance.Incidents != 1 {
+		t.Errorf("the report says %d governance releases and %d incidents, want 2 and 1: an "+
+			"import that moves runs alone leaves the audit trail behind",
+			result.Governance.Releases, result.Governance.Incidents)
+	}
+	if result.Into.GovernanceLocation == "" {
+		t.Error("the report does not say where the governance record went, so an operator " +
+			"cannot check that it went where they configured")
+	}
+
+	// Read it back through the resolver, the way `relicta history` will.
+	destination := openGovernanceStore(t, repoRoot)
+	history, err := destination.GetReleaseHistory(ctx, governanceTestRepo, 10)
+	if err != nil {
+		t.Fatalf("GetReleaseHistory in the destination: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("the destination holds %d governance records, want 2: `relicta history` "+
+			"reports what is in here", len(history))
+	}
+	if history[0].RiskScore != 0.7 || history[0].Decision != cgp.DecisionApproved {
+		t.Errorf("the newest record came back as %+v, with the risk score or decision lost: "+
+			"a governance record without them is not evidence of anything", history[0])
+	}
+
+	// Non-destructive, byte for byte. memory.json is the operator's fallback if the
+	// migration was wrong, and an importer that rewrote it would have destroyed it.
+	if _, err := os.Stat(filepath.Join(repoRoot, ".relicta", "governance", "memory.json")); err != nil {
+		t.Errorf("memory.json is gone after the import: %v — ADR-013 leaves the JSON as an "+
+			"export until the operator removes it", err)
+	}
+}
+
+const governanceTestRepo = "owner/repo"
+
+// writeGovernanceHistory puts a governance record in the file store the importer reads.
+func writeGovernanceHistory(t *testing.T, repoRoot string) {
+	t.Helper()
+
+	ctx := context.Background()
+	store, err := cgpmemory.NewFileStore(GovernanceMemoryFileDir(sqliteConfig(), repoRoot))
+	if err != nil {
+		t.Fatalf("NewFileStore: %v", err)
+	}
+
+	now := time.Now()
+	for _, spec := range []struct {
+		id      string
+		version string
+		risk    float64
+		at      time.Time
+	}{
+		{"gov-rel-1", "1.0.0", 0.2, now.Add(-2 * time.Hour)},
+		{"gov-rel-2", "1.1.0", 0.7, now},
+	} {
+		if err := store.RecordRelease(ctx, &cgpmemory.ReleaseRecord{
+			ID:         spec.id,
+			Repository: governanceTestRepo,
+			Version:    spec.version,
+			Actor:      cgp.Actor{ID: "human:alice", Kind: cgp.ActorKindHuman, Name: "alice"},
+			RiskScore:  spec.risk,
+			Decision:   cgp.DecisionApproved,
+			Outcome:    cgpmemory.OutcomeSuccess,
+			ReleasedAt: spec.at,
+		}); err != nil {
+			t.Fatalf("RecordRelease %s: %v", spec.id, err)
+		}
+	}
+
+	if err := store.RecordIncident(ctx, &cgpmemory.IncidentRecord{
+		ID:         "gov-inc-1",
+		Repository: governanceTestRepo,
+		ReleaseID:  "gov-rel-1",
+		ActorID:    "human:alice",
+		DetectedAt: now.Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("RecordIncident: %v", err)
+	}
+}
+
+// openGovernanceStore opens the destination the way a relicta command would, through the one
+// place that reads persistence.backend.
+func openGovernanceStore(t *testing.T, repoRoot string) cgpmemory.Store {
+	t.Helper()
+
+	store, err := OpenGovernanceMemory(context.Background(), sqliteConfig(), repoRoot)
+	if err != nil {
+		t.Fatalf("OpenGovernanceMemory: %v", err)
+	}
+	t.Cleanup(func() {
+		if store.Closer != nil {
+			_ = store.Closer.Close()
+		}
+	})
+	return store.Store
 }
 
 // fileHistory is the source of truth a round trip is compared against.
@@ -399,9 +521,10 @@ func repoDir(t *testing.T) string {
 	return dir
 }
 
-func sqliteConfig() config.PersistenceConfig {
-	cfg := config.DefaultPersistenceConfig()
-	cfg.Backend = config.BackendSQLite
+func sqliteConfig() *config.Config {
+	cfg := config.DefaultConfig()
+	cfg.Persistence = config.DefaultPersistenceConfig()
+	cfg.Persistence.Backend = config.BackendSQLite
 	return cfg
 }
 
@@ -411,7 +534,7 @@ func sqliteConfig() config.PersistenceConfig {
 func openSQLite(t *testing.T, repoRoot string) ports.ReleaseRunRepository {
 	t.Helper()
 
-	store, err := persistence.OpenReleaseRunStore(context.Background(), sqliteConfig(), repoRoot)
+	store, err := persistence.OpenReleaseRunStore(context.Background(), sqliteConfig().Persistence, repoRoot)
 	if err != nil {
 		t.Fatalf("OpenReleaseRunStore: %v", err)
 	}
