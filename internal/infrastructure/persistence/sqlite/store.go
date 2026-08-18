@@ -110,6 +110,22 @@ func DefaultPath(repoRoot string) string {
 // local database the user never provisioned should not need a second command before it
 // works.
 func Open(ctx context.Context, path string) (*Store, error) {
+	db, err := openDatabase(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{db: db, path: path}, nil
+}
+
+// openDatabase connects to path, creating it and its parent directory if needed, and
+// applies any pending migrations.
+//
+// Shared with OpenMemoryStore, because ADR-013 puts one backend behind
+// persistence.backend rather than one per store: the release runs and the governance
+// record belong in the same file, which is what makes writing both in one transaction
+// possible at all. Two entry points opening two files with two pool configurations
+// would give that up before it was ever tried.
+func openDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	dsn, err := dataSourceName(path)
 	if err != nil {
 		return nil, err
@@ -140,7 +156,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		return nil, fmt.Errorf("migrating sqlite database %s: %w", path, err)
 	}
 
-	return &Store{db: db, path: path}, nil
+	return db, nil
 }
 
 // Path returns the database file this store was opened on.
