@@ -87,6 +87,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validateWorkflow(cfg.Workflow)
 	v.validateOutput(cfg.Output)
 	v.validatePersistence(cfg.Persistence)
+	v.validateMonorepo(cfg.Monorepo)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -148,6 +149,33 @@ func (v *Validator) validateVersioning(cfg VersioningConfig) {
 	}
 
 	// Note: Empty tag_prefix is valid (some repos use tags without prefix)
+}
+
+// validateMonorepo reports that the monorepo block is not read.
+//
+// Every field of it — enabled, strategy, package_paths, exclude_paths, package_overrides,
+// version_files, release_groups — has zero production readers, and internal/domain/monorepo and
+// internal/application/monorepo hold roughly 3,000 lines of implemented, tested code that nothing
+// in the release path calls. Verified against the built binary: a repository with
+// `enabled: true`, `strategy: independent` and two packages at different versions was given a
+// single repository-wide 0.0.0 → 0.1.0, and neither package.json was touched.
+//
+// The distinction the message draws is the one a reader needs. Package *analysis* works —
+// `relicta blast` found both packages and the one affected — but it reads blast_radius, not this
+// block. So a monorepo user is not imagining that relicta understands their layout; they are
+// wrong only about which part of it versions their packages.
+//
+// A warning rather than an error, on the same reasoning as prerelease_suffix: a project with this
+// configured is not misconfigured, and refusing their release would be the worse trade. Whether
+// per-package versioning becomes real is a product decision, recorded in docs/backlog.md.
+func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
+	if !cfg.Enabled {
+		return
+	}
+
+	v.errors.Warnf("monorepo: has no effect — no field in this section is read, and releases " +
+		"are versioned for the repository as a whole rather than per package. " +
+		"`relicta blast` does analyze packages, from the blast_radius section")
 }
 
 // validateVersionFiles checks each version target. Catching these at load time
