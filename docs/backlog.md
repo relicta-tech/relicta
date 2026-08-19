@@ -434,12 +434,15 @@ pre/post release hooks (#308), and `versioning.bump_from` (#306).
 
 These remain:
 
-- `versioning.prerelease_suffix` — unread, and **deliberately left unread pending a product
-  decision**. The only reading that makes it do anything is "every bump becomes a prerelease",
-  which would mean the project can never cut a stable release through `bump` again: measured,
-  `1.3.0-beta.1` bumps to `1.3.0-beta.2`, never to `1.3.0`. `--prerelease beta` / `--channel
-  beta` and `promote --from beta --to stable` already cover the workflow and were measured
-  working. Honor it, or deprecate it in favour of `--channel` and `promote`.
+- `versioning.prerelease_suffix` — **resolved: it warns.** Two wirings were tried and rejected.
+  Read literally, every bump becomes a prerelease and a project can never cut a stable release
+  through `bump` again (measured: `1.3.0-beta.1` → `1.3.0-beta.2`, never `1.3.0`). Wired as the
+  default for a bare `--prerelease`, it needs pflag's `NoOptDefVal`, which silently stops
+  `--prerelease beta` and `-p beta` from binding their value — an unread setting would have
+  become one that overrides an explicit flag, which is worse than the defect. The capability is
+  already reachable through `--prerelease`, `--channel` and `promote`, so config validation now
+  warns that the setting has no effect and names those. The package-override copy in the monorepo
+  block is still unread, with the rest of that block.
 - `changelog.template` **and** `changelog.format` — one piece of work, not two. There is a
   template engine in `internal/infrastructure/template` (embedded `changelog.tmpl`, custom-dir
   loader, func map, execution timeout) whose only non-test importer is a benchmark. The blocker
