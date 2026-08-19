@@ -126,6 +126,27 @@ func (v *Validator) validateVersioning(cfg VersioningConfig) {
 
 	v.validateVersionFiles(cfg.VersionFiles)
 
+	// prerelease_suffix is read by nothing, and says so rather than sitting there looking
+	// like it works.
+	//
+	// A warning rather than an error, because a project that has it set is not misconfigured
+	// — it is doing something that has no effect, and failing their release over that would
+	// be a worse trade than telling them. The precedent is the deprecated ai.provider value
+	// a few functions down.
+	//
+	// Not simply wired up, which was tried and rejected twice. Read literally — every bump
+	// becomes a prerelease — a project could never cut a stable release through `bump` again:
+	// measured, 1.3.0-beta.1 bumps to 1.3.0-beta.2 and never to 1.3.0. Wired as the default
+	// for a bare `--prerelease`, it required pflag's NoOptDefVal, which silently stops
+	// `--prerelease beta` and `-p beta` from binding their value: an unread setting would
+	// have become one that overrides an explicit flag. The capability already exists and is
+	// reachable, so the honest fix is to point at it.
+	if cfg.PrereleaseSuffix != "" {
+		v.errors.Warnf("versioning.prerelease_suffix: has no effect — nothing reads it. " +
+			"Use --prerelease (e.g. 'relicta bump --prerelease rc') or --channel for a " +
+			"single release, and 'relicta promote' to graduate one to stable")
+	}
+
 	// Note: Empty tag_prefix is valid (some repos use tags without prefix)
 }
 
