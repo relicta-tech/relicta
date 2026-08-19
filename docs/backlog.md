@@ -454,9 +454,42 @@ These remain:
   custom` is accepted by `validate.go` but unknown to `ChangelogFormat.IsValid()`, so it is
   silently downgraded today; and `RenderOptions.Format` is translated from config and never
   branched on, so all formats currently render identically.
-- The monorepo `version_field` / `changelog_file` / `skip_versioning` / `package_overrides` —
-  per-package versioning settings with no reader. The whole `PackageOverrideConfig` struct is
-  unread, and `versioning.build_metadata` with it. (`versioning.version_files` at the top level
+- `versioning.build_metadata` — unread. (The monorepo block has its own entry below.)
+
+## Monorepo support is implemented and unreachable
+
+The largest instance of this defect class in the tree, and the one that needs a product decision
+rather than wiring.
+
+**Every field of the `monorepo:` section has zero production readers** — `enabled`, `strategy`,
+`package_paths`, `exclude_paths`, `package_overrides`, `version_files`, `release_groups` — and
+`internal/domain/monorepo` plus `internal/application/monorepo` hold ~3,000 lines of implemented,
+tested code (aggregate, package release, analyzer, orchestrator, version writers) that nothing in
+the release path calls.
+
+Verified against the built binary. A repository with `enabled: true`, `strategy: independent`,
+`package_paths: ["packages/*"]` and two packages at 1.0.0 and 2.0.0:
+
+    Current version:  0.0.0
+    Next version:     0.1.0
+
+One repository-wide version, and neither `package.json` touched.
+
+The distinction that matters: **package analysis works, package versioning does not.** `relicta
+blast` found both packages and the one affected — but it reads `blast_radius`, not `monorepo`. So
+a monorepo user is not wrong that relicta understands their layout; they are wrong about which
+part of it versions their packages.
+
+Config validation now warns when the section is enabled, so it stops silently doing nothing. That
+is the honest interim state, not the fix.
+
+**The decision needed: is per-package versioning a product commitment?** If yes, the work is
+wiring an existing subsystem rather than writing one — the orchestrator and version writers exist
+and are tested — and it needs answers for how a monorepo release interacts with the single
+`ReleaseRun` aggregate, with tags (one per package? `app-v1.2.3`?), with the changelog, and with
+the governance record, which is currently one decision per release rather than per package. If
+no, ~3,000 lines and a config section should be deleted rather than left looking like a feature.
+Either answer is better than the present one. (`versioning.version_files` at the top level
   *is* honored — `relicta bump` writes every configured manifest; the earlier note here was
   wrong, corrected after checking against a real package.json.)
 - `git.ssh_key_path` / `ssh_key_password` — the git service has WithAuthToken and
