@@ -731,6 +731,31 @@ func (r *ReleaseRun) Plan(actor string) error {
 		return NewStateTransitionError(r.state, "plan")
 	}
 
+	// Every other transition raises its event and this one raised nothing, so
+	// RunPlannedEvent was declared, deserialized, and constructed by no code at all.
+	//
+	// That is not only dead weight. `release.planned` is one of the event names
+	// documented for webhook subscriptions, so a subscriber configured for it received
+	// nothing and had no way to tell that from a repository nobody was releasing. The
+	// outcome tracker's handlePlanned was unreachable, and Hub synthesizes a
+	// `release.planned` from stored records precisely because the real one never arrives
+	// — its comment says Hub builds a release row from that event, since it is the branch
+	// carrying the risk score and commit count.
+	//
+	// Everything the event needs is known here: the plan use case calls
+	// SetVersionProposal before Plan, so the proposed version and bump kind are already on
+	// the aggregate.
+	r.addEvent(&RunPlannedEvent{
+		RunID:          r.id,
+		VersionCurrent: r.versionCurrent,
+		VersionNext:    r.versionNext,
+		BumpKind:       r.bumpKind,
+		CommitCount:    len(r.commits),
+		RiskScore:      r.riskScore,
+		Actor:          actor,
+		At:             time.Now(),
+	})
+
 	return r.TransitionTo(StatePlanned, "PLAN", actor, "Release planned", nil)
 }
 
