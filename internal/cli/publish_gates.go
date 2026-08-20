@@ -81,5 +81,5 @@ func prepareReleaseForPublish(ctx context.Context, app cliApp, version, tagName 
 	if err != nil {
 		return nil
 	}
-	return commitReleaseArtifacts(ctx, rel, version)
+	return commitReleaseArtifacts(ctx, app, rel, version)
 }

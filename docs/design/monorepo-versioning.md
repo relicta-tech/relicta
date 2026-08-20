@@ -19,8 +19,11 @@ the version its manifest claims — `api-v1.5.0` by default, or `package_overrid
 tag_prefix` — alongside the repository's own tag, and `relicta bump` reads them back so each
 package measures from its own last release.
 
-**Designed here but not wired:** per-package changelogs, a governance decision per package
-release, dependency-coordinated version propagation, and the `MonorepoRelease` aggregate's own
+**Implemented and reachable:** per-package changelogs. `publish` writes each changed package's
+own `CHANGELOG.md` from that package's commits, under the repository's `changelog.*` settings,
+and the release commit carries them.
+
+**Designed here but not wired:** a governance decision per package release, dependency-coordinated version propagation, and the `MonorepoRelease` aggregate's own
 lifecycle. `relicta plan` and `relicta approve` decide for the repository as a whole — one plan,
 one decision — and say so on every run in a monorepo.
 

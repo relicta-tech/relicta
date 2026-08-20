@@ -262,8 +262,8 @@ func plural(n int) string {
 
 // warnRepositoryWideInAMonorepo says which question the command about to run is answering.
 //
-// `relicta bump` versions each package and `publish` tags each package, but the plan and the
-// governance decision are still one per repository. Saying so is the whole point: the defect
+// `relicta bump` versions each package, and `publish` tags each and writes each a changelog,
+// but the plan and the governance decision are still one per repository. Saying so is the whole point: the defect
 // this subsystem was an instance of is a setting that looks honored and is not, and a monorepo
 // user whose bump produced two package versions has every reason to ask what `approve` just
 // approved.
@@ -272,6 +272,6 @@ func warnRepositoryWideInAMonorepo(command string) {
 		return
 	}
 	printWarning(fmt.Sprintf("monorepo: `relicta %s` decides for the repository as a whole — "+
-		"one plan, one governance decision. Each package carries its own version and its own "+
-		"tag; per-package changelogs and approvals are not implemented yet", command))
+		"one plan, one governance decision. Each package carries its own version, tag and "+
+		"changelog; a decision per package is not implemented yet", command))
 }

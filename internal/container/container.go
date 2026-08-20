@@ -1062,12 +1062,22 @@ func NewInitialized(ctx context.Context, cfg *config.Config) (*App, error) {
 // model (git.CategorizedChanges) than the entry built here, and choosing which shape a user's
 // template sees is a public contract, not a wiring gap.
 func (c *App) changelogRenderOptions() communication.RenderOptions {
+	return ChangelogRenderOptions(c.config)
+}
+
+// ChangelogRenderOptions translates the changelog configuration for any caller that renders
+// one — the notes generator here, and the per-package changelogs a monorepo release writes.
+//
+// Exported so the two cannot drift: a package's changelog that ignored group_by or categories
+// while the repository's honored them would be the same file format rendered two ways in one
+// repository.
+func ChangelogRenderOptions(appConfig *config.Config) communication.RenderOptions {
 	opts := communication.DefaultRenderOptions()
-	if c.config == nil {
+	if appConfig == nil {
 		return opts
 	}
 
-	cfg := c.config.Changelog
+	cfg := appConfig.Changelog
 
 	if format := communication.ChangelogFormat(cfg.Format); format.IsValid() {
 		opts.Format = format

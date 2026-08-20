@@ -124,3 +124,33 @@ Three things this closed:
 
 Still one per repository, and still said out loud on every run: the plan and the governance
 decision. Per-package changelogs and approvals are the next slice.
+
+## Amendment: per-package changelogs (2026-08-20)
+
+Each package now gets its own `CHANGELOG.md` — or whatever
+`monorepo.package_overrides.<path>.changelog_file` names — written during `publish` and
+carried by the release commit, so the package's tag contains the entry describing it.
+
+**Rendered from the package's own commits, not from AI notes.** The repository's changelog is
+written from the release notes, which are generated once for the release as a whole. A package's
+entry is built from that package's conventional commits, through the same renderer and the same
+`changelog.*` settings, so the two files cannot drift into different formats in one repository.
+It is also free and deterministic: a per-package changelog that needed an API key would make
+monorepo releases fail for everyone without one.
+
+**The heading is the version being tagged.** By publish time `bump` has already written the
+manifests, so a version recomputed at that point is the one *after* this release — the first
+draft printed `## [1.6.0]` above a release tagged `api-v1.5.0`. The commits come from the
+analysis, the version from the manifest, and they are joined.
+
+Three defects fell out of it, all of them in code paths that could not be reached before:
+
+- The `monorepo:` section had no viper defaults registered, so a config naming only `enabled`
+  and `package_paths` loaded with an empty strategy and was refused by the validation this ADR
+  introduced. Defaults are now set per key, as `persistence` already does.
+- The analyzer passed the raw git subject into the changeset, so entries read
+  `- fix: correct the status code` under a `### Bug Fixes` heading.
+- Its fallback classifier was a hand-rolled prefix match over five commit types that dropped
+  the scope entirely, read `perf`, `build`, `ci`, `style` and `revert` as chores, and
+  classified `fixup! ...` as a fix. It now uses the domain's conventional-commit parser, which
+  is what the rest of the release path has always used.

@@ -174,7 +174,8 @@ func releaseCommitPaths(ctx context.Context) []string {
 			paths = append(paths, target.Path)
 		}
 	}
-	return append(paths, monorepoManifestPaths(ctx)...)
+	paths = append(paths, monorepoManifestPaths(ctx)...)
+	return append(paths, packageChangelogPaths(ctx)...)
 }
 
 // monorepoManifestPaths is the per-package half of the same list.
@@ -226,8 +227,13 @@ func monorepoManifestPaths(ctx context.Context) []string {
 // Once require_clean_working_tree was enforced, the same gap stopped the release outright —
 // bump dirtied package.json and publish then refused it. A release tool has to commit what it
 // writes, or it cannot honestly ask for a clean tree.
-func commitReleaseArtifacts(ctx context.Context, rel *release.ReleaseRun, ver string) error {
+func commitReleaseArtifacts(ctx context.Context, app cliApp, rel *release.ReleaseRun, ver string) error {
 	handleChangelogUpdate(rel)
+
+	// The packages' own changelogs, before the commit below picks them up.
+	if repoRoot, err := os.Getwd(); err == nil {
+		writePackageChangelogs(ctx, app, repoRoot)
+	}
 
 	if cfg == nil || !cfg.Workflow.AutoCommitChangelog {
 		return nil
