@@ -44,7 +44,7 @@ Only two have a port. A `backend:` setting can only mean something once they sha
 
 **The PostgreSQL support that exists was never going to be the system of record.** Its
 schema is a single `events` table serving `ports.EventStore` — an interface with no
-production caller on either implementation, and whose `LoadEvents` and `LoadAllEvents`
+production caller on either implementation (both were deleted; see the amendment below), and whose `LoadEvents` and `LoadAllEvents`
 are called by nothing at all. Fully wired, it would have added a write-only event log
 beside the JSON runs.
 
@@ -169,3 +169,17 @@ Reproduce with:
 The case for this decision was never mainly speed, and the parts that carry it are
 untouched: one schema instead of five ad-hoc encodings, a run and its governance record
 writable in one transaction, and a store a team can share. Those remain the reasons.
+
+## Amendment: the event store was deleted rather than wired
+
+This ADR settled that the event log is not the system of record but left it in the tree,
+unwired. That was the wrong resting place: an interface, two implementations and a
+factory that nothing constructed read as a feature to anyone opening the package.
+
+ADR-014 then gave the append-only-record job to the audit chain, which is appended as
+decisions happen, verified on read, and hashed into attestations. With that owner named,
+the event store had no remaining claim, and all 760 lines were removed.
+
+`migrations/001_create_events` stays. It has shipped, and renumbering an ordered
+migration sequence breaks every operator who already ran it — a cost far above an unused
+empty table.
