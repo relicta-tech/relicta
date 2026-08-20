@@ -1,5 +1,24 @@
 # Multi-Package/Monorepo Versioning Design
 
+## Status (2026-08-20)
+
+This document describes the design in full. Part of it ships; the rest does not, and the
+difference matters more here than usual — the whole subsystem spent a long time implemented,
+tested and reachable from nothing. See ADR-015.
+
+**Implemented and reachable:** `strategy: independent`. `relicta bump` discovers packages from
+`monorepo.package_paths`, maps commits to the packages they touch, computes each package's bump
+from its own commits, and writes its own manifest (npm, Cargo, Python, Go, Maven, Gradle,
+Composer, Gem, NuGet, plain `VERSION`).
+
+**Refused at config load, because nothing implements them:** `lockstep`, `hybrid`,
+`release_groups`.
+
+**Designed here but not wired:** per-package tags, per-package changelogs, a governance decision
+per package release, dependency-coordinated version propagation, and the `MonorepoRelease`
+aggregate's own lifecycle. `relicta plan`, `publish` and `release` act on the repository as a
+whole and say so on every run in a monorepo.
+
 ## Overview
 
 Independent versioning for packages within a monorepo, enabling:

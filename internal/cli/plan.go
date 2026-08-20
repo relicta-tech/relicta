@@ -70,6 +70,8 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	printTitle("Release Plan")
 	fmt.Println()
 
+	warnRepositoryWideInAMonorepo("plan")
+
 	if dryRun {
 		printDryRunBanner()
 	}

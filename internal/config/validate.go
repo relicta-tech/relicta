@@ -151,31 +151,42 @@ func (v *Validator) validateVersioning(cfg VersioningConfig) {
 	// Note: Empty tag_prefix is valid (some repos use tags without prefix)
 }
 
-// validateMonorepo reports that the monorepo block is not read.
+// validateMonorepo refuses the parts of the monorepo block that nothing implements.
 //
-// Every field of it — enabled, strategy, package_paths, exclude_paths, package_overrides,
-// version_files, release_groups — has zero production readers, and internal/domain/monorepo and
-// internal/application/monorepo hold roughly 3,000 lines of implemented, tested code that nothing
-// in the release path calls. Verified against the built binary: a repository with
-// `enabled: true`, `strategy: independent` and two packages at different versions was given a
-// single repository-wide 0.0.0 → 0.1.0, and neither package.json was touched.
+// The section used to be read by nothing at all: a repository with `enabled: true` and two
+// packages at different versions was given a single repository-wide 0.0.0 -> 0.1.0, and neither
+// package.json was touched. `strategy: independent` now versions each package from its own
+// commits and writes its own manifest.
 //
-// The distinction the message draws is the one a reader needs. Package *analysis* works —
-// `relicta blast` found both packages and the one affected — but it reads blast_radius, not this
-// block. So a monorepo user is not imagining that relicta understands their layout; they are
-// wrong only about which part of it versions their packages.
-//
-// A warning rather than an error, on the same reasoning as prerelease_suffix: a project with this
-// configured is not misconfigured, and refusing their release would be the worse trade. Whether
-// per-package versioning becomes real is a product decision, recorded in docs/backlog.md.
+// lockstep, hybrid and release_groups are not wired. They are errors rather than warnings, and
+// that asymmetry with the old warning is deliberate: a warning was right when the whole section
+// did nothing, because the release still behaved as the user's repository-wide config said it
+// would. Now the same file gets per-package versioning for one strategy and repository-wide
+// versioning for the others, and silently giving somebody who asked for lockstep the opposite of
+// lockstep is worse than refusing to start.
 func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 	if !cfg.Enabled {
 		return
 	}
 
-	v.errors.Warnf("monorepo: has no effect — no field in this section is read, and releases " +
-		"are versioned for the repository as a whole rather than per package. " +
-		"`relicta blast` does analyze packages, from the blast_radius section")
+	switch cfg.Strategy {
+	case MonorepoStrategyIndependent:
+		if len(cfg.PackagePaths) == 0 {
+			v.errors.Addf("monorepo.package_paths: required when monorepo.enabled is true — " +
+				"without globs there is nothing to version per package, for example [\"packages/*\"]")
+		}
+	case MonorepoStrategyLockstep, MonorepoStrategyHybrid:
+		v.errors.Addf("monorepo.strategy: %q is not implemented yet; only %q is. Packages would "+
+			"otherwise be versioned independently, which is the opposite of what you asked for",
+			cfg.Strategy, MonorepoStrategyIndependent)
+	default:
+		v.errors.Addf("monorepo.strategy: must be %q, got %q", MonorepoStrategyIndependent, cfg.Strategy)
+	}
+
+	if len(cfg.ReleaseGroups) > 0 {
+		v.errors.Addf("monorepo.release_groups: not implemented yet — every package is released " +
+			"on its own commits, so a group would be silently ignored")
+	}
 }
 
 // validateVersionFiles checks each version target. Catching these at load time

@@ -81,24 +81,12 @@ func (w *NPMVersionWriter) WriteVersion(ctx context.Context, pkgPath, ver string
 		return fmt.Errorf("reading package.json: %w", err)
 	}
 
-	// Parse as generic map to preserve all fields
-	var pkg map[string]interface{}
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return fmt.Errorf("parsing package.json: %w", err)
-	}
-
-	pkg["version"] = ver
-
-	// Write back with indentation
-	output, err := json.MarshalIndent(pkg, "", "  ")
+	output, err := setJSONStringField(data, "version", ver)
 	if err != nil {
-		return fmt.Errorf("marshaling package.json: %w", err)
+		return fmt.Errorf("updating package.json: %w", err)
 	}
 
-	// Append newline for POSIX compliance
-	output = append(output, '\n')
-
-	if err := os.WriteFile(pkgJSONPath, output, 0644); err != nil {
+	if err := writePreservingMode(pkgJSONPath, output); err != nil {
 		return fmt.Errorf("writing package.json: %w", err)
 	}
 
@@ -148,11 +136,15 @@ func (w *CargoVersionWriter) WriteVersion(ctx context.Context, pkgPath, ver stri
 		return fmt.Errorf("reading Cargo.toml: %w", err)
 	}
 
-	// Replace version in [package] section
-	re := regexp.MustCompile(`(?m)^(\s*version\s*=\s*)"[^"]+"`)
-	newData := re.ReplaceAll(data, []byte(fmt.Sprintf(`${1}"%s"`, ver)))
+	// [package] only. The pattern this replaces matched any line beginning with `version =`,
+	// which includes a dependency declared as its own table, and wrote the package's version
+	// over the dependency's.
+	newData, ok := setTOMLTableValue(data, "package", "version", ver)
+	if !ok {
+		return fmt.Errorf("no version under [package] in %s", cargoPath)
+	}
 
-	if err := os.WriteFile(cargoPath, newData, 0644); err != nil {
+	if err := writePreservingMode(cargoPath, newData); err != nil {
 		return fmt.Errorf("writing Cargo.toml: %w", err)
 	}
 
@@ -213,15 +205,20 @@ func (w *PythonVersionWriter) WriteVersion(ctx context.Context, pkgPath, ver str
 	var wrote bool
 
 	// Update pyproject.toml if exists
+	// [project] is the PEP 621 home for the version; [tool.poetry] is Poetry's. Both are
+	// scoped, so a version pinned under [tool.poetry.dependencies] is left alone.
 	pyprojectPath := filepath.Join(pkgPath, "pyproject.toml")
 	if data, err := os.ReadFile(pyprojectPath); err == nil {
-		re := regexp.MustCompile(`(?m)^(\s*version\s*=\s*)"[^"]+"`)
-		if re.Match(data) {
-			newData := re.ReplaceAll(data, []byte(fmt.Sprintf(`${1}"%s"`, ver)))
-			if err := os.WriteFile(pyprojectPath, newData, 0644); err != nil {
+		for _, table := range []string{"project", "tool.poetry"} {
+			newData, ok := setTOMLTableValue(data, table, "version", ver)
+			if !ok {
+				continue
+			}
+			if err := writePreservingMode(pyprojectPath, newData); err != nil {
 				return fmt.Errorf("writing pyproject.toml: %w", err)
 			}
 			wrote = true
+			break
 		}
 	}
 

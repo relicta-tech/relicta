@@ -257,6 +257,28 @@ func (a *MonorepoAnalyzer) commitAffectsPackage(
 	return false
 }
 
+// packageTypeFor decides which manifest a package's version is read from and written to.
+//
+// The package's own directory answers first. A workspace carries a single PackageManager,
+// which is right for a pnpm or Cargo workspace and wrong for the layout
+// `monorepo.package_paths` exists to describe — `packages/*` may hold an npm package beside a
+// Go module — and typing every package from the workspace would read one manifest and write
+// another.
+//
+// The workspace manager remains the fallback, so a package with no manifest of its own (a
+// directory in a pnpm workspace, say) is still typed as it was before.
+func packageTypeFor(pkgPath string, ws *workspace.Workspace) monorepo.PackageType {
+	if detected := DetectPackageType(pkgPath); detected != monorepo.PackageTypeDirectory {
+		return detected
+	}
+	if ws != nil {
+		if fromWorkspace := monorepo.PackageTypeFromString(string(ws.PackageManager)); fromWorkspace != monorepo.PackageTypeDirectory {
+			return fromWorkspace
+		}
+	}
+	return monorepo.PackageTypeDirectory
+}
+
 // analyzePackage analyzes a single package.
 func (a *MonorepoAnalyzer) analyzePackage(
 	ctx context.Context,
@@ -268,7 +290,7 @@ func (a *MonorepoAnalyzer) analyzePackage(
 	result := &PackageAnalysisResult{
 		PackagePath:     pkg.Path,
 		PackageName:     pkg.Name,
-		PackageType:     monorepo.PackageTypeFromString(string(input.Workspace.PackageManager)),
+		PackageType:     packageTypeFor(pkg.Path, input.Workspace),
 		Commits:         commits,
 		Classifications: make(map[sourcecontrol.CommitHash]*analysis.CommitClassification),
 		ChangedFiles:    make([]string, 0),

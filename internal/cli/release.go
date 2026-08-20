@@ -92,6 +92,8 @@ func runRelease(cmd *cobra.Command, args []string) error {
 	printTitle("Relicta Release")
 	fmt.Println()
 
+	warnRepositoryWideInAMonorepo("release")
+
 	if dryRun {
 		printDryRunBanner()
 	}
