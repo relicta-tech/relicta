@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	monorepotags "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
@@ -424,6 +426,14 @@ type PublisherAdapter struct {
 	// the attestation is about.
 	auditChainStore audit.Store
 	auditChainRepo  string
+
+	// packageTags lists the per-package tags a monorepo release carries, resolved when the
+	// step runs rather than when the adapter is built: bump writes the manifests during the
+	// same command, and the manifest is what the tag names.
+	//
+	// nil in a repository that is not a monorepo, which is the only shape the release path
+	// knew until per-package versioning was wired (ADR-015).
+	packageTags func(context.Context) ([]monorepotags.PackageTag, error)
 }
 
 // PublisherAdapterOption configures the PublisherAdapter.
@@ -443,6 +453,19 @@ func WithPushTags(enabled bool) PublisherAdapterOption {
 func WithTagging(enabled bool) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
 		a.createTags = enabled
+	}
+}
+
+// WithPackageTags supplies the per-package tags a monorepo release creates alongside the
+// repository's own.
+//
+// Alongside, not instead: the repository tag stays the release marker the rest of the flow
+// measures from — the next plan reads it, and a monorepo with no repository tags would have
+// every repository-wide command counting from the start of history forever. Each package
+// additionally gets its own tag, which is what makes an independent package release findable.
+func WithPackageTags(resolve func(context.Context) ([]monorepotags.PackageTag, error)) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.packageTags = resolve
 	}
 }
 
@@ -600,10 +623,71 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 		output = fmt.Sprintf("Created and pushed tag %s", tagName)
 	}
 
+	if perPackage, err := a.createPackageTags(ctx, run); err != nil {
+		return &ports.StepResult{
+			Success: false,
+			Output:  output,
+			Error:   err,
+		}, err
+	} else if perPackage != "" {
+		output += "; " + perPackage
+	}
+
 	return &ports.StepResult{
 		Success: true,
 		Output:  output,
 	}, nil
+}
+
+// createPackageTags tags each package of a monorepo at the version its manifest claims.
+//
+// Idempotent per tag, like the repository tag above it: a package whose tag already exists is
+// left alone, so re-running publish after a partial failure finishes the job rather than
+// refusing. Returns a description of what it did, empty when this is not a monorepo.
+func (a *PublisherAdapter) createPackageTags(ctx context.Context, run *domain.ReleaseRun) (string, error) {
+	if a.packageTags == nil || a.tagCreator == nil {
+		return "", nil
+	}
+
+	tags, err := a.packageTags(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve package tags: %w", err)
+	}
+	if len(tags) == 0 {
+		return "", nil
+	}
+
+	created := make([]string, 0, len(tags))
+	for _, pkg := range tags {
+		exists, existsErr := a.tagCreator.TagExists(ctx, pkg.Tag)
+		if existsErr != nil {
+			return "", fmt.Errorf("failed to check tag %s: %w", pkg.Tag, existsErr)
+		}
+		if exists {
+			continue
+		}
+
+		message := fmt.Sprintf("Release %s %s", pkg.Name, pkg.Version.String())
+		if createErr := a.tagCreator.CreateTag(ctx, pkg.Tag, message); createErr != nil {
+			return "", fmt.Errorf("failed to tag %s: %w", pkg.Name, createErr)
+		}
+		created = append(created, pkg.Tag)
+
+		if a.pushTags {
+			if pushErr := a.tagCreator.PushTag(ctx, pkg.Tag, "origin"); pushErr != nil {
+				return "", fmt.Errorf("tagged %s but push failed: %w", pkg.Name, pushErr)
+			}
+		}
+	}
+
+	if len(created) == 0 {
+		return fmt.Sprintf("%d package tags already existed", len(tags)), nil
+	}
+	verb := "created"
+	if a.pushTags {
+		verb = "created and pushed"
+	}
+	return fmt.Sprintf("%s package tags %s", verb, strings.Join(created, ", ")), nil
 }
 
 // executeAttestationStep generates a signed governance attestation for the release.

@@ -517,12 +517,19 @@ workspace-wide `PackageManager`, so `packages/*` holding an npm package beside a
 one manifest and wrote another; and the base version came from the working tree — the file the
 previous bump had written — so bumping twice off one commit took a package 2.1.3 → 3.0.0 → 4.0.0.
 
-**What is left, and what it needs.** `plan`, `publish` and `release` still act on the repository
-as a whole, and now say so on every run in a monorepo rather than leaving it to be discovered.
-Closing that means answering, per package: the tag (`api-v1.5.0`, from `package_overrides`
-`tag_prefix`), the changelog, and the governance decision — the record is currently one decision
-per release, not one per package. Until per-package tags exist, `bump` measures every package
-from the repository's last tag, because there is no `api-v1.4.0` to measure from.
+**Tags landed next** (ADR-015 amendment). Each package carries its own — `api-v1.5.0`, or the
+configured `package_overrides.<path>.tag_prefix` — created by `publish` alongside the
+repository's own tag, and read back by `bump` so each package measures from its own last release.
+Two more defects fell out of running it: the release commit did not cover the packages'
+manifests, so the tag pointed at a commit that did not contain the versions it claimed and the
+clean-tree gate refused the publish; and `bump` left the run in `planned`, so `notes`, `approve`
+and `publish` all told a user who had just run bump to run bump.
+
+**What is left.** The plan and the governance decision are still one per repository, and every
+run in a monorepo says so. Closing that means a `ReleaseRun` per package — the repository interface
+is already path-keyed, so the store can hold them — plus per-package changelogs and a `--package`
+selector for `approve`. Whether one approval should cover a whole monorepo release or each package
+should carry its own is a product decision, not a wiring one.
 
 ## Gates apply to `publish` but not to `release`
 

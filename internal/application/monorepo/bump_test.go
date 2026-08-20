@@ -271,3 +271,129 @@ func indexOf(haystack, needle string) int {
 	}
 	return -1
 }
+
+// Each package is measured from its own last release, not from the repository's.
+//
+// Before per-package tags existed, every package counted from the repository tag, so a package
+// released last week and a package released last year were both told "everything since v0.1.0".
+// The base has to be the package's own tag where it has one.
+func TestAPackageIsMeasuredFromItsOwnLastTag(t *testing.T) {
+	root := t.TempDir()
+	npmPackage(t, root, "api", "1.4.0")
+	npmPackage(t, root, "web", "2.1.3")
+
+	// Two commits: one before api's tag, one after. Only the later one is api's to count.
+	old, oldStats := commitTouching("old1", "feat: earlier api work", "packages/api/old.js")
+	recent, recentStats := commitTouching("new1", "fix: later api work", "packages/api/new.js")
+
+	git := &mockGitRepository{
+		commits: []*sourcecontrol.Commit{recent},
+		diffStats: map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats{
+			old.Hash():    oldStats,
+			recent.Hash(): recentStats,
+		},
+		filesAtRef: map[string][]byte{
+			filepath.Join("packages", "api", "package.json"): []byte(`{"name":"api","version":"1.4.0"}`),
+		},
+		tags: sourcecontrol.TagList{
+			sourcecontrol.NewTag("api-v1.4.0", "aaaa"),
+			sourcecontrol.NewTag("v0.1.0", "bbbb"),
+		},
+	}
+	analyzer := NewMonorepoAnalyzer(git, &version.DefaultVersionCalculator{}, nil, NewCompositeVersionWriter())
+	svc := NewBumpService(infraworkspace.NewFileDetector(), analyzer, git)
+
+	plan, err := svc.Plan(context.Background(), PlanInput{
+		RepoRoot:     root,
+		PackagePaths: []string{"packages/*"},
+		FromRef:      "v0.1.0",
+	})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+
+	var api *PackageBump
+	for i := range plan.Packages {
+		if plan.Packages[i].Name == "api" {
+			api = &plan.Packages[i]
+		}
+	}
+	if api == nil {
+		t.Fatalf("api was not planned: %+v", plan.Packages)
+	}
+
+	if api.BaseRef != "api-v1.4.0" {
+		t.Errorf("api was measured from %q, want its own tag api-v1.4.0", api.BaseRef)
+	}
+	if api.Tag != "api-v1.4.1" {
+		t.Errorf("api's release tag is %q, want api-v1.4.1", api.Tag)
+	}
+}
+
+// The highest version wins, not the most recent tag: a patch on an older line is tagged after
+// a newer minor, and taking the newest would measure the next release from the wrong place.
+func TestTheHighestTagWinsNotTheLatest(t *testing.T) {
+	tags := sourcecontrol.TagList{
+		sourcecontrol.NewTag("api-v1.4.0", "aaaa"),
+		sourcecontrol.NewTag("api-v2.0.0", "bbbb"),
+		sourcecontrol.NewTag("api-v1.4.1", "cccc"), // tagged last, older line
+	}
+
+	got, ok := latestTagWithPrefix(tags, "api-v")
+	if !ok {
+		t.Fatal("no tag was found for the api- prefix")
+	}
+	if got != "api-v2.0.0" {
+		t.Errorf("base tag = %q, want api-v2.0.0", got)
+	}
+}
+
+// publish tags what the manifests claim, because bump has already written them and somebody
+// may have edited one by hand.
+func TestReleaseTagsComeFromTheManifests(t *testing.T) {
+	root := t.TempDir()
+	npmPackage(t, root, "api", "1.5.0")
+	npmPackage(t, root, "web", "2.1.4")
+
+	svc := bumpServiceFor(nil, nil)
+	tags, err := svc.ReleaseTags(context.Background(), PlanInput{
+		RepoRoot:     root,
+		PackagePaths: []string{"packages/*"},
+		TagPrefixes:  map[string]string{filepath.Join("packages", "web"): "webapp-v"},
+	})
+	if err != nil {
+		t.Fatalf("ReleaseTags: %v", err)
+	}
+
+	if len(tags) != 2 {
+		t.Fatalf("got %d tags, want one per package: %+v", len(tags), tags)
+	}
+	if tags[0].Tag != "api-v1.5.0" {
+		t.Errorf("tags[0] = %q, want api-v1.5.0", tags[0].Tag)
+	}
+	if tags[1].Tag != "webapp-v2.1.4" {
+		t.Errorf("tags[1] = %q, want webapp-v2.1.4 from the configured prefix", tags[1].Tag)
+	}
+}
+
+// The release commit has to cover the manifests bump wrote, or the tag points at a commit that
+// does not contain the version it claims — and the clean-tree gate refuses the publish.
+func TestManifestPathsAreRepositoryRelative(t *testing.T) {
+	root := t.TempDir()
+	npmPackage(t, root, "api", "1.5.0")
+
+	svc := bumpServiceFor(nil, nil)
+	paths, err := svc.ManifestPaths(context.Background(), PlanInput{
+		RepoRoot:     root,
+		PackagePaths: []string{"packages/*"},
+	})
+	if err != nil {
+		t.Fatalf("ManifestPaths: %v", err)
+	}
+
+	want := filepath.Join("packages", "api", "package.json")
+	if len(paths) != 1 || paths[0] != want {
+		t.Errorf("paths = %v, want [%s]: git takes a pathspec relative to the repository",
+			paths, want)
+	}
+}

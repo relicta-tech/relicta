@@ -13,7 +13,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
@@ -158,7 +160,7 @@ func changelogAlreadyContains(filename, notes string) bool {
 // These are the paths the release commit covers, and — because they are relicta's own edits
 // rather than the operator's uncommitted work — the paths the clean-tree gate ignores when
 // that commit is going to happen.
-func releaseCommitPaths() []string {
+func releaseCommitPaths(ctx context.Context) []string {
 	if cfg == nil {
 		return nil
 	}
@@ -171,6 +173,41 @@ func releaseCommitPaths() []string {
 		if target.Path != "" {
 			paths = append(paths, target.Path)
 		}
+	}
+	return append(paths, monorepoManifestPaths(ctx)...)
+}
+
+// monorepoManifestPaths is the per-package half of the same list.
+//
+// In a monorepo the version-bearing manifests are the packages' own, and they are found by
+// walking monorepo.package_paths rather than read from configuration. Without them the release
+// commit left every package.json `relicta bump` had just written uncommitted, and the clean-tree
+// gate then refused the publish — reproduced against the shipped binary:
+//
+//	⚠ Uncommitted changes to tracked files:
+//	    packages/api/package.json
+//	    packages/web/package.json
+//
+// Best-effort: a discovery failure yields no paths rather than an error, because the caller is
+// building a list of files to commit and the repository-wide ones are still worth committing.
+func monorepoManifestPaths(ctx context.Context) []string {
+	if cfg == nil || !cfg.Monorepo.Enabled {
+		return nil
+	}
+
+	root, err := os.Getwd()
+	if err != nil {
+		return nil
+	}
+
+	paths, err := container.NewMonorepoBumper(nil, nil).ManifestPaths(ctx,
+		appmonorepo.PlanInput{
+			RepoRoot:     root,
+			PackagePaths: cfg.Monorepo.PackagePaths,
+			ExcludePaths: cfg.Monorepo.ExcludePaths,
+		})
+	if err != nil {
+		return nil
 	}
 	return paths
 }
@@ -196,7 +233,7 @@ func commitReleaseArtifacts(ctx context.Context, rel *release.ReleaseRun, ver st
 		return nil
 	}
 
-	paths := releaseCommitPaths()
+	paths := releaseCommitPaths(ctx)
 	if len(paths) == 0 {
 		return nil
 	}
@@ -707,7 +744,7 @@ func enforceCleanWorkingTree(ctx context.Context) error {
 			"workflow.require_clean_working_tree requires it: %w", err)
 	}
 
-	modified = withoutReleaseCommitPaths(modified)
+	modified = withoutReleaseCommitPaths(ctx, modified)
 	if len(modified) == 0 {
 		return nil
 	}
@@ -816,10 +853,10 @@ func enforceUpToDate(ctx context.Context) error {
 // Only excluded when auto_commit_changelog is on, because only then does relicta commit them.
 // With it off nothing here is committed by relicta, the operator is managing these files by
 // hand, and their being uncommitted is exactly what the gate should report.
-func withoutReleaseCommitPaths(modified []string) []string {
+func withoutReleaseCommitPaths(ctx context.Context, modified []string) []string {
 	managed := make(map[string]struct{}, 4)
 	if cfg != nil && cfg.Workflow.AutoCommitChangelog {
-		for _, path := range releaseCommitPaths() {
+		for _, path := range releaseCommitPaths(ctx) {
 			managed[filepath.ToSlash(filepath.Clean(path))] = struct{}{}
 		}
 	}

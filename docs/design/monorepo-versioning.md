@@ -14,10 +14,15 @@ Composer, Gem, NuGet, plain `VERSION`).
 **Refused at config load, because nothing implements them:** `lockstep`, `hybrid`,
 `release_groups`.
 
-**Designed here but not wired:** per-package tags, per-package changelogs, a governance decision
-per package release, dependency-coordinated version propagation, and the `MonorepoRelease`
-aggregate's own lifecycle. `relicta plan`, `publish` and `release` act on the repository as a
-whole and say so on every run in a monorepo.
+**Implemented and reachable:** per-package tags. `relicta publish` creates one per package at
+the version its manifest claims — `api-v1.5.0` by default, or `package_overrides.<path>.
+tag_prefix` — alongside the repository's own tag, and `relicta bump` reads them back so each
+package measures from its own last release.
+
+**Designed here but not wired:** per-package changelogs, a governance decision per package
+release, dependency-coordinated version propagation, and the `MonorepoRelease` aggregate's own
+lifecycle. `relicta plan` and `relicta approve` decide for the repository as a whole — one plan,
+one decision — and say so on every run in a monorepo.
 
 ## Overview
 

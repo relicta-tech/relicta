@@ -21,6 +21,9 @@ type mockGitRepository struct {
 	// filesAtRef is keyed by repository-relative path and stands for the tree at the base
 	// ref, which is where a package's released version is read from.
 	filesAtRef map[string][]byte
+	// tags stands for the repository's tags, which is where a package's own last release is
+	// found.
+	tags sourcecontrol.TagList
 }
 
 // RepositoryInfoReader methods
@@ -95,7 +98,7 @@ func (m *mockGitRepository) GetFileAtRef(ctx context.Context, ref, path string) 
 
 // TagReader methods
 func (m *mockGitRepository) GetTags(ctx context.Context) (sourcecontrol.TagList, error) {
-	return nil, nil
+	return m.tags, nil
 }
 
 func (m *mockGitRepository) GetTag(ctx context.Context, name string) (*sourcecontrol.Tag, error) {

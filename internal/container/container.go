@@ -732,6 +732,7 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator,
 		WithPushTags(c.config.Versioning.GitPush),
 		WithTagging(c.config.Versioning.GitTag),
+		WithPackageTags(c.packageTagResolver(repoRoot)),
 		WithAttestationConfig(&c.config.Attestation),
 		WithAuditChain(c.auditChainStore()))
 	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
@@ -31,6 +32,11 @@ type PackageBump struct {
 	Commits int
 	// Files are the manifests that will be rewritten.
 	Files []string
+	// Tag is the tag this package's release will carry.
+	Tag string
+	// BaseRef is the tag the commits were counted from — this package's own last release
+	// where it has one, and the repository-wide fallback where it does not.
+	BaseRef string
 }
 
 // BumpPlan is the per-package result of one analysis.
@@ -56,6 +62,9 @@ type PlanInput struct {
 	PackagePaths []string
 	// ExcludePaths are the patterns from monorepo.exclude_paths.
 	ExcludePaths []string
+	// TagPrefixes are the per-package tag prefixes from
+	// monorepo.package_overrides.<path>.tag_prefix, keyed by the path as configured.
+	TagPrefixes map[string]string
 	// FromRef is the base of the commit range; empty means all history.
 	FromRef string
 	// ToRef is its head; empty means HEAD.
@@ -125,23 +134,47 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 		toRef = "HEAD"
 	}
 
-	out, err := s.analyzer.Analyze(ctx, MonorepoAnalyzeInput{
-		RepositoryPath: input.RepoRoot,
-		FromRef:        input.FromRef,
-		ToRef:          toRef,
-		Workspace:      ws,
-		Strategy:       monorepo.StrategyIndependent,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to analyze packages: %w", err)
-	}
+	// Each package is measured from its own last release. Packages released at different
+	// times have different bases, so they are analyzed in groups — one commit walk per
+	// distinct base rather than one per package, since in practice most share one.
+	//
+	// The repository-wide ref is the fallback for a package that has never been released
+	// under its own tag, which is every package before the first per-package publish.
+	groups := s.groupByBaseRef(ctx, ws.Packages, input)
 
 	plan := &BumpPlan{
 		Discovered: len(packages),
 		FromRef:    input.FromRef,
 		ToRef:      toRef,
 	}
-	for _, result := range out.Packages {
+
+	var results []*PackageAnalysisResult
+	baseOf := make(map[string]string, len(ws.Packages))
+	for baseRef, group := range groups {
+		scoped := *ws
+		scoped.Packages = group
+
+		out, analyzeErr := s.analyzer.Analyze(ctx, MonorepoAnalyzeInput{
+			RepositoryPath: input.RepoRoot,
+			FromRef:        baseRef,
+			ToRef:          toRef,
+			Workspace:      &scoped,
+			Strategy:       monorepo.StrategyIndependent,
+		})
+		if analyzeErr != nil {
+			return nil, fmt.Errorf("failed to analyze packages: %w", analyzeErr)
+		}
+		for _, result := range out.Packages {
+			baseOf[result.PackagePath] = baseRef
+			results = append(results, result)
+		}
+	}
+
+	// Discovery order, not map order: two runs of the same command must print the same
+	// table in the same order.
+	sort.Slice(results, func(i, j int) bool { return results[i].PackagePath < results[j].PackagePath })
+
+	for _, result := range results {
 		if result.BumpType == monorepo.BumpTypeNone {
 			continue
 		}
@@ -152,12 +185,14 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 		// Reading the manifest as it stood at the base ref makes a second run report the
 		// same answer as the first, which is what the repository-wide path does by taking
 		// its current version from the tag.
+		baseRef := baseOf[result.PackagePath]
 		current, next := result.CurrentVersion, result.NextVersion
-		if base, ok := s.versionAtRef(ctx, input.FromRef, input.RepoRoot, result.PackagePath, result.PackageType); ok {
+		if base, ok := s.versionAtRef(ctx, baseRef, input.RepoRoot, result.PackagePath, result.PackageType); ok {
 			current = base
 			next = monorepo.CalculateNextVersion(base, result.BumpType)
 		}
 
+		rel := relativeTo(input.RepoRoot, result.PackagePath)
 		plan.Packages = append(plan.Packages, PackageBump{
 			Name:    result.PackageName,
 			Path:    result.PackagePath,
@@ -167,9 +202,66 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 			Bump:    result.BumpType,
 			Commits: len(result.Commits),
 			Files:   s.writer.Files(result.PackagePath, result.PackageType),
+			Tag:     TagNameFor(rel, input.TagPrefixes, next),
+			BaseRef: baseRef,
 		})
 	}
 	return plan, nil
+}
+
+// groupByBaseRef pairs each package with the ref its commits are counted from: the highest
+// version tag carrying its own prefix, or the repository-wide fallback when it has none.
+func (s *BumpService) groupByBaseRef(
+	ctx context.Context,
+	packages []*workspace.Package,
+	input PlanInput,
+) map[string][]*workspace.Package {
+	var tags sourcecontrol.TagList
+	if s.gitRepo != nil {
+		if all, err := s.gitRepo.GetTags(ctx); err == nil {
+			tags = all
+		}
+	}
+
+	groups := make(map[string][]*workspace.Package)
+	for _, pkg := range packages {
+		prefix := TagPrefixFor(relativeTo(input.RepoRoot, pkg.Path), input.TagPrefixes)
+		base := input.FromRef
+		if tag, ok := latestTagWithPrefix(tags, prefix); ok {
+			base = tag
+		}
+		groups[base] = append(groups[base], pkg)
+	}
+	return groups
+}
+
+// latestTagWithPrefix returns the highest version tag carrying prefix.
+//
+// Highest by version rather than most recent by date: a patch on an older line is tagged after
+// a newer minor, and taking the newest tag would measure the next release from the wrong place.
+func latestTagWithPrefix(tags sourcecontrol.TagList, prefix string) (string, bool) {
+	var bestName string
+	var best version.SemanticVersion
+	found := false
+
+	for _, tag := range tags {
+		ver, ok := VersionFromTag(tag.Name(), prefix)
+		if !ok {
+			continue
+		}
+		if !found || ver.Compare(best) > 0 {
+			best, bestName, found = ver, tag.Name(), true
+		}
+	}
+	return bestName, found
+}
+
+// relativeTo is the package path as the configuration writes it.
+func relativeTo(root, pkgPath string) string {
+	if rel, err := filepath.Rel(root, pkgPath); err == nil {
+		return rel
+	}
+	return pkgPath
 }
 
 // versionAtRef reads a package's version from its manifest as that manifest stood at ref.
@@ -220,6 +312,93 @@ func (s *BumpService) versionAtRef(
 		return version.Zero, false
 	}
 	return ver, true
+}
+
+// PackageTag is one package's release marker.
+type PackageTag struct {
+	// Name is the package's own name.
+	Name string
+	// RelPath is the package directory, relative to the repository root.
+	RelPath string
+	// Tag is the tag to create.
+	Tag string
+	// Version is the version the package's manifest currently claims.
+	Version version.SemanticVersion
+}
+
+// ReleaseTags lists the tag each package's current manifest version calls for.
+//
+// Read from the working tree rather than from a plan, because publish runs after bump has
+// already written the manifests, and possibly after somebody edited one by hand. The manifest
+// is what the package will ship as, so it is what the tag must name. A package whose tag
+// already exists is not filtered here — the caller creates tags idempotently, and deciding it
+// twice would mean two answers to one question.
+func (s *BumpService) ReleaseTags(ctx context.Context, input PlanInput) ([]PackageTag, error) {
+	if input.RepoRoot == "" || len(input.PackagePaths) == 0 {
+		return nil, nil
+	}
+
+	ws := &workspace.Workspace{
+		RootPath:     input.RepoRoot,
+		PackagePaths: input.PackagePaths,
+		ExcludePaths: input.ExcludePaths,
+		Strategy:     workspace.StrategyIndependent,
+	}
+
+	packages, err := s.detector.DiscoverPackages(ctx, ws)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover packages: %w", err)
+	}
+
+	tags := make([]PackageTag, 0, len(packages))
+	for _, pkg := range packages {
+		abs := pkg.Path
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(input.RepoRoot, abs)
+		}
+		rel := relativeTo(input.RepoRoot, abs)
+
+		pkgType := packageTypeFor(abs, ws)
+		ver, readErr := s.writer.ReadVersion(ctx, abs, pkgType)
+		if readErr != nil {
+			// A package with no readable version has nothing to tag. Skipping it rather than
+			// failing keeps one unversioned directory from blocking a release of the rest.
+			continue
+		}
+
+		tags = append(tags, PackageTag{
+			Name:    pkg.Name,
+			RelPath: rel,
+			Tag:     TagNameFor(rel, input.TagPrefixes, ver),
+			Version: ver,
+		})
+	}
+
+	sort.Slice(tags, func(i, j int) bool { return tags[i].RelPath < tags[j].RelPath })
+	return tags, nil
+}
+
+// ManifestPaths lists every discovered package's version files, relative to the repository
+// root.
+//
+// These are the files `relicta bump` writes in a monorepo, and the release commit has to cover
+// them for the same reason it covers the repository's own manifests: the tag must point at a
+// commit that contains the versions it claims, and the clean-tree gate must not count relicta's
+// own edits as the operator's uncommitted work.
+func (s *BumpService) ManifestPaths(ctx context.Context, input PlanInput) ([]string, error) {
+	tags, err := s.ReleaseTags(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	paths := make([]string, 0, len(tags))
+	for _, pkg := range tags {
+		abs := filepath.Join(input.RepoRoot, pkg.RelPath)
+		for _, file := range s.writer.Files(abs, packageTypeFor(abs, nil)) {
+			paths = append(paths, relativeTo(input.RepoRoot, file))
+		}
+	}
+	return paths, nil
 }
 
 // Apply writes each package's next version into its own manifest and returns the files it

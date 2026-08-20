@@ -96,3 +96,31 @@ last tag, because there is no `api-v1.4.0` to measure from.
 
 Nothing changes for a repository without `monorepo.enabled`, which is every repository
 that has one today, since the section was read by nothing.
+
+## Amendment: per-package tags (2026-08-20)
+
+Each package now carries its own tag — `api-v1.5.0` by default, from the package's directory
+name, or whatever `monorepo.package_overrides.<path>.tag_prefix` says. `relicta publish`
+creates one per package at the version that package's manifest claims, and `relicta bump`
+reads them back to measure each package from its own last release rather than from the
+repository's.
+
+**Alongside the repository's tag, not instead of it.** The repository tag stays the marker the
+repository-wide commands measure from; a monorepo with none would have every one of them
+counting from the start of history forever. It is also what the governance record is anchored
+to, which remains one decision per release.
+
+Three things this closed:
+
+- The release commit now covers the packages' manifests. Without them the tag pointed at a
+  commit that did not contain the versions it claimed, and the clean-tree gate refused the
+  publish outright — reproduced against the shipped binary.
+- `relicta bump` in a monorepo left the release run in `planned`, so `notes`, `approve` and
+  `publish` all refused with "run 'relicta bump' first" to somebody who just had. Per-package
+  versioning replaces the repository's manifest version, not its release record.
+- Measuring each package from its own tag makes bumping idempotent for any package that has
+  been released once. A package that never has still compounds if bumped repeatedly before its
+  first release, because there is nothing yet to measure from.
+
+Still one per repository, and still said out loud on every run: the plan and the governance
+decision. Per-package changelogs and approvals are the next slice.
