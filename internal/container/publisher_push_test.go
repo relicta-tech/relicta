@@ -19,7 +19,9 @@ import (
 // which is worse than not having one.
 //
 // These tests pin the wiring rather than the push mechanics, because the wiring
-// is what was missing.
+// is what was missing. They pass WithTagging(true) because they are about pushing a
+// tag that exists; tag creation has its own gate and its own tests, in
+// publisher_tag_test.go.
 
 // recordingTagCreator observes what the publisher asks of git without touching a
 // repository.
@@ -52,7 +54,7 @@ func tagStepRun(t *testing.T) *domain.ReleaseRun {
 
 func TestPublisher_PushDisabledPreventsThePush(t *testing.T) {
 	tags := &recordingTagCreator{existing: map[string]bool{}}
-	publisher := NewPublisherAdapter(nil, nil, tags, WithPushTags(false))
+	publisher := NewPublisherAdapter(nil, nil, tags, WithTagging(true), WithPushTags(false))
 
 	run := tagStepRun(t)
 	if _, err := publisher.executeTagStep(context.Background(), run); err != nil {
@@ -70,7 +72,7 @@ func TestPublisher_PushDisabledPreventsThePush(t *testing.T) {
 
 func TestPublisher_PushEnabledPushes(t *testing.T) {
 	tags := &recordingTagCreator{existing: map[string]bool{}}
-	publisher := NewPublisherAdapter(nil, nil, tags, WithPushTags(true))
+	publisher := NewPublisherAdapter(nil, nil, tags, WithTagging(true), WithPushTags(true))
 
 	run := tagStepRun(t)
 	if _, err := publisher.executeTagStep(context.Background(), run); err != nil {
@@ -87,7 +89,7 @@ func TestPublisher_PushEnabledPushes(t *testing.T) {
 // behavior — and every construction site did forget it.
 func TestPublisher_DefaultDoesNotPush(t *testing.T) {
 	tags := &recordingTagCreator{existing: map[string]bool{}}
-	publisher := NewPublisherAdapter(nil, nil, tags)
+	publisher := NewPublisherAdapter(nil, nil, tags, WithTagging(true))
 
 	run := tagStepRun(t)
 	if _, err := publisher.executeTagStep(context.Background(), run); err != nil {

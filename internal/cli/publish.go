@@ -233,7 +233,11 @@ func printPublishSummary(nextVersion, tagName string, remoteURL string) {
 	printTitle("Release Summary")
 	fmt.Println()
 	fmt.Printf("  Version:    %s%s\n", cfg.Versioning.TagPrefix, nextVersion)
-	fmt.Printf("  Tag:        %s\n", tagName)
+	if cfg.Versioning.GitTag {
+		fmt.Printf("  Tag:        %s\n", tagName)
+	} else {
+		fmt.Printf("  Tag:        %s (not created — tagging is disabled)\n", tagName)
+	}
 	fmt.Printf("  Status:     published\n")
 	fmt.Printf("  Published:  %s\n", time.Now().Format(time.RFC3339))
 
@@ -276,6 +280,13 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	// "Push: false" on screen, tag pushed regardless.
 	if publishSkipPush {
 		cfg.Versioning.GitPush = false
+	}
+
+	// And --skip-tag into GitTag, for the same reason and after the same defect: the flag
+	// reached the summary and the JSON only, so `publish --skip-tag` printed
+	// "Create tag: false" and tagged anyway.
+	if publishSkipTag {
+		cfg.Versioning.GitTag = false
 	}
 
 	// Initialize container

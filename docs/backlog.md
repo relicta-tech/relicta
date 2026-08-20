@@ -466,6 +466,28 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: `--skip-tag` and `versioning.git_tag` now reach the tag
+
+`relicta publish --skip-tag` printed `Create tag: false`, reported `"create_tag": false` in
+`--json`, and created the tag anyway. `versioning.git_tag` had no production reader at all, so a
+repository that set it to `false` was tagged on every release. Reproduced against the shipped
+binary, both before and after.
+
+The reason the flag had nothing to act on: the tag step is added to the run's execution plan at
+*approve* time (`ensureTagStep`), so by the time publish ran there was no decision left to make —
+only a step to execute. The gate has to live where the step runs, which is
+`PublisherAdapter.executeTagStep`.
+
+Fixed the same way `--skip-push` was, one flag along: `WithTagging(enabled)` on the publisher,
+wired from `versioning.git_tag`, with `--skip-tag` folded into that config before the container
+reads it. The option is phrased positively so the zero value is the harmless one — a publisher
+built without options creates nothing. That matters more than it sounds: every construction site
+forgot the push option, which is how that defect survived.
+
+When tagging is off the step still runs and still records itself, reporting that the tag was not
+created and why. Dropping the step from the plan would leave the run's record silent about a
+decision somebody made.
+
 ## DONE (in part): monorepo `independent` versioning is wired; tags and governance are not
 
 The largest instance of this defect class in the tree. Every field of the `monorepo:` section had

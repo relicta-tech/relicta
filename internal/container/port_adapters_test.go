@@ -131,7 +131,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_NilTagCreator(t *testing.T) {
 
 func TestPublisherAdapter_ExecuteStep_TagStep_TagExists(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: true}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -157,7 +157,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_TagExists(t *testing.T) {
 func TestPublisherAdapter_ExecuteStep_TagStep_TagExistsError(t *testing.T) {
 	expectedErr := errors.New("failed to check tag")
 	mockTC := &mockTagCreator{tagExistsErr: expectedErr}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -183,7 +183,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_CreateTagError(t *testing.T) {
 		tagExistsValue: false,
 		createTagErr:   expectedErr,
 	}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -211,7 +211,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_PushTagError(t *testing.T) {
 	}
 	// Pushing is off by default now, and this case is about what happens when a
 	// push fails, so it has to be enabled explicitly.
-	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(true))
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true), WithPushTags(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -237,7 +237,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_PushTagError(t *testing.T) {
 func TestPublisherAdapter_ExecuteStep_TagStep_Success(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: false}
 	// Asserts "Created and pushed", so pushing must be on.
-	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(true))
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true), WithPushTags(true))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -268,7 +268,7 @@ func TestPublisherAdapter_ExecuteStep_TagStep_Success(t *testing.T) {
 
 func TestPublisherAdapter_ExecuteStep_TagStep_PushDisabled(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: false}
-	adapter := NewPublisherAdapter(nil, nil, mockTC, WithPushTags(false))
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true), WithPushTags(false))
 
 	run := createTestReleaseRun(t)
 	step := &domain.StepPlan{
@@ -644,7 +644,7 @@ func TestPublisherAdapter_buildReleaseContext(t *testing.T) {
 
 func TestPublisherAdapter_ExecuteStep_TagStep_WithNotes(t *testing.T) {
 	mockTC := &mockTagCreator{tagExistsValue: false}
-	adapter := NewPublisherAdapter(nil, nil, mockTC)
+	adapter := NewPublisherAdapter(nil, nil, mockTC, WithTagging(true))
 
 	run := createTestReleaseRunWithNotes(t)
 	step := &domain.StepPlan{
