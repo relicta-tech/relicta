@@ -44,8 +44,8 @@ Only two have a port. A `backend:` setting can only mean something once they sha
 
 **The PostgreSQL support that exists was never going to be the system of record.** Its
 schema is a single `events` table serving `ports.EventStore` — an interface with no
-production caller on either implementation (both were deleted; see the amendment below), and whose `LoadEvents` and `LoadAllEvents`
-are called by nothing at all. Fully wired, it would have added a write-only event log
+production caller on either implementation (both were deleted; see the amendment
+below), and whose `LoadEvents` and `LoadAllEvents` are called by nothing at all. Fully wired, it would have added a write-only event log
 beside the JSON runs.
 
 **The strongest case for a database is a problem that exists locally, with one user.**
