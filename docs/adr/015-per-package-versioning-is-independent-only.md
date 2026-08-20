@@ -154,3 +154,49 @@ Three defects fell out of it, all of them in code paths that could not be reache
   the scope entirely, read `perf`, `build`, `ci`, `style` and `revert` as chores, and
   classified `fixup! ...` as a fix. It now uses the domain's conventional-commit parser, which
   is what the rest of the release path has always used.
+
+## Amendment: a decision per package (2026-08-21)
+
+Each package now carries its own release run — its own version, notes, risk assessment,
+approval and audit entry. `relicta approve --package <name>` decides one; `relicta publish`
+tags only the packages that were decided, so a package held back does not ship.
+
+```
+relicta approve --package api    → api  1.5.0  approved
+relicta publish                  → Created tag v1.0.0; created package tags api-v1.5.0
+
+Package decisions
+  packages/api    1.5.0   approved
+  packages/web    3.0.0   notes_ready — held, will not be tagged
+```
+
+**A monorepo release has two levels, and both are decisions.** `relicta approve` decides the
+release itself — the repository's run, which carries the release-level governance and the
+marker every repository-wide command measures from. `--package` decides what is in it. Neither
+implies the other: approving the release does not ship a package nobody looked at, and approving
+a package does not start a release.
+
+**The run's identity carries the package.** A run's ID is derived from its plan hash, which
+covers repoID, base ref, head SHA, commits and version — and for two packages of one repository
+every one of those can match. The first working version produced this:
+
+    packages/api    1.5.0    run-862edbf3
+    packages/web    3.0.0    run-862edbf3
+
+Three runs, one ID: three decisions that could not be told apart, in a tool whose product is the
+audit trail. The package is now part of `repoID` — `git@github.com:org/repo.git#packages/api` —
+rather than a new persisted field, and deliberately so. Including `repoRoot` in the hash
+unconditionally would give every existing repository new IDs, and the next `plan`, which
+supersedes runs whose hash no longer matches, would cancel an in-flight approved release on
+upgrade. A new field would need a column in two SQL backends and a migration for a distinction
+`repoID` already expresses: the releasable unit is this repository, this package.
+
+**A package's run records the package's commits.** `PlanReleaseInput` gained `Commits`, used
+instead of resolving the whole range. Without it each package's run listed every commit between
+base and HEAD, so its risk was assessed on changes it does not contain and its record claimed
+work another package did.
+
+Still open, and named in the backlog rather than faked: a package's run stays at `approved`
+after its tag is created. `MarkPublished` requires the publishing state and a completed step
+plan, so moving it there means running each package's own publish — a per-package step plan, not
+a status write.

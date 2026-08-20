@@ -8,6 +8,7 @@ import (
 
 	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/container"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 )
 
 // The release scope.
@@ -85,4 +86,70 @@ func discoveredPackages(ctx context.Context, app cliApp, repoRoot string) ([]app
 // perPackageGovernance reports whether decisions are made per package in this repository.
 func perPackageGovernance() bool {
 	return cfg != nil && cfg.Monorepo.Enabled
+}
+
+// printPackageDecisions reports where each package stands.
+//
+// A monorepo release has two levels: the release itself, which `relicta approve` decides, and
+// each package in it, which `relicta approve --package <name>` decides. Publish tags only the
+// packages that were decided, so a package nobody approved simply does not ship — and that has
+// to be visible at the moment of deciding, not discovered afterwards from the tag list.
+func printPackageDecisions(ctx context.Context, app cliApp) {
+	if !perPackageGovernance() || outputJSON {
+		return
+	}
+
+	repoInfo, err := app.GitAdapter().GetInfo(ctx)
+	if err != nil {
+		return
+	}
+	packages, err := discoveredPackages(ctx, app, repoInfo.Path)
+	if err != nil {
+		return
+	}
+
+	repo := app.ReleaseRepository()
+	if repo == nil {
+		return
+	}
+
+	type row struct{ path, version, state string }
+	rows := make([]row, 0, len(packages))
+	held := 0
+	for _, pkg := range packages {
+		run, err := repo.FindLatest(ctx, filepath.Join(repoInfo.Path, pkg.RelPath))
+		if err != nil || run == nil {
+			continue
+		}
+		state := string(run.State())
+		if !packageWillShip(run.State()) {
+			state += " — held, will not be tagged"
+			held++
+		}
+		rows = append(rows, row{pkg.RelPath, run.VersionNext().String(), state})
+	}
+	if len(rows) == 0 {
+		return
+	}
+
+	fmt.Println()
+	printSubtitle("Package decisions")
+	fmt.Println()
+	for _, r := range rows {
+		fmt.Printf("  %-24s %-10s %s\n", r.path, r.version, r.state)
+	}
+	if held > 0 {
+		fmt.Println()
+		printInfo("Decide a held package with `relicta approve --package <name>`")
+	}
+}
+
+// packageWillShip reports whether a package's run has been decided in favor of releasing it.
+func packageWillShip(state release.RunState) bool {
+	switch state {
+	case release.StateApproved, release.StatePublishing, release.StatePublished:
+		return true
+	default:
+		return false
+	}
 }

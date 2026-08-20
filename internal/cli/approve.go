@@ -518,6 +518,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	if outputJSON {
 		return outputApproveResultJSON(rel, approveOut)
 	}
+
+	// Where every package stands, so that a package nobody has decided on is visible here
+	// rather than discovered afterwards from the tag list.
+	printPackageDecisions(ctx, app)
+
 	printApproveNextSteps()
 	return nil
 }

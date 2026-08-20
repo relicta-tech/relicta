@@ -104,6 +104,11 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		return err
 	}
 
+	// And each package's own run, which is what `approve --package` acts on.
+	if !dryRun {
+		bumpPackageRuns(ctx, app, repoRoot, plan.Packages)
+	}
+
 	if outputJSON {
 		return emitMonorepoBumpJSON(plan, repoRoot, written)
 	}
@@ -271,7 +276,7 @@ func warnRepositoryWideInAMonorepo(command string) {
 	if !cfg.Monorepo.Enabled {
 		return
 	}
-	printWarning(fmt.Sprintf("monorepo: `relicta %s` decides for the repository as a whole — "+
-		"one plan, one governance decision. Each package carries its own version, tag and "+
-		"changelog; a decision per package is not implemented yet", command))
+	printInfo(fmt.Sprintf("monorepo: `relicta %s` acts on the release as a whole. Each package "+
+		"carries its own version, tag, changelog and decision — approve one with "+
+		"`relicta approve --package <name>`", command))
 }
