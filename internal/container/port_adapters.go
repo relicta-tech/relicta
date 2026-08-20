@@ -397,7 +397,16 @@ type PublisherAdapter struct {
 	// options tags locally and pushes nothing. The previous field was skipPush,
 	// whose zero value meant "push", and since the option that set it was never
 	// called, every publish pushed regardless of configuration.
-	pushTags          bool
+	pushTags bool
+	// createTags gates tag creation, and is phrased positively for the same reason
+	// pushTags is: a publisher built without options creates nothing.
+	//
+	// Nothing gated this before. `versioning.git_tag` had no reader, and `publish
+	// --skip-tag` reached only the printed summary and the JSON output — verified
+	// against the shipped binary, which reported "Create tag: false" and then created
+	// v0.1.0. The tag step is added to the execution plan at approve time, so by publish
+	// there was nothing left that could decline to run it.
+	createTags        bool
 	attestationConfig *config.AttestationConfig
 
 	// auditChainStore and auditChainRepo say where the governance evidence lives, so
@@ -426,6 +435,14 @@ type PublisherAdapterOption func(*PublisherAdapter)
 func WithPushTags(enabled bool) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
 		a.pushTags = enabled
+	}
+}
+
+// WithTagging enables git tag creation. Off unless asked for, so that a publisher built
+// without options leaves the repository's tags alone.
+func WithTagging(enabled bool) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.createTags = enabled
 	}
 }
 
@@ -528,6 +545,16 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 	tagName := run.TagName()
 	if tagName == "" {
 		tagName = "v" + run.VersionNext().String()
+	}
+
+	// Declining here rather than dropping the step from the plan: the step stays in the
+	// run's record, and its result says the tag was not created and why, which is what an
+	// auditor reading the run later needs.
+	if !a.createTags {
+		return &ports.StepResult{
+			Success: true,
+			Output:  fmt.Sprintf("Tag %s not created: tagging is disabled (versioning.git_tag or --skip-tag)", tagName),
+		}, nil
 	}
 
 	// Check if tag already exists (idempotency)
