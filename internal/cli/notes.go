@@ -142,6 +142,10 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 		return fmt.Errorf("failed to generate notes: %w", err)
 	}
 
+	// Each package's run gets its own notes, from its own changeset. Approval reads them, so
+	// without this a package could be planned and versioned and then never approved.
+	generatePackageNotes(ctx, app, repoPath)
+
 	// Output results
 	if outputJSON {
 		return outputNotesJSONFromServices(ctx, output, repoPath, app)

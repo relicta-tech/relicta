@@ -43,7 +43,16 @@ type PlanReleaseInput struct {
 
 	// Optional pre-computed data from commit analysis
 	// If provided, these bypass the basic commit resolution and enable full release planning
-	ChangeSet      *changes.ChangeSet       // Pre-computed changeset from analysis
+	ChangeSet *changes.ChangeSet // Pre-computed changeset from analysis
+
+	// Commits, when set, are the commits this run is about, instead of every commit
+	// between base and head.
+	//
+	// A monorepo package is released on the commits that touched it, which is a subset of
+	// the range: without this, each package's run recorded the whole repository's commits,
+	// so its risk was assessed on changes it does not contain and its audit record claimed
+	// work another package did.
+	Commits        []domain.CommitSHA
 	CurrentVersion *version.SemanticVersion // Current version
 	NextVersion    *version.SemanticVersion // Proposed next version
 	BumpKind       *domain.BumpKind         // Determined bump type (major/minor/patch)
@@ -159,10 +168,15 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 		}
 	}
 
-	// Resolve commits between base and head
-	commits, err := uc.repoInspector.ResolveCommits(ctx, baseRef, headSHA)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve commits: %w", err)
+	// Resolve commits between base and head, unless the caller named them. A monorepo
+	// package's run is about the commits that touched that package, not the range.
+	commits := input.Commits
+	if len(commits) == 0 {
+		resolved, resolveErr := uc.repoInspector.ResolveCommits(ctx, baseRef, headSHA)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("failed to resolve commits: %w", resolveErr)
+		}
+		commits = resolved
 	}
 
 	// Get repo ID if not provided

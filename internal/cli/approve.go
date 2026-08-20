@@ -81,14 +81,18 @@ func init() {
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
 	approveCmd.Flags().StringVarP(&approveEditor, "editor", "E", "", "editor to use (default: $EDITOR or vim)")
 	approveCmd.Flags().BoolVarP(&approveInteractive, "interactive", "i", false, "use interactive TUI for approval")
+	approveCmd.Flags().StringVar(&releaseScope, "package", "",
+		"approve one package of a monorepo, by name or path (each package carries its own decision)")
 }
 
 // getLatestRelease retrieves the latest release from the repository.
 func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, error) {
-	gitAdapter := app.GitAdapter()
-	repoInfo, err := gitAdapter.GetInfo(ctx)
+	// The directory whose run this is about: the repository, or one package of a monorepo when
+	// --package names it. Everything below already takes a root, so per-package governance is
+	// the same pipeline asked about a different directory.
+	scope, err := scopePath(ctx, app)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get repository info: %w", err)
+		return nil, err
 	}
 
 	// Load through the release services' repository, the same one plan wrote with.
@@ -101,10 +105,10 @@ func getLatestRelease(ctx context.Context, app cliApp) (*release.ReleaseRun, err
 	// warning outside strict mode — the release was approved with no governance
 	// applied at all. Consolidating the two is tracked in roady; reading from the
 	// one that has the data is what makes the gate able to run.
-	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+	if err := app.InitReleaseServices(ctx, scope); err != nil {
 		return nil, fmt.Errorf("failed to initialize release services: %w", err)
 	}
-	rel, err := loadLatestReleaseRun(ctx, app, repoInfo.Path)
+	rel, err := loadLatestReleaseRun(ctx, app, scope)
 	if err != nil {
 		printError("No release in progress")
 		printInfo("Run 'relicta plan' to start a new release")
@@ -235,15 +239,15 @@ func getApproverName() string {
 // executeApproval executes the approval use case using domain services and
 // returns the authoritative approval output.
 func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, editedNotes *string) (*releaseapp.ApproveReleaseOutput, error) {
-	// Get repository info for domain services
-	gitAdapter := app.GitAdapter()
-	repoInfo, err := gitAdapter.GetInfo(ctx)
+	// The same scope the run was loaded from: approving a package's run against the
+	// repository's root would write the decision where nothing looks for it.
+	scope, err := scopePath(ctx, app)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get repository info: %w", err)
+		return nil, err
 	}
 
 	// Initialize domain services
-	if err := app.InitReleaseServices(ctx, repoInfo.Path); err != nil {
+	if err := app.InitReleaseServices(ctx, scope); err != nil {
 		return nil, fmt.Errorf("failed to initialize release services: %w", err)
 	}
 	if !app.HasReleaseServices() {
@@ -253,7 +257,7 @@ func executeApproval(ctx context.Context, app cliApp, rel *release.ReleaseRun, e
 	if services == nil || services.ApproveRelease == nil {
 		return nil, fmt.Errorf("ApproveRelease use case not available")
 	}
-	return executeApprovalWithServices(ctx, app, repoInfo.Path, rel, editedNotes)
+	return executeApprovalWithServices(ctx, app, scope, rel, editedNotes)
 }
 
 // executeApprovalWithServices executes approval using the ApproveReleaseUseCase.
@@ -514,6 +518,11 @@ func runApprove(cmd *cobra.Command, args []string) error {
 	if outputJSON {
 		return outputApproveResultJSON(rel, approveOut)
 	}
+
+	// Where every package stands, so that a package nobody has decided on is visible here
+	// rather than discovered afterwards from the tag list.
+	printPackageDecisions(ctx, app)
+
 	printApproveNextSteps()
 	return nil
 }

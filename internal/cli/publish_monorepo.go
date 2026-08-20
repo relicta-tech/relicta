@@ -89,8 +89,16 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 			continue
 		}
 
-		ver, ok := releasing[displayPath(pkg.Path, repoRoot)]
+		relPath := displayPath(pkg.Path, repoRoot)
+		ver, ok := releasing[relPath]
 		if !ok {
+			continue
+		}
+
+		// A held package gets no entry, for the same reason it gets no tag: the entry would
+		// describe a release that did not happen, in the file its readers trust to say what
+		// shipped.
+		if !packageIsShipping(ctx, app, repoRoot, relPath) {
 			continue
 		}
 
@@ -119,6 +127,22 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		printSuccess(fmt.Sprintf("Updated %d package changelog%s", len(written), plural(len(written))))
 	}
 	return written
+}
+
+// packageIsShipping reports whether this package's own decision allows it to be released.
+//
+// A package with no run of its own is shipping: per-package runs postdate per-package tagging,
+// and a repository that has never planned one still has manifests to release.
+func packageIsShipping(ctx context.Context, app cliApp, repoRoot, relPath string) bool {
+	repo := app.ReleaseRepository()
+	if repo == nil {
+		return true
+	}
+	run, err := repo.FindLatest(ctx, filepath.Join(repoRoot, relPath))
+	if err != nil || run == nil {
+		return true
+	}
+	return packageWillShip(run.State())
 }
 
 // packageChangelogPaths lists where per-package changelogs live, whether or not this release

@@ -534,11 +534,21 @@ entries read `- fix: correct the status code` under a `### Bug Fixes` heading; a
 classifier was a prefix match that dropped scopes, read `perf`/`build`/`ci`/`style`/`revert` as
 chores, and called `fixup! ...` a fix.
 
-**What is left.** The plan and the governance decision are still one per repository, and every
-run in a monorepo says so. Closing that means a `ReleaseRun` per package — the repository interface
-is already path-keyed, so the store can hold them — plus per-package changelogs and a `--package`
-selector for `approve`. Whether one approval should cover a whole monorepo release or each package
-should carry its own is a product decision, not a wiring one.
+**Governance landed last** (ADR-015 amendment). Each package carries its own run — version,
+notes, risk, approval, audit entry — decided with `relicta approve --package <name>`, and publish
+tags only the packages that were decided. A monorepo release has two levels: `approve` decides the
+release, `--package` decides what is in it, and the decision table is printed at both.
+
+Two defects found by running it: all three runs shared one ID, because the plan hash covers
+repoID, base, head, commits and version, every one of which can match between two packages of one
+repository — the package is now part of `repoID`, which leaves existing repositories' IDs
+untouched; and each package's run recorded the repository's whole commit range rather than its
+own, so its risk was assessed on changes it does not contain.
+
+**What is left.** A package's run stays at `approved` after its tag is created. `MarkPublished`
+requires the publishing state and a completed step plan, so moving it there means running each
+package's own publish — a per-package step plan, not a status write. Until then the tag records
+that the package shipped and the run records that it was approved to.
 
 ## Gates apply to `publish` but not to `release`
 

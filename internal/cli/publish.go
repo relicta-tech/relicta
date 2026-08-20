@@ -403,6 +403,10 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	// Display planned actions
 	displayPublishActions(nextVersion)
 
+	// Only packages whose own run was approved are tagged, so the ones that will not ship are
+	// named before anything happens rather than left absent from the result.
+	printPackageDecisions(ctx, app)
+
 	// Dry run - skip actual changes
 	if dryRun {
 		return nil

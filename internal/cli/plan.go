@@ -157,10 +157,26 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	// Persist release run for subsequent commands (bump, notes, approve, publish)
 	var persisted persistedRun
+	var packageRuns []plannedPackage
 	if !dryRun {
 		persisted, err = persistReleaseRun(ctx, app, output, repoInfo)
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
+		}
+
+		// And one run per package, each carrying its own decision. Planned after the
+		// repository's own so that a failure here leaves the repository-wide release
+		// intact rather than half-planned.
+		if perPackageGovernance() {
+			packageRuns, err = planPackageRuns(ctx, app, repoInfo)
+			if err != nil {
+				printWarning(fmt.Sprintf("per-package release runs not planned: %v", err))
+			}
+			// The repository's own services were rebuilt around the last package, so
+			// anything below that reads them has to be pointed back at the repository.
+			if initErr := app.InitReleaseServices(ctx, repoInfo.Path); initErr != nil {
+				printWarning(fmt.Sprintf("release services not restored: %v", initErr))
+			}
 		}
 	}
 
@@ -177,7 +193,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 		return outputPlanJSON(output, persisted, riskPreview)
 	}
 
-	return outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview)
+	if err := outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview); err != nil {
+		return err
+	}
+	printPlannedPackages(packageRuns)
+	return nil
 }
 
 func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bool) {
