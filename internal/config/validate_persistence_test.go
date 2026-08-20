@@ -3,7 +3,7 @@ package config
 // validate_persistence_test.go covers the load-path check on the persistence section.
 //
 // PersistenceConfig.Validate had held these rules since before ADR-013 and no load path
-// called it: the only caller was persistence.NewEventStore, which has no production caller at
+// called it: the only caller was the event-store factory, which had no production caller at
 // all. So `backend: postgress` loaded without a word, read as "not postgres", and relicta
 // wrote the team's audit trail to local files while they believed it was in their database.
 

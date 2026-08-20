@@ -577,29 +577,31 @@ The corrected case also exposed a latent panic in the SQLite store: `releases[le
 indexed unconditionally to read the actor's kind, reachable as soon as an incident could precede
 a release.
 
-## The event store is still unreachable, and now needs a smaller decision
+## DONE: the event store is deleted, and the audit chain is the append-only record
 
-ADR-013 answered the question this entry used to be blocked on: **the event store is not the
-system of record.** The release run and the governance record are. So what remains is narrower
-than it was.
+ADR-013 established that the event store is not the system of record — the release run and the
+governance record are. ADR-014 then gave the append-only record a real owner: the audit chain,
+which is appended as decisions happen and verified on read, and which attestations carry a hash
+of.
 
-Nothing constructs an event store of either kind:
+That answered the question this entry was left holding. The event log's only plausible value was
+"an append-only record for auditors, distinct from the run aggregate's current state" — and the
+audit chain is exactly that, already wired, already read. Keeping a second one that nothing wrote
+to and nothing read from was two answers to one question, with the wrong one shipped in the
+package layout.
 
-- `persistence.NewEventStore` — the factory that selects postgres by config: no caller.
-- `adapters.NewFileEventStore` — the other implementation: no caller either.
-- `LoadEvents` / `LoadAllEvents` — no caller outside the implementations, so nothing reads an
-  event stream back.
+Deleted, 760 lines:
 
-`EventPublishingConfig.EventStore` is therefore always nil and the event-sourcing layer never
-runs. Both implementations satisfy `ports.EventStore` and the factory compiles, so it is not far
-from working — and that is the trap, because wiring it today adds writes nothing reads.
+- `ports.EventStore` (38) — the interface with no production implementation reached.
+- `adapters.FileEventStore` (368) and `persistence/postgres.Store` (296) — both implementations.
+- `persistence.NewEventStore` (58) — the factory that selected between them, called by nothing.
 
-**The decision left is whether the event log is worth keeping at all.** Its plausible value is
-an append-only record for auditors, distinct from the run aggregate's current state: what
-happened in order, rather than where the release ended up. If that is worth having, wire it and
-give something a reason to read it — `relicta audit` is the obvious candidate. If it is not, the
-factory, both implementations and the `events` table are dead weight that reads as a feature,
-and deleting them is the honest outcome. Either answer is better than the present one.
+`EventPublishingConfig.EventStore` went with them; `Save` now publishes the aggregate's events and
+clears them, which is what every caller already relied on since the store field was always nil.
+
+Kept: `migrations/001_create_events`, because it has shipped. The table is created and stays
+empty. Removing a migration from an ordered sequence rewrites history for anyone who already ran
+it, which costs more than an unused table.
 
 Fixed alongside this entry: the `db` command is now registered (it was documented in CLAUDE.md
 and absent from the binary), and `persistence` has defaults (`DefaultPersistenceConfig` existed

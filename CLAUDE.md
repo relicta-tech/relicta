@@ -62,7 +62,7 @@ internal/
 ├── infrastructure/         # Adapters (git, ai, persistence, webhook, template, workspace, observability)
 │   ├── ai/                 # OpenAI/Anthropic/Gemini/Ollama provider abstraction (5,914 LOC)
 │   ├── git/                # go-git adapter
-│   ├── persistence/        # File event store + PostgreSQL adapter
+│   ├── persistence/        # Release-run + governance-memory stores (file, sqlite, postgres)
 │   ├── webhook/            # Outbound delivery queue + retry
 │   └── observability/      # Prometheus metrics + inbound webhook receiver
 ├── cgp/                    # Change Governance Protocol — risk, policy, audit, autoapproval, reputation, memory, attribution, identity, dsl, evaluator

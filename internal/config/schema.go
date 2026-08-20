@@ -1567,7 +1567,8 @@ func DefaultPersistenceConfig() PersistenceConfig {
 //
 // Reached from config.Validate on the load path, so a backend the build cannot honor is
 // refused before a command runs rather than ignored — ADR-013's first consequence. It was
-// previously called only by persistence.NewEventStore, which has no production caller, so
+// previously called only by the event-store factory, which had no production caller and has
+// since been deleted (ADR-014), so
 // `backend: postgress` loaded silently and wrote files.
 func (c PersistenceConfig) Validate() error {
 	switch c.Backend {

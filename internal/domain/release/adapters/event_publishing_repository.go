@@ -14,9 +14,6 @@ type EventPublishingConfig struct {
 	// Repository is the repository being wrapped. Required.
 	Repository ports.ReleaseRunRepository
 
-	// EventStore appends the events to a durable per-run stream. Optional.
-	EventStore ports.EventStore
-
 	// Publisher hands the events to subscribers — the outcome tracker, webhook
 	// delivery. Optional.
 	Publisher ports.EventPublisher
@@ -28,10 +25,9 @@ type EventPublishingConfig struct {
 
 // EventPublishingRepository wraps a repository and publishes domain events after save.
 type EventPublishingRepository struct {
-	repo       ports.ReleaseRunRepository
-	eventStore ports.EventStore
-	publisher  ports.EventPublisher
-	logger     *slog.Logger
+	repo      ports.ReleaseRunRepository
+	publisher ports.EventPublisher
+	logger    *slog.Logger
 }
 
 // NewEventPublishingRepository creates a new event-publishing repository wrapper.
@@ -41,10 +37,9 @@ func NewEventPublishingRepository(cfg EventPublishingConfig) *EventPublishingRep
 		logger = slog.Default()
 	}
 	return &EventPublishingRepository{
-		repo:       cfg.Repository,
-		eventStore: cfg.EventStore,
-		publisher:  cfg.Publisher,
-		logger:     logger,
+		repo:      cfg.Repository,
+		publisher: cfg.Publisher,
+		logger:    logger,
 	}
 }
 
@@ -69,19 +64,8 @@ func (r *EventPublishingRepository) Save(ctx context.Context, run *domain.Releas
 	}
 
 	if len(events) > 0 {
-		// The repo root travels in the context for the file-based event store, which
-		// writes inside the repository being released.
-		publishCtx := WithRepoRoot(ctx, run.RepoRoot())
-
-		if r.eventStore != nil {
-			if err := r.eventStore.Append(publishCtx, run.ID(), events); err != nil {
-				r.logger.Error("release saved but its events could not be appended to the event store",
-					"run_id", string(run.ID()), "event_count", len(events), "error", err)
-			}
-		}
-
 		if r.publisher != nil {
-			if err := r.publisher.Publish(publishCtx, events...); err != nil {
+			if err := r.publisher.Publish(ctx, events...); err != nil {
 				r.logger.Error("release saved but its events could not be published; "+
 					"governance history and webhook delivery for this release are incomplete",
 					"run_id", string(run.ID()), "event_count", len(events), "error", err)
