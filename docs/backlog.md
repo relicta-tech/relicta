@@ -455,43 +455,9 @@ These remain:
   silently downgraded today; and `RenderOptions.Format` is translated from config and never
   branched on, so all formats currently render identically.
 - `versioning.build_metadata` — unread. (The monorepo block has its own entry below.)
-
-## Monorepo support is implemented and unreachable
-
-The largest instance of this defect class in the tree, and the one that needs a product decision
-rather than wiring.
-
-**Every field of the `monorepo:` section has zero production readers** — `enabled`, `strategy`,
-`package_paths`, `exclude_paths`, `package_overrides`, `version_files`, `release_groups` — and
-`internal/domain/monorepo` plus `internal/application/monorepo` hold ~3,000 lines of implemented,
-tested code (aggregate, package release, analyzer, orchestrator, version writers) that nothing in
-the release path calls.
-
-Verified against the built binary. A repository with `enabled: true`, `strategy: independent`,
-`package_paths: ["packages/*"]` and two packages at 1.0.0 and 2.0.0:
-
-    Current version:  0.0.0
-    Next version:     0.1.0
-
-One repository-wide version, and neither `package.json` touched.
-
-The distinction that matters: **package analysis works, package versioning does not.** `relicta
-blast` found both packages and the one affected — but it reads `blast_radius`, not `monorepo`. So
-a monorepo user is not wrong that relicta understands their layout; they are wrong about which
-part of it versions their packages.
-
-Config validation now warns when the section is enabled, so it stops silently doing nothing. That
-is the honest interim state, not the fix.
-
-**The decision needed: is per-package versioning a product commitment?** If yes, the work is
-wiring an existing subsystem rather than writing one — the orchestrator and version writers exist
-and are tested — and it needs answers for how a monorepo release interacts with the single
-`ReleaseRun` aggregate, with tags (one per package? `app-v1.2.3`?), with the changelog, and with
-the governance record, which is currently one decision per release rather than per package. If
-no, ~3,000 lines and a config section should be deleted rather than left looking like a feature.
-Either answer is better than the present one. (`versioning.version_files` at the top level
-  *is* honored — `relicta bump` writes every configured manifest; the earlier note here was
-  wrong, corrected after checking against a real package.json.)
+- `versioning.version_files` at the top level *is* honored — `relicta bump` writes every
+  configured manifest. The earlier note here was wrong, corrected after checking against a real
+  package.json.
 - `git.ssh_key_path` / `ssh_key_password` — the git service has WithAuthToken and
   WithAuthUsername with no callers either, so authenticated push relies entirely on ambient
   credentials.
@@ -499,6 +465,42 @@ Either answer is better than the present one. (`versioning.version_files` at the
   signing is not implemented.
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
+
+## DONE (in part): monorepo `independent` versioning is wired; tags and governance are not
+
+The largest instance of this defect class in the tree. Every field of the `monorepo:` section had
+zero production readers, while `internal/domain/monorepo` and `internal/application/monorepo` held
+~3,050 lines of implemented, tested code that nothing in the release path called — plus 3,149
+lines of tests for it. Verified against the built binary: a repository with `enabled: true`,
+`strategy: independent`, `package_paths: ["packages/*"]` and two packages at 1.0.0 and 2.0.0 was
+told its next version was 0.1.0, and neither `package.json` was touched.
+
+The product decision it was waiting on is recorded in ADR-015: **per-package versioning is a
+commitment, for `independent` only.** `relicta bump` now analyzes each package's own commits,
+computes its own version and writes its own manifest; `lockstep`, `hybrid` and `release_groups`
+are refused at config load rather than served as something else.
+
+Wiring it surfaced three defects that only a real repository would have shown, all in code that
+had passed its tests for as long as nothing could call it:
+
+- `package.json` was decoded into a `map[string]interface{}` and re-marshalled, and Go marshals
+  map keys alphabetically. Every bump would have permanently reordered the manifest.
+- `Cargo.toml` and `pyproject.toml` were rewritten with `^(\s*version\s*=\s*)"[^"]+"` over the
+  whole file, so a dependency declared as its own table had the package's version written over
+  its own. Silent corruption of a file the build reads.
+- Manifests were rewritten `0644`, widening one somebody had kept private.
+
+Two more were found by running the thing rather than reading it: packages were typed from the
+workspace-wide `PackageManager`, so `packages/*` holding an npm package beside a Go module read
+one manifest and wrote another; and the base version came from the working tree — the file the
+previous bump had written — so bumping twice off one commit took a package 2.1.3 → 3.0.0 → 4.0.0.
+
+**What is left, and what it needs.** `plan`, `publish` and `release` still act on the repository
+as a whole, and now say so on every run in a monorepo rather than leaving it to be discovered.
+Closing that means answering, per package: the tag (`api-v1.5.0`, from `package_overrides`
+`tag_prefix`), the changelog, and the governance decision — the record is currently one decision
+per release, not one per package. Until per-package tags exist, `bump` measures every package
+from the repository's last tag, because there is no `api-v1.4.0` to measure from.
 
 ## Gates apply to `publish` but not to `release`
 

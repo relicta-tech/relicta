@@ -169,6 +169,18 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 	defer closeApp(app)
 
+	// A monorepo is versioned per package, and the repository-wide path below cannot express
+	// that: it computes one number. Branching here rather than inside the calculation keeps the
+	// two answers from being mixed — a repository with `monorepo.enabled` gets package versions
+	// and no repository version, which is what independent versioning means.
+	if cfg.Monorepo.Enabled {
+		repoRoot, rootErr := versionFileRoot(ctx, app)
+		if rootErr != nil {
+			return rootErr
+		}
+		return runMonorepoBump(ctx, app, repoRoot)
+	}
+
 	// Check for tag-push mode (HEAD is already tagged)
 	mode, existingVersion, err := detectReleaseMode(ctx, app, cfg.Versioning.TagPrefix)
 	if err != nil {

@@ -53,7 +53,7 @@ internal/
 │   ├── release/            # ReleaseRun aggregate, state machine, events
 │   ├── changes/            # Change classification
 │   ├── communication/      # Audience-aware narratives
-│   ├── monorepo/           # Workspace versioning
+│   ├── monorepo/           # Per-package versioning (independent strategy; see ADR-015)
 │   ├── multirepo/          # Repo group governance
 │   ├── sourcecontrol/      # Git port
 │   ├── version/            # Semver

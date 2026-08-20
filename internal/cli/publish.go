@@ -263,6 +263,8 @@ func runPublish(cmd *cobra.Command, args []string) error {
 	printTitle("Release Publish")
 	fmt.Println()
 
+	warnRepositoryWideInAMonorepo("publish")
+
 	if dryRun {
 		printDryRunBanner()
 	}

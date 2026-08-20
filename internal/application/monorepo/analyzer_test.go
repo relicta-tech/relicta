@@ -18,6 +18,9 @@ import (
 type mockGitRepository struct {
 	commits   []*sourcecontrol.Commit
 	diffStats map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats
+	// filesAtRef is keyed by repository-relative path and stands for the tree at the base
+	// ref, which is where a package's released version is read from.
+	filesAtRef map[string][]byte
 }
 
 // RepositoryInfoReader methods
@@ -84,6 +87,9 @@ func (m *mockGitRepository) GetCommitPatch(ctx context.Context, hash sourcecontr
 }
 
 func (m *mockGitRepository) GetFileAtRef(ctx context.Context, ref, path string) ([]byte, error) {
+	if content, ok := m.filesAtRef[path]; ok {
+		return content, nil
+	}
 	return nil, nil
 }
 
