@@ -65,6 +65,24 @@ linters:
           - errorlint  # Tests often check specific error values with ==
           - govet      # Shadow warnings are common in tests
           - revive     # Var naming and style in tests is less critical
+      # SA1019 on two deliberate uses of a deprecated field. An exclusion rather than
+      # //nolint because the staticcheck bundled with golangci-lint only started
+      # reporting these in v2.13.0: a directive is "unused" on older versions and
+      # nolintlint then fails the build, so the two cannot both be satisfied.
+      #
+      # ResolvedVersionFiles() exists to keep versioning.version_file working as a
+      # one-entry list; the test that asserts it has to set the deprecated field.
+      - path: internal/application/versioning/version_files_test\.go
+        linters:
+          - staticcheck
+        text: "SA1019.*VersionFile"
+      # Ollama's OpenAI-compatible endpoint maps max_tokens to num_predict and ignores
+      # max_completion_tokens (ollama/ollama, openai/openai.go), so the modern field
+      # would drop the cap silently. The real OpenAI adapter does use the modern one.
+      - path: internal/infrastructure/ai/ollama\.go
+        linters:
+          - staticcheck
+        text: "SA1019.*MaxTokens"
       # Exclude var-naming in generated proto types and plugin types
       - path: pkg/plugin/types\.go
         linters:
