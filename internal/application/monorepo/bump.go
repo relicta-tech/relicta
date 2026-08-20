@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
@@ -37,6 +38,10 @@ type PackageBump struct {
 	// BaseRef is the tag the commits were counted from — this package's own last release
 	// where it has one, and the repository-wide fallback where it does not.
 	BaseRef string
+	// Changes are this package's own commits, categorized. Carried so a caller can render
+	// the package's changelog from the same analysis that decided its version, rather than
+	// walking the log a second time and risking a different answer.
+	Changes *changes.ChangeSet
 }
 
 // BumpPlan is the per-package result of one analysis.
@@ -204,6 +209,7 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 			Files:   s.writer.Files(result.PackagePath, result.PackageType),
 			Tag:     TagNameFor(rel, input.TagPrefixes, next),
 			BaseRef: baseRef,
+			Changes: result.ChangeSet,
 		})
 	}
 	return plan, nil

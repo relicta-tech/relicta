@@ -397,3 +397,37 @@ func TestManifestPathsAreRepositoryRelative(t *testing.T) {
 			paths, want)
 	}
 }
+
+// A changelog rendered under a "Bug Fixes" heading must not repeat the type: the item text is
+// the subject with its conventional prefix removed. The analyzer passed the raw git subject, so
+// a package changelog read
+//
+//	### Bug Fixes
+//	- fix: correct the status code
+func TestChangelogItemsDropTheConventionalPrefix(t *testing.T) {
+	root := t.TempDir()
+	npmPackage(t, root, "api", "1.0.0")
+
+	commit, stats := commitTouching("eee1", "fix(status): correct the status code", "packages/api/a.js")
+	svc := bumpServiceFor([]*sourcecontrol.Commit{commit},
+		map[sourcecontrol.CommitHash]*sourcecontrol.DiffStats{commit.Hash(): stats})
+
+	plan, err := svc.Plan(context.Background(), PlanInput{RepoRoot: root, PackagePaths: []string{"packages/*"}})
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	if plan.Packages[0].Changes == nil {
+		t.Fatal("the plan carries no changes, so a package changelog cannot be rendered from it")
+	}
+
+	commits := plan.Packages[0].Changes.Commits()
+	if len(commits) != 1 {
+		t.Fatalf("got %d commits, want 1", len(commits))
+	}
+	if got := commits[0].Subject(); got != "correct the status code" {
+		t.Errorf("subject = %q, want %q without its prefix", got, "correct the status code")
+	}
+	if got := commits[0].Scope(); got != "status" {
+		t.Errorf("scope = %q, want status", got)
+	}
+}

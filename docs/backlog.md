@@ -525,6 +525,15 @@ manifests, so the tag pointed at a commit that did not contain the versions it c
 clean-tree gate refused the publish; and `bump` left the run in `planned`, so `notes`, `approve`
 and `publish` all told a user who had just run bump to run bump.
 
+**Changelogs landed next.** Each package gets its own `CHANGELOG.md`, rendered from its own
+commits through the repository's `changelog.*` settings and carried by the release commit, so the
+package's tag contains the entry describing it. Three more defects fell out: the `monorepo:`
+section had no viper defaults registered, so a config naming only `enabled` and `package_paths`
+was refused for an empty strategy; the analyzer put the raw git subject into the changeset, so
+entries read `- fix: correct the status code` under a `### Bug Fixes` heading; and its fallback
+classifier was a prefix match that dropped scopes, read `perf`/`build`/`ci`/`style`/`revert` as
+chores, and called `fixup! ...` a fix.
+
 **What is left.** The plan and the governance decision are still one per repository, and every
 run in a monorepo says so. Closing that means a `ReleaseRun` per package — the repository interface
 is already path-keyed, so the store can hold them — plus per-package changelogs and a `--package`

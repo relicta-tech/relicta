@@ -365,10 +365,19 @@ func (a *MonorepoAnalyzer) analyzePackage(
 		if classification.IsBreaking {
 			opts = append(opts, changes.WithBreaking(changes.BreakingMessageFromMessage(commit.Message())))
 		}
+		// The description is the subject with its conventional prefix removed: rendered under
+		// a "Bug Fixes" heading, "fix: correct the status code" says fix twice. The type still
+		// comes from the classification rather than from this parse, because an AI classifier
+		// may have read a commit its prefix mislabels.
+		subject := commit.Subject()
+		if parsed := changes.ParseConventionalCommit(string(commit.Hash()), commit.Message()); parsed != nil {
+			subject = parsed.Subject()
+		}
+
 		convCommit := changes.NewConventionalCommit(
 			string(commit.Hash()),
 			classification.Type,
-			commit.Subject(),
+			subject,
 			opts...,
 		)
 		changeSet.AddCommit(convCommit)
@@ -424,25 +433,21 @@ func (a *MonorepoAnalyzer) parseConventionalCommit(commit *sourcecontrol.Commit)
 		Method:     analysis.MethodConventional,
 	}
 
-	msg := commit.Message()
-	if strings.HasPrefix(msg, "feat") {
-		classification.Type = changes.CommitTypeFeat
+	// The domain's parser rather than a second one here. This was a hand-rolled prefix match
+	// over five types that dropped the scope entirely — so a package changelog rendered
+	// `feat(auth): add X` with no scope — read `perf`, `build`, `ci`, `style` and `revert` as
+	// chores, and classified `fixup! ...` as a fix, because it matched on HasPrefix.
+	if parsed := changes.ParseConventionalCommit(string(commit.Hash()), commit.Message()); parsed != nil {
+		classification.Type = parsed.Type()
+		classification.Scope = parsed.Scope()
+		classification.IsBreaking = parsed.IsBreaking()
 		classification.Confidence = 0.8
-	} else if strings.HasPrefix(msg, "fix") {
-		classification.Type = changes.CommitTypeFix
-		classification.Confidence = 0.8
-	} else if strings.HasPrefix(msg, "docs") {
-		classification.Type = changes.CommitTypeDocs
-		classification.Confidence = 0.8
-	} else if strings.HasPrefix(msg, "test") {
-		classification.Type = changes.CommitTypeTest
-		classification.Confidence = 0.8
-	} else if strings.HasPrefix(msg, "refactor") {
-		classification.Type = changes.CommitTypeRefactor
-		classification.Confidence = 0.8
+		return classification
 	}
 
-	if strings.Contains(msg, "BREAKING CHANGE") || strings.Contains(msg, "!:") {
+	// A message that is not conventional at all is a chore, but a breaking-change footer is
+	// still a breaking change: it is the one marker that does not need the subject's help.
+	if strings.Contains(commit.Message(), "BREAKING CHANGE") {
 		classification.IsBreaking = true
 	}
 

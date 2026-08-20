@@ -178,6 +178,20 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("persistence.migration_mode", defaults.Persistence.MigrationMode)
 	l.v.SetDefault("persistence.file_path", defaults.Persistence.FilePath)
 
+	// Monorepo defaults, per key for the same reason persistence's are: a config naming only
+	// enabled and package_paths must still inherit the strategy and the changelog settings.
+	// Without these, `monorepo: {enabled: true, package_paths: [...]}` loaded with an empty
+	// strategy and was refused by validation — a reasonable configuration rejected for
+	// leaving out a key that has a default.
+	l.v.SetDefault("monorepo.enabled", defaults.Monorepo.Enabled)
+	l.v.SetDefault("monorepo.strategy", string(defaults.Monorepo.Strategy))
+	l.v.SetDefault("monorepo.root_package", defaults.Monorepo.RootPackage)
+	l.v.SetDefault("monorepo.dependency_coordination", defaults.Monorepo.DependencyCoordination)
+	l.v.SetDefault("monorepo.changelog.per_package", defaults.Monorepo.Changelog.PerPackage)
+	l.v.SetDefault("monorepo.changelog.root_changelog", defaults.Monorepo.Changelog.RootChangelog)
+	l.v.SetDefault("monorepo.changelog.format", defaults.Monorepo.Changelog.Format)
+	l.v.SetDefault("monorepo.changelog.include_package_links", defaults.Monorepo.Changelog.IncludePackageLinks)
+
 	// Governance defaults (CGP)
 	l.v.SetDefault("governance.enabled", defaults.Governance.Enabled)
 	l.v.SetDefault("governance.strict_mode", defaults.Governance.StrictMode)
