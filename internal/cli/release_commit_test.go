@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,7 @@ func withConfig(t *testing.T) *config.Config {
 func TestTheGateIgnoresTheFilesTheReleaseIsAboutToCommit(t *testing.T) {
 	withConfig(t)
 
-	kept := withoutReleaseCommitPaths([]string{"package.json", "CHANGELOG.md"})
+	kept := withoutReleaseCommitPaths(context.Background(), []string{"package.json", "CHANGELOG.md"})
 	if len(kept) != 0 {
 		t.Errorf("the gate still reports %v.\nbump wrote those one step earlier in this same "+
 			"release and the release commit is about to include them, so counting them as the "+
@@ -48,7 +49,7 @@ func TestTheGateIgnoresTheFilesTheReleaseIsAboutToCommit(t *testing.T) {
 func TestTheGateStillReportsTheOperatorsOwnWork(t *testing.T) {
 	withConfig(t)
 
-	kept := withoutReleaseCommitPaths([]string{"package.json", "internal/server.go"})
+	kept := withoutReleaseCommitPaths(context.Background(), []string{"package.json", "internal/server.go"})
 	if len(kept) != 1 || kept[0] != "internal/server.go" {
 		t.Errorf("kept = %v, want [internal/server.go]: work relicta does not commit is "+
 			"exactly what the tag will not contain, which is the reason the gate exists", kept)
@@ -61,7 +62,7 @@ func TestNothingIsExcusedWhenRelictaCommitsNothing(t *testing.T) {
 	c := withConfig(t)
 	c.Workflow.AutoCommitChangelog = false
 
-	kept := withoutReleaseCommitPaths([]string{"package.json", "CHANGELOG.md"})
+	kept := withoutReleaseCommitPaths(context.Background(), []string{"package.json", "CHANGELOG.md"})
 	if len(kept) != 2 {
 		t.Errorf("kept = %v, want both: with auto_commit_changelog off no release commit "+
 			"happens, so these stay uncommitted and the gate must say so", kept)
@@ -78,7 +79,7 @@ func TestRelictasOwnStoreIsNotTheOperatorsUncommittedWork(t *testing.T) {
 	// Not about committing, so it must hold with auto-commit off as well.
 	c.Workflow.AutoCommitChangelog = false
 
-	kept := withoutReleaseCommitPaths([]string{
+	kept := withoutReleaseCommitPaths(context.Background(), []string{
 		".relicta/releases/latest",
 		".relicta/releases/run-3f6023.json",
 		"internal/server.go",
@@ -93,7 +94,7 @@ func TestRelictasOwnStoreIsNotTheOperatorsUncommittedWork(t *testing.T) {
 func TestTheReleaseCommitCoversTheChangelogAndEveryVersionFile(t *testing.T) {
 	withConfig(t)
 
-	paths := releaseCommitPaths()
+	paths := releaseCommitPaths(context.Background())
 	want := map[string]bool{"CHANGELOG.md": false, "package.json": false}
 	for _, p := range paths {
 		if _, ok := want[p]; ok {

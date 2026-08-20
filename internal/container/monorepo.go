@@ -1,8 +1,11 @@
 package container
 
 import (
+	"context"
+
 	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
 	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
 	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
@@ -28,4 +31,32 @@ func NewMonorepoBumper(gitRepo sourcecontrol.GitRepository, aiService ai.Service
 		appmonorepo.NewCompositeVersionWriter(),
 	)
 	return appmonorepo.NewBumpService(infraworkspace.NewFileDetector(), analyzer, gitRepo)
+}
+
+// packageTagResolver answers what a monorepo release should tag, or nil in a repository that
+// is not one.
+//
+// Deferred rather than computed here: `relicta release` bumps and publishes in one command, so
+// the manifests this reads are written after the container is built. Resolving at construction
+// would tag every package at the version it had before the release.
+func (c *App) packageTagResolver(repoRoot string) func(context.Context) ([]appmonorepo.PackageTag, error) {
+	if !c.config.Monorepo.Enabled || c.config.Monorepo.Strategy != config.MonorepoStrategyIndependent {
+		return nil
+	}
+
+	prefixes := make(map[string]string, len(c.config.Monorepo.PackageOverrides))
+	for path, override := range c.config.Monorepo.PackageOverrides {
+		if override.TagPrefix != "" {
+			prefixes[path] = override.TagPrefix
+		}
+	}
+
+	return func(ctx context.Context) ([]appmonorepo.PackageTag, error) {
+		return NewMonorepoBumper(c.gitAdapter, nil).ReleaseTags(ctx, appmonorepo.PlanInput{
+			RepoRoot:     repoRoot,
+			PackagePaths: c.config.Monorepo.PackagePaths,
+			ExcludePaths: c.config.Monorepo.ExcludePaths,
+			TagPrefixes:  prefixes,
+		})
+	}
 }

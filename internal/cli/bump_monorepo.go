@@ -3,12 +3,15 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
 	"github.com/relicta-tech/relicta/v4/internal/container"
+	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
 )
 
@@ -42,6 +45,8 @@ type monorepoPackageJSON struct {
 	Next    string `json:"next_version"`
 	Bump    string `json:"bump"`
 	Commits int    `json:"commits"`
+	Tag     string `json:"tag"`
+	BaseRef string `json:"base_ref,omitempty"`
 }
 
 // runMonorepoBump versions each package from its own commits.
@@ -72,6 +77,7 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		RepoRoot:     repoRoot,
 		PackagePaths: cfg.Monorepo.PackagePaths,
 		ExcludePaths: cfg.Monorepo.ExcludePaths,
+		TagPrefixes:  monorepoTagPrefixes(),
 		FromRef:      fromRef,
 	})
 	if err != nil {
@@ -82,8 +88,8 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		if outputJSON {
 			return emitMonorepoBumpJSON(plan, repoRoot, nil)
 		}
-		printInfo(fmt.Sprintf("No package changed since %s — %d packages discovered, none to bump",
-			refDisplay(fromRef), plan.Discovered))
+		printInfo(fmt.Sprintf("No package changed since its last release — %d discovered, none to bump",
+			plan.Discovered))
 		return nil
 	}
 
@@ -94,6 +100,10 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		}
 	}
 
+	if err := advanceRepositoryRun(ctx, app); err != nil {
+		return err
+	}
+
 	if outputJSON {
 		return emitMonorepoBumpJSON(plan, repoRoot, written)
 	}
@@ -101,16 +111,58 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 	return nil
 }
 
+// advanceRepositoryRun moves the repository's own release run to a version, so the rest of the
+// flow still runs.
+//
+// Per-package versioning replaces the repository's *manifest* version, not its release record.
+// The run is what `notes`, `approve` and `publish` act on, and what carries the governance
+// decision and the audit chain; a monorepo bump that left it in `planned` produced
+//
+//	✗ cannot generate notes: release run is in 'planned' state. Run 'relicta bump' first
+//
+// from a user who had just run bump — the per-package work succeeded and the release could
+// never be published. Reproduced against the shipped binary.
+//
+// Quiet on purpose: the package table above is this command's answer, and a second version
+// printed beside it invites the reader to think one of the packages is going there.
+func advanceRepositoryRun(ctx context.Context, app cliApp) error {
+	if dryRun {
+		return nil
+	}
+
+	current, err := configuredCurrentVersion(ctx, app)
+	if err != nil {
+		return err
+	}
+
+	calcOutput, err := app.CalculateVersion().Execute(ctx,
+		buildCalculateVersionInput(version.BumpType(""), true, current))
+	if err != nil {
+		return fmt.Errorf("failed to calculate the repository version: %w", err)
+	}
+
+	if err := updateReleaseVersion(ctx, app, calcOutput.NextVersion); err != nil {
+		if errors.Is(err, release.ErrRunNotFound) {
+			// No plan yet. `relicta bump` before `relicta plan` is a legitimate order for
+			// somebody who only wants the manifests written.
+			return nil
+		}
+		return fmt.Errorf("failed to update release state: %w", err)
+	}
+	return nil
+}
+
 func printMonorepoBumpText(plan *appmonorepo.BumpPlan, repoRoot string, written []string) {
-	printSubtitle(fmt.Sprintf("Packages (%d of %d changed since %s)",
-		len(plan.Packages), plan.Discovered, refDisplay(plan.FromRef)))
+	// No repository-wide "since" in the heading: each package is measured from its own last
+	// release, and one ref at the top would be wrong for every package that does not share it.
+	printSubtitle(fmt.Sprintf("Packages (%d of %d changed)", len(plan.Packages), plan.Discovered))
 	fmt.Println()
 
 	for _, pkg := range plan.Packages {
-		fmt.Printf("  %-24s %s → %s  (%s, %d commit%s)\n",
+		fmt.Printf("  %-24s %s → %-8s %-18s (%s, %d commit%s since %s)\n",
 			displayPath(pkg.Path, repoRoot),
-			pkg.Current.String(), pkg.Next.String(),
-			pkg.Bump, pkg.Commits, plural(pkg.Commits))
+			pkg.Current.String(), pkg.Next.String(), pkg.Tag,
+			pkg.Bump, pkg.Commits, plural(pkg.Commits), refDisplay(pkg.BaseRef))
 	}
 	fmt.Println()
 
@@ -142,6 +194,8 @@ func emitMonorepoBumpJSON(plan *appmonorepo.BumpPlan, repoRoot string, written [
 			Next:    pkg.Next.String(),
 			Bump:    string(pkg.Bump),
 			Commits: pkg.Commits,
+			Tag:     pkg.Tag,
+			BaseRef: pkg.BaseRef,
 		})
 	}
 	for _, file := range written {
@@ -153,12 +207,28 @@ func emitMonorepoBumpJSON(plan *appmonorepo.BumpPlan, repoRoot string, written [
 	return encoder.Encode(out)
 }
 
-// lastReleaseTag is the base of the commit range.
+// monorepoTagPrefixes reduces the package overrides to the one field tag naming needs.
 //
-// The repository's own last tag, not the package's: nothing creates per-package tags yet, so
-// there is no `api-v1.4.0` to measure from. Reading the repository tag keeps a monorepo that
-// has released before from re-counting its whole history, and a repository with no tags at all
-// analyses everything, which is what a first release should do.
+// The application layer takes a plain map rather than the config type: it should not have to
+// import internal/config to name a tag, and the other override fields are not its business.
+func monorepoTagPrefixes() map[string]string {
+	if len(cfg.Monorepo.PackageOverrides) == 0 {
+		return nil
+	}
+	prefixes := make(map[string]string, len(cfg.Monorepo.PackageOverrides))
+	for path, override := range cfg.Monorepo.PackageOverrides {
+		if override.TagPrefix != "" {
+			prefixes[path] = override.TagPrefix
+		}
+	}
+	return prefixes
+}
+
+// lastReleaseTag is the repository-wide fallback for the base of the commit range.
+//
+// Each package prefers its own last tag; this is what a package that has never been released
+// under one falls back to, which is every package before the first per-package publish. A
+// repository with no tags at all analyzes everything, which is what a first release should do.
 func lastReleaseTag(ctx context.Context, app cliApp) string {
 	tag, err := app.GitAdapter().GetLatestVersionTag(ctx, cfg.Versioning.TagPrefix)
 	if err != nil || tag == nil {
@@ -192,16 +262,16 @@ func plural(n int) string {
 
 // warnRepositoryWideInAMonorepo says which question the command about to run is answering.
 //
-// `relicta bump` versions each package; plan, publish and release still work on the repository
-// as a whole, because a per-package tag, changelog and governance decision are not implemented
-// yet. Saying so is the whole point: the defect this subsystem was an instance of is a setting
-// that looks honored and is not, and a monorepo user whose `bump` produced two package versions
-// has every reason to expect `publish` to tag two packages.
+// `relicta bump` versions each package and `publish` tags each package, but the plan and the
+// governance decision are still one per repository. Saying so is the whole point: the defect
+// this subsystem was an instance of is a setting that looks honored and is not, and a monorepo
+// user whose bump produced two package versions has every reason to ask what `approve` just
+// approved.
 func warnRepositoryWideInAMonorepo(command string) {
 	if !cfg.Monorepo.Enabled {
 		return
 	}
-	printWarning(fmt.Sprintf("monorepo: `relicta %s` acts on the repository as a whole. "+
-		"Per-package versioning applies to `relicta bump`; per-package tags, changelogs and "+
-		"approvals are not implemented yet", command))
+	printWarning(fmt.Sprintf("monorepo: `relicta %s` decides for the repository as a whole — "+
+		"one plan, one governance decision. Each package carries its own version and its own "+
+		"tag; per-package changelogs and approvals are not implemented yet", command))
 }
