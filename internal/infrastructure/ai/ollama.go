@@ -207,6 +207,10 @@ func (s *ollamaService) complete(ctx context.Context, systemPrompt, userPrompt s
 						Content: userPrompt,
 					},
 				},
+				// max_tokens, deprecated on the OpenAI API, is the only cap Ollama reads:
+				// its compatibility layer maps max_tokens to num_predict and ignores
+				// max_completion_tokens entirely (ollama/ollama, openai/openai.go). Sending
+				// the modern field here would drop the limit silently.
 				MaxTokens:   s.config.MaxTokens,
 				Temperature: float32(s.config.Temperature),
 			},

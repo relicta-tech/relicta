@@ -196,9 +196,13 @@ func (s *openAIService) CompleteStructured(ctx context.Context, systemPrompt, us
 					{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
 					{Role: openai.ChatMessageRoleUser, Content: userPrompt},
 				},
-				MaxTokens:      s.config.MaxTokens,
-				Temperature:    float32(s.config.Temperature),
-				ResponseFormat: respFormat,
+				// max_completion_tokens, not max_tokens: the o-series and GPT-5 models
+				// reject max_tokens outright, so the older field made every request to a
+				// current reasoning model a 400. Both name the same cap for the models
+				// that accept either.
+				MaxCompletionTokens: s.config.MaxTokens,
+				Temperature:         float32(s.config.Temperature),
+				ResponseFormat:      respFormat,
 			},
 		)
 		if err != nil {
@@ -233,8 +237,8 @@ func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt s
 						Content: userPrompt,
 					},
 				},
-				MaxTokens:   s.config.MaxTokens,
-				Temperature: float32(s.config.Temperature),
+				MaxCompletionTokens: s.config.MaxTokens,
+				Temperature:         float32(s.config.Temperature),
 			},
 		)
 		if err != nil {
