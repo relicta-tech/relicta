@@ -200,3 +200,16 @@ Still open, and named in the backlog rather than faked: a package's run stays at
 after its tag is created. `MarkPublished` requires the publishing state and a completed step
 plan, so moving it there means running each package's own publish — a per-package step plan, not
 a status write.
+
+## Amendment: the rest of the section (2026-08-21)
+
+`package_overrides.<path>.skip_versioning` and `changelog.root_changelog` are honored — the
+first excludes a package from versioning, tagging and changelogs alike; the second stops the
+repository-wide changelog for a project that wants per-package ones only.
+
+The remaining fields are refused at load, on the rule this ADR already set for `lockstep`:
+`version_files` when customized, `dependency_coordination`,
+`changelog.include_package_links`, and `package_overrides.<path>.version_file` /
+`version_field`. Two of them defaulted to **on**, so refusing them without changing the
+defaults would have failed every monorepo configuration in existence. They default off now: a
+default that asks for a feature nothing performs is the same lie as a setting nothing reads.

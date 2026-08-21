@@ -44,6 +44,7 @@ func planPackageRuns(ctx context.Context, app cliApp, repoInfo *sourcecontrol.Re
 		PackagePaths: cfg.Monorepo.PackagePaths,
 		ExcludePaths: cfg.Monorepo.ExcludePaths,
 		TagPrefixes:  monorepoTagPrefixes(),
+		Skip:         monorepoSkipped(),
 		FromRef:      lastReleaseTag(ctx, app),
 	})
 	if err != nil {

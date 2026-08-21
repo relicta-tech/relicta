@@ -47,9 +47,13 @@ func (c *App) packageTagResolver(repoRoot string) func(context.Context) ([]appmo
 	}
 
 	prefixes := make(map[string]string, len(c.config.Monorepo.PackageOverrides))
+	skip := make(map[string]bool, len(c.config.Monorepo.PackageOverrides))
 	for path, override := range c.config.Monorepo.PackageOverrides {
 		if override.TagPrefix != "" {
 			prefixes[path] = override.TagPrefix
+		}
+		if override.SkipVersioning {
+			skip[path] = true
 		}
 	}
 
@@ -59,6 +63,7 @@ func (c *App) packageTagResolver(repoRoot string) func(context.Context) ([]appmo
 			PackagePaths: c.config.Monorepo.PackagePaths,
 			ExcludePaths: c.config.Monorepo.ExcludePaths,
 			TagPrefixes:  prefixes,
+			Skip:         skip,
 		})
 		if err != nil {
 			return nil, err

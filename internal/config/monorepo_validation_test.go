@@ -106,3 +106,64 @@ func TestADisabledMonorepoSectionIsSilent(t *testing.T) {
 		t.Errorf("a disabled monorepo section failed validation: %v", err)
 	}
 }
+
+// The settings that remain unimplemented are refused, and — just as importantly — none of them
+// defaults to on. A default that asks for a feature nothing performs is the same lie as a
+// setting nothing reads, and it would make every monorepo configuration fail the validation
+// that says so.
+func TestTheUnimplementedMonorepoSettingsAreRefusedAndDefaultOff(t *testing.T) {
+	base := func() *Config {
+		cfg := DefaultConfig()
+		cfg.Monorepo.Enabled = true
+		cfg.Monorepo.Strategy = MonorepoStrategyIndependent
+		cfg.Monorepo.PackagePaths = []string{"packages/*"}
+		return cfg
+	}
+
+	if err := NewValidator().Validate(base()); err != nil {
+		t.Fatalf("the defaults do not validate: %v", err)
+	}
+
+	cases := map[string]func(*Config){
+		"dependency_coordination": func(c *Config) { c.Monorepo.DependencyCoordination = true },
+		"include_package_links":   func(c *Config) { c.Monorepo.Changelog.IncludePackageLinks = true },
+		"version_files": func(c *Config) {
+			c.Monorepo.VersionFiles = map[string]VersionFileConfig{"npm": {File: "somewhere.json"}}
+		},
+		"version_file": func(c *Config) {
+			c.Monorepo.PackageOverrides = map[string]PackageOverrideConfig{
+				"packages/api": {VersionFile: "VERSION"},
+			}
+		},
+	}
+
+	for name, apply := range cases {
+		cfg := base()
+		apply(cfg)
+		err := NewValidator().Validate(cfg)
+		if err == nil {
+			t.Errorf("%s was accepted; it does nothing, so a project setting it would believe "+
+				"something happened", name)
+			continue
+		}
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("the error for %s does not name it: %v", name, err)
+		}
+	}
+}
+
+// tag_prefix, changelog_file and skip_versioning are honored, so they must not be refused
+// alongside the overrides that are not.
+func TestTheHonoredOverridesAreAccepted(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Monorepo.Enabled = true
+	cfg.Monorepo.Strategy = MonorepoStrategyIndependent
+	cfg.Monorepo.PackagePaths = []string{"packages/*"}
+	cfg.Monorepo.PackageOverrides = map[string]PackageOverrideConfig{
+		"packages/api": {TagPrefix: "api-v", ChangelogFile: "NEWS.md", SkipVersioning: true},
+	}
+
+	if err := NewValidator().Validate(cfg); err != nil {
+		t.Errorf("the overrides relicta honors were refused: %v", err)
+	}
+}

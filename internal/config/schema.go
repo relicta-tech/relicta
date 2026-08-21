@@ -838,20 +838,24 @@ func DefaultConfig() *Config {
 			Default: "stable",
 		},
 		Monorepo: MonorepoConfig{
-			Enabled:                false, // Disabled by default, opt-in for monorepo mode
-			Strategy:               MonorepoStrategyIndependent,
-			PackagePaths:           []string{},
-			ExcludePaths:           []string{},
-			PackageOverrides:       map[string]PackageOverrideConfig{},
-			ReleaseGroups:          []ReleaseGroupConfig{},
-			RootPackage:            false,
-			DependencyCoordination: true, // Coordinate internal dependency updates by default
+			Enabled:          false, // Disabled by default, opt-in for monorepo mode
+			Strategy:         MonorepoStrategyIndependent,
+			PackagePaths:     []string{},
+			ExcludePaths:     []string{},
+			PackageOverrides: map[string]PackageOverrideConfig{},
+			ReleaseGroups:    []ReleaseGroupConfig{},
+			RootPackage:      false,
+			// Both default off because neither is implemented. A default that asks for a
+			// feature nothing performs is the same lie as a setting nothing reads, and it is
+			// worse here: it would make every monorepo config fail the validation that says
+			// so. Turn them on when they do something.
+			DependencyCoordination: false,
 			VersionFiles:           defaultVersionFiles(),
 			Changelog: MonorepoChangelogConfig{
 				PerPackage:          true, // Generate per-package changelogs
 				RootChangelog:       true, // Also generate root changelog
 				Format:              "conventional",
-				IncludePackageLinks: true,
+				IncludePackageLinks: false,
 			},
 		},
 		Dashboard: DashboardConfig{

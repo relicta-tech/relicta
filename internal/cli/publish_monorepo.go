@@ -52,6 +52,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		PackagePaths: cfg.Monorepo.PackagePaths,
 		ExcludePaths: cfg.Monorepo.ExcludePaths,
 		TagPrefixes:  monorepoTagPrefixes(),
+		Skip:         monorepoSkipped(),
 		FromRef:      lastReleaseTag(ctx, app),
 	})
 	if err != nil {
@@ -71,6 +72,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		PackagePaths: cfg.Monorepo.PackagePaths,
 		ExcludePaths: cfg.Monorepo.ExcludePaths,
 		TagPrefixes:  monorepoTagPrefixes(),
+		Skip:         monorepoSkipped(),
 	})
 	if err != nil {
 		printWarning(fmt.Sprintf("Could not read the package versions to render changelogs: %v", err))

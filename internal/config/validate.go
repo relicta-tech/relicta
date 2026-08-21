@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -186,6 +187,35 @@ func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 	if len(cfg.ReleaseGroups) > 0 {
 		v.errors.Addf("monorepo.release_groups: not implemented yet — every package is released " +
 			"on its own commits, so a group would be silently ignored")
+	}
+
+	// version_files ships with a default map naming the manifests each package type carries,
+	// and that default agrees with what the writers detect — so it is only wrong when somebody
+	// changes it, expecting the change to take effect.
+	// An absent map is not a customized one: nothing reads this, so config loading leaves it
+	// empty unless the file says otherwise.
+	if len(cfg.VersionFiles) > 0 && !reflect.DeepEqual(cfg.VersionFiles, defaultVersionFiles()) {
+		v.errors.Addf("monorepo.version_files: customizing this is not implemented yet — a " +
+			"package's version is read from and written to the manifest in its own directory " +
+			"(package.json, Cargo.toml, pyproject.toml, go.mod and the rest), which is detected " +
+			"rather than configured")
+	}
+	if cfg.DependencyCoordination {
+		v.errors.Addf("monorepo.dependency_coordination: not implemented yet — releasing a " +
+			"package does not update the versions its dependants pin, so leaving this on would " +
+			"promise a coordination that does not happen")
+	}
+	if cfg.Changelog.IncludePackageLinks {
+		v.errors.Addf("monorepo.changelog.include_package_links: not implemented yet — a " +
+			"package's changelog entry carries its commits, not links between packages")
+	}
+
+	for path, override := range cfg.PackageOverrides {
+		if override.VersionFile != "" || override.VersionField != "" {
+			v.errors.Addf("monorepo.package_overrides.%s: version_file and version_field are not "+
+				"implemented yet — the manifest in the package's own directory is what carries "+
+				"its version. tag_prefix, changelog_file and skip_versioning are honored", path)
+		}
 	}
 }
 

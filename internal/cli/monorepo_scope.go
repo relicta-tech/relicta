@@ -72,6 +72,7 @@ func discoveredPackages(ctx context.Context, app cliApp, repoRoot string) ([]app
 			PackagePaths: cfg.Monorepo.PackagePaths,
 			ExcludePaths: cfg.Monorepo.ExcludePaths,
 			TagPrefixes:  monorepoTagPrefixes(),
+			Skip:         monorepoSkipped(),
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover packages: %w", err)

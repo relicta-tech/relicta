@@ -78,6 +78,7 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		PackagePaths: cfg.Monorepo.PackagePaths,
 		ExcludePaths: cfg.Monorepo.ExcludePaths,
 		TagPrefixes:  monorepoTagPrefixes(),
+		Skip:         monorepoSkipped(),
 		FromRef:      fromRef,
 	})
 	if err != nil {
@@ -227,6 +228,21 @@ func monorepoTagPrefixes() map[string]string {
 		}
 	}
 	return prefixes
+}
+
+// monorepoSkipped is the set of packages monorepo.package_overrides.<path>.skip_versioning
+// excludes.
+func monorepoSkipped() map[string]bool {
+	if len(cfg.Monorepo.PackageOverrides) == 0 {
+		return nil
+	}
+	skip := make(map[string]bool, len(cfg.Monorepo.PackageOverrides))
+	for path, override := range cfg.Monorepo.PackageOverrides {
+		if override.SkipVersioning {
+			skip[path] = true
+		}
+	}
+	return skip
 }
 
 // lastReleaseTag is the repository-wide fallback for the base of the commit range.
