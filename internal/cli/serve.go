@@ -263,7 +263,9 @@ func buildObservabilityService(appConfig *config.Config, app *container.App) (ha
 		store = app.MemoryStore()
 	}
 
-	svc, err := observability.NewService(appConfig.Observability, store)
+	repository := governanceRepository(appConfig, app)
+
+	svc, err := observability.NewService(appConfig.Observability, store, repository)
 	if err != nil {
 		return nil, fmt.Errorf("observability: %w", err)
 	}
@@ -278,7 +280,7 @@ func buildObservabilityService(appConfig *config.Config, app *container.App) (ha
 	//
 	// nil when there is no governance memory to write to: the monitor then keeps observing
 	// and reporting, and the dashboard shows health that nothing records.
-	recorder := observability.NewOutcomeRecorder(store, governanceRepository(appConfig, app))
+	recorder := observability.NewOutcomeRecorder(store, repository)
 	return svc.WithHealthMonitor(appConfig.Observability, recorder), nil
 }
 

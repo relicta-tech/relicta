@@ -16,7 +16,7 @@ import (
 // routes report `not_configured` for a nil service, which is what separates "nobody is
 // watching" from "everything is healthy".
 func TestNoProvidersMeansNoService(t *testing.T) {
-	svc, err := NewService(config.ObservabilityConfig{}, nil)
+	svc, err := NewService(config.ObservabilityConfig{}, nil, "repo")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestAConfiguredProviderIsRegistered(t *testing.T) {
 		Providers: []config.ObservabilityProviderConfig{
 			{Name: "prod", Type: "prometheus", Endpoint: "http://localhost:9090"},
 		},
-	}, nil)
+	}, nil, "repo")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestAnUnknownProviderTypeIsRefused(t *testing.T) {
 		Providers: []config.ObservabilityProviderConfig{
 			{Name: "prod", Type: "datadog", Endpoint: "http://localhost"},
 		},
-	}, nil)
+	}, nil, "repo")
 
 	if err == nil {
 		t.Fatal("an unknown provider type was accepted")
@@ -76,7 +76,7 @@ func TestAutoRecordOffDetachesTheRecorder(t *testing.T) {
 	}
 	cfg.HealthCheck.ProviderName = "prod"
 
-	svc, err := NewService(cfg, nil)
+	svc, err := NewService(cfg, nil, "repo")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}

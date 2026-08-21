@@ -110,3 +110,33 @@ Verified end to end against a stub provider: a 42% error rate against a 5% thres
 
 and the same release with the provider down recorded nothing at all, logging that the window
 expired with nothing measured.
+
+## Amendment: incidents are recorded, not accumulated (2026-08-21)
+
+Incidents heard through the webhook were appended to a slice on the service — lost when the
+process ended, and appended to from whichever HTTP handler goroutine received them while the
+correlations endpoint read it, which is a data race.
+
+They now go through the governance memory: the same store the health monitor writes to and the
+same one correlation reads release history from, so an incident outlives the process that heard
+it and there is one place to look.
+
+**Attribution happens on arrival**, while the labels the scoring reads are still in hand;
+`IncidentRecord` keeps the release, the reasons, and the score. `GetCorrelations` reads back
+only the incidents attributed to the release asked about — handing the whole history to the
+engine would claim every incident the repository has ever seen belongs to that one release.
+
+Two smaller decisions follow the same rule:
+
+- **A score that cannot be read back is reported as absent**, not replaced with a plausible
+  number. The attribution is still worth reporting; a made-up confidence is not.
+- **An alert without an ID is still recorded.** Alertmanager sends no fingerprint for some
+  payloads, the store requires an ID, and the incident was dropped on the floor with a log line
+  — verified against the running server. The ID is now derived from what the alert does carry,
+  deterministically, so a redelivery lands on the same record rather than a second one. Losing
+  a real incident because the sender omitted a field is the same failure as recording one that
+  never happened.
+
+What is still lost across the round trip: the alert's labels, which `IncidentRecord` has nowhere
+to put. The scoring that reads them has already run by then, so nothing that is used is missing —
+but a future correlation that wants to re-score from storage would need somewhere to keep them.

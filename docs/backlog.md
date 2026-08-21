@@ -500,9 +500,17 @@ subscription the server can never receive, because the dashboard publishes nothi
 incident against the release, and the server picks up releases published inside the window from
 the store the CLI writes to.
 
-Left for later: correlation reads only the incidents this process has heard through the webhook,
-so a restart forgets them. Persisting incidents is its own decision — where they live, and for
-how long.
+Incidents are now recorded through the governance memory rather than accumulated in a slice —
+which was lost on restart and written from HTTP handler goroutines while the correlations
+endpoint read it, a data race. They are attributed to a release on arrival, while the labels the
+scoring reads are still in hand, and read back filtered to the release asked about. Two smaller
+findings on the way: a score that cannot be read back is reported as absent rather than invented,
+and an Alertmanager payload with no fingerprint — which the store refused and the service dropped
+with only a log line — now gets a deterministic derived ID.
+
+Left for later: the alert's labels are not kept, because `IncidentRecord` has nowhere to put
+them. Nothing that is used today is missing, but re-scoring a correlation from storage would
+need them.
 
 ## DONE: the persistence default stays `file`, and stays configurable
 

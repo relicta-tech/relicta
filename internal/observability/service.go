@@ -14,6 +14,7 @@ package observability
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -32,9 +33,16 @@ type Service struct {
 	engine   *correlation.Engine
 	receiver *receiver.WebhookReceiver
 
-	// incidents holds what the webhook receiver has heard, so a correlation query has
-	// something to correlate against.
-	incidents []receiver.Incident
+	// store is where incidents are recorded, and where correlation reads release history
+	// from. nil when the repository has no governance memory, in which case incidents are
+	// still received and answered — they are simply not remembered past this process.
+	store      memory.Store
+	repository string
+}
+
+// logger for the paths that can only report a problem rather than return it.
+func (s *Service) logger() *slog.Logger {
+	return slog.Default().With("component", "observability")
 }
 
 // NewService builds the subsystem a repository's configuration describes.
@@ -45,7 +53,7 @@ type Service struct {
 //
 // An unknown provider type is an error rather than a skip. Silently ignoring it would leave
 // somebody watching a dashboard that reports nothing wrong because it is asking nobody.
-func NewService(cfg config.ObservabilityConfig, store memory.Store) (*Service, error) {
+func NewService(cfg config.ObservabilityConfig, store memory.Store, repository string) (*Service, error) {
 	if len(cfg.Providers) == 0 {
 		return nil, nil
 	}
@@ -61,14 +69,17 @@ func NewService(cfg config.ObservabilityConfig, store memory.Store) (*Service, e
 		}
 	}
 
-	svc := &Service{registry: registry}
+	svc := &Service{registry: registry, store: store, repository: repository}
 
 	if store != nil {
 		svc.engine = correlation.NewEngine(store, correlation.DefaultEngineConfig())
 	}
 
+	// Recorded rather than accumulated in memory. The slice this replaces was appended to
+	// from whichever HTTP handler goroutine received the webhook — a data race with the
+	// correlations endpoint reading it — and it was lost on restart besides.
 	svc.receiver = receiver.NewWebhookReceiver(cfg.WebhookSecret, func(incident receiver.Incident) {
-		svc.incidents = append(svc.incidents, incident)
+		svc.recordIncident(context.Background(), incident)
 	})
 
 	return svc, nil
@@ -140,16 +151,16 @@ func (s *Service) GetDeploymentHealth() []monitor.HealthStatus {
 	return s.monitor.GetAllStatuses()
 }
 
-// GetCorrelations ties incidents heard so far back to a release.
+// GetCorrelations reports the incidents attributed to a release.
+//
+// Read from the store, so a restart does not forget them, and filtered to the release asked
+// about: the whole history handed to the engine would claim every incident the repository has
+// ever seen belongs to this one release.
 func (s *Service) GetCorrelations(releaseID string) []correlation.ReleaseCorrelation {
-	if s == nil || s.engine == nil || len(s.incidents) == 0 {
+	if s == nil {
 		return nil
 	}
-	found, err := s.engine.CorrelateForRelease(context.Background(), releaseID, s.incidents)
-	if err != nil {
-		return nil
-	}
-	return found
+	return s.storedCorrelations(context.Background(), releaseID)
 }
 
 // GetProviderStatuses health-checks every configured provider.
