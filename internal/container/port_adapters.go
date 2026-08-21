@@ -71,10 +71,11 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 
 	// Configure generation options
 	genOpts := ai.GenerateOptions{
-		Version:     ptrTo(run.VersionNext()),
-		ProductName: "",
-		Tone:        a.mapTone(options.TonePreset),
-		Audience:    a.mapAudience(options.AudiencePreset),
+		Version:      ptrTo(run.VersionNext()),
+		ProductName:  "",
+		Tone:         a.mapTone(options.TonePreset),
+		Audience:     a.mapAudience(options.AudiencePreset),
+		IncludeEmoji: options.IncludeEmoji,
 	}
 
 	// Generate changelog using AI

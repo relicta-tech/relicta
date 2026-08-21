@@ -37,6 +37,7 @@ func buildNotesInputForServices(repoRoot string, hasAI bool) releaseapp.Generate
 		Options: ports.NotesOptions{
 			AudiencePreset: notesAudience,
 			TonePreset:     notesTone,
+			IncludeEmoji:   notesIncludeEmoji,
 			// Follows ai.enabled in config, the same rule `relicta release` uses.
 			//
 			// The --ai flag is gone (ADR-009, ADR-010). ADR-009's position is that
@@ -71,6 +72,14 @@ func printNotesNextSteps() {
 // runNotes implements the notes command.
 func runNotes(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	// ai.include_emoji becomes the default for --emoji, so the setting and the flag are one
+	// answer rather than two. Folded here, as --skip-push is folded into versioning.git_push,
+	// and only when the flag was not given: an explicit `--emoji=false` has to beat a config
+	// that asks for them.
+	if !cmd.Flags().Changed("emoji") && cfg != nil {
+		notesIncludeEmoji = cfg.AI.IncludeEmoji
+	}
 
 	printTitle("Release Notes Generation")
 	fmt.Println()

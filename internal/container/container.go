@@ -499,41 +499,79 @@ func (c *App) initAIService(ctx context.Context) (ai.Service, error) {
 		return nil, errors.AI("initAIService", "API key not configured for provider: "+provider)
 	}
 
-	opts := []ai.ServiceOption{
-		ai.WithProvider(provider),
-		ai.WithModel(c.config.AI.Model),
-	}
-
-	// Only add API key option if we have one
-	if apiKey != "" {
-		opts = append(opts, ai.WithAPIKey(apiKey))
-	}
-
-	if c.config.AI.BaseURL != "" {
-		opts = append(opts, ai.WithBaseURL(c.config.AI.BaseURL))
-	}
-
-	if c.config.AI.APIVersion != "" {
-		opts = append(opts, ai.WithAPIVersion(c.config.AI.APIVersion))
-	}
-
-	if c.config.AI.MaxTokens > 0 {
-		opts = append(opts, ai.WithMaxTokens(c.config.AI.MaxTokens))
-	}
-
-	if c.config.AI.Temperature > 0 {
-		opts = append(opts, ai.WithTemperature(c.config.AI.Temperature))
-	}
-
-	if c.config.AI.Timeout > 0 {
-		opts = append(opts, ai.WithTimeout(time.Duration(c.config.AI.Timeout)*time.Second))
-	}
+	opts := aiServiceOptions(c.config, apiKey)
 
 	// Note: ai.NewService is a pure constructor that only configures the service.
 	// No network calls occur during construction; actual API calls happen in Generate()
 	// which accepts context for cancellation. Lazy initialization was considered but
 	// adds complexity; eager init is acceptable since this only runs when AI is enabled.
 	return ai.NewService(opts...)
+}
+
+// aiServiceOptions translates the AI configuration into the options the service takes.
+//
+// Its own function so the translation can be asserted. Two settings used to be missing from it
+// and there was nothing to test that against: `ai.custom_prompts` — six fields every provider
+// applies, and which the container never carried, so a team that rewrote its release-notes
+// prompt silently got the default — and `ai.retry_attempts`, which the resilience layer reads
+// and nothing set.
+//
+// A zero or empty value is left out rather than sent as a zero: for these settings the service
+// has its own defaults, and "not configured" has to stay distinguishable from "configured to
+// nothing".
+func aiServiceOptions(appConfig *config.Config, apiKey string) []ai.ServiceOption {
+	if appConfig == nil {
+		return nil
+	}
+	cfg := appConfig.AI
+
+	opts := []ai.ServiceOption{
+		ai.WithProvider(cfg.Provider),
+		ai.WithModel(cfg.Model),
+	}
+
+	if apiKey != "" {
+		opts = append(opts, ai.WithAPIKey(apiKey))
+	}
+	if cfg.BaseURL != "" {
+		opts = append(opts, ai.WithBaseURL(cfg.BaseURL))
+	}
+	if cfg.APIVersion != "" {
+		opts = append(opts, ai.WithAPIVersion(cfg.APIVersion))
+	}
+	if cfg.MaxTokens > 0 {
+		opts = append(opts, ai.WithMaxTokens(cfg.MaxTokens))
+	}
+	if cfg.Temperature > 0 {
+		opts = append(opts, ai.WithTemperature(cfg.Temperature))
+	}
+	if cfg.Timeout > 0 {
+		opts = append(opts, ai.WithTimeout(time.Duration(cfg.Timeout)*time.Second))
+	}
+	if cfg.RetryAttempts > 0 {
+		opts = append(opts, ai.WithRetryAttempts(cfg.RetryAttempts))
+	}
+	if prompts := customPrompts(cfg.CustomPrompts); prompts != (ai.CustomPrompts{}) {
+		opts = append(opts, ai.WithCustomPrompts(prompts))
+	}
+
+	return opts
+}
+
+// customPrompts carries the configured prompts across to the AI package's own type.
+//
+// Field by field rather than by conversion, so that adding a prompt to the configuration and
+// forgetting it here is a compile-time difference a test can catch rather than a silent
+// omission — which is exactly what the whole block was.
+func customPrompts(cfg config.CustomPrompts) ai.CustomPrompts {
+	return ai.CustomPrompts{
+		ChangelogSystem:    cfg.ChangelogSystem,
+		ChangelogUser:      cfg.ChangelogUser,
+		ReleaseNotesSystem: cfg.ReleaseNotesSystem,
+		ReleaseNotesUser:   cfg.ReleaseNotesUser,
+		MarketingSystem:    cfg.MarketingSystem,
+		MarketingUser:      cfg.MarketingUser,
+	}
 }
 
 // initPluginSystem initializes the plugin system.

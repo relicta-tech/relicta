@@ -466,6 +466,37 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: three AI settings that nothing read
+
+Found by counting production callers of the `With*` option constructors: 33 of 90 have none.
+Most are legitimately test-only affordances (`WithNowFunc`, `WithHTTPClient`), but three were
+the other thing — a documented, defaulted setting with a complete mechanism behind it and no
+link from the configuration to the code.
+
+- **`ai.custom_prompts`** — six fields for replacing the prompts relicta sends. Every provider
+  applies them (`prompts.applyCustomPrompts(cfg.CustomPrompts)` in openai.go, anthropic.go,
+  gemini.go and ollama.go) and `ai.WithCustomPrompts` exists to carry them, but the container
+  never called it. A team that rewrote its release-notes prompt got the default prompt, with
+  nothing said.
+- **`ai.retry_attempts`** — the resilience layer reads `cfg.RetryAttempts` and
+  `ai.WithRetryAttempts` sets it; nothing called that either, so a project asking for one
+  attempt or for ten got the library's own default.
+- **`ai.include_emoji`** — dead at four links at once. The prompt templates have honored an
+  `IncludeEmoji` option since they were written, but `ports.NotesOptions` carried no such
+  field, the notes adapter set none, the config key had no production reader, and
+  `relicta notes --emoji` registered a flag variable that was read nowhere. Two ways to ask,
+  neither of which did anything.
+
+The option-building is now its own function (`aiServiceOptions`) so the translation can be
+asserted; a zero or empty value is still left out rather than sent, because for these settings
+"not configured" has to stay distinguishable from "configured to nothing". `--emoji` folds into
+`ai.include_emoji` the way `--skip-push` folds into `versioning.git_push`, and an explicit
+`--emoji=false` still beats a config that asks for them.
+
+The method is worth repeating on the rest of the list. What it does not catch is the shape
+found earlier this session — a setting read by code that is itself unreachable — so a caller
+count of one is not proof of anything.
+
 ## DONE: `--skip-tag` and `versioning.git_tag` now reach the tag
 
 `relicta publish --skip-tag` printed `Create tag: false`, reported `"create_tag": false` in
