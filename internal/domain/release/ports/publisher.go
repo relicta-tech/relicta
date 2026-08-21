@@ -42,10 +42,16 @@ type NotesGenerator interface {
 type NotesOptions struct {
 	AudiencePreset string // e.g., "developer", "user", "all"
 	TonePreset     string // e.g., "formal", "casual"
-	UseAI          bool
-	Provider       string
-	Model          string
-	RepositoryURL  string
+	// IncludeEmoji asks the generator for emoji in the prose.
+	//
+	// The prompt templates have honored this since they were written; nothing ever set it.
+	// `ai.include_emoji` had no production reader and `relicta notes --emoji` registered a
+	// flag that was read nowhere, so both the setting and the flag did nothing at all.
+	IncludeEmoji  bool
+	UseAI         bool
+	Provider      string
+	Model         string
+	RepositoryURL string
 }
 
 // VersionCalculator calculates the next version.

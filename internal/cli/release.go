@@ -581,6 +581,7 @@ func runReleaseNotes(ctx context.Context, c cliApp, plan *servicerelease.Analyze
 		Options: ports.NotesOptions{
 			AudiencePreset: cfg.AI.Audience,
 			TonePreset:     cfg.AI.Tone,
+			IncludeEmoji:   cfg.AI.IncludeEmoji,
 			UseAI:          cfg.AI.Enabled,
 			RepositoryURL:  cfg.Changelog.RepositoryURL,
 		},
