@@ -130,8 +130,12 @@ func TestHealthMonitor_GetStatus(t *testing.T) {
 	if status.ReleaseID != "rel-3" {
 		t.Errorf("expected release ID rel-3, got %s", status.ReleaseID)
 	}
-	if !status.Healthy {
-		t.Error("expected initial status to be healthy")
+	// Was "expected initial status to be healthy". A watch that has just opened has looked at
+	// nothing, and reporting health before the first check is a claim about a release nobody
+	// has observed yet.
+	if status.Measured || status.Healthy {
+		t.Errorf("measured=%v healthy=%v before the first check ran",
+			status.Measured, status.Healthy)
 	}
 }
 

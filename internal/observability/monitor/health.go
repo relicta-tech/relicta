@@ -125,9 +125,12 @@ func (hm *HealthMonitor) StartWatch(ctx context.Context, releaseID string) error
 		startedAt: now,
 		expiresAt: now.Add(hm.config.Window),
 		cancel:    cancel,
+		// Seeded as unmeasured, because at this instant it is: the first check has not run.
+		// It used to be seeded Healthy, so a release reported itself healthy from the moment
+		// the watch opened — before anything had looked at it.
 		status: HealthStatus{
 			ReleaseID:       releaseID,
-			Healthy:         true,
+			Unmeasured:      []string{"no health check has run yet"},
 			MonitoringUntil: now.Add(hm.config.Window),
 			CheckedAt:       now,
 		},

@@ -78,3 +78,35 @@ What this costs: a repository whose provider is flaky will accumulate releases w
 recorded outcome, and its change failure rate will be computed from fewer releases than it
 shipped. That is the intended trade. A rate computed from ten measured releases is worth
 more than one computed from fifty, forty of which were guesses.
+
+## Amendment: what `auto_record` writes, and how a watch starts (2026-08-21)
+
+Two gaps in the first pass, both of the kind this ADR is about.
+
+**`auto_record` gated a recorder that was nil**, so it did nothing either way — a setting that
+looks honored and is not, shipped in the same change that removed several of those. It now
+writes a **measured** failure to the governance memory as an incident against the release,
+typed by what was observed (a firing alert or a latency regression file differently) and
+described in the words the thresholds used.
+
+A healthy window still writes nothing. An incident is evidence that something happened; the
+absence of one is already how a release that behaved is represented, and filling the incident
+history with non-events would change what the existing records mean.
+
+**The watch was wired to a signal that never arrives.** The server started one when it heard a
+release published — but it hears only what its own process raises, and the dashboard publishes
+nothing: `relicta publish` is a separate command, usually on another machine. The server now
+reads the store the CLI writes to, picking up releases published inside the window, once at
+startup and then on an interval. Only inside the window: watching a release from last week
+would attribute today's metrics to it, which is the wrong-data failure one step along.
+
+A watch also no longer seeds itself `Healthy: true`. A watch that has just opened has looked at
+nothing, and the dashboard showed a green release from the instant monitoring began.
+
+Verified end to end against a stub provider: a 42% error rate against a 5% threshold recorded
+
+    availability | run-5a4f4c26 | high
+    deployment health after release: error rate 42.00% exceeds threshold 5.00% (measured at …)
+
+and the same release with the provider down recorded nothing at all, logging that the window
+expired with nothing measured.
