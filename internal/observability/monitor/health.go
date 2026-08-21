@@ -41,7 +41,21 @@ type HealthStatus struct {
 	// ReleaseID identifies the release being monitored.
 	ReleaseID string `json:"release_id"`
 	// Healthy indicates whether the deployment is considered healthy.
+	//
+	// Only meaningful when Measured is true. An unmeasured release is neither healthy nor
+	// unhealthy, and reporting it as either is the mistake this field used to make: it
+	// started at true and was only ever cleared by a crossed threshold, so a provider that
+	// could not be reached left every number at zero and the release looked fine.
 	Healthy bool `json:"healthy"`
+	// Measured reports whether anything was actually observed.
+	//
+	// False when there is no provider, when it could not be reached, or when it answered with
+	// nothing. Callers must not record an outcome for an unmeasured release: no data about a
+	// deployment is better than the wrong data, because the wrong data is indistinguishable
+	// from a real result once it is in the record.
+	Measured bool `json:"measured"`
+	// Unmeasured explains what could not be observed, one entry per signal.
+	Unmeasured []string `json:"unmeasured,omitempty"`
 	// ErrorRate is the current observed error rate percentage.
 	ErrorRate float64 `json:"error_rate"`
 	// LatencyIncrease is the observed latency increase percentage.
@@ -182,16 +196,32 @@ func (hm *HealthMonitor) runWatch(ctx context.Context, watch *releaseWatch) {
 		case <-ticker.C:
 			now := time.Now()
 
-			// Window expired without threshold violations — record success.
+			// Window expired. Success is recorded only if something was actually observed
+			// during it.
+			//
+			// This used to record success unconditionally, so a provider that was down for
+			// the whole window produced a recorded successful deployment — a number that
+			// feeds change failure rate and is indistinguishable, afterwards, from a release
+			// that was watched and behaved.
 			if now.After(watch.expiresAt) {
-				hm.logger.Info("health watch window expired without violations",
-					"release_id", watch.releaseID)
-				if hm.recorder != nil {
-					hm.recorder(watch.releaseID, true, watch.status)
-				}
 				hm.mu.Lock()
+				status := watch.status
 				delete(hm.watches, watch.releaseID)
 				hm.mu.Unlock()
+
+				switch {
+				case status.Measured:
+					hm.logger.Info("health watch window expired without violations",
+						"release_id", watch.releaseID)
+					if hm.recorder != nil {
+						hm.recorder(watch.releaseID, true, status)
+					}
+				default:
+					hm.logger.Warn("health watch window expired with nothing measured; "+
+						"recording no outcome",
+						"release_id", watch.releaseID,
+						"unmeasured", status.Unmeasured)
+				}
 				return
 			}
 
@@ -207,8 +237,10 @@ func (hm *HealthMonitor) runWatch(ctx context.Context, watch *releaseWatch) {
 			watch.status = status
 			hm.mu.Unlock()
 
-			// Threshold crossed — record negative outcome.
-			if !status.Healthy {
+			// Threshold crossed — record negative outcome. Only when it was measured: an
+			// unmeasured check leaves Healthy false, and recording a failure from an
+			// unreachable provider is the same fabrication as recording a success.
+			if status.Measured && !status.Healthy {
 				hm.logger.Warn("health threshold crossed",
 					"release_id", watch.releaseID,
 					"violations", status.Violations)
@@ -228,17 +260,19 @@ func (hm *HealthMonitor) runWatch(ctx context.Context, watch *releaseWatch) {
 func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (HealthStatus, error) {
 	status := HealthStatus{
 		ReleaseID:       releaseID,
-		Healthy:         true,
 		MonitoringUntil: time.Now().Add(hm.config.Window),
 		CheckedAt:       time.Now(),
 	}
 
 	if hm.config.ProviderName == "" {
+		status.Unmeasured = []string{"no provider configured for health monitoring"}
 		return status, nil
 	}
 
 	provider, err := hm.registry.Get(hm.config.ProviderName)
 	if err != nil {
+		status.Unmeasured = []string{fmt.Sprintf("provider %q not available: %v",
+			hm.config.ProviderName, err)}
 		return status, fmt.Errorf("provider not available: %w", err)
 	}
 
@@ -251,8 +285,14 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 		End:        now,
 		Step:       30 * time.Second,
 	})
-	if err == nil && len(errorSamples) > 0 {
+	switch {
+	case err != nil:
+		status.Unmeasured = append(status.Unmeasured, "error rate: "+err.Error())
+	case len(errorSamples) == 0:
+		status.Unmeasured = append(status.Unmeasured, "error rate: provider returned no samples")
+	default:
 		status.ErrorRate = errorSamples[len(errorSamples)-1].Value
+		status.Measured = true
 	}
 
 	// Query latency.
@@ -262,13 +302,29 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 		End:        now,
 		Step:       30 * time.Second,
 	})
-	if err == nil && len(latencySamples) > 0 {
+	switch {
+	case err != nil:
+		status.Unmeasured = append(status.Unmeasured, "latency: "+err.Error())
+	case len(latencySamples) == 0:
+		status.Unmeasured = append(status.Unmeasured, "latency: provider returned no samples")
+	default:
 		status.LatencyIncrease = latencySamples[len(latencySamples)-1].Value
+		status.Measured = true
 	}
 
 	// Query alerts.
 	alerts, err := provider.QueryAlerts(ctx, hm.config.Window)
-	if err == nil {
+	switch {
+	case err != nil:
+		status.Unmeasured = append(status.Unmeasured, "alerts: "+err.Error())
+	case len(alerts) > 0:
+		// A firing alert is the clearest evidence there is, and evidence of a problem.
+		status.Alerts = alerts
+		status.Measured = true
+	default:
+		// An empty alert list is not evidence of health. A release can be failing badly with
+		// no alert rule written for it, so "nothing is firing" measures nothing on its own —
+		// only the metrics below can establish that a deployment is behaving.
 		status.Alerts = alerts
 	}
 
@@ -287,8 +343,14 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 				status.LatencyIncrease, hm.config.LatencyThreshold))
 	}
 
-	if len(violations) > 0 {
-		status.Healthy = false
+	for _, alert := range status.Alerts {
+		violations = append(violations, fmt.Sprintf("alert firing: %s", alert.Name))
+	}
+
+	// Healthy is an assertion about observed behavior, so it is only made when something was
+	// observed. Unmeasured leaves it false, which callers read together with Measured.
+	if status.Measured {
+		status.Healthy = len(violations) == 0
 		status.Violations = violations
 	}
 

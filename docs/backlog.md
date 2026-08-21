@@ -353,7 +353,7 @@ cancellations would disagree with relicta about the same repository, and a disag
 between two views of one governance record reads as a reporting bug rather than a difference
 of opinion.
 
-## The observability integration is not wired at all
+## SUPERSEDED by ADR-016: the observability integration is not wired at all
 
 Configuring `observability.providers` does nothing. The subsystem is complete in parts and
 connected at none of them:
@@ -465,6 +465,45 @@ These remain:
   signing is not implemented.
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
+
+## DONE: the observability integration is wired, on "no data beats wrong data" (ADR-016)
+
+The entry below asked three questions before this could be built — when monitoring starts, what
+`auto_record` writes, and what counts as unhealthy. One answer settles all three: **a release
+nothing could observe is unmeasured, and nothing is recorded for it.**
+
+What the code was doing instead, at both ends:
+
+- `performCheck` started from `Healthy: true` and only cleared it on a crossed threshold, so an
+  unreachable provider left every number at zero and the release was reported healthy. An
+  existing test asserted this deliberately — *"expected healthy when metrics query fails
+  (graceful degradation)"* — and the degradation was to a claim.
+- `runWatch` recorded success when the window expired, unconditionally, including when every
+  check in it had failed. A Prometheus down for half an hour produced a recorded successful
+  deployment, and that number feeds change failure rate.
+
+Now wired: providers are built from `observability.providers` (prometheus; an unknown type is a
+startup error, not a skipped entry), the `ObservabilityService` the handlers declare has an
+implementation, `SetObservabilityService` is called, and the server starts a health watch when
+it hears a release published. The watch lives in the server because a window is minutes or hours
+and `relicta publish` exits in seconds — a watch shown but not running is the same lie one level
+up.
+
+A repository with no providers still gets **no service**, so the routes keep reporting
+`not_configured`: the distinction between "nobody is watching" and "everything is healthy" is
+the whole point.
+
+Left for later: correlation reads only the incidents this process has heard through the webhook,
+so a restart forgets them. Persisting incidents is its own decision — where they live, and for
+how long.
+
+## DONE: the persistence default stays `file`, and stays configurable
+
+Three backends behind one conformance suite (ADR-013), with SQLite benchmarking 2.6–6× faster,
+made flipping the default look obvious. It stays `file`: the default decides where an existing
+repository's history lives, and flipping it moves every repository that has not opted out, on
+upgrade, silently. `persistence.backend` remains the choice a team makes when they outgrow the
+default. Recorded as an ADR-013 amendment.
 
 ## DONE: the monorepo settings that still did nothing
 

@@ -183,3 +183,24 @@ the event store had no remaining claim, and all 760 lines were removed.
 `migrations/001_create_events` stays. It has shipped, and renumbering an ordered
 migration sequence breaks every operator who already ran it — a cost far above an unused
 empty table.
+
+## Amendment: the default stays `file` (2026-08-21)
+
+With three backends behind one conformance suite and a benchmark showing SQLite 2.6–6×
+faster on the queries that matter, the obvious next move was to make it the default. It
+stays `file`, deliberately.
+
+The default decides where an existing repository's history lives. Flipping it would move
+every repository that has not opted out — on upgrade, silently, with `relicta db import`
+as the recovery path rather than the plan. Speed is not the constraint anyone hits at the
+sizes a single repository's release history reaches; the file store is also the only
+backend that needs no infrastructure, reads with `cat`, and diffs in a review.
+
+`persistence.backend` remains what it was designed to be: the choice a team makes when
+they outgrow the default, not one made for them. A team sharing a store, or one whose
+history has grown past what a directory of JSON should hold, sets `sqlite` or `postgres`
+and `relicta db import` moves what exists.
+
+Verified after the per-package work: an unconfigured repository writes
+`.relicta/releases/*.json` and no database; `persistence.backend: sqlite` writes
+`.relicta/relicta.db`.

@@ -163,8 +163,14 @@ func TestHealthMonitor_CheckHealth_NoProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckHealth() error = %v", err)
 	}
-	if !status.Healthy {
-		t.Error("expected healthy when no provider configured")
+	// Was "expected healthy when no provider configured". A release nobody is watching is
+	// not a healthy release; it is an unmeasured one, and saying otherwise puts a result in
+	// the record that no observation supports.
+	if status.Measured {
+		t.Error("a release with no provider configured was reported as measured")
+	}
+	if status.Healthy {
+		t.Error("a release with no provider configured was reported healthy")
 	}
 }
 
@@ -257,15 +263,13 @@ func TestHealthMonitor_WatchWindowExpiry(t *testing.T) {
 	// Wait for the watch to expire.
 	time.Sleep(300 * time.Millisecond)
 
-	outcomes := collector.get()
-	if len(outcomes) == 0 {
-		t.Fatal("expected outcome to be recorded after window expiry")
-	}
-	if !outcomes[0].success {
-		t.Error("expected successful outcome when no thresholds crossed")
-	}
-	if outcomes[0].releaseID != "rel-expire" {
-		t.Errorf("expected release ID rel-expire, got %s", outcomes[0].releaseID)
+	// Was "expected outcome to be recorded after window expiry", with no provider registered
+	// at all. Nothing was watching, so the window expiring says nothing about the release —
+	// and a recorded success feeds change failure rate exactly as a real one would.
+	// A measured window is covered by TestAMeasuredWindowStillRecordsSuccess.
+	if outcomes := collector.get(); len(outcomes) != 0 {
+		t.Errorf("recorded %d outcome(s) for a window with no provider to measure it",
+			len(outcomes))
 	}
 }
 
@@ -324,12 +328,18 @@ func TestHealthMonitor_CheckHealth_MetricsError(t *testing.T) {
 
 	hm := NewHealthMonitor(cfg, reg, nil)
 
-	// Should not error — metrics errors are non-fatal.
+	// Should not error — a failed query is a failure to measure, not a failure of the run.
 	status, err := hm.CheckHealth(context.Background(), "rel-8")
 	if err != nil {
 		t.Fatalf("CheckHealth() error = %v", err)
 	}
-	if !status.Healthy {
-		t.Error("expected healthy when metrics query fails (graceful degradation)")
+	// Was "expected healthy when metrics query fails (graceful degradation)". Degrading to
+	// healthy is degrading to a claim: the release is reported as behaving by a check that
+	// could not see it. Degrade to unmeasured instead, and record nothing.
+	if status.Measured || status.Healthy {
+		t.Errorf("measured=%v healthy=%v after every query failed", status.Measured, status.Healthy)
+	}
+	if len(status.Unmeasured) == 0 {
+		t.Error("nothing records why the release could not be measured")
 	}
 }
