@@ -196,3 +196,27 @@ func TestAMeasuredWindowStillRecordsSuccess(t *testing.T) {
 			"every threshold is a real result", calls)
 	}
 }
+
+// A watch that has just opened has measured nothing yet, and must say so. It used to seed its
+// status Healthy, so the dashboard showed a green release from the instant monitoring began —
+// before any check had run.
+func TestAFreshWatchIsUnmeasured(t *testing.T) {
+	hm := monitorFor(t, &answeringProvider{name: "prom", value: 0.1}, nil)
+
+	if err := hm.StartWatch(context.Background(), "run-1"); err != nil {
+		t.Fatalf("StartWatch: %v", err)
+	}
+	defer hm.StopWatch("run-1")
+
+	status, ok := hm.GetStatus("run-1")
+	if !ok {
+		t.Fatal("the watch reported no status")
+	}
+	if status.Measured || status.Healthy {
+		t.Errorf("measured=%v healthy=%v before the first check ran",
+			status.Measured, status.Healthy)
+	}
+	if len(status.Unmeasured) == 0 {
+		t.Error("nothing says the first check has not run yet")
+	}
+}

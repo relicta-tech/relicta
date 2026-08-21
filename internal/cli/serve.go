@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -148,6 +149,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 		slog.Debug("WebSocket event broadcasting enabled")
 	}
 
+	// Watch releases published by other processes too.
+	//
+	// The event subscription above only hears what this process raises, and this process
+	// never publishes — `relicta publish` is a separate command, usually on a developer's
+	// machine or in CI. Without this the health watch would have been wired to a signal that
+	// never arrives, which is the defect the whole observability pass exists to remove.
+	if observabilitySvc != nil && releaseServices != nil {
+		go watchPublishedReleases(ctx, observabilitySvc, releaseServices, repositoryRoot(ctx), cfg.Observability)
+	}
+
 	// Print startup message
 	fmt.Printf("Starting Relicta dashboard server on %s\n", address)
 	fmt.Printf("Press Ctrl+C to stop\n\n")
@@ -260,10 +271,29 @@ func buildObservabilityService(appConfig *config.Config, app *container.App) (ha
 		return nil, nil
 	}
 
-	// The recorder is left nil here: `relicta server` reports what the monitor sees, and the
-	// release path is what records outcomes. auto_record decides whether the monitor writes
-	// at all, inside WithHealthMonitor.
-	return svc.WithHealthMonitor(appConfig.Observability, nil), nil
+	// The recorder writes a measured failure into the governance memory as an incident
+	// against the release. Passing nil here would have made `auto_record` a setting that
+	// gates nothing — the exact shape this work exists to remove — since WithHealthMonitor
+	// only ever clears a recorder it was given.
+	//
+	// nil when there is no governance memory to write to: the monitor then keeps observing
+	// and reporting, and the dashboard shows health that nothing records.
+	recorder := observability.NewOutcomeRecorder(store, governanceRepository(appConfig, app))
+	return svc.WithHealthMonitor(appConfig.Observability, recorder), nil
+}
+
+// governanceRepository names the repository incidents are filed under, so a health incident
+// and the release it belongs to end up under one name.
+func governanceRepository(appConfig *config.Config, app *container.App) string {
+	if app != nil {
+		if info, err := app.GitAdapter().GetInfo(context.Background()); err == nil {
+			return info.GovernanceID()
+		}
+	}
+	if appConfig != nil {
+		return appConfig.Changelog.RepositoryURL
+	}
+	return ""
 }
 
 // startHealthWatch begins monitoring a release the server just heard about.
@@ -285,5 +315,98 @@ func startHealthWatch(svc handlers.ObservabilityService, event release.DomainEve
 
 	if err := watcher.StartWatch(context.Background(), string(published.RunID)); err != nil {
 		slog.Warn("health watch not started", "release_id", published.RunID, "error", err)
+	}
+}
+
+// watchPublishedReleases starts a health watch for releases published recently, wherever they
+// were published from.
+//
+// Polls rather than subscribes because the publish happens in another process: `relicta
+// publish` writes the run to the store this server reads. The poll is cheap — a state query
+// against runs the server already has open — and the alternative is a health watch that only
+// covers releases published inside the dashboard, which publishes none.
+//
+// Only releases published within the monitoring window are picked up. Watching a release from
+// last week would attribute today's metrics to it, which is the wrong-data failure one level
+// along from the one ADR-016 is about.
+func watchPublishedReleases(
+	ctx context.Context,
+	svc handlers.ObservabilityService,
+	services *release.Services,
+	repoRoot string,
+	cfg config.ObservabilityConfig,
+) {
+	watcher, ok := svc.(interface {
+		StartWatch(context.Context, string) error
+	})
+	if !ok || services == nil || services.Repository == nil {
+		return
+	}
+
+	window := cfg.HealthCheck.Window
+	if window <= 0 {
+		window = 30 * time.Minute
+	}
+
+	// Every interval, not every publish: a release published while the server was down is
+	// still worth watching if it is inside the window.
+	interval := time.Minute
+	if interval > window {
+		interval = window
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	watched := make(map[string]struct{})
+
+	// Once before the first tick. A release published moments before the server started is
+	// the most likely one to want watching, and waiting a full interval can age it out of the
+	// window entirely — with a short window, every release would be missed.
+	pickUpPublishedReleases(ctx, watcher, services, repoRoot, window, watched)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pickUpPublishedReleases(ctx, watcher, services, repoRoot, window, watched)
+		}
+	}
+}
+
+// pickUpPublishedReleases starts a watch for each release published inside the window that is
+// not already being watched.
+func pickUpPublishedReleases(
+	ctx context.Context,
+	watcher interface {
+		StartWatch(context.Context, string) error
+	},
+	services *release.Services,
+	repoRoot string,
+	window time.Duration,
+	watched map[string]struct{},
+) {
+	runs, err := services.Repository.FindByState(ctx, repoRoot, release.StatePublished)
+	if err != nil {
+		slog.Debug("could not list published releases to watch", "error", err)
+		return
+	}
+
+	for _, run := range runs {
+		id := string(run.ID())
+		publishedAt := run.PublishedAt()
+		if publishedAt == nil || time.Since(*publishedAt) > window {
+			continue
+		}
+		if _, already := watched[id]; already {
+			continue
+		}
+		watched[id] = struct{}{}
+		if err := watcher.StartWatch(ctx, id); err != nil {
+			slog.Debug("health watch not started", "release_id", id, "error", err)
+		} else {
+			slog.Info("watching published release", "release_id", id)
+		}
 	}
 }

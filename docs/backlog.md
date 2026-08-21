@@ -493,6 +493,13 @@ A repository with no providers still gets **no service**, so the routes keep rep
 `not_configured`: the distinction between "nobody is watching" and "everything is healthy" is
 the whole point.
 
+Two gaps closed straight after, both the same shape as the rest: `auto_record` gated a recorder
+that was nil, so it did nothing either way; and the watch was started from a domain-event
+subscription the server can never receive, because the dashboard publishes nothing and
+`relicta publish` runs in another process. The recorder now writes a measured failure as an
+incident against the release, and the server picks up releases published inside the window from
+the store the CLI writes to.
+
 Left for later: correlation reads only the incidents this process has heard through the webhook,
 so a restart forgets them. Persisting incidents is its own decision — where they live, and for
 how long.
