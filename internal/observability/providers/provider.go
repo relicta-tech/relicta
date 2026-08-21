@@ -189,6 +189,12 @@ func (r *Registry) HealthCheckAll(ctx context.Context) []ProviderStatus {
 			LastChecked: &now,
 		}
 
+		// A status about connectivity that does not say where it tried to connect is most of
+		// an answer. Optional, so a provider that has no single endpoint simply omits it.
+		if addressable, ok := p.(interface{ Endpoint() string }); ok {
+			status.Endpoint = addressable.Endpoint()
+		}
+
 		if err := p.HealthCheck(ctx); err != nil {
 			status.Healthy = false
 			status.Error = err.Error()

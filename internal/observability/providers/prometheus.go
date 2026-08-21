@@ -63,6 +63,12 @@ func WithHTTPClient(c *http.Client) PrometheusOption {
 }
 
 // Name returns the provider type identifier.
+// Endpoint is where this provider points, reported alongside its health so a failed check
+// names the address it failed on.
+func (p *PrometheusProvider) Endpoint() string {
+	return p.endpoint
+}
+
 func (p *PrometheusProvider) Name() string {
 	return "prometheus"
 }

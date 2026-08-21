@@ -23,6 +23,7 @@ ADRs document significant architectural decisions made during the development of
 | [ADR-013](013-one-store-behind-a-backend.md) | One Store Behind a Backend, and SQLite Is the Shape of It | Accepted | 2026-08 |
 | [ADR-014](014-the-audit-chain-is-appended-not-derived.md) | The Audit Chain Is Appended, Not Derived | Accepted | 2026-08 |
 | [ADR-015](015-per-package-versioning-is-independent-only.md) | Per-Package Versioning Is Independent Only | Accepted | 2026-08 |
+| [ADR-016](016-no-data-beats-wrong-data.md) | No Data Beats Wrong Data | Accepted | 2026-08 |
 
 > **ADR-001 to ADR-006 have no document.** The decisions were made and are
 > implemented, but the records were never committed — the index linked to six

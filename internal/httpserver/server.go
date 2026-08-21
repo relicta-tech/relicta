@@ -39,6 +39,13 @@ type ServerDeps struct {
 	Config          config.DashboardConfig
 	Frontend        fs.FS             // Embedded frontend files (nil for API-only mode)
 	ReleaseServices *release.Services // Release domain services (optional)
+	// Observability is the assembled observability subsystem, or nil when the repository
+	// configured no providers.
+	//
+	// nil is meaningful and must stay nil: the handlers report `not_configured` for it,
+	// which is what distinguishes "nobody is watching" from "everything is healthy". They
+	// used to receive nil always, because nothing ever called SetObservabilityService.
+	Observability handlers.ObservabilityService
 }
 
 // NewServer creates a new HTTP server for the dashboard.
@@ -48,6 +55,13 @@ func NewServer(deps ServerDeps) *Server {
 		wsHub:    httpws.NewHub(deps.Config.CORSOrigins),
 		sseHub:   handlers.NewSSEHub(256),
 		frontend: deps.Frontend,
+	}
+
+	// Install the observability subsystem, when there is one. Package-level state on the
+	// handlers, which is what their SetObservabilityService takes; nil leaves them reporting
+	// that nothing is configured.
+	if deps.Observability != nil {
+		handlers.SetObservabilityService(deps.Observability)
 	}
 
 	// Create token service for session or OIDC authentication.

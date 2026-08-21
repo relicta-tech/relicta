@@ -11,10 +11,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
 	"github.com/relicta-tech/relicta/v4/internal/config"
 	"github.com/relicta-tech/relicta/v4/internal/container"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release"
 	"github.com/relicta-tech/relicta/v4/internal/httpserver"
+	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
+	"github.com/relicta-tech/relicta/v4/internal/observability"
 )
 
 var (
@@ -112,11 +115,20 @@ func runServe(cmd *cobra.Command, args []string) error {
 		frontend = embeddedFrontend
 	}
 
+	// Build the observability subsystem from the repository's configuration. nil when no
+	// provider is configured, which the handlers report as `not_configured` rather than
+	// answering from an empty subsystem that reads as a healthy one.
+	observabilitySvc, obsErr := buildObservabilityService(cfg, app)
+	if obsErr != nil {
+		return obsErr
+	}
+
 	// Create server
 	server := httpserver.NewServer(httpserver.ServerDeps{
 		Config:          dashboardCfg,
 		Frontend:        frontend,
 		ReleaseServices: releaseServices,
+		Observability:   observabilitySvc,
 	})
 
 	// Wire up WebSocket event broadcasting
@@ -125,6 +137,13 @@ func runServe(cmd *cobra.Command, args []string) error {
 		app.SubscribeToEvents(func(event release.DomainEvent) {
 			// Broadcast events asynchronously to WebSocket clients
 			broadcaster.PublishAsync(context.Background(), event)
+
+			// Start the health watch here rather than in the release path. A window is
+			// minutes or hours long and `relicta publish` exits in seconds, so a watch
+			// started there would be killed before it observed anything — and a watch that
+			// dies silently is worse than none, because the dashboard shows a release being
+			// monitored that nobody is monitoring.
+			startHealthWatch(observabilitySvc, event)
 		})
 		slog.Debug("WebSocket event broadcasting enabled")
 	}
@@ -209,4 +228,62 @@ func resolveDisplayAddress(addr string) string {
 		return "localhost" + addr
 	}
 	return addr
+}
+
+// buildObservabilityService assembles the observability subsystem the configuration describes.
+//
+// Returns a nil interface when no provider is configured. That nil has to survive the trip
+// into ServerDeps: a typed nil pointer wrapped in an interface is not nil, and the handlers
+// would then answer from a subsystem with no providers — reporting nothing wrong because it is
+// asking nobody, which is the one outcome this whole area is meant to avoid.
+//
+// A misconfigured provider is a startup error rather than a warning. Serving a dashboard whose
+// health panel is blank because a provider name was misspelled is worse than not starting.
+func buildObservabilityService(appConfig *config.Config, app *container.App) (handlers.ObservabilityService, error) {
+	if appConfig == nil {
+		return nil, nil
+	}
+
+	// Correlation needs the governance memory to know which releases an incident could
+	// belong to. Without it the engine is left nil and correlations come back empty, which
+	// the route already distinguishes from "no correlations found".
+	var store cgpmemory.Store
+	if app != nil && app.HasMemory() {
+		store = app.MemoryStore()
+	}
+
+	svc, err := observability.NewService(appConfig.Observability, store)
+	if err != nil {
+		return nil, fmt.Errorf("observability: %w", err)
+	}
+	if svc == nil {
+		return nil, nil
+	}
+
+	// The recorder is left nil here: `relicta server` reports what the monitor sees, and the
+	// release path is what records outcomes. auto_record decides whether the monitor writes
+	// at all, inside WithHealthMonitor.
+	return svc.WithHealthMonitor(appConfig.Observability, nil), nil
+}
+
+// startHealthWatch begins monitoring a release the server just heard about.
+//
+// Only for a published release: a plan or an approval has not been deployed, and watching one
+// would attribute whatever the metrics show to a release that has not shipped.
+func startHealthWatch(svc handlers.ObservabilityService, event release.DomainEvent) {
+	watcher, ok := svc.(interface {
+		StartWatch(context.Context, string) error
+	})
+	if !ok || watcher == nil {
+		return
+	}
+
+	published, ok := event.(*release.RunPublishedEvent)
+	if !ok {
+		return
+	}
+
+	if err := watcher.StartWatch(context.Background(), string(published.RunID)); err != nil {
+		slog.Warn("health watch not started", "release_id", published.RunID, "error", err)
+	}
 }
