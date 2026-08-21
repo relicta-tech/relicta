@@ -104,6 +104,13 @@ func handleChangelogUpdate(rel *release.ReleaseRun) {
 		return
 	}
 
+	// monorepo.changelog.root_changelog defaults to true and was read by nothing, so it was
+	// accidentally right when set and silently ignored when cleared: a project that asked for
+	// per-package changelogs only still got a repository-wide one written on every release.
+	if cfg.Monorepo.Enabled && !cfg.Monorepo.Changelog.RootChangelog {
+		return
+	}
+
 	entry := changelogEntryFor(rel)
 	if changelogAlreadyContains(cfg.Changelog.File, entry) {
 		printInfo(fmt.Sprintf("%s already describes this release", cfg.Changelog.File))

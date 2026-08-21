@@ -955,9 +955,11 @@ func TestMonorepoConfig_Defaults(t *testing.T) {
 		t.Errorf("Monorepo.Strategy = %v, want %v", cfg.Monorepo.Strategy, MonorepoStrategyIndependent)
 	}
 
-	// Dependency coordination should be enabled by default
-	if !cfg.Monorepo.DependencyCoordination {
-		t.Error("Monorepo.DependencyCoordination should be true by default")
+	// Both default off because neither is implemented; see validateMonorepo.
+	if cfg.Monorepo.DependencyCoordination {
+		t.Error("Monorepo.DependencyCoordination should be false by default: nothing performs " +
+			"the coordination, and a default that asks for an unimplemented feature is the " +
+			"same lie as a setting nothing reads")
 	}
 
 	// Changelog settings
@@ -970,8 +972,10 @@ func TestMonorepoConfig_Defaults(t *testing.T) {
 	if cfg.Monorepo.Changelog.Format != "conventional" {
 		t.Errorf("Monorepo.Changelog.Format = %v, want conventional", cfg.Monorepo.Changelog.Format)
 	}
-	if !cfg.Monorepo.Changelog.IncludePackageLinks {
-		t.Error("Monorepo.Changelog.IncludePackageLinks should be true by default")
+	if cfg.Monorepo.Changelog.IncludePackageLinks {
+		t.Error("Monorepo.Changelog.IncludePackageLinks should be false by default: package " +
+			"links are not implemented, and defaulting them on would fail the validation that " +
+			"says so on every monorepo config")
 	}
 }
 

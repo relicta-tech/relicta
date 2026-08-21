@@ -466,6 +466,34 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: the monorepo settings that still did nothing
+
+Found by the config-field sweep — extract every `mapstructure` tag, count production readers of
+its Go field outside `internal/config`, `internal/ui/wizard` and `internal/cli/templates`, read
+what is left. 57 fields have no reader; most belong to entries already here or to plugin blocks
+external repositories read. Six were in the monorepo section this session had just built around,
+which makes them the worst kind: a feature that works, beside settings for it that do not.
+
+Honored:
+
+- **`package_overrides.<path>.skip_versioning`** — the package is now excluded from everything,
+  not just versioning. A package relicta does not version has no version to tag and no release
+  to describe, so tagging it or writing it a changelog would claim a release nobody asked for.
+  Applied at discovery so every later step sees one list; a filter applied per step is one a
+  step will eventually forget.
+- **`changelog.root_changelog: false`** — now stops the repository-wide changelog. It defaulted
+  to true and was read by nothing, so it was accidentally right when set and silently ignored
+  when cleared.
+
+Refused, because nothing implements them: `version_files` (only when customized — its default
+agrees with what the writers detect), `dependency_coordination`, `changelog.include_package_links`,
+and `package_overrides.<path>.version_file` / `version_field`.
+
+**Two of those defaulted to on**, which is the trap this pass nearly walked into: refusing a
+setting whose default asks for it fails every configuration in existence. `dependency_coordination`
+and `include_package_links` now default off. A default that asks for a feature nothing performs is
+the same lie as a setting nothing reads, and a louder one.
+
 ## DONE: three AI settings that nothing read
 
 Found by counting production callers of the `With*` option constructors: 33 of 90 have none.

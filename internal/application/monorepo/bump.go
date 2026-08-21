@@ -70,6 +70,13 @@ type PlanInput struct {
 	// TagPrefixes are the per-package tag prefixes from
 	// monorepo.package_overrides.<path>.tag_prefix, keyed by the path as configured.
 	TagPrefixes map[string]string
+	// Skip lists packages that monorepo.package_overrides.<path>.skip_versioning excludes,
+	// keyed the same way.
+	//
+	// Excluded from everything, not just the version: a package relicta does not version has
+	// no version to tag and no release to describe, so tagging or writing a changelog for it
+	// would claim a release nobody asked for.
+	Skip map[string]bool
 	// FromRef is the base of the commit range; empty means all history.
 	FromRef string
 	// ToRef is its head; empty means HEAD.
@@ -124,6 +131,7 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 		return nil, fmt.Errorf("no packages matched monorepo.package_paths %v under %s",
 			input.PackagePaths, input.RepoRoot)
 	}
+	packages = withoutSkipped(packages, input)
 	// Discovery reports repository-relative paths; everything downstream opens files. The
 	// commit-to-package mapping trims the root back off, so absolute paths are what both
 	// halves can work from.
@@ -213,6 +221,29 @@ func (s *BumpService) Plan(ctx context.Context, input PlanInput) (*BumpPlan, err
 		})
 	}
 	return plan, nil
+}
+
+// withoutSkipped drops the packages skip_versioning excludes.
+//
+// Applied at discovery so that every later step — analysis, writing, tagging, the changelog —
+// sees one list. A filter applied per step is a filter one step will eventually forget.
+func withoutSkipped(packages []*workspace.Package, input PlanInput) []*workspace.Package {
+	if len(input.Skip) == 0 {
+		return packages
+	}
+
+	kept := make([]*workspace.Package, 0, len(packages))
+	for _, pkg := range packages {
+		abs := pkg.Path
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(input.RepoRoot, abs)
+		}
+		if input.Skip[relativeTo(input.RepoRoot, abs)] {
+			continue
+		}
+		kept = append(kept, pkg)
+	}
+	return kept
 }
 
 // groupByBaseRef pairs each package with the ref its commits are counted from: the highest
@@ -355,6 +386,7 @@ func (s *BumpService) ReleaseTags(ctx context.Context, input PlanInput) ([]Packa
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover packages: %w", err)
 	}
+	packages = withoutSkipped(packages, input)
 
 	tags := make([]PackageTag, 0, len(packages))
 	for _, pkg := range packages {
