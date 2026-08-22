@@ -466,6 +466,38 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: git.auth is read, and an unset credential is refused rather than sent
+
+`git.auth` is a complete, documented block — `type`, `token`, `username`, `password`,
+`ssh_key_path`, `ssh_key_password`, each promising environment-variable expansion — and nothing
+read any of it. The service had the mechanism too: `ServiceConfig.AuthToken` becomes an
+`http.BasicAuth` used by every push and remote listing, and `WithAuthToken` / `WithAuthUsername`
+existed to set it with no caller anywhere.
+
+So a repository that configured a token pushed with whatever ambient credential the machine
+happened to have, or failed. The first of those is the dangerous one: it succeeds, as somebody
+else.
+
+Now honored: `auto` (the default, unchanged — the credential helper and SSH agent every
+repository already relies on), `token`, `basic`, and `ssh`, the last via go-git's
+`NewPublicKeysFromFile`, which the service had no path for at all.
+
+**The finding that made this dangerous rather than merely broken:** `config.ExpandEnvVars`
+leaves an unset variable as the literal `${NAME}` — correct for a template, wrong for a
+credential. A config naming an absent variable would have pushed with the text
+`"${GITHUB_TOKEN}"` as its password: a request that fails against a forge, and succeeds against
+anything that accepts any password. An unexpanded placeholder now reads as absent, and absent is
+refused at startup with the setting named.
+
+Refused at startup rather than at push time throughout — a credential problem discovered at push
+is discovered after the tag exists and half the release has happened. Also fixed: `~` in
+`ssh_key_path` was not expanded, so the most natural spelling of the setting failed with "cannot
+be read".
+
+Verified against the shipped binary: the secret never appears in output, an unset variable is
+refused by name, an absent key file and an unknown type each stop startup, and a repository with
+no `git.auth` behaves exactly as before.
+
 ## DONE: the observability integration is wired, on "no data beats wrong data" (ADR-016)
 
 The entry below asked three questions before this could be built — when monitoring starts, what

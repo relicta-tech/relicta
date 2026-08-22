@@ -22,6 +22,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
 	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
 )
@@ -82,17 +83,14 @@ func NewService(opts ...ServiceOption) (*ServiceImpl, error) {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to get worktree")
 	}
 
-	// Initialize authentication if token is provided
-	var auth transport.AuthMethod
-	if cfg.AuthToken != "" {
-		username := cfg.AuthUsername
-		if username == "" {
-			username = "git" // Default for GitHub token auth
-		}
-		auth = &http.BasicAuth{
-			Username: username,
-			Password: cfg.AuthToken,
-		}
+	// Authentication, when the caller configured any.
+	//
+	// Nothing configured means nothing here: pushes then rely on the ambient credential
+	// helper or SSH agent, which is what `git.auth.type: auto` means and what every
+	// repository got before git.auth was read at all.
+	auth, err := authMethod(cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	return &ServiceImpl{
@@ -732,6 +730,41 @@ func (s *ServiceImpl) DeleteTag(_ context.Context, name string) error {
 }
 
 // PushTag pushes a tag to the remote.
+// authMethod builds the credential the configuration asks for.
+//
+// A key that cannot be read is an error rather than a fallback to ambient credentials. Falling
+// back would mean a repository that configured a deploy key pushing as whoever the machine
+// happens to be — which may succeed, and is not what was asked for.
+func authMethod(cfg ServiceConfig) (transport.AuthMethod, error) {
+	if cfg.SSHKeyPath != "" {
+		user := cfg.SSHUser
+		if user == "" {
+			user = "git" // every hosted forge
+		}
+		keys, err := gitssh.NewPublicKeysFromFile(user, cfg.SSHKeyPath, cfg.SSHKeyPassphrase)
+		if err != nil {
+			// The passphrase is not in the message, and neither is the key: the path is
+			// what the operator needs to fix, and an error string reaches logs.
+			return nil, rperrors.GitWrap(err, "git.NewService",
+				fmt.Sprintf("failed to load the SSH key at %s", cfg.SSHKeyPath))
+		}
+		return keys, nil
+	}
+
+	if cfg.AuthToken != "" {
+		username := cfg.AuthUsername
+		if username == "" {
+			username = "git" // Default for GitHub token auth
+		}
+		return &http.BasicAuth{
+			Username: username,
+			Password: cfg.AuthToken,
+		}, nil
+	}
+
+	return nil, nil
+}
+
 func (s *ServiceImpl) PushTag(ctx context.Context, name string, opts PushOptions) error {
 	const op = "git.PushTag"
 
