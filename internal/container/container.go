@@ -208,6 +208,15 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	if c.repoPath != "" {
 		gitOpts = append(gitOpts, git.WithRepoPath(c.repoPath))
 	}
+
+	// git.auth, which nothing read until now. A repository that configured a token pushed
+	// with whatever ambient credential the machine had, or failed — and the first of those
+	// succeeds as the wrong identity.
+	authOpts, authErr := gitAuthOptions(c.config.Git.Auth)
+	if authErr != nil {
+		return errors.GitWrap(authErr, "initInfrastructure", "git authentication is misconfigured")
+	}
+	gitOpts = append(gitOpts, authOpts...)
 	c.gitService, err = git.NewService(gitOpts...)
 	if err != nil {
 		return errors.GitWrap(err, "initInfrastructure", "failed to initialize git service")

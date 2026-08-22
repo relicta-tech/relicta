@@ -255,6 +255,19 @@ type GitConfig struct {
 	Auth GitAuthConfig `mapstructure:"auth" json:"auth,omitempty"`
 }
 
+// The git.auth.type values, spelled once so the reader and the validator cannot disagree.
+const (
+	// GitAuthAuto uses whatever the machine is already set up with — a credential helper or
+	// an SSH agent. The default, and what every repository had before git.auth was read.
+	GitAuthAuto = "auto"
+	// GitAuthToken uses a personal access token over HTTPS.
+	GitAuthToken = "token"
+	// GitAuthSSH uses a private key.
+	GitAuthSSH = "ssh"
+	// GitAuthBasic uses a username and password over HTTPS.
+	GitAuthBasic = "basic"
+)
+
 // GitAuthConfig configures git authentication.
 type GitAuthConfig struct {
 	// Type is the authentication type: "auto" (default), "token", "ssh", "basic".

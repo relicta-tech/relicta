@@ -248,6 +248,12 @@ type ServiceConfig struct {
 	// AuthToken is an optional authentication token for HTTPS push.
 	// When set, this is used instead of relying on credential helpers.
 	AuthToken string
+	// SSHKeyPath is the private key to authenticate with, for an SSH remote.
+	SSHKeyPath string
+	// SSHKeyPassphrase decrypts that key. Empty for an unencrypted one.
+	SSHKeyPassphrase string
+	// SSHUser is the SSH login, "git" for every hosted forge.
+	SSHUser string
 	// AuthUsername is the username for token auth (default: "git" for GitHub).
 	AuthUsername string
 }
@@ -299,6 +305,18 @@ func WithCLIFallback(enabled bool) ServiceOption {
 func WithAuthToken(token string) ServiceOption {
 	return func(cfg *ServiceConfig) {
 		cfg.AuthToken = token
+	}
+}
+
+// WithSSHKey authenticates with a private key, for an `ssh://` or `git@` remote.
+//
+// The passphrase is a value, not a path: callers read it from the environment. Nothing here
+// prompts, because a release runs where there is nobody to prompt.
+func WithSSHKey(path, passphrase, user string) ServiceOption {
+	return func(cfg *ServiceConfig) {
+		cfg.SSHKeyPath = path
+		cfg.SSHKeyPassphrase = passphrase
+		cfg.SSHUser = user
 	}
 }
 
