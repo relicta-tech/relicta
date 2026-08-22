@@ -90,6 +90,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validatePersistence(cfg.Persistence)
 	v.validateMonorepo(cfg.Monorepo)
 	v.validateTelemetry(cfg.Telemetry)
+	v.validateAttestation(cfg.Attestation)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -217,6 +218,49 @@ func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 				"implemented yet — the manifest in the package's own directory is what carries "+
 				"its version. tag_prefix, changelog_file and skip_versioning are honored", path)
 		}
+	}
+}
+
+// validateAttestation checks the signing configuration before a release starts.
+//
+// Every problem here used to surface during publish, from inside the attestation step: keyless
+// mode fails with "keyless signing requires sigstore-go", and local mode with no key fails with
+// "key_path is required". By then the tag exists and the release is half done — and unless
+// attestation.required is set the failure is a warning, so the operator gets a release with no
+// attestation and a line of log saying why.
+//
+// Startup is where a configuration problem belongs. `attestation.enabled` gates all of it: a
+// repository that has not asked for attestations is not told about signing modes.
+func (v *Validator) validateAttestation(cfg AttestationConfig) {
+	if !cfg.Enabled {
+		return
+	}
+
+	switch cfg.SigningMode {
+	case "", "none":
+		// Unsigned attestations: a provenance record without a signature is still a record,
+		// and this is the default.
+
+	case "local":
+		if cfg.KeyPath == "" {
+			v.errors.Addf("attestation.key_path: required when signing_mode is \"local\" — " +
+				"without it signing fails partway through publish, after the tag exists")
+		}
+
+	case "keyless":
+		v.errors.Addf("attestation.signing_mode: \"keyless\" is not implemented — it needs " +
+			"sigstore-go, and signing fails partway through publish today. Use \"local\" with " +
+			"a key_path, or \"none\" for an unsigned attestation")
+
+	default:
+		v.errors.Addf("attestation.signing_mode: must be \"keyless\", \"local\" or \"none\", got %q",
+			cfg.SigningMode)
+	}
+
+	// The Sigstore endpoints only mean anything to the mode that is not implemented.
+	if cfg.RekorURL != "" || cfg.FulcioURL != "" {
+		v.errors.Warnf("attestation.rekor_url and fulcio_url configure keyless signing, which " +
+			"is not implemented; they are read by nothing")
 	}
 }
 
