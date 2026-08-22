@@ -466,6 +466,20 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## Five packages nothing imports — one settled, five to go
+
+**`cgp/autoapproval` is deleted (ADR-017).** It was not merely unreached: it was a second
+implementation of the decision the evaluator already makes, with its own risk bands, its own
+policy type, its own exemptions and actor rules, and its own YAML config that no configuration
+file could reach. The wired path covers every one of those — the ADR maps them feature by
+feature — and relicta already has a policy language in the DSL loaded from `policy_dir`. Wiring
+the second one would have put two policy languages in one governance tool, and two things able
+to auto-approve a release with no defined precedence.
+
+The test it sets for the remaining five: **does something already own this job?** Where the
+answer is yes, the unreached copy goes. Where it is no, the question is whether the feature is a
+commitment — which is how monorepo versioning was decided in ADR-015.
+
 ## Six packages nothing imports — 3,606 lines, and each needs the same decision
 
 The config sweep is closed, so the same technique went to the next dimension: exported symbols
@@ -482,7 +496,7 @@ Six are not explained, and every one is a feature:
 
 | package | production | tests | what it is |
 |---|---|---|---|
-| `cgp/autoapproval` | 1,107 | 1,091 | thresholds, policies, exemptions, actor rules, its own audit config |
+| ~~`cgp/autoapproval`~~ | ~~1,107~~ | ~~1,091~~ | **deleted, ADR-017** — a second implementation of a decision the evaluator already makes |
 | `cgp/ciapproval` | 873 | 1,277 | approval for non-interactive CI environments |
 | `application/supplychain` | 552 | 750 | dependency change analysis and governance |
 | `cgp/approval` | 493 | 579 | interactive human-in-the-loop gates with rationale capture |
