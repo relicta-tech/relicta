@@ -793,6 +793,7 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 	// and the attestation then reports an empty chain because there is one.
 	publisher := NewPublisherAdapter(c.pluginExecutor, c.gitAdapter, c.tagCreator,
 		WithPushTags(c.config.Versioning.GitPush),
+		WithRemote(c.config.Git.DefaultRemote),
 		WithTagging(c.config.Versioning.GitTag),
 		WithPackageTags(c.packageTagResolver(repoRoot)),
 		WithAttestationConfig(&c.config.Attestation),

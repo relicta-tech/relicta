@@ -167,3 +167,55 @@ func TestPublisher_TaggingDisabledSkipsPackageTagsToo(t *testing.T) {
 		t.Errorf("created %v with tagging disabled; --skip-tag has to mean every tag", tags.created)
 	}
 }
+
+// git.default_remote had no reader, so every push went to "origin" — the usual name, and not
+// always the name. A repository whose publishing remote is "upstream" or "release" had the
+// setting to say so, and the push went somewhere else or nowhere.
+func TestTagsArePushedToTheConfiguredRemote(t *testing.T) {
+	tags := &recordingRemoteTagCreator{}
+	publisher := NewPublisherAdapter(nil, nil, tags,
+		WithTagging(true), WithPushTags(true), WithRemote("upstream"))
+
+	if _, err := publisher.executeTagStep(context.Background(), tagStepRun(t)); err != nil {
+		t.Fatalf("executeTagStep: %v", err)
+	}
+
+	if len(tags.remotes) != 1 || tags.remotes[0] != "upstream" {
+		t.Errorf("pushed to %v, want upstream", tags.remotes)
+	}
+}
+
+// Unset keeps the conventional default, so nothing changes for the repositories that never
+// configured one — which is all of them, since nothing read the setting.
+func TestAnUnsetRemoteStaysOrigin(t *testing.T) {
+	tags := &recordingRemoteTagCreator{}
+	publisher := NewPublisherAdapter(nil, nil, tags, WithTagging(true), WithPushTags(true))
+
+	if _, err := publisher.executeTagStep(context.Background(), tagStepRun(t)); err != nil {
+		t.Fatalf("executeTagStep: %v", err)
+	}
+
+	if len(tags.remotes) != 1 || tags.remotes[0] != "origin" {
+		t.Errorf("pushed to %v, want origin", tags.remotes)
+	}
+}
+
+// recordingRemoteTagCreator records which remote each push named.
+type recordingRemoteTagCreator struct {
+	created []string
+	remotes []string
+}
+
+func (r *recordingRemoteTagCreator) CreateTag(_ context.Context, name, _ string) error {
+	r.created = append(r.created, name)
+	return nil
+}
+
+func (r *recordingRemoteTagCreator) PushTag(_ context.Context, _, remote string) error {
+	r.remotes = append(r.remotes, remote)
+	return nil
+}
+
+func (r *recordingRemoteTagCreator) TagExists(context.Context, string) (bool, error) {
+	return false, nil
+}
