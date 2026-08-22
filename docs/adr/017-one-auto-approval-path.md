@@ -72,3 +72,33 @@ backlog and each needs its own decision. This ADR settles one of them, and the t
 sets for the rest is the same: **does something already own this job?** Where the answer
 is yes, the unreached copy goes; where it is no, the question is whether the feature is a
 commitment, which is how monorepo versioning was decided in ADR-015.
+
+## Amendment: `cgp/ciapproval` follows, once the job had an owner (2026-08-22)
+
+`internal/cgp/ciapproval` — 873 lines of production code, 1,277 of tests, imported by
+nothing — is CI-safe approval, configured entirely through `RELICTA_*` environment
+variables. Put to the test this ADR sets, most of it was owned already:
+
+| what it offered | what already does it |
+|---|---|
+| `Enabled`, `AutoApprove` | `relicta approve --ci` / `--yes`, `workflow.require_approval`, and the evaluator's auto-approve |
+| `MaxAutoApproveRisk` | the evaluator's own `MaxAutoApproveRisk`, applied to agent actors |
+| `BlockBreaking`, `BlockSecurity` | `RequireHumanForBreaking`, `RequireHumanForSecurity` |
+| `AllowedBumpTypes` | breaking changes already require a human, which is the case that matters |
+| `RequireCleanCI` | `workflow.require_clean_working_tree`, enforced before any release changes anything |
+| configuration through `RELICTA_*` | viper's `SetEnvPrefix("RELICTA")` with `AutomaticEnv` — every config key already has an environment override |
+| `ApprovalTimeout` | nothing, and nothing needs it: no non-interactive path waits |
+
+One did not. **Branch restriction was implemented only here** — and
+`workflow.allowed_branches`, the documented setting for it, was validated, defaulted, and
+enforced by nothing. A repository restricting releases to `main` could release from any
+branch.
+
+So the order mattered: the job got an owner first. `enforceAllowedBranch` now sits with the
+other pre-publish gates, reading `workflow.allowed_branches` and refusing a release from a
+branch it does not list. Then the duplicate went.
+
+That setting had also hidden from the unread-configuration sweep, because the MCP server
+assigns to the field and a write counts as a use. Two dimensions of that sweep have now each
+produced one finding the other could not see — which is the argument for running both rather
+than trusting either.

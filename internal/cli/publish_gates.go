@@ -2,6 +2,12 @@ package cli
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"path"
+	"strings"
+
+	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
 )
 
 // Two commands in this CLI create a tag: `relicta publish` and `relicta release`. Everything a
@@ -54,11 +60,76 @@ func enforcePrePublishGates(ctx context.Context, riskScore float64) error {
 		return err
 	}
 
+	if err := enforceAllowedBranch(ctx); err != nil {
+		return err
+	}
+
 	if err := enforceCleanWorkingTree(ctx); err != nil {
 		return err
 	}
 
 	return enforceUpToDate(ctx)
+}
+
+// enforceAllowedBranch refuses a release from a branch workflow.allowed_branches does not list.
+//
+// The setting was validated, defaulted, and enforced by nothing: a repository restricting
+// releases to main could release from anywhere. It hid from the unread-configuration sweep
+// because the MCP server assigns to the field — a write counts as a use — and the only other
+// implementation of the check lived in a package nothing imports.
+//
+// An empty list means no restriction, which is the default and what every repository has today.
+// The gate is placed before the clean-tree check because being on the wrong branch is the
+// cheaper thing to discover: nothing has to be read from the working tree to know it.
+func enforceAllowedBranch(ctx context.Context) error {
+	if cfg == nil || len(cfg.Workflow.AllowedBranches) == 0 {
+		return nil
+	}
+
+	svc, err := gitservice.NewService()
+	if err != nil {
+		return fmt.Errorf("could not open the repository, and workflow.allowed_branches "+
+			"requires knowing the branch: %w", err)
+	}
+
+	branch, err := svc.GetCurrentBranch(ctx)
+	if err != nil {
+		// Unknown is not permission: this gate exists to stop a release from the wrong place,
+		// and "I could not tell" is not "it is fine" — the same rule the clean-tree gate uses.
+		return fmt.Errorf("could not determine the current branch, and "+
+			"workflow.allowed_branches requires it: %w", err)
+	}
+
+	if branchIsAllowed(cfg.Workflow.AllowedBranches, branch) {
+		return nil
+	}
+
+	return errors.New(branchRefusal(cfg.Workflow.AllowedBranches, branch))
+}
+
+// branchIsAllowed reports whether a branch matches the configured list.
+//
+// Patterns are globs, so `release/*` covers `release/1.0` — and does not cover
+// `release/1.0/hotfix`, because path.Match stops at a separator. That is the same rule git
+// refspecs use, and the alternative would let one pattern quietly widen.
+func branchIsAllowed(allowed []string, branch string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	for _, pattern := range allowed {
+		if matched, err := path.Match(pattern, branch); err == nil && matched {
+			return true
+		}
+	}
+	return false
+}
+
+// branchRefusal is what the operator reads: the setting, the branch they are on, and the two
+// ways forward.
+func branchRefusal(allowed []string, branch string) string {
+	return fmt.Sprintf("releases are restricted to %s by workflow.allowed_branches, and this is "+
+		"%q. Switch branches, or add this one to the list",
+		strings.Join(allowed, ", "), branch)
 }
 
 // prepareReleaseForPublish runs the pre-release hook and then writes and commits the release
