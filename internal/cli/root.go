@@ -634,7 +634,10 @@ This command performs all the release actions including:
 // Errors are exempt. printError already writes to stderr, which is the right
 // place for diagnostics whether or not stdout is machine-readable.
 func humanOutputSuppressed() bool {
-	return outputJSON
+	// output.quiet, which had no reader: a repository that asked for quiet output got the
+	// full chrome on every command. Warnings and errors are exempt — they go to stderr and
+	// they are diagnostics, which is not what "non-essential output" means.
+	return outputJSON || (cfg != nil && cfg.Output.Quiet)
 }
 
 func printSuccess(msg string) {

@@ -178,6 +178,16 @@ func (l *Loader) setDefaults() {
 	l.v.SetDefault("persistence.migration_mode", defaults.Persistence.MigrationMode)
 	l.v.SetDefault("persistence.file_path", defaults.Persistence.FilePath)
 
+	// Blast-radius defaults, per key for the same reason: a config naming only package_paths
+	// must still inherit the shared directories and the dev-dependency rule.
+	l.v.SetDefault("blast_radius.enabled", defaults.BlastRadius.Enabled)
+	l.v.SetDefault("blast_radius.shared_dirs", defaults.BlastRadius.SharedDirs)
+	l.v.SetDefault("blast_radius.include_transitive", defaults.BlastRadius.IncludeTransitive)
+	l.v.SetDefault("blast_radius.calculate_risk", defaults.BlastRadius.CalculateRisk)
+	l.v.SetDefault("blast_radius.ignore_dev_dependencies", defaults.BlastRadius.IgnoreDevDependencies)
+	l.v.SetDefault("blast_radius.root_package", defaults.BlastRadius.RootPackage)
+	l.v.SetDefault("blast_radius.max_transitive_depth", defaults.BlastRadius.MaxTransitiveDepth)
+
 	// Monorepo defaults, per key for the same reason persistence's are: a config naming only
 	// enabled and package_paths must still inherit the strategy and the changelog settings.
 	// Without these, `monorepo: {enabled: true, package_paths: [...]}` loaded with an empty

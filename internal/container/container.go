@@ -33,6 +33,7 @@ import (
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
 	"github.com/relicta-tech/relicta/v4/internal/infrastructure/webhook"
 	"github.com/relicta-tech/relicta/v4/internal/plugin"
+	pluginaudit "github.com/relicta-tech/relicta/v4/internal/plugin/audit"
 	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
 )
 
@@ -587,6 +588,20 @@ func customPrompts(cfg config.CustomPrompts) ai.CustomPrompts {
 // If plugins are configured, it uses the plugin.Manager with ExecutorAdapter.
 // Otherwise, it uses an empty in-memory registry.
 func (c *App) initPluginSystem(ctx context.Context) error {
+	// output.plugin_audit_log, which nothing read — so audit.Initialize was never called, the
+	// package's global logger stayed nil, and every audit.LogLoad and audit.LogExecution in
+	// the plugin manager returned nil without writing anything.
+	//
+	// For a governance tool that is worse than an unread setting: plugin loads and executions
+	// are exactly the events an audit trail exists for, the calls to record them were already
+	// in place, and the record was empty.
+	if path := c.config.Output.PluginAuditLog; path != "" {
+		if err := pluginaudit.Initialize(path); err != nil {
+			return errors.Wrap(err, errors.KindConfig, "initPluginSystem",
+				"failed to open the plugin audit log")
+		}
+	}
+
 	// If no plugins configured, use empty in-memory implementation
 	if len(c.config.Plugins) == 0 {
 		c.pluginRegistry = integration.NewInMemoryPluginRegistry()
@@ -647,7 +662,7 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	}
 	c.blastService = blast.NewService(
 		blast.WithRepoPath(blastPath),
-		blast.WithMonorepoConfig(blast.DefaultMonorepoConfig()),
+		blast.WithMonorepoConfig(blastConfigFrom(c.config.BlastRadius)),
 	)
 
 	// Initialize Governance service (CGP) if enabled
