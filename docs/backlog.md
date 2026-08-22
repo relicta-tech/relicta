@@ -466,6 +466,36 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE (in part): telemetry is read — metrics are served, tracing says what it cannot do
+
+`telemetry` was a whole section with no reader, and it is two different situations wearing one
+name.
+
+**Metrics were real and unreachable from their own configuration.** `internal/observability`
+has a complete Prometheus implementation and `relicta metrics` serves it — on a port from a
+flag, at a hardcoded `/metrics`, with `telemetry.metrics.port` and `.endpoint` read by nothing.
+A repository that configured an address was scraped at the address it configured, and found
+nothing there. The command now takes its port and path from the configuration, with a typed
+flag still winning, and `telemetry.metrics.enabled` exposes the same handler on the dashboard's
+own port — so a deployment already running the server does not need a second process to be
+scraped. Outside the dashboard's auth, because a Prometheus scrape carries no session, and only
+when asked for, because release counts on an open port is the operator's decision.
+
+**Tracing describes an export nothing performs.** `InitTracer` had no production caller, and
+what it builds is a logging tracer — OTLP is a comment saying it can be added later. So
+`endpoint`, `headers`, `insecure` and `sample_rate` configure a connection no code makes.
+`tracing.enabled` now installs the tracer, so the setting does something, and config validation
+warns that the OTLP settings do not. A warning rather than an error, on the reasoning the
+original monorepo warning used: a project with these set is not misconfigured, it is expecting
+something that has not been built, and refusing to start would take away the tracing it does
+get.
+
+**What OTLP export would need**, when somebody wants it: `go.opentelemetry.io/otel/exporters/
+otlp/otlptracegrpc` as a direct dependency, a real tracer implementation behind the existing
+`Tracer` interface, and a decision about what a release tool should trace — the command, the
+release, or each step — because the answer decides whether the spans are useful or merely
+numerous.
+
 ## DONE: git.auth is read, and an unset credential is refused rather than sent
 
 `git.auth` is a complete, documented block — `type`, `token`, `username`, `password`,

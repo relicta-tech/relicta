@@ -89,6 +89,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validateOutput(cfg.Output)
 	v.validatePersistence(cfg.Persistence)
 	v.validateMonorepo(cfg.Monorepo)
+	v.validateTelemetry(cfg.Telemetry)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -216,6 +217,35 @@ func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 				"implemented yet — the manifest in the package's own directory is what carries "+
 				"its version. tag_prefix, changelog_file and skip_versioning are honored", path)
 		}
+	}
+}
+
+// validateTelemetry reports the telemetry settings that describe an export nothing performs.
+//
+// The whole block was read by nothing. Metrics are now served — `relicta metrics` takes its
+// port and path from here, and the dashboard exposes them when enabled — but tracing has no
+// OTLP exporter behind it: InitTracer builds a logging tracer and says so in a comment, and
+// the endpoint, headers, TLS setting and sample rate describe a connection no code can make.
+//
+// Warnings rather than errors, on the same reasoning as the original monorepo warning: a
+// project with these set is not misconfigured, it is expecting something that does not happen
+// yet, and refusing to start would take away the tracing it does get.
+func (v *Validator) validateTelemetry(cfg TelemetryConfig) {
+	if !cfg.Tracing.Enabled {
+		return
+	}
+
+	if cfg.Tracing.Endpoint != "" {
+		v.errors.Warnf("telemetry.tracing.endpoint: no OTLP exporter is implemented, so spans "+
+			"are written to the log rather than sent to %s. tracing.enabled does install the "+
+			"tracer; the endpoint, headers, insecure and sample_rate settings are not read",
+			cfg.Tracing.Endpoint)
+		return
+	}
+
+	if len(cfg.Tracing.Headers) > 0 || cfg.Tracing.Insecure || cfg.Tracing.SampleRate > 0 {
+		v.errors.Warnf("telemetry.tracing: headers, insecure and sample_rate configure an OTLP " +
+			"export that is not implemented; spans are written to the log")
 	}
 }
 
