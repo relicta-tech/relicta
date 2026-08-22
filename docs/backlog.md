@@ -466,7 +466,7 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
-## Four packages nothing imports — two settled, four to go
+## Three packages nothing imports — three settled, three to go
 
 **`cgp/autoapproval` is deleted (ADR-017).** It was not merely unreached: it was a second
 implementation of the decision the evaluator already makes, with its own risk bands, its own
@@ -483,7 +483,20 @@ now sits with the other pre-publish gates. That setting had hidden from the conf
 the MCP server assigns to the field, and a write counts as a use — the second time these two
 sweeps have each caught something the other could not.
 
-The test it sets for the remaining four: **does something already own this job?** Where the
+**`cgp/approval` is deleted** on the same test: requests and processing are the ApproveRelease
+use case, emergency bypass is `--override-governance --reason` (which refuses without one), and
+the rationale it captured is `ApproveReleaseInput.Justification`, already carried into the run
+and read by the attestation generator.
+
+**One control it had is not owned, and is not being added here: requiring a rationale on every
+approval.** Only an override produces one today, so an ordinary approval records who and when
+and not why. That is a real gap for a tool whose product is the audit trail — and no config key
+promises it, so building it would be inventing a feature rather than keeping a promise. That
+distinction is what separated this deletion from `allowed_branches`, which had to be enforced
+before its only implementation could go. If wanted: a `governance.require_approval_rationale`
+setting, a prompt or `--reason` on the ordinary path, and the field the use case already has.
+
+The test it sets for the remaining three: **does something already own this job?** Where the
 answer is yes, the unreached copy goes. Where it is no, the question is whether the feature is a
 commitment — which is how monorepo versioning was decided in ADR-015.
 
@@ -506,7 +519,7 @@ Six are not explained, and every one is a feature:
 | ~~`cgp/autoapproval`~~ | ~~1,107~~ | ~~1,091~~ | **deleted, ADR-017** — a second implementation of a decision the evaluator already makes |
 | `cgp/ciapproval` | 873 | 1,277 | approval for non-interactive CI environments |
 | `application/supplychain` | 552 | 750 | dependency change analysis and governance |
-| `cgp/approval` | 493 | 579 | interactive human-in-the-loop gates with rationale capture |
+| ~~`cgp/approval`~~ | ~~493~~ | ~~579~~ | **deleted, ADR-017 amendment** — owned by the ApproveRelease use case, `--override-governance --reason`, and the justification the run already carries |
 | `infrastructure/hubsync` | 474 | 319 | ships governance events to a Relicta Hub |
 | `cgp/policy/library` | 107 | 444 | built-in policy templates and a registry |
 
