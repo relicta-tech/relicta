@@ -466,6 +466,40 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: a freeze that froze nothing, found by fixing the sweep's method
+
+The previous entry ended by noting that the config-field sweep counts references by Go field
+name, so a field whose name also exists on a struct that is read looks read. Replacing grep with
+a type-aware pass — resolve every selector to the struct it is on, using `go/packages` type
+information — changed the answer from 19 fields to **20 read by nothing at all** and 27 more read
+only inside `internal/config`, which is a different question worth asking separately.
+
+Two of the twenty mattered.
+
+**`governance.freeze_periods` was enforced by an evaluator nobody told about it.** The evaluator
+calls `budget.CheckFreeze` on every evaluation and holds `FreezePeriods` and `RiskBudget` fields
+for exactly this — and neither of the two places that build its config passed them, so both
+stayed at their zero values. A configured release freeze permitted every release.
+
+For a governance tool this is the worst place for the defect: the control reports itself as
+configured, the evaluation says approved, and the record shows a release that a policy said
+should not happen. Verified against the binary, all three ways: inside a window with
+`max_risk: 0.0` the decision is now `approval_required` naming the freeze; with `max_risk: 0.9`
+and a 0.10 release it passes; with no freeze configured nothing changes.
+
+**`git.default_remote` had no reader**, so every tag push went to `origin` — the usual name, and
+not always the name. A repository whose publishing remote is `upstream` or `release` had the
+setting to say so and the push went elsewhere.
+
+The rest of the twenty are fields on structs already refused at load (`ReleaseGroupConfig`,
+`VersionFileConfig`, the monorepo overrides) or already logged (`versioning.build_metadata`).
+
+**The method, for next time:** the sweep tool lives in the scratchpad rather than the repo,
+because it needs `golang.org/x/tools` and this is not a dependency worth adding for something run
+by hand every few months. What matters is the technique — resolve the selector, do not match the
+name — and the two categories it produces: *never read*, and *read only within `internal/config`*,
+which is where a dead helper chain hides.
+
 ## DONE: the last unread settings, and a sweep blind spot worth remembering
 
 `output.quiet` had no reader, so a repository that asked for quiet output got the full chrome on

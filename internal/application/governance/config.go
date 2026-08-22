@@ -80,6 +80,16 @@ func NewServiceFromConfig(
 		RequireHumanForBreaking: cfg.RequireHumanForBreaking,
 		RequireHumanForSecurity: cfg.RequireHumanForSecurity,
 		MaxAutoApproveRisk:      cfg.MaxAutoApproveRisk,
+		// The freeze windows and the risk budget, which neither builder passed.
+		//
+		// The evaluator enforces both — it calls budget.CheckFreeze and the budget check on
+		// every evaluation — and its fields for them were left at their zero values, so a
+		// configured release freeze permitted every release through it. For a governance
+		// tool that is the worst place for this defect: the control reports itself as
+		// configured, the evaluation says approved, and the record shows a release that a
+		// policy said should not happen.
+		FreezePeriods: cfg.FreezePeriods,
+		RiskBudget:    cfg.RiskBudget,
 	}
 
 	// Build policies from config
@@ -254,6 +264,8 @@ func EvaluatorConfigFromGovernance(cfg *config.GovernanceConfig) evaluator.Confi
 		RequireHumanForBreaking: cfg.RequireHumanForBreaking,
 		RequireHumanForSecurity: cfg.RequireHumanForSecurity,
 		MaxAutoApproveRisk:      cfg.MaxAutoApproveRisk,
+		FreezePeriods:           cfg.FreezePeriods,
+		RiskBudget:              cfg.RiskBudget,
 	}
 }
 

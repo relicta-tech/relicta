@@ -428,6 +428,12 @@ type PublisherAdapter struct {
 	auditChainStore audit.Store
 	auditChainRepo  string
 
+	// remote is where tags are pushed. git.default_remote had no reader, so every push went
+	// to "origin" — which is the usual name and not always the name: a repository whose
+	// publishing remote is called "upstream" or "release" had the setting to say so, and the
+	// push went somewhere else or nowhere.
+	remote string
+
 	// packageTags lists the per-package tags a monorepo release carries, resolved when the
 	// step runs rather than when the adapter is built: bump writes the manifests during the
 	// same command, and the manifest is what the tag names.
@@ -447,6 +453,24 @@ func WithPushTags(enabled bool) PublisherAdapterOption {
 	return func(a *PublisherAdapter) {
 		a.pushTags = enabled
 	}
+}
+
+// WithRemote names the remote tags are pushed to.
+//
+// Empty means "origin", which is what every push used unconditionally before git.default_remote
+// was read.
+func WithRemote(remote string) PublisherAdapterOption {
+	return func(a *PublisherAdapter) {
+		a.remote = remote
+	}
+}
+
+// pushRemote is the configured remote, or the conventional default.
+func (a *PublisherAdapter) pushRemote() string {
+	if a.remote == "" {
+		return "origin"
+	}
+	return a.remote
 }
 
 // WithTagging enables git tag creation. Off unless asked for, so that a publisher built
@@ -614,7 +638,7 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 
 	// Push only when explicitly enabled.
 	if a.pushTags {
-		if err := a.tagCreator.PushTag(ctx, tagName, "origin"); err != nil {
+		if err := a.tagCreator.PushTag(ctx, tagName, a.pushRemote()); err != nil {
 			return &ports.StepResult{
 				Success: false,
 				Output:  output,
@@ -675,7 +699,7 @@ func (a *PublisherAdapter) createPackageTags(ctx context.Context, run *domain.Re
 		created = append(created, pkg.Tag)
 
 		if a.pushTags {
-			if pushErr := a.tagCreator.PushTag(ctx, pkg.Tag, "origin"); pushErr != nil {
+			if pushErr := a.tagCreator.PushTag(ctx, pkg.Tag, a.pushRemote()); pushErr != nil {
 				return "", fmt.Errorf("tagged %s but push failed: %w", pkg.Name, pushErr)
 			}
 		}
