@@ -466,6 +466,52 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## Six packages nothing imports — 3,606 lines, and each needs the same decision
+
+The config sweep is closed, so the same technique went to the next dimension: exported symbols
+resolved through type information, aggregated per package. The question that produced something
+was not "which symbol is unused" — that reports thousands and means nothing — but **which
+packages have no external user at all**. That is the shape the event store had.
+
+Eleven packages qualify. Five are explained: `internal/benchmark` and the two `conformance`
+packages exist for tests, `internal/version` is set through ldflags, and
+`internal/infrastructure/template` is already an entry here, blocked on which data model a user's
+template receives.
+
+Six are not explained, and every one is a feature:
+
+| package | production | tests | what it is |
+|---|---|---|---|
+| `cgp/autoapproval` | 1,107 | 1,091 | thresholds, policies, exemptions, actor rules, its own audit config |
+| `cgp/ciapproval` | 873 | 1,277 | approval for non-interactive CI environments |
+| `application/supplychain` | 552 | 750 | dependency change analysis and governance |
+| `cgp/approval` | 493 | 579 | interactive human-in-the-loop gates with rationale capture |
+| `infrastructure/hubsync` | 474 | 319 | ships governance events to a Relicta Hub |
+| `cgp/policy/library` | 107 | 444 | built-in policy templates and a registry |
+
+3,606 lines of production code and 4,460 of tests, imported by nothing.
+
+**`cgp/autoapproval` is the one to look at first**, because it is not merely unreached — it is a
+second implementation. The evaluator already auto-approves, with one number:
+`riskAssessment.Score < config.AutoApproveThreshold`. This package has a full policy model, and
+its own YAML-tagged config that no config file can reach: nothing in `internal/config` mentions
+it. So a repository cannot turn it on even by accident, and the simpler path silently wins.
+
+**Each needs the decision the event store needed and the monorepo subsystem needed: wire it, or
+delete it.** That is a product question, not a wiring one — is richer auto-approval a
+commitment? does the Hub sync ship? — and the two precedents in this repository went opposite
+ways for good reasons: the event store was deleted because the audit chain already owned its
+job, and monorepo versioning was wired because nothing else did.
+
+**On the method, and its false starts.** Both dimensions of this sweep needed two attempts
+before their numbers meant anything. The config sweep first matched by field name, and a name
+shared with another struct read as "used" — that hid nine settings. This one first keyed method
+declarations as `Type.Method` while marking uses as `Method`, and reported all 3,034 exported
+symbols as dead; then, corrected, still reported 2,322, because "unused symbol" is the wrong
+question. Per-package is the right one, and it gives eleven.
+
+A measurement that produces a big number is usually measuring itself.
+
 ## DONE: the last two dead chains, and what the sweep now says
 
 Following the type-aware sweep's second category — fields read *only* inside `internal/config` —
