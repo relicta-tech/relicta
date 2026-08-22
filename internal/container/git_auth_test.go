@@ -172,3 +172,28 @@ func TestALeadingTildeInTheKeyPathIsResolved(t *testing.T) {
 		t.Errorf("expandHome(\"\") = %q", got)
 	}
 }
+
+// git.use_cli_fallback had no reader. GitConfig.UseCLI() existed to answer it and nothing
+// called it, so the service kept its own default of true and shelled out to the git CLI
+// whenever go-git failed — including in the environments that had turned the fallback off
+// deliberately, which is the only reason anyone sets it.
+func TestTheCLIFallbackSettingIsAnsweredByTheConfiguration(t *testing.T) {
+	on := true
+	off := false
+
+	cases := map[string]struct {
+		configured *bool
+		want       bool
+	}{
+		"unset defaults to on": {nil, true},
+		"explicitly on":        {&on, true},
+		"explicitly off":       {&off, false},
+	}
+
+	for name, c := range cases {
+		gitCfg := config.GitConfig{UseCLIFallback: c.configured}
+		if got := gitCfg.UseCLI(); got != c.want {
+			t.Errorf("%s: UseCLI() = %v, want %v", name, got, c.want)
+		}
+	}
+}
