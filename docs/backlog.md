@@ -466,7 +466,7 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
-## Five packages nothing imports — one settled, five to go
+## Four packages nothing imports — two settled, four to go
 
 **`cgp/autoapproval` is deleted (ADR-017).** It was not merely unreached: it was a second
 implementation of the decision the evaluator already makes, with its own risk bands, its own
@@ -476,7 +476,14 @@ feature — and relicta already has a policy language in the DSL loaded from `po
 the second one would have put two policy languages in one governance tool, and two things able
 to auto-approve a release with no defined precedence.
 
-The test it sets for the remaining five: **does something already own this job?** Where the
+**`cgp/ciapproval` is deleted too**, but only after the one thing it uniquely did got a proper
+owner: `workflow.allowed_branches` was validated, defaulted, and enforced by nothing, so a
+repository restricting releases to `main` could release from any branch. `enforceAllowedBranch`
+now sits with the other pre-publish gates. That setting had hidden from the config sweep because
+the MCP server assigns to the field, and a write counts as a use — the second time these two
+sweeps have each caught something the other could not.
+
+The test it sets for the remaining four: **does something already own this job?** Where the
 answer is yes, the unreached copy goes. Where it is no, the question is whether the feature is a
 commitment — which is how monorepo versioning was decided in ADR-015.
 
