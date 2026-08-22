@@ -27,7 +27,9 @@ Verified against the built binary. A repository with `enabled: true`,
 One repository-wide version, and neither `package.json` touched.
 
 The distinction that made this hard to see: package *analysis* worked. `relicta blast`
-found both packages and the one affected — but it reads `blast_radius`, not `monorepo`.
+found both packages and the one affected — but not from `monorepo`. (Nor, it turned out later,
+from `blast_radius`: that section was not a field on the config at all, so the analysis ran on
+its built-in defaults. Corrected in the amendment below.)
 A monorepo user was not wrong that Relicta understood their layout. They were wrong
 about which part of it versioned their packages.
 
@@ -213,3 +215,24 @@ The remaining fields are refused at load, on the rule this ADR already set for `
 `version_field`. Two of them defaulted to **on**, so refusing them without changing the
 defaults would have failed every monorepo configuration in existence. They default off now: a
 default that asks for a feature nothing performs is the same lie as a setting nothing reads.
+
+## Amendment: `relicta blast` read neither section (2026-08-22)
+
+This ADR said package analysis worked because it "reads `blast_radius`, not `monorepo`". Half
+of that was wrong. `BlastRadiusConfig` existed as a type and was **not a field on `Config`**, so
+`blast_radius:` in a config file went nowhere: `relicta blast` built its analysis from
+`blast.DefaultMonorepoConfig()` plus two flags.
+
+The analysis was real — it found the packages and the affected one — but on the built-in
+patterns rather than the repository's. Blast radius feeds the risk score, so a repository whose
+packages do not live under the default globs got a confident answer over the wrong file set,
+which is the failure mode this project keeps finding rather than a missing feature.
+
+The section is now a field, with defaults matching what the analyzer used before, and both
+construction sites read it.
+
+It hid from the config-field sweep because that method counts references by Go field name, and
+every name in it — `PackagePaths`, `ExcludePaths`, `RootPackage` — also exists on the monorepo
+config, which is read. One field, `IgnoreDevDependencies`, was unique, and pulling on it brought
+out the other eight. **A caller count is evidence, not proof**, and a shared field name is the
+specific way it lies.

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/relicta-tech/relicta/v4/internal/application/blast"
+	"github.com/relicta-tech/relicta/v4/internal/container"
 )
 
 // Risk score thresholds for formatting badges
@@ -80,7 +81,10 @@ func runBlast(cmd *cobra.Command, args []string) error {
 	repoPath := repositoryRoot(ctx)
 
 	// Build monorepo config from flags
-	monorepoConfig := blast.DefaultMonorepoConfig()
+	// The configured analysis, not the defaults. blast_radius was read by nothing, so a
+	// repository's package paths, excluded paths and shared directories were ignored and the
+	// answer — which feeds the risk score — was computed over the wrong file set.
+	monorepoConfig := container.BlastConfigFrom(cfg.BlastRadius)
 	if len(blastPackagePaths) > 0 {
 		monorepoConfig.PackagePaths = blastPackagePaths
 	}

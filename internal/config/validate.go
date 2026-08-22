@@ -91,6 +91,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validateMonorepo(cfg.Monorepo)
 	v.validateTelemetry(cfg.Telemetry)
 	v.validateAttestation(cfg.Attestation)
+	v.validatePluginSecurity(cfg.PluginSecurity)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -218,6 +219,22 @@ func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 				"implemented yet — the manifest in the package's own directory is what carries "+
 				"its version. tag_prefix, changelog_file and skip_versioning are honored", path)
 		}
+	}
+}
+
+// validatePluginSecurity reports the plugin-security settings that nothing performs.
+//
+// plugin_security.auto_install promises to install missing required plugins before a release runs. Nothing
+// reads it, and installing a plugin means fetching and executing code — so this is refused
+// rather than quietly implemented: a release tool that starts downloading executables because
+// a config key looked plausible is not a decision to make on somebody's behalf.
+func (v *Validator) validatePluginSecurity(cfg PluginSecurityConfig) {
+	// A *bool: unset means the documented default (on when Required is non-empty), and only
+	// an explicit true is somebody asking for it.
+	if cfg.AutoInstall != nil && *cfg.AutoInstall {
+		v.errors.Warnf("plugin_security.auto_install: not implemented — a missing plugin is " +
+			"reported rather than fetched. Installing one means running code that is not in " +
+			"the repository, which relicta does not do without being asked each time")
 	}
 }
 

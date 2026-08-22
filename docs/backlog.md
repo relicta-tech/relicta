@@ -466,6 +466,39 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: the last unread settings, and a sweep blind spot worth remembering
+
+`output.quiet` had no reader, so a repository that asked for quiet output got the full chrome on
+every command. It now gates the same seam `--json` does; warnings and errors stay, because they
+are diagnostics rather than "non-essential output".
+
+`output.plugin_audit_log` was worse than unread. `audit.Initialize` was never called, so the
+package's global logger stayed nil and every `audit.LogLoad` and `audit.LogExecution` in the
+plugin manager returned nil without writing anything. For a governance tool: the calls to record
+plugin loads and executions were all in place, and the audit trail was empty. Initialized now
+when the path is set.
+
+`plugin_security.auto_install` is refused rather than implemented. Installing a plugin means
+fetching and executing code that is not in the repository, and a release tool that starts
+downloading executables because a config key looked plausible is not a decision to make on
+somebody's behalf.
+
+`versioning.version_files[].update_format` belongs to the monorepo `version_files` map, already
+refused in the monorepo pass.
+
+**And the one that was hiding: the whole `blast_radius` section.** `BlastRadiusConfig` was a type
+and not a field on `Config`, so the section went nowhere and `relicta blast` ran on
+`DefaultMonorepoConfig()` plus two flags. Nine settings. It is now a field, with defaults
+matching the previous behavior, read by both construction sites — verified against the binary in
+both directions: configuring `packages/*` finds the package, configuring only another path makes
+it disappear, and no section at all behaves exactly as before.
+
+**The method note that matters more than the fix:** the config-field sweep counts references by
+Go field name, so a field whose name also exists on a struct that *is* read looks read.
+`PackagePaths`, `ExcludePaths` and `RootPackage` all collide with the monorepo config. Only
+`IgnoreDevDependencies` was unique, and it is the single thread that pulled out the other eight.
+The next sweep should count by struct and field, not by name alone.
+
 ## DONE: the plugin config structs were documentation, and now they are documentation
 
 Re-running the config-field sweep after the last few fixes turned up 53 fields with no reader —

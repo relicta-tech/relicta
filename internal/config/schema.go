@@ -40,6 +40,13 @@ type Config struct {
 	Webhooks []WebhookConfig `mapstructure:"webhooks" json:"webhooks,omitempty"`
 	// Monorepo configures multi-package/monorepo versioning support.
 	Monorepo MonorepoConfig `mapstructure:"monorepo" json:"monorepo,omitempty"`
+	// BlastRadius configures the impact analysis `relicta blast` performs.
+	//
+	// The section is documented and BlastRadiusConfig has always existed; it was never a
+	// field here, so `blast_radius:` in a config file went nowhere and the analysis ran on
+	// its defaults. Blast radius feeds the risk score, so that was a confident answer over
+	// the wrong file set rather than a missing feature.
+	BlastRadius BlastRadiusConfig `mapstructure:"blast_radius" json:"blast_radius,omitempty"`
 	// Dashboard configures the self-hosted web dashboard.
 	Dashboard DashboardConfig `mapstructure:"dashboard" json:"dashboard,omitempty"`
 	// Attestation configures SLSA governance attestation generation and signing.
@@ -849,6 +856,15 @@ func DefaultConfig() *Config {
 		Channels: ChannelsConfig{
 			Enabled: false, // Disabled by default, opt-in for channel support
 			Default: "stable",
+		},
+		// Defaults matching what the analyzer used when nothing could configure it, so a
+		// repository that sets nothing is analyzed exactly as before.
+		BlastRadius: BlastRadiusConfig{
+			Enabled:               true,
+			SharedDirs:            []string{"shared", "common", "core", "internal", "pkg"},
+			IncludeTransitive:     true,
+			CalculateRisk:         true,
+			IgnoreDevDependencies: true,
 		},
 		Monorepo: MonorepoConfig{
 			Enabled:          false, // Disabled by default, opt-in for monorepo mode
