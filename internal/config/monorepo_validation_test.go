@@ -167,3 +167,39 @@ func TestTheHonoredOverridesAreAccepted(t *testing.T) {
 		t.Errorf("the overrides relicta honors were refused: %v", err)
 	}
 }
+
+// telemetry.tracing describes an OTLP export that no code performs: InitTracer builds a
+// logging tracer, and the endpoint, headers, TLS setting and sample rate configure a
+// connection nothing makes. Warned rather than refused — a project with these set is not
+// misconfigured, it is expecting something that does not happen yet, and refusing to start
+// would take away the tracing it does get.
+func TestTracingSettingsThatDescribeAnUnimplementedExportAreWarnedAbout(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Telemetry.Tracing.Enabled = true
+	cfg.Telemetry.Tracing.Endpoint = "otel-collector:4317"
+
+	warnings := warningsFor(t, func(c *Config) {
+		c.Telemetry.Tracing.Enabled = true
+		c.Telemetry.Tracing.Endpoint = "otel-collector:4317"
+	})
+
+	var found string
+	for _, w := range warnings {
+		if strings.Contains(w, "telemetry.tracing") {
+			found = w
+		}
+	}
+	if found == "" {
+		t.Fatalf("no warning for an OTLP endpoint nothing exports to; warnings were %v", warnings)
+	}
+	if !strings.Contains(found, "otel-collector:4317") {
+		t.Errorf("the warning does not name the endpoint that will not be used: %q", found)
+	}
+
+	// Tracing off says nothing: there is no expectation to correct.
+	for _, w := range warningsFor(t, func(*Config) {}) {
+		if strings.Contains(w, "telemetry.tracing") {
+			t.Errorf("warned about tracing in a repository that did not enable it: %q", w)
+		}
+	}
+}

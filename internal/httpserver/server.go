@@ -32,6 +32,8 @@ type Server struct {
 	frontend     fs.FS
 	tokenService *token.Service
 	oidcHandlers *oidc.Handlers
+	metrics      http.Handler
+	metricsPath  string
 }
 
 // ServerDeps contains dependencies for creating a new server.
@@ -39,6 +41,13 @@ type ServerDeps struct {
 	Config          config.DashboardConfig
 	Frontend        fs.FS             // Embedded frontend files (nil for API-only mode)
 	ReleaseServices *release.Services // Release domain services (optional)
+	// Metrics, when telemetry.metrics.enabled is set, is served at MetricsPath.
+	//
+	// A separate `relicta metrics` process was the only way to expose them, which is a
+	// second port to open and a second thing to run beside a dashboard that is already
+	// listening. telemetry.metrics.enabled had no reader at all.
+	Metrics     http.Handler
+	MetricsPath string
 	// Observability is the assembled observability subsystem, or nil when the repository
 	// configured no providers.
 	//
@@ -63,6 +72,8 @@ func NewServer(deps ServerDeps) *Server {
 	if deps.Observability != nil {
 		handlers.SetObservabilityService(deps.Observability)
 	}
+
+	s.metrics, s.metricsPath = deps.Metrics, deps.MetricsPath
 
 	// Create token service for session or OIDC authentication.
 	if (deps.Config.Auth.Mode == config.DashboardAuthSession || deps.Config.Auth.Mode == config.DashboardAuthOIDC) &&

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -125,11 +126,41 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create server
+	// telemetry.tracing.enabled installs the tracer, which had no production caller: spans
+	// were started against a global that nothing ever configured. What it installs today is a
+	// logging tracer — config validation warns that the OTLP settings describe an export
+	// nothing performs — but "enabled" now does something rather than nothing.
+	if cfg.Telemetry.Tracing.Enabled {
+		if _, err := observability.InitTracer(observability.TracerConfig{
+			Enabled:     true,
+			ServiceName: tracingServiceName(cfg),
+			Endpoint:    cfg.Telemetry.Tracing.Endpoint,
+			SampleRate:  cfg.Telemetry.Tracing.SampleRate,
+		}); err != nil {
+			slog.Warn("tracing not initialized", "error", err)
+		} else {
+			defer func() {
+				if err := observability.ShutdownTracer(context.Background()); err != nil {
+					slog.Debug("tracer shutdown", "error", err)
+				}
+			}()
+		}
+	}
+
+	// Metrics on the dashboard's own port when telemetry.metrics.enabled, so a deployment
+	// that already runs the server does not need a second process to be scraped.
+	var metricsHandler http.Handler
+	if cfg.Telemetry.Metrics.Enabled {
+		metricsHandler = observability.InitGlobal(versionInfo.Version).Handler()
+	}
+
 	server := httpserver.NewServer(httpserver.ServerDeps{
 		Config:          dashboardCfg,
 		Frontend:        frontend,
 		ReleaseServices: releaseServices,
 		Observability:   observabilitySvc,
+		Metrics:         metricsHandler,
+		MetricsPath:     metricsPath(),
 	})
 
 	// Wire up WebSocket event broadcasting
@@ -411,4 +442,13 @@ func pickUpPublishedReleases(
 			slog.Info("watching published release", "release_id", id)
 		}
 	}
+}
+
+// tracingServiceName is what spans are attributed to.
+//
+// There is no service_name setting, so this is the tool's own name. Named rather than inlined
+// because a repository-specific name is the obvious next thing somebody will want, and this is
+// where it goes.
+func tracingServiceName(*config.Config) string {
+	return "relicta"
 }

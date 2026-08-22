@@ -172,6 +172,16 @@ func (s *Server) setupRouter() chi.Router {
 		})
 	})
 
+	// Metrics, outside /api/v1 and outside its auth: a Prometheus scrape carries no session,
+	// and the conventional path is what every scrape config already assumes.
+	//
+	// Only when the repository asked for it. An always-on metrics endpoint on the dashboard
+	// port would expose release counts to anyone who can reach it, which is a decision for
+	// the operator rather than a default.
+	if s.metrics != nil && s.metricsPath != "" {
+		r.Handle(s.metricsPath, s.metrics)
+	}
+
 	// Serve frontend static files
 	if s.frontend != nil {
 		s.serveFrontend(r)

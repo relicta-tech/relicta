@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -53,12 +54,22 @@ func init() {
 }
 
 func runMetrics(cmd *cobra.Command, args []string) error {
+	// telemetry.metrics supplies the defaults; a flag the operator typed wins.
+	//
+	// The whole telemetry block was read by nothing, so a repository that had configured a
+	// port and a path got 9090 and /metrics regardless — and a Prometheus scraping the
+	// configured address found nothing there.
+	port, path := metricsPort, metricsPath()
+	if !cmd.Flags().Changed("port") && cfg != nil && cfg.Telemetry.Metrics.Port > 0 {
+		port = cfg.Telemetry.Metrics.Port
+	}
+
 	// Initialize global metrics with version
 	metrics := observability.InitGlobal(versionInfo.Version)
 
 	// Create HTTP server
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", metrics.Handler())
+	mux.Handle(path, metrics.Handler())
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK\n"))
@@ -76,7 +87,7 @@ func runMetrics(cmd *cobra.Command, args []string) error {
 </html>`))
 	})
 
-	addr := net.JoinHostPort(metricsHost, fmt.Sprintf("%d", metricsPort))
+	addr := net.JoinHostPort(metricsHost, fmt.Sprintf("%d", port))
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
@@ -110,3 +121,24 @@ func runMetrics(cmd *cobra.Command, args []string) error {
 		return err
 	}
 }
+
+// metricsPath is where the metrics are served, from telemetry.metrics.endpoint.
+//
+// Defaults to /metrics, which is what every Prometheus scrape config assumes and what this
+// command served before the setting was read.
+func metricsPath() string {
+	if cfg == nil {
+		return defaultMetricsPath
+	}
+	path := strings.TrimSpace(cfg.Telemetry.Metrics.Endpoint)
+	if path == "" {
+		return defaultMetricsPath
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return path
+}
+
+// defaultMetricsPath is the conventional Prometheus path.
+const defaultMetricsPath = "/metrics"
