@@ -102,3 +102,32 @@ That setting had also hidden from the unread-configuration sweep, because the MC
 assigns to the field and a write counts as a use. Two dimensions of that sweep have now each
 produced one finding the other could not see — which is the argument for running both rather
 than trusting either.
+
+## Amendment: `cgp/approval`, and the one control worth having (2026-08-22)
+
+`internal/cgp/approval` — 493 lines of production code, 579 of tests, imported by nothing —
+is human-in-the-loop approval: requests, rationale capture, emergency bypass, expiry.
+Against the test:
+
+| what it offered | what already does it |
+|---|---|
+| create, validate and process an approval | the `ApproveRelease` use case and the run's state machine |
+| emergency bypass, audited | `--override-governance`, which **refuses without `--reason`** and prefixes the record so a reader can tell a bypass from a note |
+| rationale on the record | `ApproveReleaseInput.Justification`, carried into the run and read by the attestation generator as `Rationale` |
+| approval expiry | nothing waits: a run sits in `notes_ready` until it is approved or a re-plan supersedes it |
+| risk level, breaking, security helpers | the evaluator's own rules |
+
+Deleted on that basis.
+
+**One control it had is genuinely not owned: requiring a rationale on _every_ approval**, with
+a minimum length. Today only an override produces one — `approvalJustification()` says so in as
+many words — so an ordinary approval records who and when, and not why.
+
+That is a real gap for a tool whose product is the audit trail, and it is **not** being added
+here. No config key promises it and no documentation implies it, so building it is inventing a
+feature rather than honouring one: the distinction that separated this deletion from the
+previous amendment, where `workflow.allowed_branches` was a promise already made and had to be
+kept before its only implementation could go.
+
+If it is wanted, it is small: a `governance.require_approval_rationale` setting, a prompt or a
+`--reason` on the ordinary path, and the field the use case already carries.
