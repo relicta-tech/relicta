@@ -213,6 +213,12 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 	// git.auth, which nothing read until now. A repository that configured a token pushed
 	// with whatever ambient credential the machine had, or failed — and the first of those
 	// succeeds as the wrong identity.
+	// git.use_cli_fallback, which had no reader: GitConfig.UseCLI() existed to answer it and
+	// nothing called it, so the service kept its own default of true and shelled out to the
+	// git CLI whenever go-git failed — including in the environments that had turned the
+	// fallback off deliberately, which is the only reason to set it.
+	gitOpts = append(gitOpts, git.WithCLIFallback(c.config.Git.UseCLI()))
+
 	authOpts, authErr := gitAuthOptions(c.config.Git.Auth)
 	if authErr != nil {
 		return errors.GitWrap(authErr, "initInfrastructure", "git authentication is misconfigured")

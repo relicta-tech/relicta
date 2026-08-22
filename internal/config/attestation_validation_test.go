@@ -95,3 +95,44 @@ func TestTheSigstoreEndpointsAreReportedAsUnread(t *testing.T) {
 		t.Errorf("no warning for rekor_url, which nothing reads; warnings were %v", warnings)
 	}
 }
+
+// `relicta promote` builds its channel registry from name, stability, tag_pattern, promotes_to
+// and prerelease — not from require_approval or auto_approve, which nothing reads.
+// ChannelDefinitionConfig.NeedsApproval() exists to answer the question and has no caller.
+//
+// Warned rather than refused: promote has no approval step at all to attach them to, so this is
+// a feature that has not been built rather than a setting wired to the wrong place.
+func TestPerChannelApprovalSettingsAreReportedAsUnread(t *testing.T) {
+	requireApproval := true
+
+	warnings := warningsFor(t, func(c *Config) {
+		c.Channels.Enabled = true
+		c.Channels.Definitions = []ChannelDefinitionConfig{
+			{Name: "beta", RequireApproval: &requireApproval},
+		}
+	})
+
+	var found string
+	for _, w := range warnings {
+		if strings.Contains(w, "require_approval") {
+			found = w
+		}
+	}
+	if found == "" {
+		t.Fatalf("no warning for a per-channel approval rule nothing enforces; warnings were %v",
+			warnings)
+	}
+	if !strings.Contains(found, "beta") {
+		t.Errorf("the warning does not name the channel: %q", found)
+	}
+
+	// A channel that configures neither says nothing.
+	for _, w := range warningsFor(t, func(c *Config) {
+		c.Channels.Enabled = true
+		c.Channels.Definitions = []ChannelDefinitionConfig{{Name: "stable"}}
+	}) {
+		if strings.Contains(w, "require_approval") {
+			t.Errorf("warned about a channel that configured no approval rule: %q", w)
+		}
+	}
+}

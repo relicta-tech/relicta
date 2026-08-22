@@ -92,6 +92,7 @@ func (v *Validator) Validate(cfg *Config) error {
 	v.validateTelemetry(cfg.Telemetry)
 	v.validateAttestation(cfg.Attestation)
 	v.validatePluginSecurity(cfg.PluginSecurity)
+	v.validateChannels(cfg.Channels)
 
 	// Print warnings to stderr even if there are no errors
 	if v.errors.HasWarnings() {
@@ -218,6 +219,30 @@ func (v *Validator) validateMonorepo(cfg MonorepoConfig) {
 			v.errors.Addf("monorepo.package_overrides.%s: version_file and version_field are not "+
 				"implemented yet — the manifest in the package's own directory is what carries "+
 				"its version. tag_prefix, changelog_file and skip_versioning are honored", path)
+		}
+	}
+}
+
+// validateChannels reports the per-channel approval settings that nothing performs.
+//
+// `relicta promote` builds its channel registry from name, stability, tag_pattern, promotes_to
+// and prerelease — and not from require_approval or auto_approve, which nothing reads.
+// ChannelDefinitionConfig.NeedsApproval() exists to answer the question and has no caller.
+//
+// Warned rather than refused: promote has no approval step at all to attach them to, so this is
+// a feature that has not been built rather than a setting wired to the wrong place. Refusing
+// would stop a promotion that works today over a gate that never existed.
+func (v *Validator) validateChannels(cfg ChannelsConfig) {
+	if !cfg.Enabled {
+		return
+	}
+
+	for _, def := range cfg.Definitions {
+		if def.RequireApproval != nil || (def.AutoApprove != nil && *def.AutoApprove) {
+			v.errors.Warnf("channels.definitions[%s]: require_approval and auto_approve are "+
+				"not read — `relicta promote` has no approval step, so a promotion to this "+
+				"channel is neither gated nor auto-approved by these settings", def.Name)
+			return
 		}
 	}
 }

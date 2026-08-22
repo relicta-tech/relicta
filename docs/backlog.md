@@ -466,6 +466,34 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: the last two dead chains, and what the sweep now says
+
+Following the type-aware sweep's second category — fields read *only* inside `internal/config` —
+needed one more refinement to be trustworthy. Marking a reader "reachable" only when production
+names it directly reported 24 dead chains, almost all of them wrong: `validateMonorepo` is called
+by `Validate`, which the loader calls, which production calls. With transitive closure inside the
+package, 24 became **three**.
+
+**`git.use_cli_fallback`** — `GitConfig.UseCLI()` existed to answer it and nothing called it, so
+the git service kept its own default of true and shelled out to the git CLI whenever go-git
+failed. Including in the environments that had turned the fallback off deliberately, which is
+the only reason anyone sets it. Now passed at construction, beside the auth options.
+
+**`channels.definitions[].require_approval` and `auto_approve`** — `relicta promote` builds its
+registry from name, stability, tag_pattern, promotes_to and prerelease, and not from these;
+`ChannelDefinitionConfig.NeedsApproval()` has no caller. Warned rather than refused, because
+promote has **no approval step at all** to attach them to: this is a feature that was never
+built, not a setting wired to the wrong place, and refusing would stop a promotion that works
+today over a gate that never existed.
+
+**A per-channel approval gate for `promote` is the feature this leaves open.** It needs the
+same decisions the rest of the governance path already made once: whether promoting creates a
+run, what it is evaluated against, and where the decision is recorded.
+
+Where the sweep stands: 17 fields read by nothing, all on structs already refused at load or
+already logged; 27 read within `internal/config`, of which 24 are reached through `Validate` or
+`Load` and three were these. The unread-configuration thread is, for now, closed.
+
 ## DONE: a freeze that froze nothing, found by fixing the sweep's method
 
 The previous entry ended by noting that the config-field sweep counts references by Go field
