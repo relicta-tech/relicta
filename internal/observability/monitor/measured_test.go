@@ -158,7 +158,11 @@ func TestAnUnmeasuredWindowRecordsNothing(t *testing.T) {
 	if err := hm.StartWatch(context.Background(), "run-1"); err != nil {
 		t.Fatalf("StartWatch: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+
+	// Wait for the watch to finish rather than for a fixed duration: under load a sleep can
+	// expire before the goroutine has run at all, and the assertion below — that nothing was
+	// recorded — would then pass without the window ever closing.
+	waitForWatchToEnd(t, hm, "run-1")
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -187,7 +191,15 @@ func TestAMeasuredWindowStillRecordsSuccess(t *testing.T) {
 	if err := hm.StartWatch(context.Background(), "run-1"); err != nil {
 		t.Fatalf("StartWatch: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+
+	// Waited for, not slept through. A fixed sleep made this flaky: it passes alone and fails
+	// in a full parallel run, where the watch goroutine may not be scheduled inside 200ms —
+	// and a test that fails randomly teaches people to re-run rather than to read.
+	waitFor(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(calls) > 0
+	}, "the window to be recorded")
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -195,6 +207,34 @@ func TestAMeasuredWindowStillRecordsSuccess(t *testing.T) {
 		t.Errorf("recorded %v, want one success: a window that was measured and stayed under "+
 			"every threshold is a real result", calls)
 	}
+}
+
+// waitFor blocks until cond holds, or fails the test.
+//
+// The deadline is generous because it only matters when something is wrong: a passing run
+// leaves as soon as the condition holds, usually within a tick.
+func waitFor(t *testing.T, cond func() bool, what string) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}
+
+// waitForWatchToEnd blocks until the monitor has stopped watching a release, which is what it
+// does when the window expires.
+func waitForWatchToEnd(t *testing.T, hm *HealthMonitor, releaseID string) {
+	t.Helper()
+
+	waitFor(t, func() bool {
+		_, watching := hm.GetStatus(releaseID)
+		return !watching
+	}, "the health watch to end")
 }
 
 // A watch that has just opened has measured nothing yet, and must say so. It used to seed its

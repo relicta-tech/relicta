@@ -466,6 +466,38 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE: the plugin config structs were documentation, and now they are documentation
+
+Re-running the config-field sweep after the last few fixes turned up 53 fields with no reader —
+and roughly forty of them belonged to six structs that nothing referenced at all:
+`GitHubPluginConfig`, `GitLabPluginConfig`, `JiraPluginConfig`, `SlackPluginConfig`,
+`DiscordPluginConfig`, `NPMPluginConfig`, plus `GitLabAssetLink`.
+
+Not the loader, not the validator, not the plugin manager. A plugin's configuration reaches it as
+`plugins[].config`, a `map[string]any` passed through verbatim over gRPC, so these types could
+never have validated anything — nothing ever built one. They were documentation in the shape of
+schema, and they will drift from the plugin repositories that actually define their config,
+because those are separate modules.
+
+Deleted, 124 lines, and every one of the 60 keys they documented is now in
+`docs/plugin-configuration.md` with its type and meaning, under a note saying the plugin
+repository is authoritative. No behavior changes: a user's `plugins[].config` reached the plugin
+before and reaches it now.
+
+The sweep reads 19 fields after this, from 53, and the remainder is almost entirely settings
+already refused or warned about: the monorepo ones (#352), the Sigstore endpoints (#358),
+`telemetry.tracing.insecure` (#357), and `prerelease_suffix`.
+
+**Left for the next pass**, five settings with no reader and nothing yet said about them:
+`output.quiet`, `output.plugin_audit_log`, `plugins.security.auto_install`,
+`versioning.version_files[].update_format`, and `blast_radius.ignore_dev_dependencies`.
+
+Fixed alongside: a flaky test of my own. `TestAMeasuredWindowStillRecordsSuccess` slept 200ms and
+asserted; it passes alone and fails in a full parallel run, where the watch goroutine may not be
+scheduled in time. Both timing tests now wait on the condition — one for the outcome, one for the
+watch to actually end, which also stops the "records nothing" case from passing trivially when
+the window never closed. A test that fails randomly teaches people to re-run rather than to read.
+
 ## DONE (in part): attestation signing fails at startup rather than mid-release
 
 `attestation.rekor_url` and `fulcio_url` had no readers, which is the least of it. The signing
