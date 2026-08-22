@@ -466,6 +466,31 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
+## DONE (in part): attestation signing fails at startup rather than mid-release
+
+`attestation.rekor_url` and `fulcio_url` had no readers, which is the least of it. The signing
+configuration was accepted whole and then failed *during publish*, from inside the attestation
+step:
+
+- `signing_mode: keyless` → "keyless signing requires sigstore-go"
+- `signing_mode: local` with no `key_path` → "key_path is required for local signing mode"
+
+By then the tag exists and the release is half done. Worse, an attestation failure is only fatal
+when `attestation.required` is set — so the ordinary case is a release that ships **unattested**,
+under a policy that asked for signatures, with one line of log saying why.
+
+All of it now fails at config load, with the message naming what to use instead: `local` with a
+`key_path`, or `none` for an unsigned attestation, which is still a provenance record and is the
+default. `rekor_url` and `fulcio_url` warn that they configure the mode nothing implements.
+
+Gated on `attestation.enabled`, so a repository that has not asked for attestations is not told
+about signing modes.
+
+**STILL OPEN: implementing keyless.** Unchanged from the tag-signing entry, and blocked on the
+same three questions — where the key comes from, how a passphrase is handled in a non-interactive
+release, and whether `relicta verify` should check a signed tag and a signed attestation together.
+Adding sigstore-go is the small part.
+
 ## DONE (in part): telemetry is read — metrics are served, tracing says what it cannot do
 
 `telemetry` was a whole section with no reader, and it is two different situations wearing one
