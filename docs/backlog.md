@@ -466,7 +466,7 @@ These remain:
 - `telemetry` — a whole section with no reader. Belongs with the observability entry above,
   which carries the decisions it needs.
 
-## Three packages nothing imports — three settled, three to go
+## Two packages nothing imports — four settled, two to go
 
 **`cgp/autoapproval` is deleted (ADR-017).** It was not merely unreached: it was a second
 implementation of the decision the evaluator already makes, with its own risk bands, its own
@@ -496,7 +496,25 @@ distinction is what separated this deletion from `allowed_branches`, which had t
 before its only implementation could go. If wanted: a `governance.require_approval_rationale`
 setting, a prompt or `--reason` on the ordinary path, and the field the use case already has.
 
-The test it sets for the remaining three: **does something already own this job?** Where the
+**`cgp/policy/library` is the first of the six that was not a duplicate.** It ships SOC 2,
+separation of duties, multi-team approval, audit trail, hotfix fast track and more, built as
+`*policy.Policy` values for the engine that *is* wired — and nothing offered them: no command,
+no config key, no importer. `relicta policy templates` now lists the catalogue and `--show <id>`
+prints what one contains.
+
+**And it is less than it first appears, which is worth recording.** Policy files are written in
+the DSL, and `internal/cgp/policy/dsl` is parse-only — a lexer, a parser, a compiler, and no
+writer. A template is a Go value, so there is no way to emit it as a `.policy` file the loader
+would read. The first draft of the command told the reader to "save it under your policy_dir to
+put it into effect", which was false: `relicta policy validate` does not even see a `.json` file
+there. That is the defect this whole stretch has been removing, and it was nearly shipped by the
+work removing it — caught by round-tripping the output through the validator rather than trusting
+that it would fit.
+
+**Installing a template needs a DSL serializer**, which carries a design question — whether the
+DSL round-trips — and is left open rather than guessed at.
+
+The test for the remaining two: **does something already own this job?** Where the
 answer is yes, the unreached copy goes. Where it is no, the question is whether the feature is a
 commitment — which is how monorepo versioning was decided in ADR-015.
 
@@ -521,7 +539,7 @@ Six are not explained, and every one is a feature:
 | `application/supplychain` | 552 | 750 | dependency change analysis and governance |
 | ~~`cgp/approval`~~ | ~~493~~ | ~~579~~ | **deleted, ADR-017 amendment** — owned by the ApproveRelease use case, `--override-governance --reason`, and the justification the run already carries |
 | `infrastructure/hubsync` | 474 | 319 | ships governance events to a Relicta Hub |
-| `cgp/policy/library` | 107 | 444 | built-in policy templates and a registry |
+| `cgp/policy/library` | 107 | 444 | **now reachable** — `relicta policy templates` lists them; installing one needs a DSL writer |
 
 3,606 lines of production code and 4,460 of tests, imported by nothing.
 
