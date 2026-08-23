@@ -80,7 +80,7 @@ func TestTheJSONListingDescribesEachTemplate(t *testing.T) {
 	}
 }
 
-// Categories group the catalogue, and an uncategorized template would print under a blank
+// Categories group the catalog, and an uncategorized template would print under a blank
 // heading.
 func TestEveryTemplateHasACategory(t *testing.T) {
 	for _, tmpl := range library.DefaultRegistry.List() {
