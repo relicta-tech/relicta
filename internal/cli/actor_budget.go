@@ -19,6 +19,10 @@ import (
 // restrictive). tool is the logical operation name ("publish", "approve",
 // "rollback"); riskScore is the CGP risk of the change being acted upon.
 func enforceActorBudget(tool string, riskScore float64) error {
+	return enforceActorBudgetWithCosigner(tool, riskScore, false)
+}
+
+func enforceActorBudgetWithCosigner(tool string, riskScore float64, hasCosigner bool) error {
 	set, err := loadActorBudgetSet()
 	if err != nil {
 		return err
@@ -31,6 +35,7 @@ func enforceActorBudget(tool string, riskScore float64) error {
 		Tool:        tool,
 		BlastRadius: blastRadiusForRisk(riskScore),
 		RiskScore:   riskScore,
+		HasCosigner: hasCosigner,
 	})
 	if decision.Allowed {
 		return nil

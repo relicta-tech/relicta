@@ -62,12 +62,14 @@ const (
 )
 
 var (
-	approveYes            bool
-	approveOverride       bool
-	approveOverrideReason string
-	approveEdit           bool
-	approveEditor         string
-	approveInteractive    bool
+	approveYes               bool
+	approveOverride          bool
+	approveOverrideReason    string
+	approveEdit              bool
+	approveEditor            string
+	approveInteractive       bool
+	approveGitHubEnvironment string
+	verifiedGitHubApproval   *githubEnvironmentApproval
 )
 
 var runApprovalTUI = ui.RunApprovalTUI
@@ -81,6 +83,7 @@ func init() {
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
 	approveCmd.Flags().StringVarP(&approveEditor, "editor", "E", "", "editor to use (default: $EDITOR or vim)")
 	approveCmd.Flags().BoolVarP(&approveInteractive, "interactive", "i", false, "use interactive TUI for approval")
+	approveCmd.Flags().StringVar(&approveGitHubEnvironment, "github-environment", "", "require a verified GitHub environment reviewer record for this workflow run")
 	approveCmd.Flags().StringVar(&releaseScope, "package", "",
 		"approve one package of a monorepo, by name or path (each package carries its own decision)")
 }
@@ -266,7 +269,7 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 
 	// Enforce the per-actor autonomy budget before recording approval — the
 	// CLI previously skipped this gate that the MCP surface applies.
-	if err := enforceActorBudget("approve", rel.RiskScore()); err != nil {
+	if err := enforceActorBudgetWithCosigner("approve", rel.RiskScore(), verifiedGitHubApproval != nil); err != nil {
 		return nil, err
 	}
 
@@ -289,7 +292,10 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 			Type: approverActorType(),
 			ID:   getApproverName(),
 		},
-		AutoApprove: approveYes,
+		// --yes describes the CI interaction mode. When GitHub independently
+		// verifies a human environment reviewer, keep the persisted approval
+		// classified as human-reviewed rather than auto-approved.
+		AutoApprove: approveYes && verifiedGitHubApproval == nil,
 		Force:       true, // Force since we've already validated state
 
 		// An override's reason is the audit trail's only record of why a
@@ -297,6 +303,10 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 		// was printed to the terminal and persisted nowhere — the approval looked
 		// like any other.
 		Justification: approvalJustification(),
+	}
+	if verifiedGitHubApproval != nil {
+		evidence, _ := json.Marshal(verifiedGitHubApproval)
+		input.ExternalEvidence = string(evidence)
 	}
 
 	out, err := services.ApproveRelease.Execute(ctx, input)
@@ -320,6 +330,14 @@ func printApproveNextSteps() {
 // runApprove implements the approve command.
 func runApprove(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	verifiedGitHubApproval = nil
+	if approveGitHubEnvironment != "" {
+		proof, err := verifyGitHubEnvironmentApproval(ctx, approveGitHubEnvironment)
+		if err != nil {
+			return err
+		}
+		verifiedGitHubApproval = &proof
+	}
 
 	// An override with no reason is worthless in an audit trail: six months later
 	// the record would say a governance gate was bypassed and not why. Refuse it
@@ -464,18 +482,26 @@ func runApprove(cmd *cobra.Command, args []string) error {
 			// exactly the condition governance is asking for. Only non-interactive
 			// self-approval is refused.
 			if !govResult.CanAutoApprove && (ciMode || approveYes) {
-				if !approveOverride {
+				if verifiedGitHubApproval != nil {
+					// GitHub independently verified the human environment reviewer;
+					// this satisfies the human gate without elevating the CI actor.
 					if !outputJSON {
-						displayAutoApprovalBlocked(govResult)
+						printSuccess("Human approval verified by GitHub environment reviewer(s): " + strings.Join(verifiedGitHubApproval.Reviewers, ", "))
 					}
-					return errApprovalRequiresHuman(govResult)
-				}
+				} else {
+					if !approveOverride {
+						if !outputJSON {
+							displayAutoApprovalBlocked(govResult)
+						}
+						return errApprovalRequiresHuman(govResult)
+					}
 
-				// An override is a governance event in its own right, so it is
-				// recorded with its reason rather than passed off as an approval.
-				printWarning(fmt.Sprintf("Governance override: %s", approveOverrideReason))
-				if !outputJSON {
-					printSubtle("  Recorded in the audit trail as an override, not an approval.")
+					// An override is a governance event in its own right, so it is
+					// recorded with its reason rather than passed off as an approval.
+					printWarning(fmt.Sprintf("Governance override: %s", approveOverrideReason))
+					if !outputJSON {
+						printSubtle("  Recorded in the audit trail as an override, not an approval.")
+					}
 				}
 			}
 		}

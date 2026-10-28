@@ -221,15 +221,16 @@ func buildPlanAnalysisConfig(minConfidenceSet bool) (analysis.AnalyzerConfig, bo
 func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion) error {
 	tagName := cfg.Versioning.TagPrefix + ver.String()
 
-	printInfo(fmt.Sprintf("HEAD is already tagged: %s", tagName))
-	printInfo("Running in tag-push mode")
-	fmt.Println()
+	printTagPushPlanNotice(tagName)
 
 	// Get repository info
 	gitAdapter := app.GitAdapter()
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+	if err := ensureTagOnAllowedBranch(ctx, repoInfo.Path, tagName, cfg.Workflow.AllowedBranches); err != nil {
+		return err
 	}
 
 	// Find previous version tag
@@ -308,6 +309,17 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	}
 
 	return outputPlanTagPushText(output, releaseID, riskPreview)
+}
+
+// printTagPushPlanNotice keeps machine-readable output valid while retaining
+// the mode explanation for interactive plan output.
+func printTagPushPlanNotice(tagName string) {
+	if outputJSON {
+		return
+	}
+	printInfo(fmt.Sprintf("HEAD is already tagged: %s", tagName))
+	printInfo("Running in tag-push mode")
+	fmt.Println()
 }
 
 // outputPlanTagPushJSON outputs the tag-push plan as JSON.

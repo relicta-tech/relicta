@@ -26,13 +26,14 @@ permissions:
   contents: read
 
 jobs:
-  # Governance check with Relicta
-  governance:
-    name: Release Governance
+  plan:
+    name: Plan governed release
+    if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      approved: ${{ steps.governance.outputs.approved }}
+      release_id: ${{ steps.plan.outputs.release_id }}
+      version: ${{ steps.plan.outputs.version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -44,46 +45,81 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Validate tag identity
+        id: identity
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            echo "::error::A release must run from a tag ref"
+            exit 1
+          fi
+          TAG_COMMIT="$(git rev-list -n1 "${GITHUB_REF_NAME}")"
+          if [[ "${TAG_COMMIT}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} resolves to ${TAG_COMMIT}, expected ${GITHUB_SHA}"
+            exit 1
+          fi
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "commit=${TAG_COMMIT}" >> "$GITHUB_OUTPUT"
 
       - name: Build Relicta
         run: make build
 
-      - name: Get version from tag
-        id: version
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION="${{ github.ref_name }}"
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION"
-
-      - name: Run Relicta governance
-        id: governance
+      - name: Plan release with Relicta
+        id: plan
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
         run: |
-          # Validate the release plan (governance check)
-          if bin/relicta plan --dry-run 2>&1; then
-            echo "approved=true" >> $GITHUB_OUTPUT
-          else
-            echo "approved=false" >> $GITHUB_OUTPUT
-            echo "::warning::Release governance check failed"
-          fi
+          bin/relicta plan --json > "$RUNNER_TEMP/relicta-plan.json"
+          jq -e --arg tag "$RELEASE_TAG" \
+            '.release_id != "" and .next_version == ($tag | sub("^v"; ""))' \
+            "$RUNNER_TEMP/relicta-plan.json"
+          echo "release_id=$(jq -r '.release_id' "$RUNNER_TEMP/relicta-plan.json")" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r '.next_version' "$RUNNER_TEMP/relicta-plan.json")" >> "$GITHUB_OUTPUT"
 
-  # Build and release with GoReleaser
+      - name: Generate release notes
+        run: bin/relicta notes
+
+      - name: Write release plan summary
+        env:
+          RELEASE_ID: ${{ steps.plan.outputs.release_id }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          TAG: ${{ steps.identity.outputs.tag }}
+          COMMIT: ${{ steps.identity.outputs.commit }}
+        run: |
+          {
+            echo "## Relicta release review"
+            echo
+            echo "- Version: \`$VERSION\`"
+            echo "- Tag: \`$TAG\`"
+            echo "- Commit: \`$COMMIT\`"
+            echo "- Release run: \`$RELEASE_ID\`"
+            echo
+            echo "Review this job's Relicta plan and release notes before approving the \`release-approval\` environment."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload governed release state
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: relicta-release-state
+          path: .relicta/releases/
+          retention-days: 1
+          include-hidden-files: true
+
   release:
-    name: Build & Release
-    needs: governance
-    if: ${{ !inputs.dry-run && needs.governance.outputs.approved == 'true' }}
+    name: Publish approved release
+    needs: plan
+    if: ${{ !inputs.dry-run }}
     runs-on: ubuntu-latest
+    # Configure this repository environment with required human reviewers and
+    # prevent self-review. Relicta verifies the resulting reviewer record and
+    # fails closed if GitHub has no approval history for this environment.
+    environment: release-approval
     permissions:
-      contents: write       # Create releases and upload assets
-      id-token: write       # OIDC token for Sigstore signing
-      packages: write       # Push container images (if needed)
-      attestations: write   # Artifact attestations
-
+      actions: read        # Verify this run's environment reviewer through the API
+      contents: write
+      id-token: write
+      packages: write
+      attestations: write
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -95,6 +131,46 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Download governed release state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: relicta-release-state
+          path: .relicta/releases
+
+      - name: Validate tag identity
+        id: identity
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            echo "::error::A release must run from a tag ref"
+            exit 1
+          fi
+          TAG_COMMIT="$(git rev-list -n1 "${GITHUB_REF_NAME}")"
+          if [[ "${TAG_COMMIT}" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} resolves to ${TAG_COMMIT}, expected ${GITHUB_SHA}"
+            exit 1
+          fi
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "commit=${TAG_COMMIT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Relicta
+        run: make build
+
+      - name: Approve governed release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bin/relicta approve --yes --github-environment release-approval
+
+      - name: Verify approval is bound to this tag and commit
+        env:
+          EXPECTED_RELEASE_ID: ${{ needs.plan.outputs.release_id }}
+          EXPECTED_RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          bin/relicta status --json > "$RUNNER_TEMP/relicta-status.json"
+          jq -e --arg id "$EXPECTED_RELEASE_ID" \
+            --arg version "$EXPECTED_RELEASE_VERSION" \
+            '.state == "approved" and .release_id == $id and .next_version == $version and .stale == false' \
+            "$RUNNER_TEMP/relicta-status.json"
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -103,6 +179,7 @@ jobs:
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
 
       - name: Run GoReleaser
+        id: goreleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser
@@ -113,6 +190,7 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - name: Generate attestations
+        id: attest
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: |
@@ -120,15 +198,63 @@ jobs:
             dist/relicta_*.zip
             dist/checksums.txt
 
-      - name: Build Relicta for post-release
-        run: make build
-
-      - name: Record release outcome
+      - name: Create publication evidence
+        id: evidence
+        if: ${{ success() }}
         env:
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_COMMIT: ${{ steps.identity.outputs.commit }}
+          RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Record successful release to CGP memory
-          bin/relicta release --yes --skip-push || true
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          artifacts = {}
+          for path in sorted(Path("dist").glob("**/*")):
+              if path.is_file():
+                  artifacts[str(path)] = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+          if not artifacts:
+              raise SystemExit("no release artifacts found for evidence")
+          evidence = {
+              "outcome": "published",
+              "provider": "github-actions",
+              "run_url": os.environ["RELEASE_RUN_URL"],
+              "tag": os.environ["RELEASE_TAG"],
+              "commit": os.environ["RELEASE_COMMIT"],
+              "artifacts": artifacts,
+          }
+          Path(os.environ["RUNNER_TEMP"], "relicta-release-evidence.json").write_text(json.dumps(evidence))
+          PY
+          bin/relicta publish --record-external --evidence-file "$RUNNER_TEMP/relicta-release-evidence.json" --github-environment release-approval
+
+      - name: Record external publication failure
+        if: ${{ failure() && (steps.goreleaser.outcome == 'failure' || steps.attest.outcome == 'failure') }}
+        env:
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_COMMIT: ${{ steps.identity.outputs.commit }}
+          RELEASE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          artifacts = {}
+          for path in sorted(Path("dist").glob("**/*")):
+              if path.is_file():
+                  artifacts[str(path)] = "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
+          evidence = {
+              "outcome": "failed",
+              "provider": "github-actions",
+              "run_url": os.environ["RELEASE_RUN_URL"],
+              "tag": os.environ["RELEASE_TAG"],
+              "commit": os.environ["RELEASE_COMMIT"],
+              "artifacts": artifacts,
+              "failure": "GoReleaser or artifact attestation step failed; see workflow logs",
+          }
+          Path(os.environ["RUNNER_TEMP"], "relicta-release-evidence.json").write_text(json.dumps(evidence))
+          PY
+          bin/relicta publish --record-external --evidence-file "$RUNNER_TEMP/relicta-release-evidence.json"
 
   # Dry run mode
   dry-run:

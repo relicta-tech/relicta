@@ -51,12 +51,12 @@ func repoWithSubdirectory(t *testing.T) (root, subdir string) {
 		}
 	}
 
-	run("init", "-q", "-b", "main")
+	run("-c", "init.defaultRefFormat=files", "init", "-q", "-b", "main")
 	if err := os.WriteFile(filepath.Join(subdir, "package.json"), []byte("{}\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 	run("add", "-A")
-	run("commit", "-q", "-m", "chore: initial commit")
+	run("-c", "commit.gpgsign=false", "commit", "-q", "-m", "chore: initial commit")
 
 	return root, subdir
 }

@@ -146,14 +146,15 @@ const (
 
 // Approval holds release approval information.
 type Approval struct {
-	ApprovedBy    string        // Who approved the release
-	ApprovedAt    time.Time     // When it was approved
-	AutoApproved  bool          // If auto-approved (risk below threshold)
-	PlanHash      string        // The plan hash that was approved
-	RiskScore     float64       // Risk score at time of approval
-	ApproverType  ActorType     // Type of approver (human, ci, agent)
-	Justification string        // Optional justification for approval
-	Level         ApprovalLevel // The level of this approval
+	ApprovedBy       string        // Who approved the release
+	ApprovedAt       time.Time     // When it was approved
+	AutoApproved     bool          // If auto-approved (risk below threshold)
+	PlanHash         string        // The plan hash that was approved
+	RiskScore        float64       // Risk score at time of approval
+	ApproverType     ActorType     // Type of approver (human, ci, agent)
+	Justification    string        // Optional justification for approval
+	Level            ApprovalLevel // The level of this approval
+	ExternalEvidence string        // Verified external reviewer evidence, when present
 }
 
 // IsManual returns true if this was a manual approval.
@@ -841,6 +842,12 @@ func (r *ReleaseRun) Approve(actor string, autoApproved bool) error {
 
 // ApproveWithOptions approves the release with additional options.
 func (r *ReleaseRun) ApproveWithOptions(actor string, autoApproved bool, approverType ActorType, justification string) error {
+	return r.ApproveWithEvidence(actor, autoApproved, approverType, justification, "")
+}
+
+// ApproveWithEvidence records a separately verified reviewer identity alongside
+// the workflow actor that applied the approval transition.
+func (r *ReleaseRun) ApproveWithEvidence(actor string, autoApproved bool, approverType ActorType, justification, externalEvidence string) error {
 	if r.state != StateNotesReady {
 		return NewStateTransitionError(r.state, "approve")
 	}
@@ -849,13 +856,14 @@ func (r *ReleaseRun) ApproveWithOptions(actor string, autoApproved bool, approve
 
 	// Create the approval record
 	r.approval = &Approval{
-		ApprovedBy:    actor,
-		ApprovedAt:    now,
-		AutoApproved:  autoApproved,
-		PlanHash:      r.planHash,
-		RiskScore:     r.riskScore,
-		ApproverType:  approverType,
-		Justification: justification,
+		ApprovedBy:       actor,
+		ApprovedAt:       now,
+		AutoApproved:     autoApproved,
+		PlanHash:         r.planHash,
+		RiskScore:        r.riskScore,
+		ApproverType:     approverType,
+		Justification:    justification,
+		ExternalEvidence: externalEvidence,
 	}
 
 	metadata := map[string]string{
@@ -863,13 +871,17 @@ func (r *ReleaseRun) ApproveWithOptions(actor string, autoApproved bool, approve
 		"auto_approved": fmt.Sprintf("%t", autoApproved),
 		"risk_score":    fmt.Sprintf("%.2f", r.riskScore),
 	}
+	if externalEvidence != "" {
+		metadata["external_approval_evidence"] = externalEvidence
+	}
 
 	r.addEvent(&RunApprovedEvent{
-		RunID:        r.id,
-		PlanHash:     r.planHash,
-		ApprovedBy:   actor,
-		AutoApproved: autoApproved,
-		At:           now,
+		RunID:            r.id,
+		PlanHash:         r.planHash,
+		ApprovedBy:       actor,
+		AutoApproved:     autoApproved,
+		ExternalEvidence: externalEvidence,
+		At:               now,
 	})
 
 	return r.TransitionTo(StateApproved, "APPROVE", actor, "Release approved", metadata)
@@ -883,13 +895,14 @@ func (r *ReleaseRun) Approval() *Approval {
 	}
 	// Return a copy to preserve aggregate boundary
 	return &Approval{
-		ApprovedBy:    r.approval.ApprovedBy,
-		ApprovedAt:    r.approval.ApprovedAt,
-		AutoApproved:  r.approval.AutoApproved,
-		PlanHash:      r.approval.PlanHash,
-		RiskScore:     r.approval.RiskScore,
-		ApproverType:  r.approval.ApproverType,
-		Justification: r.approval.Justification,
+		ApprovedBy:       r.approval.ApprovedBy,
+		ApprovedAt:       r.approval.ApprovedAt,
+		AutoApproved:     r.approval.AutoApproved,
+		PlanHash:         r.approval.PlanHash,
+		RiskScore:        r.approval.RiskScore,
+		ApproverType:     r.approval.ApproverType,
+		Justification:    r.approval.Justification,
+		ExternalEvidence: r.approval.ExternalEvidence,
 	}
 }
 

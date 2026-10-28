@@ -304,6 +304,27 @@ func TestReleaseRun_ApproveWithOptions(t *testing.T) {
 	}
 }
 
+func TestReleaseRun_ApproveWithEvidenceReturnsAndEmitsEvidence(t *testing.T) {
+	run := newNotesReadyRun()
+	proof := `{"environment":"release-approval","reviewers":["reviewer"],"run_url":"https://github.com/o/r/actions/runs/42"}`
+	if err := run.ApproveWithEvidence("ci-bot", false, ActorCI, "", proof); err != nil {
+		t.Fatalf("ApproveWithEvidence() error = %v", err)
+	}
+	if got := run.Approval().ExternalEvidence; got != proof {
+		t.Fatalf("Approval().ExternalEvidence = %q, want %q", got, proof)
+	}
+	var approvalEvent *RunApprovedEvent
+	for _, event := range run.DomainEvents() {
+		if e, ok := event.(*RunApprovedEvent); ok {
+			approvalEvent = e
+			break
+		}
+	}
+	if approvalEvent == nil || approvalEvent.ExternalEvidence != proof {
+		t.Fatalf("approval event evidence = %#v, want %q", approvalEvent, proof)
+	}
+}
+
 func TestReleaseRun_ApprovalStatus(t *testing.T) {
 	tests := []struct {
 		name       string

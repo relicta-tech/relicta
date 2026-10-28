@@ -3,9 +3,11 @@ package adapters
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
 	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v4/internal/domain/version"
 )
 
 // There were two file-based implementations of this aggregate with incompatible on-disk
@@ -82,5 +84,31 @@ func TestARunRoundTripsWithEverythingGovernanceNeeds(t *testing.T) {
 	}
 	if got, want := len(loaded.ChangeSet().Commits()), len(changeSet.Commits()); got != want {
 		t.Errorf("changeset carries %d commits, want %d", got, want)
+	}
+}
+
+func TestExternalApprovalEvidenceSurvivesFileRepositoryRoundTrip(t *testing.T) {
+	ctx := context.Background()
+	repo := NewFileReleaseRunRepository()
+	repoRoot := t.TempDir()
+	run := domain.NewReleaseRun("acme/widget", repoRoot, "v1.0.0", "abc123", nil, "config", "plugins")
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.5)
+	_ = run.Plan("planner")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("planner")
+	_ = run.GenerateNotes(&domain.ReleaseNotes{Text: "notes", Provider: "test", GeneratedAt: time.Now()}, "notes-hash", "planner")
+	proof := `{"environment":"release-approval","reviewers":["reviewer"]}`
+	if err := run.ApproveWithEvidence("ci-bot", false, domain.ActorCI, "", proof); err != nil {
+		t.Fatalf("ApproveWithEvidence: %v", err)
+	}
+	if err := repo.Save(ctx, run); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := repo.LoadFromRepo(ctx, repoRoot, run.ID())
+	if err != nil {
+		t.Fatalf("LoadFromRepo: %v", err)
+	}
+	if got := loaded.Approval().ExternalEvidence; got != proof {
+		t.Fatalf("loaded approval evidence = %q, want %q", got, proof)
 	}
 }
