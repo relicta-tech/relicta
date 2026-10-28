@@ -2226,6 +2226,22 @@
       "severity": "medium",
       "created_at": "2026-08-18T15:40:00Z",
       "reason": "GO-GO-2026-6172 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+    },
+    {
+      "fingerprint": "3047debbfa7f1d2dfe5579c8f6bcf606b99bc1a8ca34c40aa439599ecb3cc656",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "medium",
+      "created_at": "2026-10-28T00:00:00Z",
+      "reason": "GO-2026-5932 affects only golang.org/x/crypto/openpgp and its subpackages; it has no fixed version because the package is unmaintained and unsafe by design. The application imports other x/crypto packages (such as ssh and argon2), so the module must remain, but go list -deps ./... confirms no OpenPGP package is linked. This fingerprint is from the CI scan without reachability analysis, which reports at module level."
+    },
+    {
+      "fingerprint": "1c88366021576784e4d1e6e8cb6170dd46404452825a37a8c9a6ec3a9b13c601",
+      "rule_id": "VULN-001",
+      "file_path": "go.mod",
+      "severity": "info",
+      "created_at": "2026-10-28T00:00:00Z",
+      "reason": "The same GO-2026-5932 package-scoped advisory as the entry above. CI\u2019s reachability scan states \"not reachable: the affected package is not linked by this build\"; its message and fingerprint differ from the scan without reachability analysis. The x/crypto module remains required for non-OpenPGP packages, and the advisory has no fixed version."
     }
   ]
 }
