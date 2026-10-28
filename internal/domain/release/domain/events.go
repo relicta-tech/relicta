@@ -65,11 +65,12 @@ func (e *StateTransitionedEvent) OccurredAt() time.Time { return e.At }
 
 // RunApprovedEvent is emitted when a run is approved.
 type RunApprovedEvent struct {
-	RunID        RunID
-	PlanHash     string
-	ApprovedBy   string
-	AutoApproved bool
-	At           time.Time
+	RunID            RunID
+	PlanHash         string
+	ApprovedBy       string
+	AutoApproved     bool
+	ExternalEvidence string
+	At               time.Time
 }
 
 func (e *RunApprovedEvent) EventName() string     { return "release.approved" }

@@ -20,7 +20,8 @@ type ApproveReleaseInput struct {
 	// Justification records why this approval was granted. It is the audit
 	// trail's only account of a governance override, so it is persisted with the
 	// approval rather than merely logged.
-	Justification string
+	Justification    string
+	ExternalEvidence string
 }
 
 // ApproveReleaseOutput contains the output from approving a release.
@@ -110,7 +111,7 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 	if approverType == "" {
 		approverType = domain.ActorHuman
 	}
-	if err := run.ApproveWithOptions(input.Actor.ID, input.AutoApprove, approverType, input.Justification); err != nil {
+	if err := run.ApproveWithEvidence(input.Actor.ID, input.AutoApprove, approverType, input.Justification, input.ExternalEvidence); err != nil {
 		return nil, fmt.Errorf("failed to approve: %w", err)
 	}
 

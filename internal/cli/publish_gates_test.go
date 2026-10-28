@@ -9,6 +9,50 @@ import (
 	"testing"
 )
 
+func TestExternalTagMustBeReachableFromAllowedBranch(t *testing.T) {
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repo
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	runInit := exec.Command("git", "-c", "init.defaultRefFormat=files", "init", "-b", "main")
+	runInit.Dir = repo
+	if out, err := runInit.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	git("config", "user.name", "Test")
+	git("config", "user.email", "test@example.com")
+	git("config", "commit.gpgsign", "false")
+	git("config", "tag.gpgsign", "false")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("base\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "file.txt")
+	git("commit", "-m", "chore: base")
+	git("switch", "-c", "feature")
+	if err := os.WriteFile(filepath.Join(repo, "file.txt"), []byte("feature\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("commit", "-am", "feat: off branch")
+	git("tag", "v1.2.3")
+
+	if err := ensureTagOnAllowedBranch(context.Background(), repo, "v1.2.3", []string{"main"}); err == nil {
+		t.Fatal("tag whose commit is not on main was accepted")
+	}
+	git("switch", "main")
+	git("merge", "--ff-only", "feature")
+	if err := ensureTagOnAllowedBranch(context.Background(), repo, "v1.2.3", []string{"main"}); err != nil {
+		t.Fatalf("tag on allowed branch was rejected: %v", err)
+	}
+	if err := ensureTagOnAllowedBranch(context.Background(), repo, "v1.2.3", []string{"release/*"}); err == nil {
+		t.Fatal("tag on a non-allowed branch was accepted")
+	}
+}
+
 // `relicta release` reached PublishRelease.Execute without passing a single one of the gates
 // `relicta publish` applies. Verified against the shipped binary in four throwaway repositories:
 // a modified tracked file, a branch one commit behind origin/main, a `pre_release_hook: exit 3`
@@ -34,7 +78,7 @@ func repoWithUncommittedWork(t *testing.T) string {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
-	git("init", "--initial-branch=main")
+	git("-c", "init.defaultRefFormat=files", "init", "--initial-branch=main")
 	git("config", "user.name", "Test User")
 	git("config", "user.email", "test@example.com")
 	git("config", "commit.gpgsign", "false")

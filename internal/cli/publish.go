@@ -26,10 +26,13 @@ import (
 )
 
 var (
-	publishSkipApproval bool
-	publishSkipTag      bool
-	publishSkipPush     bool
-	publishSkipPlugins  bool
+	publishSkipApproval         bool
+	publishSkipTag              bool
+	publishSkipPush             bool
+	publishSkipPlugins          bool
+	publishRecordExternal       bool
+	publishExternalEvidenceFile string
+	publishGitHubEnvironment    string
 )
 
 func init() {
@@ -37,6 +40,11 @@ func init() {
 	publishCmd.Flags().BoolVarP(&publishSkipTag, "skip-tag", "T", false, "skip git tag creation")
 	publishCmd.Flags().BoolVarP(&publishSkipPush, "skip-push", "P", false, "skip pushing to remote")
 	publishCmd.Flags().BoolVarP(&publishSkipPlugins, "skip-plugins", "G", false, "skip running plugins")
+	publishCmd.Flags().BoolVar(&publishRecordExternal, "record-external", false,
+		"record the result of an external publisher for an approved tag-push run")
+	publishCmd.Flags().StringVar(&publishExternalEvidenceFile, "evidence-file", "",
+		"JSON evidence file required with --record-external")
+	publishCmd.Flags().StringVar(&publishGitHubEnvironment, "github-environment", "", "require a verified GitHub environment reviewer record for this workflow run")
 }
 
 // shouldCreateTag returns whether a tag should be created.
@@ -313,6 +321,12 @@ func printPublishSummary(nextVersion, tagName string, remoteURL string) {
 // runPublish implements the publish command.
 func runPublish(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	if publishRecordExternal && publishExternalEvidenceFile == "" {
+		return fmt.Errorf("--record-external requires --evidence-file")
+	}
+	if !publishRecordExternal && publishExternalEvidenceFile != "" {
+		return fmt.Errorf("--evidence-file requires --record-external")
+	}
 
 	printTitle("Release Publish")
 	fmt.Println()
@@ -376,6 +390,9 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	run, err := services.Repository.LoadLatest(ctx, repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to load release: %w", err)
+	}
+	if publishRecordExternal {
+		return recordExternalPublish(ctx, app, repoPath, run)
 	}
 
 	// The gates every tagging path applies, in the one place both of them read from — the
@@ -483,6 +500,69 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 
 	printPublishSummary(nextVersion, tagName, remoteURL)
 
+	return nil
+}
+
+func recordExternalPublish(ctx context.Context, app cliApp, repoPath string, run *releasedomain.ReleaseRun) error {
+	evidence, evidenceJSON, err := readExternalReleaseEvidence(publishExternalEvidenceFile)
+	if err != nil {
+		return err
+	}
+	// The external publisher has already performed its side effects, but Relicta
+	// must still apply the same actor budget before accepting the publication as
+	// governed and finalizing the release run. Failure reports remain recordable
+	// so an unsuccessful external attempt is not lost from the audit trail.
+	var proof *githubEnvironmentApproval
+	if publishGitHubEnvironment != "" {
+		verified, err := verifyGitHubEnvironmentApproval(ctx, publishGitHubEnvironment)
+		if err != nil {
+			return err
+		}
+		proof = &verified
+	}
+	if err := enforceExternalPublishBudgetWithCosigner(evidence.Outcome, run.RiskScore(), proof != nil); err != nil {
+		return err
+	}
+	if run.State() != releasedomain.StateApproved {
+		return fmt.Errorf("external publication requires an approved run, got %s", run.State())
+	}
+	if evidence.Tag != run.TagName() || evidence.Commit != run.HeadSHA().String() {
+		return fmt.Errorf("external release evidence does not match approved tag %q and commit %q", run.TagName(), run.HeadSHA())
+	}
+	tag, err := app.GitAdapter().GetTag(ctx, evidence.Tag)
+	if err != nil {
+		return fmt.Errorf("read release tag %s: %w", evidence.Tag, err)
+	}
+	if tag == nil || string(tag.Hash()) != evidence.Commit {
+		return fmt.Errorf("release tag %s does not point to approved commit %s", evidence.Tag, evidence.Commit)
+	}
+
+	services := app.ReleaseServices()
+	if services == nil || services.PublishRelease == nil {
+		return fmt.Errorf("PublishRelease use case not available")
+	}
+	input := releaseapp.PublishReleaseInput{
+		RepoRoot:         repoPath,
+		RunID:            run.ID(),
+		Actor:            ports.ActorInfo{Type: releasedomain.ActorCI, ID: evidence.Provider},
+		ExternalEvidence: evidenceJSON,
+	}
+	var output *releaseapp.PublishReleaseOutput
+	if evidence.Outcome == "failed" {
+		output, err = services.PublishRelease.RecordExternalFailure(ctx, input)
+	} else {
+		output, err = services.PublishRelease.Execute(ctx, input)
+	}
+	if err != nil {
+		return fmt.Errorf("record external release outcome: %w", err)
+	}
+	if evidence.Outcome == "failed" {
+		return fmt.Errorf("external publisher reported failure; recorded release run %s as failed", output.RunID)
+	}
+	if !output.Published {
+		return fmt.Errorf("external publication evidence did not finalize release run %s", output.RunID)
+	}
+	printSuccess(fmt.Sprintf("Recorded external publication for %s (%s)", evidence.Tag, output.RunID.Short()))
 	return nil
 }
 

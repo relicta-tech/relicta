@@ -68,7 +68,7 @@ plugins:
       continue_on_error: false
       # Disabled deliberately. .github/workflows/release.yaml publishes the
       # GitHub release via GoReleaser, with Cosign signing, a Syft SBOM and
-      # attestations, and only after its `governance` job approves. Enabling
+      # attestations, after the workflow approves the tag-push run. Enabling
       # this plugin would publish a second release for the same tag from
       # whichever machine ran `relicta publish` — unsigned, without
       # provenance, and bypassing the gate relicta exists to enforce.

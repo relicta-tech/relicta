@@ -54,6 +54,27 @@ func TestPlanCommand_DefaultValues(t *testing.T) {
 	}
 }
 
+func TestTagPushPlanNoticeRespectsJSONOutput(t *testing.T) {
+	originalOutputJSON := outputJSON
+	t.Cleanup(func() { outputJSON = originalOutputJSON })
+
+	outputJSON = true
+	jsonOutput := captureOutput(t, func() {
+		printTagPushPlanNotice("v4.3.0")
+	})
+	if strings.TrimSpace(jsonOutput) != "" {
+		t.Fatalf("tag-push notice polluted JSON output: %q", jsonOutput)
+	}
+
+	outputJSON = false
+	textOutput := captureOutput(t, func() {
+		printTagPushPlanNotice("v4.3.0")
+	})
+	if !strings.Contains(textOutput, "HEAD is already tagged: v4.3.0") || !strings.Contains(textOutput, "Running in tag-push mode") {
+		t.Fatalf("tag-push notice missing from text output: %q", textOutput)
+	}
+}
+
 func TestReleaseTypeDisplay_AllTypes(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -69,6 +70,83 @@ func enforcePrePublishGates(ctx context.Context, riskScore float64) error {
 	}
 
 	return enforceUpToDate(ctx)
+}
+
+// enforceExternalPublishBudget applies the autonomy budget when an external
+// publisher reports success. Failure reports must remain recordable so a failed
+// external attempt is not lost from the release audit trail.
+func enforceExternalPublishBudget(outcome string, riskScore float64) error {
+	return enforceExternalPublishBudgetWithCosigner(outcome, riskScore, false)
+}
+
+func enforceExternalPublishBudgetWithCosigner(outcome string, riskScore float64, hasCosigner bool) error {
+	if outcome != "published" {
+		return nil
+	}
+	return enforceActorBudgetWithCosigner("publish", riskScore, hasCosigner)
+}
+
+// ensureTagOnAllowedBranch applies workflow.allowed_branches to a tag-triggered
+// release. Such workflows are checked out detached, so the current-branch gate
+// cannot identify the branch the tagged commit belongs to. Require the tag commit
+// to be an ancestor of at least one configured allowed branch ref.
+func ensureTagOnAllowedBranch(ctx context.Context, repoRoot, tagName string, allowed []string) error {
+	if len(allowed) == 0 {
+		return nil
+	}
+
+	runGit := func(args ...string) ([]byte, error) {
+		cmd := exec.CommandContext(ctx, "git", append([]string{"-C", repoRoot}, args...)...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(output)))
+		}
+		return output, nil
+	}
+
+	tagCommit, err := runGit("rev-parse", "--verify", "refs/tags/"+tagName+"^{commit}")
+	if err != nil {
+		return fmt.Errorf("workflow.allowed_branches could not resolve release tag %q: %w", tagName, err)
+	}
+	tagCommitSHA := strings.TrimSpace(string(tagCommit))
+	refsOutput, err := runGit("for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+	if err != nil {
+		return fmt.Errorf("workflow.allowed_branches could not inspect branch refs: %w", err)
+	}
+
+	for _, ref := range strings.Fields(string(refsOutput)) {
+		branchName := strings.TrimPrefix(ref, "refs/heads/")
+		if strings.HasPrefix(ref, "refs/remotes/") {
+			branchName = strings.TrimPrefix(ref, "refs/remotes/")
+		}
+		candidates := []string{branchName}
+		if slash := strings.IndexByte(branchName, '/'); strings.HasPrefix(ref, "refs/remotes/") && slash >= 0 {
+			candidates = append(candidates, branchName[slash+1:])
+		}
+		matched := false
+		for _, candidate := range candidates {
+			if branchIsAllowed(allowed, candidate) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+
+		_, err := runGit("merge-base", "--is-ancestor", tagCommitSHA, ref)
+		if err == nil {
+			return nil
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			continue
+		}
+		return fmt.Errorf("workflow.allowed_branches could not verify tag ancestry on %q: %w", ref, err)
+	}
+
+	return fmt.Errorf("release tag %q is not reachable from any branch allowed by workflow.allowed_branches (%s)",
+		tagName, strings.Join(allowed, ", "))
 }
 
 // enforceAllowedBranch refuses a release from a branch workflow.allowed_branches does not list.

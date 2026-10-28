@@ -247,13 +247,14 @@ type CommitDTO struct {
 
 // ApprovalDTO is the DTO for approval information.
 type ApprovalDTO struct {
-	ApprovedBy    string    `json:"approved_by"`
-	ApprovedAt    time.Time `json:"approved_at"`
-	AutoApproved  bool      `json:"auto_approved"`
-	PlanHash      string    `json:"plan_hash"`
-	RiskScore     float64   `json:"risk_score"`
-	ApproverType  string    `json:"approver_type"`
-	Justification string    `json:"justification,omitempty"`
+	ApprovedBy       string    `json:"approved_by"`
+	ApprovedAt       time.Time `json:"approved_at"`
+	AutoApproved     bool      `json:"auto_approved"`
+	PlanHash         string    `json:"plan_hash"`
+	RiskScore        float64   `json:"risk_score"`
+	ApproverType     string    `json:"approver_type"`
+	Justification    string    `json:"justification,omitempty"`
+	ExternalEvidence string    `json:"external_evidence,omitempty"`
 }
 
 // trackRepoRoot adds a repo root to the known set (must be called with lock held).
@@ -802,13 +803,14 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 	if run.Approval() != nil {
 		approval := run.Approval()
 		dto.Approval = &ApprovalDTO{
-			ApprovedBy:    approval.ApprovedBy,
-			ApprovedAt:    approval.ApprovedAt,
-			AutoApproved:  approval.AutoApproved,
-			PlanHash:      approval.PlanHash,
-			RiskScore:     approval.RiskScore,
-			ApproverType:  string(approval.ApproverType),
-			Justification: approval.Justification,
+			ApprovedBy:       approval.ApprovedBy,
+			ApprovedAt:       approval.ApprovedAt,
+			AutoApproved:     approval.AutoApproved,
+			PlanHash:         approval.PlanHash,
+			RiskScore:        approval.RiskScore,
+			ApproverType:     string(approval.ApproverType),
+			Justification:    approval.Justification,
+			ExternalEvidence: approval.ExternalEvidence,
 		}
 	}
 
@@ -851,13 +853,14 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 	var approval *domain.Approval
 	if dto.Approval != nil {
 		approval = &domain.Approval{
-			ApprovedBy:    dto.Approval.ApprovedBy,
-			ApprovedAt:    dto.Approval.ApprovedAt,
-			AutoApproved:  dto.Approval.AutoApproved,
-			PlanHash:      dto.Approval.PlanHash,
-			RiskScore:     dto.Approval.RiskScore,
-			ApproverType:  domain.ActorType(dto.Approval.ApproverType),
-			Justification: dto.Approval.Justification,
+			ApprovedBy:       dto.Approval.ApprovedBy,
+			ApprovedAt:       dto.Approval.ApprovedAt,
+			AutoApproved:     dto.Approval.AutoApproved,
+			PlanHash:         dto.Approval.PlanHash,
+			RiskScore:        dto.Approval.RiskScore,
+			ApproverType:     domain.ActorType(dto.Approval.ApproverType),
+			Justification:    dto.Approval.Justification,
+			ExternalEvidence: dto.Approval.ExternalEvidence,
 		}
 	}
 

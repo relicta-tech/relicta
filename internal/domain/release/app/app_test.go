@@ -1560,6 +1560,127 @@ func TestPublishReleaseUseCase_Execute_IdempotentStep(t *testing.T) {
 	}
 }
 
+func TestPublishReleaseUseCase_RecordsExternalEvidenceOnExistingTag(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+	publisher.checkIdempotency["tag"] = true
+
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	const evidence = `{"provider":"github-actions","run_url":"https://example.test/runs/42","tag":"v1.1.0","commit":"abc123def456","artifacts":{"checksums.txt":"sha256:deadbeef"}}`
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+	output, err := uc.Execute(ctx, PublishReleaseInput{
+		RepoRoot:         "/path/to/repo",
+		Actor:            ports.ActorInfo{Type: domain.ActorCI, ID: "github-actions"},
+		ExternalEvidence: evidence,
+	})
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+	if !output.Published {
+		t.Fatal("external release should be finalized as published")
+	}
+	status := run.StepStatus("tag")
+	if status == nil || status.Output != evidence {
+		t.Fatalf("tag step evidence = %#v, want %q", status, evidence)
+	}
+}
+
+func TestPublishReleaseUseCase_RejectsMismatchedExternalEvidenceBinding(t *testing.T) {
+	ctx := context.Background()
+	for _, outcome := range []string{"published", "failed"} {
+		t.Run(outcome, func(t *testing.T) {
+			repo := newMockRepository()
+			inspector := newMockRepoInspector()
+			run := createNotesReadyRun()
+			_ = run.Approve("approver", false)
+			run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+			repo.runs[run.ID()] = run
+			repo.latestRuns["/path/to/repo"] = run.ID()
+
+			uc := NewPublishReleaseUseCase(repo, inspector, nil, newMockPublisher(), nil)
+			evidence := `{"outcome":"` + outcome + `","tag":"v9.9.9","commit":"different-commit","failure":"publisher failed"}`
+			input := PublishReleaseInput{
+				RepoRoot:         "/path/to/repo",
+				Actor:            ports.ActorInfo{Type: domain.ActorCI, ID: "github-actions"},
+				ExternalEvidence: evidence,
+			}
+			var err error
+			if outcome == "failed" {
+				_, err = uc.RecordExternalFailure(ctx, input)
+			} else {
+				_, err = uc.Execute(ctx, input)
+			}
+			if err == nil || !strings.Contains(err.Error(), "does not match approved tag") {
+				t.Fatalf("external outcome with mismatched binding error = %v", err)
+			}
+			if run.State() != domain.StateApproved {
+				t.Fatalf("run state = %s, want approved after rejection", run.State())
+			}
+		})
+	}
+}
+
+func TestPublishReleaseUseCase_ExternalEvidenceNeverCreatesTag(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	publisher := newMockPublisher()
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, publisher, nil)
+
+	_, err := uc.Execute(ctx, PublishReleaseInput{
+		RepoRoot:         "/path/to/repo",
+		Actor:            ports.ActorInfo{Type: domain.ActorCI, ID: "github-actions"},
+		ExternalEvidence: `{"outcome":"published"}`,
+	})
+	if err == nil {
+		t.Fatal("Execute() should reject external evidence when the tag is absent")
+	}
+	if len(publisher.executedSteps) != 0 {
+		t.Fatalf("external evidence executed publisher steps %v; it must never create a tag", publisher.executedSteps)
+	}
+}
+
+func TestPublishReleaseUseCase_RecordsExternalFailure(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	run := createNotesReadyRun()
+	_ = run.Approve("approver", false)
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+
+	uc := NewPublishReleaseUseCase(repo, inspector, nil, newMockPublisher(), nil)
+	const evidence = `{"outcome":"failed","tag":"v1.1.0","commit":"abc123def456","failure":"publisher failed"}`
+	_, err := uc.RecordExternalFailure(ctx, PublishReleaseInput{
+		RepoRoot:         "/path/to/repo",
+		Actor:            ports.ActorInfo{Type: domain.ActorCI, ID: "github-actions"},
+		ExternalEvidence: evidence,
+	})
+	if err != nil {
+		t.Fatalf("RecordExternalFailure() error = %v", err)
+	}
+	if run.State() != domain.StateFailed {
+		t.Fatalf("run state = %s, want failed", run.State())
+	}
+	status := run.StepStatus("tag")
+	if status == nil || status.State != domain.StepFailed || !strings.Contains(status.LastError, evidence) {
+		t.Fatalf("tag failure evidence = %#v, want failed with evidence %q", status, evidence)
+	}
+}
+
 func TestPublishReleaseUseCase_Execute_LockError(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockRepository()
