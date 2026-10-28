@@ -33,7 +33,7 @@ make release                  # Full release with goreleaser
 
 | Component | Technology |
 |-----------|------------|
-| Language | Go 1.25+ |
+| Language | Go 1.26+ |
 | CLI Framework | Cobra |
 | Configuration | Viper (YAML, JSON, env vars) |
 | Git Operations | go-git (pure Go) |
