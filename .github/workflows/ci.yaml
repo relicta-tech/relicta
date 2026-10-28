@@ -17,7 +17,7 @@ on:
       - '.gitignore'
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
   GOTOOLCHAIN: local
   # Pinned explicitly rather than "latest": the baseline is fingerprint-matched
   # against a specific rule set, so an unannounced nox upgrade would re-report

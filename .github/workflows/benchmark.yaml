@@ -26,7 +26,7 @@ on:
         default: false
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
   GOTOOLCHAIN: local
   # Performance targets
   TARGET_PLAN_MS: 1000        # plan < 1s for 1000 commits
@@ -67,7 +67,7 @@ jobs:
         # request. On 2026-08-19 one did:
         #
         #   golang.org/x/perf@v0.0.0-20260819171926 requires go >= 1.26.0
-        #   (running go 1.25.12; GOTOOLCHAIN=local)
+        #   (running go 1.26.x; GOTOOLCHAIN=local)
         #
         # published that day, resolved by @latest, and every PR's benchmark job failed at
         # a step that has nothing to do with the change under test. The exception is
