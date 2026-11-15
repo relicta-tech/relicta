@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
-    "vue": "^3.5.41"
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
