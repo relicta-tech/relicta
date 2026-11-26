@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/monorepo"
 )
 
 // packageTypeMarkers maps a manifest file to the package type that owns it, in the order
@@ -15,11 +15,11 @@ var packageTypeMarkers = []struct {
 	file string
 	typ  monorepo.PackageType
 }{
+	{"go.mod", monorepo.PackageTypeGoModule},
 	{"package.json", monorepo.PackageTypeNPM},
 	{"Cargo.toml", monorepo.PackageTypeCargo},
 	{"pyproject.toml", monorepo.PackageTypePython},
 	{"setup.py", monorepo.PackageTypePython},
-	{"go.mod", monorepo.PackageTypeGoModule},
 	{"pom.xml", monorepo.PackageTypeMaven},
 	{"build.gradle", monorepo.PackageTypeGradle},
 	{"build.gradle.kts", monorepo.PackageTypeGradle},

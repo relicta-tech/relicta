@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // workflow.auto_commit_changelog defaults to true and was read by nothing, which left a release

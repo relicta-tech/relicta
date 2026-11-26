@@ -10,11 +10,18 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// applyProcessLimits applies Linux-specific resource limits to the command.
-// Sets up process group for proper signal handling.
+// applyProcessLimits rejects unsupported network/filesystem isolation and then
+// configures Linux-specific resource limits. It sets up a process group for
+// proper signal handling.
 func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 	if s.capabilities == nil {
 		return nil
+	}
+	if !s.capabilities.AllowNetwork {
+		return fmt.Errorf("network isolation is not implemented on Linux; enable network access or use an external sandbox runtime")
+	}
+	if !s.capabilities.AllowFilesystem || len(s.capabilities.AllowedPaths) > 0 {
+		return fmt.Errorf("filesystem isolation is not implemented on Linux; enable filesystem access or use an external sandbox runtime")
 	}
 
 	// Initialize SysProcAttr if needed

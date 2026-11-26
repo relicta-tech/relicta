@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // `relicta init` writes 7 of the schema's 21 top-level sections, deliberately: all 21 would

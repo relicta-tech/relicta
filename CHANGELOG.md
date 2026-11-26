@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-07-10
+
+More context for safer release decisions, stronger plugin isolation on macOS, and clearer
+structured data for automation.
+
+### Added
+
+- Release governance can use verifiable contribution history and organization-granted identities
+  when deciding whether an actor may approve a change.
+- macOS plugins run with operating-system sandbox restrictions.
+- MCP data tools publish output schemas, making their responses easier for agents and other
+  clients to validate.
+
+### Changed
+
+- Governance decisions can include commit authorship and agent memory as additional context.
+- The MCP server was split into focused handlers, making its tool behavior easier to maintain.
+
+Full details: [v4.1.0 to v4.2.0](https://github.com/relicta-tech/relicta/compare/v4.1.0...v4.2.0).
+
 ## [4.1.0]
 
 Governance hardening, a nox-style plugin architecture, and CLI/onboarding polish.

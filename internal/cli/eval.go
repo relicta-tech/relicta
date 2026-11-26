@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/evals"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai/evals"
 )
 
 var (
@@ -181,7 +181,7 @@ func buildEvalService(_ context.Context) evals.Service {
 
 	svc, err := ai.NewService(opts...)
 	if err != nil || svc == nil || !svc.IsAvailable() {
-		printInfo("eval: no AI provider configured — using noop service. Set OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY to exercise the real provider.")
+		printInfo("eval: no AI provider configured — using noop service. Configure OpenAI, Anthropic, Gemini, or Ollama credentials to exercise a real provider.")
 		return evalNoopService{}
 	}
 

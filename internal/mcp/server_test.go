@@ -10,13 +10,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.klarlabs.de/mcp"
 
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // parseJSONResult parses a JSON string result into a map for test assertions
@@ -212,9 +213,11 @@ func TestToolInputTypes(t *testing.T) {
 		input := PlanToolInput{
 			From:    "v1.0.0",
 			Analyze: true,
+			DryRun:  true,
 		}
 		assert.Equal(t, "v1.0.0", input.From)
 		assert.True(t, input.Analyze)
+		assert.True(t, input.DryRun)
 	})
 
 	t.Run("BumpToolInput fields", func(t *testing.T) {
@@ -479,6 +482,11 @@ func TestPromptHandlers(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Release summary prompt", result.Description)
 		assert.Len(t, result.Messages, 1)
+		prompt := result.Messages[0].Content.(mcp.TextContent).Text
+		assert.Contains(t, prompt, "only source for what changed in this release")
+		assert.Contains(t, prompt, "Product context from this agent session may help explain the relevance")
+		assert.Contains(t, prompt, "omit the change or flag the uncertainty for human review")
+		assert.Contains(t, prompt, "customer impact of the most useful verified user-visible changes")
 	})
 
 	t.Run("release-summary with detailed style", func(t *testing.T) {

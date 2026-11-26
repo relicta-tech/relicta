@@ -5,26 +5,18 @@ import (
 	"fmt"
 	"strings"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
-// Planner answers what each member repository would release next.
+// Planner answers what each member repository would release next. The group executor owns
+// actual publication because it must build release services with that member's configuration.
 //
-// The coordinator consults a ReleaseExecutor for this, and the CLI passed nil — so
-// `relicta group plan` reported which repositories had changes and how many, with the NEXT
-// column blank. That is the column the command exists for: "what would this group release"
-// is the question, and the answer was missing while the arithmetic to produce it already
-// existed for the single-repository path.
-//
-// Only Plan is implemented. Release runs the full pipeline — bump, notes, approval,
-// publish — inside another checkout, with that repository's own config, plugins and approval
-// state, and it raises a question this type cannot answer on its own: whether a group release
-// may auto-approve a member whose policy demands a human. Coordinator.Execute refuses clearly
-// while that remains undecided, which is better than a plausible guess about somebody's
-// governance.
+// This adapter supplies the deterministic next-version estimate used in group plans. It does
+// not perform a release; groupExecutor performs publication of an already-approved run inside
+// the member repository's own configuration and checkout.
 type Planner struct {
 	tagPrefix string
 }
@@ -42,6 +34,10 @@ var _ appmultirepo.ReleaseExecutor = (*Planner)(nil)
 // Plan reports the version repoPath would release next, derived from its conventional
 // commits since its last version tag — the same rule the single-repository path applies.
 func (p *Planner) Plan(ctx context.Context, repoPath string) (*appmultirepo.RepoResult, error) {
+	prefix, err := effectiveTagPrefix(repoPath, p.tagPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("loading version settings for %s: %w", repoPath, err)
+	}
 	svc, err := git.NewService(git.WithRepoPath(repoPath))
 	if err != nil {
 		return nil, fmt.Errorf("opening repository %s: %w", repoPath, err)
@@ -49,11 +45,15 @@ func (p *Planner) Plan(ctx context.Context, repoPath string) (*appmultirepo.Repo
 
 	current := version.SemanticVersion{}
 	ref := ""
-	if tag, tagErr := svc.GetLatestVersionTag(ctx, p.tagPrefix); tagErr == nil && tag != nil {
+	tag, err := latestVersionTag(ctx, svc, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("reading latest version tag in %s: %w", repoPath, err)
+	}
+	if tag != nil {
 		ref = tag.Name
 		// A tag that does not parse leaves current at 0.0.0 rather than failing the whole
 		// group: one member with an odd tag must not stop the others being planned.
-		if parsed, parseErr := version.Parse(strings.TrimPrefix(tag.Name, p.tagPrefix)); parseErr == nil {
+		if parsed, parseErr := version.Parse(strings.TrimPrefix(tag.Name, prefix)); parseErr == nil {
 			current = parsed
 		}
 	}
@@ -86,12 +86,10 @@ func (p *Planner) Plan(ctx context.Context, repoPath string) (*appmultirepo.Repo
 	return result, nil
 }
 
-// Release is not implemented. See the type comment: running the pipeline inside another
-// checkout needs a decision about approval that this type cannot make.
+// Release is intentionally unsupported here. The container-level groupExecutor is the only
+// component with enough context to publish a member's already-approved run safely.
 func (p *Planner) Release(_ context.Context, repoPath string) (*appmultirepo.RepoResult, error) {
-	return nil, fmt.Errorf("releasing %s from a group is not implemented: a group release has "+
-		"to decide whether it may approve on behalf of a member whose policy requires a human, "+
-		"and that decision is not made yet", repoPath)
+	return nil, fmt.Errorf("releasing %s requires an approved Relicta run; the plan-only multirepository planner cannot load or publish that approval", repoPath)
 }
 
 // bumpFor maps a detected release type onto the version bump it implies.

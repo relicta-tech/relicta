@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // Reconcile detects an ungoverned deployment after it happened. This answers the

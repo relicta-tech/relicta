@@ -40,21 +40,26 @@ relicta demo --down
 ```
 
 **Prerequisites:** Docker and Docker Compose must be installed.
-**Default Compose File:** `docker-compose.demo.yml` (auto-created in repo root)
+**Default Compose File:** `docker-compose.demo.yml`, included in the source
+checkout. The command does not create this file. Run `relicta demo` from the
+repository root, or pass the file's path with `--file`.
 
 ## New HTTP Endpoints
 
-### `GET /health/cognitive`
-Reports the status of the Mnemos and Chronos cognitive backends.
+### `GET /api/v1/health/cognitive` (authenticated)
+Reports whether the Mnemos and Chronos backends are enabled in the loaded
+configuration. This operational detail requires dashboard authentication. It
+does not check whether those services are reachable.
 
 **Response:**
 ```json
 {
-  "mnemos": "enabled",
+  "mnemos": "disabled",
   "chronos": "enabled"
 }
 ```
-*Note: Currently returns static "enabled" status. Future versions will ping actual backend health.*
+The values are `enabled` or `disabled`, based on the server's configuration.
+Use `relicta version --cognitive` to probe backend health from the CLI.
 
 ## Configuration Changes
 

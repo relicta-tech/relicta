@@ -3,7 +3,11 @@ package websocket
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -23,6 +27,9 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 	// maxMessageSize is the maximum message size allowed.
 	maxMessageSize = 512 * 1024 // 512KB
+	// TicketTTL bounds the usefulness of a credential exposed in a WebSocket URL.
+	TicketTTL         = 30 * time.Second
+	maxPendingTickets = 10000
 )
 
 // Message represents a WebSocket message.
@@ -55,6 +62,8 @@ type Hub struct {
 	allowedOrigins []string
 	upgrader       websocket.Upgrader
 	tokenValidator TokenValidator
+	requireTickets bool
+	tickets        map[[32]byte]time.Time
 }
 
 // NewHub creates a new WebSocket hub with optional allowed origins for CSWSH protection.
@@ -67,6 +76,7 @@ func NewHub(allowedOrigins []string) *Hub {
 		register:       make(chan *Client),
 		unregister:     make(chan *Client),
 		allowedOrigins: allowedOrigins,
+		tickets:        make(map[[32]byte]time.Time),
 	}
 
 	// Configure upgrader with origin validation
@@ -77,6 +87,58 @@ func NewHub(allowedOrigins []string) *Hub {
 	}
 
 	return h
+}
+
+// RequireTickets makes upgrades require a short-lived, single-use ticket. It is
+// enabled by the HTTP server, which authenticates ticket requests with dashboard
+// middleware before calling IssueTicket.
+func (h *Hub) RequireTickets(required bool) {
+	h.mu.Lock()
+	h.requireTickets = required
+	h.mu.Unlock()
+}
+
+// IssueTicket creates a short-lived, single-use bearer credential for a WebSocket
+// upgrade. Only the digest is retained by the hub.
+func (h *Hub) IssueTicket() (string, error) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	ticket := base64.RawURLEncoding.EncodeToString(raw[:])
+	digest := sha256.Sum256([]byte(ticket))
+	now := time.Now()
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return "", errors.New("websocket hub is closed")
+	}
+	for key, expiry := range h.tickets {
+		if !expiry.After(now) {
+			delete(h.tickets, key)
+		}
+	}
+	if len(h.tickets) >= maxPendingTickets {
+		return "", errors.New("too many outstanding websocket tickets")
+	}
+	h.tickets[digest] = now.Add(TicketTTL)
+	return ticket, nil
+}
+
+func (h *Hub) consumeTicket(ticket string) bool {
+	if ticket == "" {
+		return false
+	}
+	digest := sha256.Sum256([]byte(ticket))
+	now := time.Now()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	expiresAt, ok := h.tickets[digest]
+	if ok {
+		delete(h.tickets, digest)
+	}
+	return ok && expiresAt.After(now)
 }
 
 // checkOrigin validates the Origin header against allowed origins.
@@ -190,6 +252,7 @@ func (h *Hub) close() {
 		return
 	}
 	h.closed = true
+	clear(h.tickets)
 
 	for client := range h.clients {
 		close(client.send)
@@ -236,8 +299,17 @@ func (h *Hub) SetTokenValidator(v TokenValidator) {
 // If a TokenValidator is configured, the client must provide a valid JWT
 // via the "token" query parameter on the upgrade request.
 func (h *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
+	h.mu.RLock()
+	requireTickets := h.requireTickets
+	h.mu.RUnlock()
+	if requireTickets {
+		if !h.consumeTicket(r.URL.Query().Get("ticket")) {
+			http.Error(w, "missing, expired, or already used WebSocket ticket", http.StatusUnauthorized)
+			return
+		}
+	}
 	// Validate JWT token if a validator is configured
-	if h.tokenValidator != nil {
+	if !requireTickets && h.tokenValidator != nil {
 		tokenStr := r.URL.Query().Get("token")
 		if tokenStr == "" {
 			http.Error(w, "missing token query parameter", http.StatusUnauthorized)

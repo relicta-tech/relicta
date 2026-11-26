@@ -4,14 +4,20 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/mcp"
+	"github.com/relicta-tech/relicta/v5/internal/application/versioning"
+	cgpprotocol "github.com/relicta-tech/relicta/v5/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/mcp"
 )
 
 var mcpCmd = &cobra.Command{
@@ -30,23 +36,25 @@ var mcpServeCmd = &cobra.Command{
 
 The server uses stdio transport by default, allowing integration with
 AI clients that support the Model Context Protocol (MCP). You can also
-run over HTTP transport for remote/custom integrations.
+run over HTTP transport for remote/custom integrations. HTTP binds to
+loopback by default and has no built-in authentication or TLS; non-loopback
+binds require --allow-insecure-http and external network/authentication controls.
 
 Core Tools:
-  - relicta.status:   Get current release state
-  - relicta.init:     Initialize configuration file
-  - relicta.plan:     Analyze commits and plan release
-  - relicta.bump:     Calculate and set version
-  - relicta.notes:    Generate release notes
-  - relicta.evaluate: CGP risk evaluation
-  - relicta.approve:  Approve the release
-  - relicta.publish:  Execute the release
+  - relicta_status:   Get current release state
+  - relicta_init:     Initialize configuration file
+  - relicta_plan:     Analyze commits and plan release
+  - relicta_bump:     Calculate and set version
+  - relicta_notes:    Generate release notes
+  - relicta_evaluate: CGP risk evaluation
+  - relicta_approve:  Approve the release
+  - relicta_publish:  Execute the release
 
 AI Agent Tools:
-  - relicta.blast_radius:     Analyze monorepo change impact
-  - relicta.infer_version:    Lightweight version inference
-  - relicta.summarize_diff:   Audience-tailored change summaries
-  - relicta.validate_release: Pre-flight release validation
+  - relicta_blast_radius:     Analyze monorepo change impact
+  - relicta_infer_version:    Lightweight version inference
+  - relicta_summarize_diff:   Audience-tailored change summaries
+  - relicta_validate_release: Pre-flight release validation
 
 Resources available:
   - relicta://state:       Current release state
@@ -58,9 +66,10 @@ Resources available:
 }
 
 var (
-	mcpServeTransport string
-	mcpServePort      string
-	mcpServeAddress   string
+	mcpServeTransport     string
+	mcpServePort          string
+	mcpServeAddress       string
+	mcpServeAllowInsecure bool
 )
 
 func init() {
@@ -68,10 +77,20 @@ func init() {
 	mcpServeCmd.Flags().StringVar(&mcpServeTransport, "transport", "stdio", "transport to use: stdio or http")
 	mcpServeCmd.Flags().StringVar(&mcpServePort, "port", "", "port for HTTP transport (implies --transport=http)")
 	mcpServeCmd.Flags().StringVar(&mcpServeAddress, "address", "", "address for HTTP transport, e.g. :8080 or 127.0.0.1:8080")
+	mcpServeCmd.Flags().BoolVar(&mcpServeAllowInsecure, "allow-insecure-http", false, "allow MCP HTTP to bind non-loopback without built-in authentication; protect it with a trusted proxy and network policy")
 }
 
 func runMCPServe(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	transport, address, err := resolveMCPServeTransport()
+	if err != nil {
+		return err
+	}
+	if transport == "http" {
+		if err := validateMCPHTTPExposure(address, mcpServeAllowInsecure); err != nil {
+			return err
+		}
+	}
 
 	// Create logger for MCP server
 	mcpLogger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
@@ -81,7 +100,11 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 	// Load config if not already loaded
 	if cfg == nil {
 		if err := initConfig(); err != nil {
-			// Config loading is optional for MCP - use defaults
+			// Config loading is optional for MCP when no file exists, but a
+			// loaded config that fails validation must not be used to start tools.
+			if cfg != nil {
+				return err
+			}
 			mcpLogger.Warn("config not loaded, using defaults", "error", err)
 		}
 	}
@@ -113,7 +136,11 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		adapter := createMCPAdapter(newApp)
+		adapter, err := createMCPAdapter(ctx, newApp)
+		if err != nil {
+			_ = newApp.CloseWithTimeout(10 * time.Second)
+			return nil, nil, err
+		}
 		return newApp, adapter, nil
 	}
 
@@ -154,6 +181,15 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 			if govSvc := app.GovernanceService(); govSvc != nil {
 				if eval := govSvc.Evaluator(); eval != nil {
 					opts = append(opts, mcp.WithEvaluator(eval))
+					store, storeErr := openMCPProposalStore(ctx, app)
+					if storeErr != nil {
+						_ = app.CloseWithTimeout(10 * time.Second)
+						return fmt.Errorf("failed to open CGP protocol store: %w", storeErr)
+					}
+					opts = append(opts, mcp.WithProposalStore(store))
+					if memoryStore := app.MemoryStore(); memoryStore != nil {
+						opts = append(opts, mcp.WithAuditStore(memoryStore))
+					}
 				}
 			}
 
@@ -204,6 +240,9 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return mcp.ReloadedComponents{}, fmt.Errorf("failed to load config: %w", err)
 		}
+		if err := config.Validate(newCfg); err != nil {
+			return mcp.ReloadedComponents{}, fmt.Errorf("invalid configuration: %w", err)
+		}
 
 		// Close old container if it exists
 		if app != nil {
@@ -218,10 +257,6 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 			return mcp.ReloadedComponents{Config: newCfg}, fmt.Errorf("config loaded but container init failed: %w", err)
 		}
 
-		// Update the outer app reference for cleanup on shutdown
-		app = newApp
-		cfg = newCfg
-
 		// The evaluator has to come back too. This reload path exists for the case
 		// where no config existed at startup, which is exactly the case where the
 		// evaluator was nil — so without this, `relicta_init` reported that tools
@@ -229,7 +264,24 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 		reloaded := mcp.ReloadedComponents{Config: newCfg, Adapter: newAdapter}
 		if govSvc := newApp.GovernanceService(); govSvc != nil {
 			reloaded.Evaluator = govSvc.Evaluator()
+			if reloaded.Evaluator != nil {
+				resolved, storeErr := persistence.OpenCGPProtocolStore(
+					reloadCtx, newCfg.Persistence, mcpRepoRoot(reloadCtx, newApp))
+				if storeErr != nil {
+					_ = newApp.CloseWithTimeout(10 * time.Second)
+					return mcp.ReloadedComponents{Config: newCfg},
+						fmt.Errorf("opening CGP protocol store after reload: %w", storeErr)
+				}
+				if resolved.Closer != nil {
+					newApp.RegisterCloseable(resolved.Closer)
+				}
+				reloaded.ProposalStore = resolved.Store
+			}
 		}
+		// Track the replacement container for process shutdown only after its
+		// evaluator and protocol store have both initialized.
+		app = newApp
+		cfg = newCfg
 		return reloaded, nil
 	}))
 
@@ -241,11 +293,6 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 
 	// Log startup
 	hasAdapter := app != nil
-	transport, address, err := resolveMCPServeTransport()
-	if err != nil {
-		return err
-	}
-
 	switch transport {
 	case "stdio":
 		mcpLogger.Info("starting MCP server",
@@ -265,6 +312,34 @@ func runMCPServe(cmd *cobra.Command, args []string) error {
 	default:
 		return fmt.Errorf("unsupported MCP transport: %s", transport)
 	}
+}
+
+func openMCPProposalStore(ctx context.Context, app *container.App) (cgpprotocol.ProposalStore, error) {
+	cfg := app.Config()
+	if cfg == nil {
+		return nil, fmt.Errorf("configuration is unavailable")
+	}
+	resolved, err := persistence.OpenCGPProtocolStore(ctx, cfg.Persistence, mcpRepoRoot(ctx, app))
+	if err != nil {
+		return nil, err
+	}
+	if resolved.Closer != nil {
+		app.RegisterCloseable(resolved.Closer)
+	}
+	return resolved.Store, nil
+}
+
+func mcpRepoRoot(ctx context.Context, app *container.App) string {
+	if gitSvc := app.Git(); gitSvc != nil {
+		if root, err := gitSvc.GetRepositoryRoot(ctx); err == nil && root != "" {
+			return root
+		}
+	}
+	root, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	return root
 }
 
 func resolveMCPServeTransport() (transport string, address string, err error) {
@@ -289,18 +364,60 @@ func resolveMCPServeTransport() (transport string, address string, err error) {
 			return "http", mcpServeAddress, nil
 		}
 		if mcpServePort != "" {
-			return "http", ":" + mcpServePort, nil
+			return "http", "127.0.0.1:" + mcpServePort, nil
 		}
-		return "http", ":8080", nil
+		return "http", "127.0.0.1:8080", nil
 	default:
 		return "", "", fmt.Errorf("invalid transport %q (supported: stdio, http)", transport)
 	}
 }
 
+// validateMCPHTTPExposure keeps the unauthenticated HTTP transport local by
+// default. Deployments that need a network listener must opt in explicitly and
+// supply TLS, authentication, and network controls outside this process.
+func validateMCPHTTPExposure(address string, allowInsecure bool) error {
+	if allowInsecure {
+		return nil
+	}
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("invalid MCP HTTP address %q: %w", address, err)
+	}
+	if host == "localhost" {
+		return nil
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil && ip.IsLoopback() {
+		return nil
+	}
+	return fmt.Errorf("refusing to expose the unauthenticated MCP HTTP transport on %q; "+
+		"bind to 127.0.0.1/localhost or pass --allow-insecure-http only when a trusted proxy "+
+		"provides authentication and TLS and network policy blocks direct access", address)
+}
+
 // createMCPAdapter creates an MCP adapter wired to the container's services.
 // ADR-007: All interfaces must use application services layer.
-func createMCPAdapter(app *container.App) *mcp.Adapter {
+func createMCPAdapter(ctx context.Context, app *container.App) (*mcp.Adapter, error) {
 	opts := []mcp.AdapterOption{}
+
+	if cfg != nil {
+		target, configured, err := versioning.CurrentVersionTarget(cfg.Versioning)
+		if err != nil {
+			return nil, fmt.Errorf("invalid versioning.bump_from configuration: %w", err)
+		}
+		if configured {
+			bumpFrom := cfg.Versioning.BumpFrom
+			opts = append(opts, mcp.WithCurrentVersionResolver(func(_ context.Context, repoRoot string) (*version.SemanticVersion, error) {
+				if repoRoot == "" {
+					return nil, fmt.Errorf("repository root is unavailable for versioning.bump_from %q", bumpFrom)
+				}
+				current, err := versioning.ReadCurrentVersion(repoRoot, target)
+				if err != nil {
+					return nil, fmt.Errorf("failed to read the current version (versioning.bump_from is %q): %w", bumpFrom, err)
+				}
+				return &current, nil
+			}))
+		}
+	}
 
 	// Wire release analyzer for planning
 	if analyzer := app.ReleaseAnalyzer(); analyzer != nil {
@@ -344,5 +461,5 @@ func createMCPAdapter(app *container.App) *mcp.Adapter {
 	// Without this the MCP surface plans against "v" regardless of configuration.
 	opts = append(opts, mcp.WithTagPrefix(configuredTagPrefix()))
 
-	return mcp.NewAdapter(opts...)
+	return mcp.NewAdapter(opts...), nil
 }

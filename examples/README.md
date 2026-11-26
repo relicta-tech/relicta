@@ -348,30 +348,32 @@ See [PLUGINS.md](../docs/PLUGINS.md) for detailed plugin documentation.
 
 ### GitHub Actions
 
-Use the Relicta GitHub Action for zero-setup CI/CD:
+Use Go to install a pinned Relicta version for a read-only release plan. The current Relicta GitHub
+Action release does not fail closed on binary checksum errors, so do not use it to execute Relicta
+in a production workflow until a fixed release is available.
 
 ```yaml
 name: Release
 
-on:
-  push:
-    branches:
-      - main
+on: workflow_dispatch
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: relicta-tech/relicta-action@v1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          go-version: '1.26'
+      - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+      - run: relicta plan --dry-run --json
 ```
 
 See [relicta-action](https://github.com/relicta-tech/relicta-action) for details.

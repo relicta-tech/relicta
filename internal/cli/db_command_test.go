@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // DBCommands, the migrator, the migrations and the connection pool were all implemented and

@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Per-package changelogs.
@@ -41,9 +41,9 @@ func packageChangelogFile(repoRoot, relPath string) string {
 //
 // Returns the files it wrote so the release commit can carry them: a changelog committed after
 // the tag describes a release the tag does not contain.
-func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []string {
+func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) ([]string, error) {
 	if cfg == nil || !cfg.Monorepo.Enabled || !cfg.Monorepo.Changelog.PerPackage {
-		return nil
+		return nil, nil
 	}
 
 	bumper := container.NewMonorepoBumper(app.GitAdapter(), nil)
@@ -56,8 +56,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		FromRef:      lastReleaseTag(ctx, app),
 	})
 	if err != nil {
-		printWarning(fmt.Sprintf("Could not render per-package changelogs: %v", err))
-		return nil
+		return nil, fmt.Errorf("could not render per-package changelogs: %w", err)
 	}
 
 	// The heading version is the one the package is being tagged at — the version its manifest
@@ -75,8 +74,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		Skip:         monorepoSkipped(),
 	})
 	if err != nil {
-		printWarning(fmt.Sprintf("Could not read the package versions to render changelogs: %v", err))
-		return nil
+		return nil, fmt.Errorf("could not read package versions to render changelogs: %w", err)
 	}
 	releasing := make(map[string]version.SemanticVersion, len(tags))
 	for _, tag := range tags {
@@ -105,7 +103,10 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 		}
 
 		entry := communication.BuildEntry(ver, pkg.Changes, opts)
-		sections := communication.RenderSections(entry, opts)
+		sections, err := container.RenderChangelogSections(entry, opts)
+		if err != nil {
+			return nil, fmt.Errorf("render changelog for package %s: %w", pkg.Name, err)
+		}
 		if sections == "" {
 			// Every commit that touched the package was excluded by changelog.exclude. An
 			// empty section list under a version heading says less than no entry at all.
@@ -119,8 +120,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 			continue
 		}
 		if err := updateChangelogFile(file, body); err != nil {
-			printWarning(fmt.Sprintf("Failed to update %s: %v", displayPath(file, repoRoot), err))
-			continue
+			return nil, fmt.Errorf("failed to update %s: %w", displayPath(file, repoRoot), err)
 		}
 		written = append(written, file)
 	}
@@ -128,7 +128,7 @@ func writePackageChangelogs(ctx context.Context, app cliApp, repoRoot string) []
 	if len(written) > 0 {
 		printSuccess(fmt.Sprintf("Updated %d package changelog%s", len(written), plural(len(written))))
 	}
-	return written
+	return written, nil
 }
 
 // packageIsShipping reports whether this package's own decision allows it to be released.

@@ -1,14 +1,8 @@
-// Package observability wires the observability subsystem: the providers a repository
-// configures, the health monitor that watches a release after it ships, the correlation engine
-// that ties incidents back to releases, and the webhook receiver that hears about them.
+// Package observability assembles the configured providers, post-publication health monitor,
+// incident correlation engine, and inbound alert receiver used by `relicta serve`.
 //
-// The parts were complete and connected at none of them. `observability.providers` had no
-// reader at all, `NewPrometheusProvider` and `NewHealthMonitor` had no production caller, and
-// `handlers.SetObservabilityService` was never called — so the four dashboard routes answered
-// from a nil service every time and no implementation of their interface existed.
-//
-// The rule this is built on: no data beats wrong data. A release nothing could observe is
-// unmeasured, not healthy, and nothing is recorded for it. See ADR-016.
+// A missing provider is reported as not configured rather than as healthy. A release that
+// cannot be observed is unmeasured, not healthy, and nothing is recorded for it. See ADR-016.
 package observability
 
 import (
@@ -16,14 +10,16 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 // Service is the observability subsystem, assembled from configuration.
@@ -68,6 +64,11 @@ func NewService(cfg config.ObservabilityConfig, store memory.Store, repository s
 			return nil, fmt.Errorf("observability.providers: %w", err)
 		}
 	}
+	if cfg.HealthCheck.ProviderName != "" {
+		if _, err := registry.Get(cfg.HealthCheck.ProviderName); err != nil {
+			return nil, fmt.Errorf("observability.health_check.provider_name: %w", err)
+		}
+	}
 
 	svc := &Service{registry: registry, store: store, repository: repository}
 
@@ -78,8 +79,8 @@ func NewService(cfg config.ObservabilityConfig, store memory.Store, repository s
 	// Recorded rather than accumulated in memory. The slice this replaces was appended to
 	// from whichever HTTP handler goroutine received the webhook — a data race with the
 	// correlations endpoint reading it — and it was lost on restart besides.
-	svc.receiver = receiver.NewWebhookReceiver(cfg.WebhookSecret, func(incident receiver.Incident) {
-		svc.recordIncident(context.Background(), incident)
+	svc.receiver = receiver.NewWebhookReceiver(cfg.WebhookSecret, func(ctx context.Context, incident receiver.Incident) error {
+		return svc.recordIncident(ctx, incident)
 	})
 
 	return svc, nil
@@ -89,6 +90,11 @@ func NewService(cfg config.ObservabilityConfig, store memory.Store, repository s
 func buildProvider(cfg config.ObservabilityProviderConfig) (providers.Provider, error) {
 	switch strings.ToLower(cfg.Type) {
 	case "prometheus":
+		endpoint, err := url.Parse(cfg.Endpoint)
+		if err != nil || endpoint.Host == "" ||
+			(endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil {
+			return nil, fmt.Errorf("observability.providers[%s].endpoint must be an absolute HTTP(S) URL without embedded credentials", cfg.Name)
+		}
 		opts := make([]providers.PrometheusOption, 0, 2)
 		if cfg.BasicAuthUser != "" || cfg.BasicAuthPass != "" {
 			opts = append(opts, providers.WithBasicAuth(cfg.BasicAuthUser, cfg.BasicAuthPass))
@@ -124,6 +130,8 @@ func (s *Service) WithHealthMonitor(cfg config.ObservabilityConfig, recorder mon
 		monitorCfg.LatencyThreshold = cfg.HealthCheck.LatencyThreshold
 	}
 	monitorCfg.ProviderName = cfg.HealthCheck.ProviderName
+	monitorCfg.ErrorRateQuery = cfg.HealthCheck.ErrorRateQuery
+	monitorCfg.LatencyQuery = cfg.HealthCheck.LatencyQuery
 
 	// auto_record is what decides whether anything is written. With it off the monitor still
 	// reports through the dashboard; it just does not turn an observation into a record.
@@ -141,6 +149,14 @@ func (s *Service) StartWatch(ctx context.Context, releaseID string) error {
 		return nil
 	}
 	return s.monitor.StartWatch(ctx, releaseID)
+}
+
+// StartWatchAt resumes monitoring within the release's original post-publication window.
+func (s *Service) StartWatchAt(ctx context.Context, releaseID string, publishedAt time.Time) error {
+	if s == nil || s.monitor == nil {
+		return nil
+	}
+	return s.monitor.StartWatchAt(ctx, releaseID, publishedAt)
 }
 
 // GetDeploymentHealth reports what the monitor has observed.
@@ -164,11 +180,11 @@ func (s *Service) GetCorrelations(releaseID string) []correlation.ReleaseCorrela
 }
 
 // GetProviderStatuses health-checks every configured provider.
-func (s *Service) GetProviderStatuses() []providers.ProviderStatus {
+func (s *Service) GetProviderStatuses(ctx context.Context) []providers.ProviderStatus {
 	if s == nil || s.registry == nil {
 		return nil
 	}
-	return s.registry.HealthCheckAll(context.Background())
+	return s.registry.HealthCheckAll(ctx)
 }
 
 // HandleWebhook returns the handler for a provider's alert webhook.

@@ -1226,7 +1226,7 @@ const file_plugin_proto_rawDesc = "" +
 	"\x06Plugin\x12.\n" +
 	"\aGetInfo\x12\x0e.relicta.Empty\x1a\x13.relicta.PluginInfo\x12<\n" +
 	"\aExecute\x12\x17.relicta.ExecuteRequest\x1a\x18.relicta.ExecuteResponse\x12?\n" +
-	"\bValidate\x12\x18.relicta.ValidateRequest\x1a\x19.relicta.ValidateResponseB<H\x03Z8github.com/relicta-tech/relicta/v4/internal/plugin/protob\x06proto3"
+	"\bValidate\x12\x18.relicta.ValidateRequest\x1a\x19.relicta.ValidateResponseB<H\x03Z8github.com/relicta-tech/relicta/v5/internal/plugin/protob\x06proto3"
 
 var (
 	file_plugin_proto_rawDescOnce sync.Once

@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres/migrations"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres/migrations"
 )
 
 func TestMigrationFiles_Embedded(t *testing.T) {

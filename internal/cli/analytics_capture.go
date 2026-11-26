@@ -4,8 +4,8 @@ package cli
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/v4/internal/analytics"
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/analytics"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
 )
 
 // captureGovernanceAnalytics records the risk-evaluation and policy-decision

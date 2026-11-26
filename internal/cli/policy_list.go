@@ -4,17 +4,22 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // runPolicyList prints all loadable policies + rules from the configured
 // policy directories. Useful for an at-a-glance audit of governance posture.
 func runPolicyList(cmd *cobra.Command, args []string) error {
+	projectDir, _ := os.Getwd()
+	projectConfig, configErr := config.LoadFromDirectory(projectDir)
+	governanceEnabled := configErr == nil && projectConfig.Governance.Enabled
 	dirs := dsl.DefaultPolicyPaths()
 
 	loader := dsl.NewLoader(dsl.LoaderOptions{
@@ -70,8 +75,13 @@ func runPolicyList(cmd *cobra.Command, args []string) error {
 		// it still has no way to know what goes inside it. The command that writes
 		// a working one is the useful next step.
 		fmt.Println("No policies found.")
-		fmt.Println("\nGovernance is still active — it runs on built-in defaults.")
-		fmt.Println("Policies are how you add rules those defaults do not cover.")
+		if governanceEnabled {
+			fmt.Println("\nCGP governance is enabled and uses built-in defaults.")
+		} else {
+			fmt.Println("\nCGP governance is disabled for this project.")
+			fmt.Println("Enable it with governance.enabled: true in .relicta.yaml.")
+		}
+		fmt.Println("Policies add project-specific rules when CGP is enabled.")
 		fmt.Println("\nWrite one to start from:")
 		fmt.Println("  relicta policy init          # a basic risk-based policy")
 		fmt.Println("  relicta policy init --list   # other starting points")

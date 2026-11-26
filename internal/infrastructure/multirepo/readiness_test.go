@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // `relicta group release` refused on the first member with "no release executor is

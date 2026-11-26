@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/multirepo"
 )
 
 // RepoReleaseState tracks the release state of an individual repository.
@@ -80,7 +80,8 @@ type GitAdapter interface {
 type ReleaseExecutor interface {
 	// Plan analyzes a repository and returns what would be released.
 	Plan(ctx context.Context, repoPath string) (*RepoResult, error)
-	// Release performs the full release cycle: plan -> bump -> notes -> approve -> publish.
+	// Release publishes the member's already-approved release run. Implementations must not
+	// plan, approve, or publish on behalf of a member's own release policy.
 	Release(ctx context.Context, repoPath string) (*RepoResult, error)
 }
 
@@ -127,7 +128,10 @@ func (c *Coordinator) Plan(
 	}
 
 	// Filter to target repos if specified.
-	targetSet := makeTargetSet(targetRepos, group)
+	targetSet, err := makeTargetSet(targetRepos, group)
+	if err != nil {
+		return nil, err
+	}
 
 	plan := &MultiRepoPlan{
 		GroupName:    group.Name,
@@ -300,13 +304,16 @@ func (c *Coordinator) planRepo(ctx context.Context, repo *multirepo.RepoConfig) 
 
 // makeTargetSet creates a set of target repo names from the filter list.
 // If targetRepos is empty, returns nil (meaning all repos are targeted).
-func makeTargetSet(targetRepos []string, group *multirepo.RepositoryGroup) map[string]bool {
+func makeTargetSet(targetRepos []string, group *multirepo.RepositoryGroup) (map[string]bool, error) {
 	if len(targetRepos) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	set := make(map[string]bool, len(targetRepos))
 	for _, name := range targetRepos {
+		if group.GetRepo(name) == nil {
+			return nil, fmt.Errorf("repository %q is not in group %q", name, group.Name)
+		}
 		set[name] = true
 	}
 
@@ -314,16 +321,22 @@ func makeTargetSet(targetRepos []string, group *multirepo.RepositoryGroup) map[s
 	if group.Strategy == multirepo.StrategyCoordinated {
 		graph, err := multirepo.NewDependencyGraph(group)
 		if err != nil {
-			return set // Fallback to just the target repos.
+			return nil, fmt.Errorf("building dependency graph for target selection: %w", err)
 		}
 
-		for _, name := range targetRepos {
+		queue := append([]string(nil), targetRepos...)
+		for len(queue) > 0 {
+			name := queue[0]
+			queue = queue[1:]
 			deps := graph.DirectDependencies(name)
 			for _, dep := range deps {
-				set[dep] = true
+				if !set[dep] {
+					set[dep] = true
+					queue = append(queue, dep)
+				}
 			}
 		}
 	}
 
-	return set
+	return set, nil
 }

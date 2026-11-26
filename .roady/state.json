@@ -1,6 +1,6 @@
 {
   "project_id": "relicta-phase-2a",
-  "version": 200,
+  "version": 249,
   "task_states": {
     "task-agent-autonomy-profiles-(per-actor-governance-budgets)": {
       "status": "done",
@@ -143,6 +143,54 @@
       "completed_at": "2026-03-15T18:55:22.648861+01:00",
       "elapsed_minutes": 0
     },
+    "task-cgp-protocol-handshake-survives-restart": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Protocol records survive new store instances and the configured backend wiring tests pass."
+      ],
+      "started_at": "2026-11-26T08:09:50.872705+01:00",
+      "completed_at": "2026-11-26T08:09:52.133913+01:00",
+      "elapsed_minutes": 0,
+      "checks": [
+        {
+          "kind": "run",
+          "command": "go test ./internal/cgp/protocol ./internal/infrastructure/persistence ./internal/infrastructure/persistence/sqlite ./internal/infrastructure/persistence/postgres ./internal/mcp -run 'Test(RecordsSurviveANewStoreInstance|DecisionAndAuthorizationRoundTrip|.*CGP.*Store|CGPServiceGetsADurableStore|CGPTools)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:09:51.186844+01:00",
+          "duration": "906ms",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cgp/protocol\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence\t(cached) [no tests to run]\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres\t(cached) [no tests to run]\nok  \tgithub.com/relicta-tech/relicta/v5/internal/mcp\t(cached)\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/cgp/protocol ./internal/infrastructure/persistence ./internal/infrastructure/persistence/sqlite ./internal/infrastructure/persistence/postgres ./internal/mcp -run 'Test(RecordsSurviveANewStoreInstance|DecisionAndAuthorizationRoundTrip|.*CGP.*Store|CGPServiceGetsADurableStore|CGPTools)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:09:52.283741+01:00",
+          "duration": "720ms",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cgp/protocol\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence\t(cached) [no tests to run]\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres\t(cached) [no tests to run]\nok  \tgithub.com/relicta-tech/relicta/v5/internal/mcp\t(cached)\n"
+        }
+      ]
+    },
+    "task-cgp-protocol-proposals-do-not-survive-the-session": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "The production MCP path supplies durable persistence; direct backend and restart regressions passed."
+      ],
+      "started_at": "2026-11-26T08:09:53.05029+01:00",
+      "completed_at": "2026-11-26T08:09:53.09221+01:00",
+      "elapsed_minutes": 0
+    },
     "task-cgp-protocol-wire-format": {
       "status": "done",
       "path": "",
@@ -153,6 +201,43 @@
       "started_at": "2026-03-15T18:55:14.205346+01:00",
       "completed_at": "2026-03-15T18:55:21.866679+01:00",
       "elapsed_minutes": 0
+    },
+    "task-cgp-tools-use-configured-governance-and-durable-storage": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Configured evaluator, durable store and reload path pass targeted MCP/CLI acceptance suite."
+      ],
+      "started_at": "2026-11-26T08:04:56.222956+01:00",
+      "completed_at": "2026-11-26T08:04:58.556392+01:00",
+      "elapsed_minutes": 0,
+      "checks": [
+        {
+          "kind": "run",
+          "command": "go test ./internal/mcp ./internal/cli -run 'Test(CGP|TheMCP|MCPServerWires|Reload|EvaluatorCarries)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:04:56.543107+01:00",
+          "duration": "1.96s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/mcp\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/mcp ./internal/cli -run 'Test(CGP|TheMCP|MCPServerWires|Reload|EvaluatorCarries)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:04:58.743678+01:00",
+          "duration": "1.522s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/mcp\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        }
+      ]
     },
     "task-claude.md-reality-sync": {
       "status": "done",
@@ -176,6 +261,54 @@
       "completed_at": "2026-05-03T23:00:13.906885+02:00",
       "elapsed_minutes": 5
     },
+    "task-configured-tag-prefixes-work-end-to-end": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Prefix-aware tag parsing, lookup, release adapter, monorepo, and stale-plan regression tests pass."
+      ],
+      "started_at": "2026-11-26T08:06:31.722843+01:00",
+      "completed_at": "2026-11-26T08:06:33.085559+01:00",
+      "elapsed_minutes": 0,
+      "checks": [
+        {
+          "kind": "run",
+          "command": "go test ./internal/domain/sourcecontrol ./internal/domain/release/adapters ./internal/infrastructure/git ./internal/application/monorepo ./internal/cli -run 'Test(.*Prefix|.*TagPrefix|DetectRunStaleness_NonVTagPrefixesAreDetected|DetectRunStaleness_IgnoresOtherPrefixes|Plan.*Version|.*LatestVersionTag)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:06:31.999158+01:00",
+          "duration": "1.044s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/domain/release/adapters\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/git\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/application/monorepo\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/domain/sourcecontrol ./internal/domain/release/adapters ./internal/infrastructure/git ./internal/application/monorepo ./internal/cli -run 'Test(.*Prefix|.*TagPrefix|DetectRunStaleness_NonVTagPrefixesAreDetected|DetectRunStaleness_IgnoresOtherPrefixes|Plan.*Version|.*LatestVersionTag)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:06:33.230183+01:00",
+          "duration": "742ms",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/domain/release/adapters\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/infrastructure/git\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/application/monorepo\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        }
+      ]
+    },
+    "task-consolidate-the-two-file-based-release-repositories": {
+      "status": "done",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Implemented legacy file-record decoding and save-time migration in internal/domain/release/adapters/file_repository.go. Regression coverage in legacy_file_repository_test.go verifies RepoID, base ref, recoverable HEAD SHA, versions, changeset commits and current-schema rewrite; run_round_trip_test.go covers current-format commits, HEAD SHA, base ref and changeset. Shared SQLite bridge/store coverage is in container/release_run_backend_test.go. Verified with go test ./internal/domain/release/adapters ./internal/container ./internal/cli and git diff --check."
+      ],
+      "started_at": "2026-11-26T08:01:10.250407+01:00",
+      "completed_at": "2026-11-26T08:02:52.234331+01:00",
+      "elapsed_minutes": 1
+    },
     "task-dashboard-frontend-separation": {
       "status": "done",
       "path": "",
@@ -185,6 +318,22 @@
       ],
       "started_at": "2026-03-15T18:55:28.306521+01:00",
       "completed_at": "2026-03-15T18:55:42.257239+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-decide-what-relicta-init-should-write-and-make-error-messages": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Concise curated init config retained; all actionable omitted-section cases now supply tested YAML hints."
+      ],
+      "started_at": "2026-11-26T08:08:36.710904+01:00",
+      "completed_at": "2026-11-26T08:08:36.796874+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-defer-policy-holidays-and-seniority": {
+      "status": "pending",
+      "path": "",
       "elapsed_minutes": 0
     },
     "task-drata-api-integration-(evidence-push)": {
@@ -219,6 +368,43 @@
       "started_at": "2026-05-03T22:52:41.951422+02:00",
       "completed_at": "2026-05-03T22:52:53.811776+02:00",
       "elapsed_minutes": 0
+    },
+    "task-init-config-guidance-includes-actionable-yaml": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "The generated-config guidance and actionable YAML hint regression suite passes."
+      ],
+      "started_at": "2026-11-26T08:08:11.830625+01:00",
+      "completed_at": "2026-11-26T08:08:27.225123+01:00",
+      "elapsed_minutes": 0,
+      "checks": [
+        {
+          "kind": "run",
+          "command": "go test ./internal/cli ./internal/config -run 'Test(EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey|WriteDefaultConfig|.*ConfigHint|GovernanceDisabled)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:08:15.540278+01:00",
+          "duration": "10.705s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/config\t(cached)\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/cli ./internal/config -run 'Test(EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey|WriteDefaultConfig|.*ConfigHint|GovernanceDisabled)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T08:08:30.706466+01:00",
+          "duration": "5.841s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/config\t(cached)\n"
+        }
+      ]
     },
     "task-init-quick-mode": {
       "status": "done",
@@ -255,6 +441,17 @@
       "evidence": [
         "Created handlers/auth.go with Login (bcrypt password validation + JWT issuance), Refresh (token rotation), Logout (token revocation). Added DashboardUserConfig to config schema. Rate-limited auth routes in router.go. 14 handler tests pass."
       ],
+      "elapsed_minutes": 0
+    },
+    "task-make-versioning-tag-prefix-work-for-non-v-prefixes": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Implementation and end-to-end regression suite verified by task-configured-tag-prefixes-work-end-to-end."
+      ],
+      "started_at": "2026-11-26T08:06:40.81665+01:00",
+      "completed_at": "2026-11-26T08:06:45.041591+01:00",
       "elapsed_minutes": 0
     },
     "task-monorepo-workspace-orchestration": {
@@ -394,6 +591,66 @@
       "started_at": "2026-05-03T23:00:37.718054+02:00",
       "completed_at": "2026-05-03T23:00:43.82599+02:00",
       "elapsed_minutes": 0
+    },
+    "task-policy-conditions-for-data-the-evaluator-does-not-yet-carry": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Policy trust, reputation, breadth and collection operator acceptance is verified; holidays and seniority remain an explicit separate discovery-gated task."
+      ],
+      "started_at": "2026-11-26T08:10:27.826525+01:00",
+      "completed_at": "2026-11-26T08:10:27.852152+01:00",
+      "elapsed_minutes": 0
+    },
+    "task-policy-field-context-and-operators": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Focused policy and CLI regression suite passed via roady task check at current worktree HEAD 72d31c6b8374"
+      ],
+      "started_at": "2026-11-26T07:35:54.72835+01:00",
+      "completed_at": "2026-11-26T07:35:54.75053+01:00",
+      "elapsed_minutes": 0,
+      "checks": [
+        {
+          "kind": "run",
+          "command": "go test ./internal/cgp/policy ./internal/cli -run 'Test(ActorTrust|IsEmpty|Size|ChangeBreadth|Breadth|PolicyFields|EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T07:35:27.590764+01:00",
+          "duration": "2.696s",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cgp/policy\t0.264s\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t0.356s\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/cgp/policy ./internal/cli -run 'Test(ActorTrust|IsEmpty|Size|ChangeBreadth|Breadth|PolicyFields|EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T07:35:54.868787+01:00",
+          "duration": "562ms",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cgp/policy\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        },
+        {
+          "kind": "run",
+          "command": "go test ./internal/cgp/policy ./internal/cli -run 'Test(ActorTrust|IsEmpty|Size|ChangeBreadth|Breadth|PolicyFields|EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey)'",
+          "passed": true,
+          "exit_code": 0,
+          "commit": "72d31c6b83744f6f11100dd8f41b15145c23cc13",
+          "dirty": true,
+          "by": "Felix Geelhaar",
+          "at": "2026-11-26T07:36:16.669324+01:00",
+          "duration": "526ms",
+          "output": "ok  \tgithub.com/relicta-tech/relicta/v5/internal/cgp/policy\t(cached)\nok  \tgithub.com/relicta-tech/relicta/v5/internal/cli\t(cached)\n"
+        }
+      ]
     },
     "task-policy.go-god-file-split": {
       "status": "done",
@@ -628,7 +885,18 @@
       "started_at": "2026-03-15T18:07:07.454556+01:00",
       "completed_at": "2026-03-15T18:07:12.664839+01:00",
       "elapsed_minutes": 0
+    },
+    "task-wire-or-withdraw-the-cgp-mcp-tools": {
+      "status": "verified",
+      "path": "",
+      "owner": "Felix Geelhaar",
+      "evidence": [
+        "Configured evaluator, durable backend, reload path, and proposal persistence acceptance requirement are verified."
+      ],
+      "started_at": "2026-11-26T08:10:27.749104+01:00",
+      "completed_at": "2026-11-26T08:10:27.773058+01:00",
+      "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-04T14:03:42.679183+02:00"
+  "updated_at": "2026-11-26T08:10:27.882473+01:00"
 }

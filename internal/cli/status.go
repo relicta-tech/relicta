@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 var statusCmd = &cobra.Command{
@@ -41,18 +41,19 @@ func init() {
 
 // StatusOutput represents the status command output.
 type StatusOutput struct {
-	HasActiveRelease bool       `json:"has_active_release"`
-	ReleaseID        string     `json:"release_id,omitempty"`
-	State            string     `json:"state,omitempty"`
-	CurrentVersion   string     `json:"current_version,omitempty"`
-	NextVersion      string     `json:"next_version,omitempty"`
-	BumpKind         string     `json:"bump_kind,omitempty"`
-	RiskScore        float64    `json:"risk_score,omitempty"`
-	CreatedAt        *time.Time `json:"created_at,omitempty"`
-	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
-	CommitCount      int        `json:"commit_count,omitempty"`
-	Message          string     `json:"message,omitempty"`
-	NextSteps        []string   `json:"next_steps,omitempty"`
+	HasActiveRelease            bool            `json:"has_active_release"`
+	ReleaseID                   string          `json:"release_id,omitempty"`
+	State                       string          `json:"state,omitempty"`
+	CurrentVersion              string          `json:"current_version,omitempty"`
+	NextVersion                 string          `json:"next_version,omitempty"`
+	BumpKind                    string          `json:"bump_kind,omitempty"`
+	RiskScore                   float64         `json:"risk_score,omitempty"`
+	CreatedAt                   *time.Time      `json:"created_at,omitempty"`
+	UpdatedAt                   *time.Time      `json:"updated_at,omitempty"`
+	CommitCount                 int             `json:"commit_count,omitempty"`
+	Message                     string          `json:"message,omitempty"`
+	NextSteps                   []string        `json:"next_steps,omitempty"`
+	ExternalPublicationEvidence json.RawMessage `json:"external_publication_evidence,omitempty"`
 
 	// Stale reports that the stored run no longer describes the repository.
 	//
@@ -100,6 +101,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		output.HasActiveRelease = true
 		output.ReleaseID = string(run.ID())
 		output.State = string(run.State())
+		if evidence := run.ExternalPublicationEvidence(); evidence != "" {
+			output.ExternalPublicationEvidence = json.RawMessage(evidence)
+		}
 
 		vCurrent := run.VersionCurrent()
 		vNext := run.VersionNext()
@@ -331,6 +335,36 @@ func outputStatusText(output *StatusOutput) error {
 	}
 	if output.UpdatedAt != nil {
 		fmt.Printf("Updated: %s\n", output.UpdatedAt.Format(time.RFC3339))
+	}
+	if len(output.ExternalPublicationEvidence) > 0 {
+		var report struct {
+			Outcome    string `json:"outcome"`
+			RunURL     string `json:"run_url"`
+			Failure    string `json:"failure"`
+			Publishers map[string]struct {
+				Status string `json:"status"`
+				Digest string `json:"digest"`
+			} `json:"publishers"`
+		}
+		if json.Unmarshal(output.ExternalPublicationEvidence, &report) == nil {
+			fmt.Printf("External publishing: %s\n", report.Outcome)
+			for _, name := range []string{"github_release", "container", "homebrew"} {
+				if publisher, ok := report.Publishers[name]; ok {
+					fmt.Printf("  %-15s %s", name+":", publisher.Status)
+					if publisher.Digest != "" {
+						fmt.Printf(" (%s)", publisher.Digest)
+					}
+					fmt.Println()
+				}
+			}
+			if report.Failure != "" {
+				printWarning("Publisher failure: " + report.Failure)
+			}
+			if report.RunURL != "" {
+				fmt.Printf("  Workflow: %s\n", report.RunURL)
+			}
+			fmt.Println()
+		}
 	}
 	fmt.Println()
 

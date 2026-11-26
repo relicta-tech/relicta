@@ -2,9 +2,8 @@
 // governance evidence as compliance evidence artifacts.
 //
 // Drata's API focuses on extracting compliance data and programmatically
-// uploading specific evidence types. Relicta complements Drata by providing
-// upstream cryptographically attested release-decision evidence Drata cannot
-// generate from CI/Git data alone.
+// uploading specific evidence types. Relicta supplies release-governance
+// evidence from its recorded release history as supporting material.
 //
 // This package mirrors the Vanta integration shape so adopters running both
 // platforms (or evaluating one against the other) can switch with minimal

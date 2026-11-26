@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	infraworkspace "github.com/relicta-tech/relicta/v4/internal/infrastructure/workspace"
+	infraworkspace "github.com/relicta-tech/relicta/v5/internal/infrastructure/workspace"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // The monorepo subsystem was implemented, tested, and reachable from nothing: every field of

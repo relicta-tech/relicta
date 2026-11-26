@@ -56,8 +56,9 @@ func runDemo(cmd *cobra.Command, args []string) error {
 	}
 
 	printSuccess("Demo environment is up")
+	printInfo("Chronos is running at http://localhost:7778. Mnemos is not included because the current Relicta adapter targets an older API.")
 	printInfo("Next steps:")
-	fmt.Println("  1) relicta plan --skip-cognitive")
+	fmt.Println("  1) relicta plan")
 	fmt.Println("  2) relicta notes")
 	fmt.Println("  3) relicta demo --down")
 	return nil

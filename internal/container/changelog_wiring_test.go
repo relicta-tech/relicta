@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // Every changelog.* rendering setting shipped with a default and was read by nothing outside
@@ -162,8 +162,8 @@ func TestTheNonAIPathRendersGroupedSections(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if !strings.Contains(notes.Text, "### Features") {
-		t.Errorf("notes = %q, want a Features section.\nThis path runs whenever no AI "+
+	if !strings.Contains(notes.Text, "### Added") {
+		t.Errorf("notes = %q, want an Added section in the Keep a Changelog format.\nThis path runs whenever no AI "+
 			"provider is configured — the default — so it is what most changelogs are "+
 			"made of", notes.Text)
 	}

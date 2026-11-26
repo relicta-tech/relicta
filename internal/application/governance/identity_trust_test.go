@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
 )
 
 func TestTrustScoreToLevel(t *testing.T) {
@@ -84,7 +84,7 @@ func TestApplyIdentityTrust_GrantsRegisteredTrust(t *testing.T) {
 		cgp.ProposalScope{}, cgp.ProposalIntent{},
 	)
 
-	info := svc.applyIdentityTrust(context.Background(), proposal)
+	info := svc.applyIdentityTrust(context.Background(), proposal, 0.1)
 	if info == nil {
 		t.Fatal("expected identity grant")
 	}
@@ -106,7 +106,7 @@ func TestApplyIdentityTrust_NeverLowers(t *testing.T) {
 		cgp.ProposalScope{}, cgp.ProposalIntent{},
 	)
 
-	if info := svc.applyIdentityTrust(context.Background(), proposal); info != nil {
+	if info := svc.applyIdentityTrust(context.Background(), proposal, 0.1); info != nil {
 		t.Fatalf("must not lower trust; got %#v", info)
 	}
 	if proposal.Actor.TrustLevel != cgp.TrustLevelFull {
@@ -123,7 +123,7 @@ func TestApplyIdentityTrust_NoMatchNoGrant(t *testing.T) {
 		cgp.ProposalScope{}, cgp.ProposalIntent{},
 	)
 
-	if info := svc.applyIdentityTrust(context.Background(), proposal); info != nil {
+	if info := svc.applyIdentityTrust(context.Background(), proposal, 0.1); info != nil {
 		t.Fatalf("no matching identity must not grant; got %#v", info)
 	}
 }
@@ -140,7 +140,7 @@ func TestApplyIdentityTrust_KindMustMatch(t *testing.T) {
 		cgp.ProposalScope{}, cgp.ProposalIntent{},
 	)
 
-	if info := svc.applyIdentityTrust(context.Background(), proposal); info != nil {
+	if info := svc.applyIdentityTrust(context.Background(), proposal, 0.1); info != nil {
 		t.Fatalf("kind mismatch must not grant; got %#v", info)
 	}
 }

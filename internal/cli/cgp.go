@@ -6,13 +6,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // The three cgp_* MCP tools record a governance handshake — a proposal, the
@@ -78,26 +80,35 @@ func init() {
 // beside the release runs, and addressing them by cwd would report an empty
 // history when run from a subdirectory — the defect that made `relicta cancel`
 // claim no release existed (#246).
-func cgpStore(ctx context.Context) (*protocol.FileProposalStore, error) {
+func cgpStore(ctx context.Context) (cliApp, protocol.RecordStore, io.Closer, error) {
 	app, err := newContainerApp(ctx, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to initialize: %w", err)
 	}
-	defer closeApp(app)
 
 	repoInfo, err := app.GitAdapter().GetInfo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve the repository: %w", err)
+		closeApp(app)
+		return nil, nil, nil, fmt.Errorf("failed to resolve the repository: %w", err)
 	}
-	return protocol.NewFileProposalStore(repoInfo.Path), nil
+	resolved, err := persistence.OpenCGPProtocolStore(ctx, cfg.Persistence, repoInfo.Path)
+	if err != nil {
+		closeApp(app)
+		return nil, nil, nil, fmt.Errorf("failed to open CGP protocol store: %w", err)
+	}
+	return app, resolved.Store, resolved.Closer, nil
 }
 
 func runCGPList(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	store, err := cgpStore(ctx)
+	app, store, closer, err := cgpStore(ctx)
 	if err != nil {
 		return err
+	}
+	defer closeApp(app)
+	if closer != nil {
+		defer closer.Close()
 	}
 
 	ids, err := store.ListProposals(ctx)
@@ -178,9 +189,13 @@ func runCGPStatus(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 	proposalID := args[0]
 
-	store, err := cgpStore(ctx)
+	app, store, closer, err := cgpStore(ctx)
 	if err != nil {
 		return err
+	}
+	defer closeApp(app)
+	if closer != nil {
+		defer closer.Close()
 	}
 
 	proposal, err := store.GetProposal(ctx, proposalID)

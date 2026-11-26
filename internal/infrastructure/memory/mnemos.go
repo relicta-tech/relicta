@@ -24,9 +24,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 // MnemosAdapter implements memory.Store using Mnemos HTTP API.

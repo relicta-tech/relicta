@@ -8,13 +8,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 var (
@@ -243,8 +243,14 @@ func runReleaseWorkflow(ctx context.Context, app cliApp) error {
 	// After the bump rather than inside it, because runReleaseBump goes through the use
 	// case and this is the CLI's own step; before the release commit in publish, which is
 	// what puts the manifest into the tagged commit.
-	if err := applyVersionFiles(ctx, app, bumpOutput.Version); err != nil {
-		return fmt.Errorf("bump failed: %w", err)
+	if dryRun {
+		if err := reportVersionFilePlan(ctx, app, bumpOutput.Version); err != nil {
+			return fmt.Errorf("bump failed: %w", err)
+		}
+	} else {
+		if err := applyVersionFiles(ctx, app, bumpOutput.Version); err != nil {
+			return fmt.Errorf("bump failed: %w", err)
+		}
 	}
 
 	fmt.Printf("  Version: %s\n", bumpOutput.Version.String())

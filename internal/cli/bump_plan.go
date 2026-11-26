@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // plannedBump is the version decision recorded by `relicta plan`.

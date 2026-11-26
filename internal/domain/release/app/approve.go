@@ -3,19 +3,22 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // ApproveReleaseInput contains the input for approving a release.
 type ApproveReleaseInput struct {
-	RepoRoot    string
-	RunID       domain.RunID // If empty, uses latest
-	Actor       ports.ActorInfo
-	AutoApprove bool // CI/--yes mode
-	Force       bool // Force approval even if HEAD changed
+	RepoRoot          string
+	RunID             domain.RunID // If empty, uses latest
+	Actor             ports.ActorInfo
+	AutoApprove       bool   // CI/--yes mode
+	Force             bool   // Force approval even if HEAD changed
+	ExpectedNotesHash string // Reject approval if notes differ from the reviewed draft.
 
 	// Justification records why this approval was granted. It is the audit
 	// trail's only account of a governance override, so it is persisted with the
@@ -71,6 +74,23 @@ func (uc *ApproveReleaseUseCase) Execute(ctx context.Context, input ApproveRelea
 			return nil, fmt.Errorf("failed to acquire lock: %w", err)
 		}
 		defer release()
+		// Reload under the lock: the pre-lock snapshot may have gone stale while
+		// another operation was persisting notes or changing release state.
+		run, err = uc.loadRun(ctx, input.RepoRoot, run.ID())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if input.ExpectedNotesHash != "" {
+		notes := run.Notes()
+		if notes == nil {
+			return nil, fmt.Errorf("release notes changed after review; inspect the current draft and approve again")
+		}
+		hash := sha256.Sum256([]byte(notes.Text))
+		if hex.EncodeToString(hash[:]) != input.ExpectedNotesHash {
+			return nil, fmt.Errorf("release notes changed after review; inspect the current draft and approve again")
+		}
 	}
 
 	// Validate HEAD matches unless forced

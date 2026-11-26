@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
 )
 
 // Per-package versioning for `monorepo.enabled` repositories.
@@ -94,6 +94,23 @@ func runMonorepoBump(ctx context.Context, app cliApp, repoRoot string) error {
 		return nil
 	}
 
+	// Build metadata applies to each package version, so recompute its tag as well as
+	// the manifest value. The tag is part of the release identity consumed by approval
+	// and publish; leaving the planner's pre-metadata tag here would release one version
+	// under another's name.
+	if metadata := configuredBuildMetadata(); metadata != "" {
+		overrides := monorepoTagPrefixes()
+		for i := range plan.Packages {
+			pkg := &plan.Packages[i]
+			pkg.Next = pkg.Next.WithMetadata(version.BuildMetadata(metadata))
+			relPath, relErr := filepath.Rel(repoRoot, pkg.Path)
+			if relErr != nil {
+				return fmt.Errorf("resolve package path for %s: %w", pkg.Name, relErr)
+			}
+			pkg.Tag = appmonorepo.TagNameFor(relPath, overrides, pkg.Next)
+		}
+	}
+
 	var written []string
 	if !dryRun {
 		if written, err = bumper.Apply(ctx, plan); err != nil {
@@ -145,6 +162,9 @@ func advanceRepositoryRun(ctx context.Context, app cliApp) error {
 		buildCalculateVersionInput(version.BumpType(""), true, current))
 	if err != nil {
 		return fmt.Errorf("failed to calculate the repository version: %w", err)
+	}
+	if metadata := configuredBuildMetadata(); metadata != "" {
+		calcOutput.NextVersion = calcOutput.NextVersion.WithMetadata(version.BuildMetadata(metadata))
 	}
 
 	if err := updateReleaseVersion(ctx, app, calcOutput.NextVersion); err != nil {

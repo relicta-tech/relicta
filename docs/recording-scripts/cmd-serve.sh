@@ -29,7 +29,7 @@ echo "  🌐 Starting Relicta Dashboard..."
 echo ""
 echo "  Dashboard:  http://localhost:8080"
 echo "  API:        http://localhost:8080/api/v1"
-echo "  WebSocket:  ws://localhost:8080/api/v1/ws"
+echo "  WebSocket:  ws://localhost:8080/api/v1/ws (ticket from /api/v1/ws/ticket)"
 echo ""
 echo "  Press Ctrl+C to stop"
 pause 3
@@ -45,7 +45,7 @@ echo "  🌐 Starting Relicta Dashboard..."
 echo ""
 echo "  Dashboard:  http://localhost:3000"
 echo "  API:        http://localhost:3000/api/v1"
-echo "  WebSocket:  ws://localhost:3000/api/v1/ws"
+echo "  WebSocket:  ws://localhost:3000/api/v1/ws (ticket from /api/v1/ws/ticket)"
 echo ""
 echo "  Press Ctrl+C to stop"
 pause 3
@@ -73,19 +73,15 @@ echo ""
 echo "  Press Ctrl+C to stop"
 pause 3
 
-# SUCCESS CASE 4: Bind to all interfaces
+# ERROR CASE 3: Unauthenticated external bind
 echo ""
-echo -e "${GREEN}━━━ Success: Bind to all interfaces ━━━${NC}"
+echo -e "${RED}━━━ Error: External bind requires authentication ━━━${NC}"
 echo ""
 echo -e "$ ${YELLOW}relicta serve --address 0.0.0.0:8080${NC}"
 pause 0.5
 echo ""
-echo "  🌐 Starting Relicta Dashboard..."
-echo ""
-echo "  Dashboard:  http://0.0.0.0:8080"
-echo "  Accessible from other machines on the network"
-echo ""
-echo "  ⚠️  Warning: Ensure firewall rules are configured"
+echo "  ✗ Refusing to start: authentication is disabled on a non-loopback address"
+echo "  Configure dashboard.auth (api_key, session, or oidc), or bind to localhost."
 echo ""
 echo "  Press Ctrl+C to stop"
 pause 3

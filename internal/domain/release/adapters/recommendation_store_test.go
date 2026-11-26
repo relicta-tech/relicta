@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // The recommendation artifact is served back over HTTP verbatim, because it
@@ -105,6 +105,31 @@ func TestRecommendationIsPerRunAndDoesNotClobberTheRun(t *testing.T) {
 // failure mode this codebase keeps producing.
 func TestFileRepositorySatisfiesRecommendationStore(t *testing.T) {
 	var _ ports.RecommendationStore = NewFileReleaseRunRepository()
+}
+
+func TestEventPublishingRepositoryUsesFileSidecarForUnsupportedRunStore(t *testing.T) {
+	// Database-backed release-run repositories do not store this artifact in
+	// their run tables; the wrapper must still preserve the ADR-009 bytes.
+	repo := NewEventPublishingRepository(EventPublishingConfig{
+		Repository: releaseRunRepositoryWithoutRecommendationStore{},
+	})
+	root := t.TempDir()
+	original := []byte("{\n  \"schema_version\": \"1.0.0\"\n}\n")
+
+	if err := repo.SaveRecommendation(root, "run-db", original); err != nil {
+		t.Fatalf("SaveRecommendation: %v", err)
+	}
+	got, found, err := repo.LoadRecommendation(root, "run-db")
+	if err != nil {
+		t.Fatalf("LoadRecommendation: %v", err)
+	}
+	if !found || !bytes.Equal(got, original) {
+		t.Fatalf("recommendation round trip = (%q, %v), want original bytes and found=true", got, found)
+	}
+}
+
+type releaseRunRepositoryWithoutRecommendationStore struct {
+	ports.ReleaseRunRepository
 }
 
 // Guards against a runID being used to escape the runs directory, since it

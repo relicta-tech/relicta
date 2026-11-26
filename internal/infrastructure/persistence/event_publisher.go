@@ -5,7 +5,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 // InMemoryEventPublisher implements release.EventPublisher with in-memory storage.

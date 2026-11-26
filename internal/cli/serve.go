@@ -13,13 +13,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
-	"github.com/relicta-tech/relicta/v4/internal/observability"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/handlers"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/observability"
+	"github.com/relicta-tech/relicta/v5/internal/security/token"
 )
 
 var (
@@ -58,10 +60,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if serveAddress != "" {
 		address = serveAddress
 	} else if servePort != "" {
-		address = ":" + servePort
+		address = "127.0.0.1:" + servePort
 	}
 	if address == "" {
-		address = ":8080"
+		address = "127.0.0.1:8080"
 	}
 
 	// Update config with resolved address
@@ -154,13 +156,41 @@ func runServe(cmd *cobra.Command, args []string) error {
 		metricsHandler = observability.InitGlobal(versionInfo.Version).Handler()
 	}
 
+	var tokenRevocations token.RevocationStore
+	needsDurableSessions := dashboardCfg.Auth.Mode == config.DashboardAuthSession ||
+		dashboardCfg.Auth.Mode == config.DashboardAuthOIDC
+	if needsDurableSessions {
+		repoRoot, rootErr := os.Getwd()
+		if rootErr != nil {
+			return fmt.Errorf("resolve dashboard session storage directory: %w", rootErr)
+		}
+		if app != nil {
+			if info, infoErr := app.GitAdapter().GetInfo(ctx); infoErr == nil && info.Path != "" {
+				repoRoot = info.Path
+			}
+		}
+		backend, storeErr := persistence.OpenTokenRevocationStore(ctx, cfg.Persistence, repoRoot)
+		if storeErr != nil {
+			return fmt.Errorf("initialize dashboard session revocation storage: %w", storeErr)
+		}
+		tokenRevocations = backend.Store
+		defer func() {
+			if err := backend.Closer.Close(); err != nil {
+				slog.Warn("close dashboard session storage", "error", err)
+			}
+		}()
+	}
+
 	server := httpserver.NewServer(httpserver.ServerDeps{
-		Config:          dashboardCfg,
-		Frontend:        frontend,
-		ReleaseServices: releaseServices,
-		Observability:   observabilitySvc,
-		Metrics:         metricsHandler,
-		MetricsPath:     metricsPath(),
+		Config:           dashboardCfg,
+		Frontend:         frontend,
+		ReleaseServices:  releaseServices,
+		MnemosEnabled:    app != nil && app.HasMnemos(),
+		ChronosEnabled:   app != nil && app.HasChronos(),
+		TokenRevocations: tokenRevocations,
+		Observability:    observabilitySvc,
+		Metrics:          metricsHandler,
+		MetricsPath:      metricsPath(),
 	})
 
 	// Wire up WebSocket event broadcasting
@@ -168,14 +198,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 		broadcaster := server.EventBroadcaster()
 		app.SubscribeToEvents(func(event release.DomainEvent) {
 			// Broadcast events asynchronously to WebSocket clients
-			broadcaster.PublishAsync(context.Background(), event)
+			broadcaster.PublishAsync(ctx, event)
 
 			// Start the health watch here rather than in the release path. A window is
 			// minutes or hours long and `relicta publish` exits in seconds, so a watch
 			// started there would be killed before it observed anything — and a watch that
 			// dies silently is worse than none, because the dashboard shows a release being
 			// monitored that nobody is monitoring.
-			startHealthWatch(observabilitySvc, event)
+			startHealthWatch(ctx, observabilitySvc, event)
 		})
 		slog.Debug("WebSocket event broadcasting enabled")
 	}
@@ -208,7 +238,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Health:     http://%s/healthz\n", resolveDisplayAddress(address))
 	fmt.Printf("  Readiness:  http://%s/readyz\n", resolveDisplayAddress(address))
 	fmt.Printf("  API:        http://%s/api/v1/\n", resolveDisplayAddress(address))
-	fmt.Printf("  WebSocket:  ws://%s/api/v1/ws\n", resolveDisplayAddress(address))
+	fmt.Printf("  WebSocket:  ws://%s/api/v1/ws (ticket required from /api/v1/ws/ticket)\n", resolveDisplayAddress(address))
 	fmt.Printf("  SSE:        http://%s/api/v1/events/stream\n", resolveDisplayAddress(address))
 
 	if frontend != nil {
@@ -333,7 +363,7 @@ func governanceRepository(appConfig *config.Config, app *container.App) string {
 //
 // Only for a published release: a plan or an approval has not been deployed, and watching one
 // would attribute whatever the metrics show to a release that has not shipped.
-func startHealthWatch(svc handlers.ObservabilityService, event release.DomainEvent) {
+func startHealthWatch(ctx context.Context, svc handlers.ObservabilityService, event release.DomainEvent) {
 	watcher, ok := svc.(interface {
 		StartWatch(context.Context, string) error
 	})
@@ -346,7 +376,15 @@ func startHealthWatch(svc handlers.ObservabilityService, event release.DomainEve
 		return
 	}
 
-	if err := watcher.StartWatch(context.Background(), string(published.RunID)); err != nil {
+	var err error
+	if anchored, ok := watcher.(interface {
+		StartWatchAt(context.Context, string, time.Time) error
+	}); ok {
+		err = anchored.StartWatchAt(ctx, string(published.RunID), published.At)
+	} else {
+		err = watcher.StartWatch(ctx, string(published.RunID))
+	}
+	if err != nil {
 		slog.Warn("health watch not started", "release_id", published.RunID, "error", err)
 	}
 }
@@ -435,10 +473,18 @@ func pickUpPublishedReleases(
 		if _, already := watched[id]; already {
 			continue
 		}
-		watched[id] = struct{}{}
-		if err := watcher.StartWatch(ctx, id); err != nil {
+		var err error
+		if anchored, ok := watcher.(interface {
+			StartWatchAt(context.Context, string, time.Time) error
+		}); ok {
+			err = anchored.StartWatchAt(ctx, id, *publishedAt)
+		} else {
+			err = watcher.StartWatch(ctx, id)
+		}
+		if err != nil {
 			slog.Debug("health watch not started", "release_id", id, "error", err)
 		} else {
+			watched[id] = struct{}{}
 			slog.Info("watching published release", "release_id", id)
 		}
 	}

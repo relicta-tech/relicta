@@ -10,9 +10,9 @@ import (
 
 	"google.golang.org/genai"
 
-	"github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 func init() {
@@ -23,12 +23,12 @@ func init() {
 // Default Gemini configuration values.
 const (
 	// DefaultGeminiModel is the default model for Gemini.
-	// 2.5 Flash is the 2026 production-stable default; 2.0 Flash Exp was a
-	// preview tag retired by Q1 2026.
-	DefaultGeminiModel = "gemini-2.5-flash"
+	// Gemini 3.5 Flash-Lite is the supported low-cost default. Gemini 2.5 Flash
+	// is deprecated and scheduled to route to this model on 2026-12-01.
+	DefaultGeminiModel = "gemini-3.5-flash-lite"
 
 	// GeminiModelHighStakes is recommended for governance-sensitive prose.
-	GeminiModelHighStakes = "gemini-2.5-pro"
+	GeminiModelHighStakes = "gemini-3.8-flash"
 )
 
 // Pre-compiled regex for API key validation.

@@ -18,10 +18,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory/conformance"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
 )
 
 // TestThePostgresGovernanceMemoryStoreSatisfiesTheContract is the bar this adapter had to

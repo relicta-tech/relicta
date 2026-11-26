@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory/conformance"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/sqlite"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite"
 )
 
 // The bar for this adapter. ADR-013 keeps `file` the default until parity is proven, and

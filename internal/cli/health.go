@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // HealthStatus represents the overall health status.
@@ -36,7 +36,7 @@ type ComponentHealth struct {
 	Status  HealthStatus      `json:"status"`
 	Message string            `json:"message,omitempty"`
 	Details map[string]string `json:"details,omitempty"`
-	Latency time.Duration     `json:"latency_ms,omitempty"`
+	Latency int64             `json:"latency_ms,omitempty"`
 }
 
 // HealthReport contains the full health check results.
@@ -95,7 +95,7 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	}{
 		{"git", checkGit, true},
 		{"repository", checkRepository, true},
-		{"config", checkConfig, false},
+		{"config", checkConfig, true},
 		{"plugins_directory", checkPluginsDir, false},
 	}
 
@@ -135,7 +135,7 @@ func checkGit(ctx context.Context) ComponentHealth {
 	// Check if git is available
 	cmd := exec.CommandContext(ctx, "git", "--version")
 	output, err := cmd.Output()
-	health.Latency = time.Since(start)
+	health.Latency = time.Since(start).Milliseconds()
 
 	if err != nil {
 		health.Status = HealthStatusUnhealthy
@@ -165,14 +165,14 @@ func checkRepository(ctx context.Context) ComponentHealth {
 
 	svc, err := gitservice.NewService()
 	if err != nil {
-		health.Latency = time.Since(start)
+		health.Latency = time.Since(start).Milliseconds()
 		health.Status = HealthStatusDegraded
 		health.Message = "not in a git repository"
 		return health
 	}
 
 	info, err := gitservice.NewAdapter(svc).GetInfo(ctx)
-	health.Latency = time.Since(start)
+	health.Latency = time.Since(start).Milliseconds()
 	if err != nil {
 		health.Status = HealthStatusDegraded
 		health.Message = fmt.Sprintf("git repository could not be read: %v", err)
@@ -206,7 +206,7 @@ func checkConfig(ctx context.Context) ComponentHealth {
 	// in the working directory. The old list also drifted from the loader's own
 	// names, which are derived from ConfigFileNames x ConfigFileExtensions.
 	configFile, err := config.ResolveConfigFile()
-	health.Latency = time.Since(start)
+	health.Latency = time.Since(start).Milliseconds()
 
 	if err != nil {
 		health.Status = HealthStatusDegraded
@@ -217,8 +217,22 @@ func checkConfig(ctx context.Context) ComponentHealth {
 	// Report the path rather than a boolean: from a subdirectory the applicable
 	// config lives at the repository root, and "found" alone hid that.
 	health.Details["config_file"] = configFile
+	cfg, err := config.LoadFromFile(configFile)
+	if err != nil {
+		health.Latency = time.Since(start).Milliseconds()
+		health.Status = HealthStatusUnhealthy
+		health.Message = fmt.Sprintf("configuration could not be loaded: %v", err)
+		return health
+	}
+	if err := config.Validate(cfg); err != nil {
+		health.Latency = time.Since(start).Milliseconds()
+		health.Status = HealthStatusUnhealthy
+		health.Message = fmt.Sprintf("configuration is invalid: %v", err)
+		return health
+	}
+	health.Latency = time.Since(start).Milliseconds()
 	health.Status = HealthStatusHealthy
-	health.Message = fmt.Sprintf("configuration file found: %s", configFile)
+	health.Message = fmt.Sprintf("configuration file found and valid: %s", configFile)
 	return health
 }
 
@@ -247,7 +261,7 @@ func checkPluginsDir(ctx context.Context) ComponentHealth {
 		}
 	}
 
-	health.Latency = time.Since(start)
+	health.Latency = time.Since(start).Milliseconds()
 
 	if len(foundDirs) == 0 {
 		health.Status = HealthStatusHealthy
@@ -302,7 +316,7 @@ func outputHealthText(report *HealthReport) error {
 
 		latencyStr := ""
 		if c.Latency > 0 {
-			latencyStr = fmt.Sprintf(" (%dms)", c.Latency.Milliseconds())
+			latencyStr = fmt.Sprintf(" (%dms)", c.Latency)
 		}
 
 		fmt.Printf("  %s %s: %s%s\n", icon, c.Name, c.Message, latencyStr)

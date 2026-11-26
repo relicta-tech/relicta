@@ -4,14 +4,14 @@ import (
 	"context"
 	"path/filepath"
 
-	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	infraworkspace "github.com/relicta-tech/relicta/v4/internal/infrastructure/workspace"
+	analysisfactory "github.com/relicta-tech/relicta/v5/internal/analysis/factory"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	infraworkspace "github.com/relicta-tech/relicta/v5/internal/infrastructure/workspace"
 )
 
 // NewMonorepoBumper builds the per-package versioning service `relicta bump` uses when

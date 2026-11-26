@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 func TestNewManager(t *testing.T) {
@@ -121,7 +121,10 @@ func TestCollectPluginsForHook(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			collected := m.collectPluginsForHook(tt.hook)
+			collected, err := m.collectPluginsForHook(context.Background(), tt.hook)
+			if err != nil {
+				t.Fatalf("collectPluginsForHook(%v): %v", tt.hook, err)
+			}
 			if len(collected) != tt.wantCount {
 				t.Errorf("collectPluginsForHook(%v) = %d plugins, want %d", tt.hook, len(collected), tt.wantCount)
 			}
@@ -151,7 +154,7 @@ func TestCollectPluginsForHook_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}()
 	}
 

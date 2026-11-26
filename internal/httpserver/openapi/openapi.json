@@ -25,6 +25,67 @@
     }
   ],
   "paths": {
+    "/auth/mode": {
+      "get": {
+        "summary": "Get the configured dashboard authentication mode",
+        "operationId": "getAuthMode",
+        "tags": ["Authentication"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Authentication mode used by the dashboard",
+            "headers": {
+              "Cache-Control": {"schema": {"type": "string"}},
+              "Pragma": {"schema": {"type": "string"}}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["mode"],
+                  "properties": {
+                    "mode": {"type": "string", "enum": ["none", "api_key", "session", "oidc"]}
+                  }
+                }
+              }
+            }
+          },
+          "500": {"description": "Authentication configuration is unavailable"}
+        }
+      }
+    },
+    "/ws/ticket": {
+      "post": {
+        "summary": "Issue a short-lived WebSocket connection ticket",
+        "description": "Requires dashboard authentication. The single-use ticket is returned without caching and can be exchanged when opening the WebSocket connection.",
+        "operationId": "createWebSocketTicket",
+        "tags": ["Events"],
+        "responses": {
+          "200": {
+            "description": "Ticket issued",
+            "headers": {
+              "Cache-Control": {"schema": {"type": "string"}},
+              "Pragma": {"schema": {"type": "string"}}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["ticket", "expires_in"],
+                  "properties": {
+                    "ticket": {"type": "string"},
+                    "expires_in": {"type": "integer", "description": "Ticket lifetime in seconds"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "Missing or invalid dashboard credentials"},
+          "429": {"description": "Ticket request rate limit exceeded"},
+          "503": {"description": "A WebSocket ticket could not be issued"}
+        }
+      }
+    },
     "/actors": {
       "get": {
         "summary": "List actors with metrics",
@@ -475,10 +536,36 @@
         "tags": [
           "Auth"
         ],
-        "security": [],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refresh_token": {
+                    "type": "string",
+                    "description": "Refresh token paired with the bearer access token; supplying it revokes both tokens."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
+          "204": {
             "description": "Logged out successfully"
+          },
+          "400": {
+            "description": "Malformed request body"
+          },
+          "401": {
+            "description": "Invalid, expired, or already revoked token"
           }
         }
       }
@@ -679,6 +766,50 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/health/cognitive": {
+      "get": {
+        "summary": "Cognitive backend configuration status",
+        "operationId": "getCognitiveHealth",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Whether the Mnemos and Chronos backends are enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mnemos",
+                    "chronos"
+                  ],
+                  "properties": {
+                    "mnemos": {
+                      "type": "string",
+                      "enum": [
+                        "enabled",
+                        "disabled"
+                      ]
+                    },
+                    "chronos": {
+                      "type": "string",
+                      "enum": [
+                        "enabled",
+                        "disabled"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid dashboard credentials"
           }
         }
       }
@@ -1141,7 +1272,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "JWT access token obtained from /auth/login"
+        "description": "JWT access token obtained from /auth/login. Refresh tokens are accepted only by /auth/refresh and /auth/logout."
       }
     },
     "parameters": {
@@ -1284,20 +1415,29 @@
       },
       "LoginResponse": {
         "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "expires_at"
+        ],
         "properties": {
           "access_token": {
-            "type": "string"
+            "type": "string",
+            "description": "Short-lived bearer token for authenticated API requests."
           },
           "refresh_token": {
-            "type": "string"
+            "type": "string",
+            "description": "Token used only with POST /auth/refresh."
           },
           "token_type": {
             "type": "string",
             "example": "Bearer"
           },
-          "expires_in": {
-            "type": "integer",
-            "description": "Token TTL in seconds"
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiration time of the access token."
           }
         }
       },

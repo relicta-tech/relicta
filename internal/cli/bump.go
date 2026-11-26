@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/security"
+	"github.com/relicta-tech/relicta/v5/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/security"
 )
 
 var (
@@ -58,6 +58,9 @@ func handleForcedVersion(ctx context.Context, app cliApp, forcedVersionStr strin
 	forcedVersion, err := version.Parse(forcedVersionStr)
 	if err != nil {
 		return fmt.Errorf("invalid version format: %w", err)
+	}
+	if metadata := configuredBuildMetadata(); metadata != "" {
+		forcedVersion = forcedVersion.WithMetadata(version.BuildMetadata(metadata))
 	}
 
 	// Update release state if there's an active release
@@ -149,8 +152,8 @@ func runVersion(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid prerelease: %w", err)
 		}
 	}
-	if bumpBuild != "" {
-		if err := security.ValidateBuildMetadata(bumpBuild); err != nil {
+	if metadata := configuredBuildMetadata(); metadata != "" {
+		if err := security.ValidateBuildMetadata(metadata); err != nil {
 			return fmt.Errorf("invalid build metadata: %w", err)
 		}
 	}
@@ -245,8 +248,8 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	// Apply build metadata if provided
 	nextVersion := calcOutput.NextVersion
-	if bumpBuild != "" {
-		nextVersion = nextVersion.WithMetadata(version.BuildMetadata(bumpBuild))
+	if metadata := configuredBuildMetadata(); metadata != "" {
+		nextVersion = nextVersion.WithMetadata(version.BuildMetadata(metadata))
 	}
 
 	// Output text results (skip for JSON mode)
@@ -288,6 +291,17 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 	printBumpNextSteps(nextVersion)
 	return nil
+}
+
+// configuredBuildMetadata lets the command line override the project default.
+func configuredBuildMetadata() string {
+	if bumpBuild != "" {
+		return bumpBuild
+	}
+	if cfg == nil {
+		return ""
+	}
+	return cfg.Versioning.BuildMetadata
 }
 
 // runBumpTagPush handles the tag-push scenario where HEAD is already tagged.

@@ -88,6 +88,7 @@ jobs:
 
       - name: Run benchmarks
         run: |
+          set -o pipefail
           echo "Running benchmarks with 5 iterations..."
           go test -bench=. -benchmem -count=5 -run=^$ \
             ./internal/service/release/... \
@@ -101,6 +102,7 @@ jobs:
         if: steps.bench-cache.outputs.cache-hit == 'true'
         id: compare
         run: |
+          set -o pipefail
           echo "Comparing against baseline..."
           benchstat bench-baseline.txt bench-current.txt > benchstat-output.txt || true
           cat benchstat-output.txt
@@ -108,9 +110,9 @@ jobs:
           # Check for significant regressions (> 50%)
           if grep -E '\+[5-9][0-9]\.[0-9]+%|\+[1-9][0-9][0-9]+\.[0-9]+%' benchstat-output.txt; then
             echo "WARNING: Significant performance regression detected (>50%)"
-            echo "regression=true" >> $GITHUB_OUTPUT
+            echo "regression=true" >> "$GITHUB_OUTPUT"
           else
-            echo "regression=false" >> $GITHUB_OUTPUT
+            echo "regression=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Save as baseline (main branch only)
@@ -194,15 +196,15 @@ jobs:
           BINARY_SIZE=$(stat -c%s relicta)
           BINARY_SIZE_MB=$(echo "scale=2; $BINARY_SIZE / 1048576" | bc)
           echo "Binary size: ${BINARY_SIZE_MB}MB ($BINARY_SIZE bytes)"
-          echo "size=$BINARY_SIZE" >> $GITHUB_OUTPUT
-          echo "size_mb=$BINARY_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "size=$BINARY_SIZE" >> "$GITHUB_OUTPUT"
+          echo "size_mb=$BINARY_SIZE_MB" >> "$GITHUB_OUTPUT"
 
-          if [ $BINARY_SIZE -gt ${{ env.TARGET_BINARY_SIZE }} ]; then
+          if (( BINARY_SIZE > TARGET_BINARY_SIZE )); then
             echo "⚠️ Binary size exceeds 20MB target (optimization pending)"
-            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "passed=false" >> "$GITHUB_OUTPUT"
           else
             echo "✅ Binary size is within 20MB target"
-            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "passed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Comment binary size on PR
@@ -300,27 +302,15 @@ jobs:
 
       - name: Update trend history
         run: |
-          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          COMMIT="${{ github.sha }}"
-
           # Extract key metrics from benchmark output
           # Format: BenchmarkName-N    iterations    ns/op    B/op    allocs/op
-
-          # Create temporary file with new entry
-          cat > trend-entry.json << 'EOF'
-          {
-            "date": "$DATE",
-            "commit": "$COMMIT",
-            "benchmarks": {}
-          }
-          EOF
 
           # Parse benchmark results and create JSON entry
           python3 << 'PYTHON'
           import json
           import re
           import os
-          from datetime import datetime
+          from datetime import datetime, timezone
 
           # Read current history
           try:
@@ -348,7 +338,7 @@ jobs:
 
           # Create new entry
           entry = {
-              "date": datetime.utcnow().isoformat() + "Z",
+              "date": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
               "commit": os.environ.get('GITHUB_SHA', 'unknown')[:8],
               "benchmarks": benchmarks
           }

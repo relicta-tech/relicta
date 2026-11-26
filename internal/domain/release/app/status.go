@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // GetStatusInput contains the input for getting release status.
@@ -23,6 +23,8 @@ type GetStatusOutput struct {
 	PlanHash       string
 	VersionCurrent string
 	VersionNext    string
+	NotesText      string
+	NotesProvider  string
 	TagName        string
 	BumpKind       domain.BumpKind
 	RiskScore      float64
@@ -35,6 +37,7 @@ type GetStatusOutput struct {
 	CanBump        bool
 	CanApprove     bool
 	CanPublish     bool
+	HumanApproved  bool
 	CanRetry       bool
 	Stale          bool
 	Warning        string
@@ -97,6 +100,14 @@ func (uc *GetStatusUseCase) Execute(ctx context.Context, input GetStatusInput) (
 		warning += "HEAD has changed since plan was created."
 	}
 
+	approval := run.Approval()
+	humanApproved := approval != nil && !approval.AutoApproved && approval.ApproverType == domain.ActorHuman
+	notesText := ""
+	notesProvider := ""
+	if notes := run.Notes(); notes != nil {
+		notesText = notes.Text
+		notesProvider = notes.Provider
+	}
 	return &GetStatusOutput{
 		RunID:          run.ID(),
 		State:          run.State(),
@@ -104,6 +115,8 @@ func (uc *GetStatusUseCase) Execute(ctx context.Context, input GetStatusInput) (
 		PlanHash:       run.PlanHash(),
 		VersionCurrent: summary.VersionCurrent,
 		VersionNext:    summary.VersionNext,
+		NotesText:      notesText,
+		NotesProvider:  notesProvider,
 		TagName:        run.TagName(),
 		BumpKind:       summary.BumpKind,
 		RiskScore:      summary.RiskScore,
@@ -116,6 +129,7 @@ func (uc *GetStatusUseCase) Execute(ctx context.Context, input GetStatusInput) (
 		CanBump:        run.State() == domain.StatePlanned,
 		CanApprove:     run.State() == domain.StateNotesReady,
 		CanPublish:     run.State() == domain.StateApproved,
+		HumanApproved:  humanApproved,
 		CanRetry:       run.State() == domain.StateFailed,
 		Stale:          stale,
 		Warning:        warning,

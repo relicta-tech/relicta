@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // workflow.allowed_branches was validated, defaulted, and enforced by nothing: a repository

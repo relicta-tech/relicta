@@ -76,7 +76,7 @@ func TestMask(t *testing.T) {
 		},
 		{
 			name:           "Slack token masked when enabled",
-			input:          "Token: xoxb-123456789012-123456789012-abcdefghij",
+			input:          "Token: " + strings.Join([]string{"xoxb", "123456789012", "123456789012", "abcdefghij"}, "-"),
 			maskEnabled:    true,
 			wantRedacted:   true,
 			expectedSubstr: "[REDACTED]",

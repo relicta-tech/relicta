@@ -97,13 +97,15 @@ plugins:
     enabled: true
 ```
 
-### "unknown versioning strategy"
+### "unsupported versioning strategy"
 
-**Cause**: Invalid `versioning.strategy` value.
+**Cause**: `versioning.strategy` is set to a value the current release workflow does not support.
 
 **Solution**: Use one of the supported strategies:
-- `conventional` - Semantic versioning from conventional commits
-- `manual` - Manually specify version
+- `conventional` - Relicta recommends semantic version bumps from conventional commits
+
+To choose a specific version for one release, run `relicta bump --version 2.0.0` after planning.
+There is no `versioning.version` config key.
 
 ```yaml
 versioning:
@@ -196,28 +198,36 @@ git commit -m "feat!: redesign API"
 
 **Solution**:
 
-For GitHub Actions:
+For a GitHub Actions plan, install Relicta from its pinned Go module version:
 ```yaml
-# The action handles this automatically
-- uses: relicta-tech/relicta-action@v1
+permissions:
+  contents: read
+
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+    with:
+      fetch-depth: 0
+      persist-credentials: false
+  - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+    with:
+      go-version: '1.26'
+  - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+  - run: relicta plan --dry-run --json
 ```
 
-For local/manual use:
+For local/manual use, install the plugin from the configured registry and enable it:
 ```bash
-# Download plugin binary
-mkdir -p ~/.relicta/plugins
-cd ~/.relicta/plugins
-
-# Linux x86_64
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_linux_x86_64 \
-  -o relicta-plugin-github
-chmod +x relicta-plugin-github
-
-# macOS arm64
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/github_darwin_aarch64 \
-  -o relicta-plugin-github
-chmod +x relicta-plugin-github
+relicta plugin list --available
+relicta plugin install github
+relicta plugin enable github
+relicta plugin info github
 ```
+
+Relicta plugins are unsigned. Before loading an enabled plugin, review
+`relicta plugin sandbox-status` and the plugin source. Then pass
+`--allow-untrusted-plugins` to the Relicta command that loads it, such as
+`relicta publish --allow-untrusted-plugins`. This flag records your trust
+decision; it does not verify the plugin publisher or provide a complete sandbox.
 
 ### "plugin failed: missing GITHUB_TOKEN"
 
@@ -277,38 +287,44 @@ rm ~/.relicta/plugins/relicta-plugin-github
 
 **Cause**: Action failed to download Relicta binary.
 
-**Solution**: Check GitHub Actions logs:
+**Solution**: Check GitHub Actions logs. For a read-only plan, install the pinned Go module rather
+than the current Relicta Action release, which warns and continues on checksum errors:
 
 ```yaml
-# Enable debug logging
-- uses: relicta-tech/relicta-action@v1
-  env:
-    ACTIONS_STEP_DEBUG: true
+permissions:
+  contents: read
+
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+    with:
+      fetch-depth: 0
+      persist-credentials: false
+  - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+    with:
+      go-version: '1.26'
+  - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+  - run: relicta plan --dry-run --json
 ```
 
 ### "Action failed: checksum mismatch"
 
 **Cause**: Downloaded binary checksum doesn't match expected value.
 
-**Solution**:
-1. Retry the workflow (may be temporary download issue)
-2. Check if release assets are corrupted
-3. Report issue if persists
+**Solution**: Stop the workflow and verify the published release archive and signed checksum
+manifest using the [direct-download procedure](quick-start.md#installation). The current v2
+Action warns and continues when checksum verification fails, so a green Action step does not
+prove the downloaded binary was authenticated. For production, use the direct-download flow
+with Cosign signature and GitHub provenance verification, or wait for a fail-closed Action.
 
 ### "Permission denied: contents write"
 
-**Cause**: Insufficient permissions to create releases.
+**Cause**: A publishing workflow's `GITHUB_TOKEN` lacks permission to create a GitHub Release.
+The read-only `relicta plan` examples above do not need write permission.
 
-**Solution**:
-
-```yaml
-jobs:
-  release:
-    permissions:
-      contents: write  # ✅ Add this
-    steps:
-      - uses: relicta-tech/relicta-action@v1
-```
+**Solution**: Scope `contents: write` to the publishing job only. Install Relicta from a pinned Go
+module version or verify the binary with the signed direct-download flow before granting it write
+permission. The current Relicta Action release warns and continues when checksum verification
+fails; wait for a fail-closed Action release before using it in a publishing workflow.
 
 ### "No commits found"
 
@@ -328,7 +344,8 @@ jobs:
 
 ### "OpenAI API key not found"
 
-**Cause**: `OPENAI_API_KEY` environment variable not set.
+**Cause**: AI features are configured to use OpenAI, but the `OPENAI_API_KEY`
+environment variable is not available to Relicta.
 
 **Solution**:
 
@@ -344,7 +361,15 @@ env:
 **Note**: AI features are optional. Relicta works without AI:
 ```bash
 # Generate notes without AI
-relicta notes  # Uses conventional commit format only
+relicta notes  # Uses deterministic notes based on the classified changes
+```
+
+If you want to disable provider-generated notes, leave AI disabled or set the
+top-level `ai.enabled` option in `.relicta.yaml`:
+
+```yaml
+ai:
+  enabled: false
 ```
 
 ### "OpenAI rate limit exceeded"
@@ -353,8 +378,7 @@ relicta notes  # Uses conventional commit format only
 
 **Solution**:
 1. Wait a few minutes and retry
-2. Set `ai.enabled: false` in `.relicta.yaml` to disable AI features
-3. Upgrade OpenAI API plan for higher limits
+2. Set `ai.enabled: false` in `.relicta.yaml` to use deterministic notes
 
 ### "OpenAI API error: ..."
 
@@ -364,13 +388,14 @@ relicta notes  # Uses conventional commit format only
 
 ```bash
 # Disable AI and use basic changelog
-# ai.enabled: false in .relicta.yaml
 relicta notes
+```
 
-# Or set in config
-changelog:
-  ai:
-    enabled: false
+Set the top-level setting in `.relicta.yaml`:
+
+```yaml
+ai:
+  enabled: false
 ```
 
 ---
@@ -527,35 +552,38 @@ relicta plan
 
 ### Skip Plugin Temporarily
 
-```bash
-# Disable in config
+Disable the plugin in the configuration used for this command:
+
+```yaml
+# In .relicta.yaml, or the file passed with --config:
 plugins:
   - name: slack
     enabled: false
-
-# Or use environment variable
-RELICTA_PLUGINS="" relicta publish
 ```
 
 ### Manual Version Override
 
 ```bash
-# Set specific version
+# Set a specific version after planning
 relicta bump --version 2.0.0
-
-# Or in config
-versioning:
-  strategy: manual
-  version: "2.0.0"
 ```
 
 ### Test in CI/CD
 
 ```yaml
-# Dry run in CI
-- uses: relicta-tech/relicta-action@v1
-  with:
-    dry-run: true  # Test without creating release
+permissions:
+  contents: read
+
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+    with:
+      fetch-depth: 0
+      persist-credentials: false
+  - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+    with:
+      go-version: '1.26'
+  - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+  - run: relicta plan --dry-run --json
 ```
 
 ---

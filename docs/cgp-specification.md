@@ -297,7 +297,7 @@ CGP recognizes four actor kinds:
   "id": "claude-code-session-123",
   "name": "Claude Code",
   "attributes": {
-    "model": "claude-3-opus",
+    "model": "claude-sonnet-4-6",
     "session": "abc123"
   }
 }

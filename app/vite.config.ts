@@ -13,13 +13,13 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       input: entry
-        ? resolve(__dirname, "src/apps", `${entry}.html`)
+        ? resolve(import.meta.dirname, "src/apps", `${entry}.html`)
         : undefined,
     },
   },
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src"),
+      "@": resolve(import.meta.dirname, "src"),
       vue: "vue/dist/vue.esm-bundler.js",
     },
   },

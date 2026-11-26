@@ -10,12 +10,12 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/budget"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/budget"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // Evaluator orchestrates CGP evaluation by combining risk assessment

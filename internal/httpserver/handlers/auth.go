@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // loginRequest is the request body for POST /api/v1/auth/login.
@@ -27,6 +28,27 @@ type tokenResponse struct {
 // refreshRequest is the request body for POST /api/v1/auth/refresh.
 type refreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
+}
+
+type logoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// AuthMode reports the configured dashboard authentication mode so the
+// embedded UI can present the matching sign-in method without exposing secrets.
+func AuthMode(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	ctx := GetContext()
+	if ctx == nil {
+		writeError(w, r, http.StatusInternalServerError, ErrCodeInternal, "Authentication configuration unavailable", nil)
+		return
+	}
+	mode := ctx.AuthConfig.Mode
+	if mode == "" {
+		mode = config.DashboardAuthNone
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"mode": string(mode)})
 }
 
 // Login handles POST /api/v1/auth/login.
@@ -110,7 +132,7 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout handles POST /api/v1/auth/logout.
-// Revokes the access token from the Authorization header.
+// It revokes both tokens when the refresh token is supplied in the request body.
 func Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := GetContext()
 	if ctx == nil || ctx.TokenService == nil {
@@ -125,8 +147,21 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tokenStr := strings.TrimPrefix(auth, "Bearer ")
+	var req logoutRequest
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+			writeError(w, r, http.StatusBadRequest, ErrCodeInvalidJSON, "Invalid request body", nil)
+			return
+		}
+	}
 
-	if err := ctx.TokenService.RevokeToken(tokenStr); err != nil {
+	var err error
+	if req.RefreshToken != "" {
+		err = ctx.TokenService.RevokePair(tokenStr, req.RefreshToken)
+	} else {
+		err = ctx.TokenService.RevokeToken(tokenStr)
+	}
+	if err != nil {
 		writeError(w, r, http.StatusUnauthorized, ErrCodeTokenInvalid, "Invalid token", nil)
 		return
 	}

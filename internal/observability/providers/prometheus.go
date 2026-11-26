@@ -79,8 +79,11 @@ func (p *PrometheusProvider) QueryMetrics(ctx context.Context, query MetricQuery
 		return nil, fmt.Errorf("invalid query: %w", err)
 	}
 
-	// Build PromQL expression from metric name and labels.
-	expr := buildPromQL(query.MetricName, query.Labels)
+	// Prefer an operator-configured PromQL expression, otherwise build a selector.
+	expr := query.Expression
+	if expr == "" {
+		expr = buildPromQL(query.MetricName, query.Labels)
+	}
 
 	params := url.Values{}
 	params.Set("query", expr)
@@ -186,6 +189,9 @@ func buildPromQL(metricName string, labels map[string]string) string {
 	}
 	return fmt.Sprintf("%s{%s}", metricName, strings.Join(parts, ","))
 }
+
+// buildPromQL is the selector fallback; complex expressions should use
+// MetricQuery.Expression and are expected to come from operator config.
 
 // Prometheus API response structures.
 

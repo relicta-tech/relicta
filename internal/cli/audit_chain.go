@@ -15,7 +15,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
 )
 
 // chainStatus is what the CLI found when it looked at the chain.

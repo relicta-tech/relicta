@@ -3,11 +3,11 @@
 package release
 
 import (
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
 )
 
 // Services provides access to all release governance use cases.
@@ -127,6 +127,7 @@ func NewServices(cfg Config) (*Services, error) {
 		repoInspector,
 		cfg.NotesGenerator,
 		stateMachine,
+		lockManager,
 	)
 
 	approveRelease := app.NewApproveReleaseUseCase(

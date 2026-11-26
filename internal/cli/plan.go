@@ -13,39 +13,40 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/analysis"
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
+	"github.com/relicta-tech/relicta/v5/internal/analysis"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/application/recommendation"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 var (
-	planFromRef        string
-	planToRef          string
-	planShowAll        bool
-	planMinimal        bool
-	planAnalyze        bool
-	planReview         bool
-	planMinConfidence  float64
-	planDisableAI      bool
-	planSkipCognitive  bool
-	planChronosThreads int
-	planForce          bool
+	planFromRef                  string
+	planToRef                    string
+	planShowAll                  bool
+	planMinimal                  bool
+	planAnalyze                  bool
+	planReview                   bool
+	planMinConfidence            float64
+	planDisableAI                bool
+	planSkipCognitive            bool
+	planChronosThreads           int
+	planForce                    bool
+	planAllowDivergedVersionLine bool
 )
 
 func init() {
 	planCmd.Flags().StringVarP(&planFromRef, "from", "f", "", "starting reference (default: latest tag)")
 	planCmd.Flags().StringVarP(&planToRef, "to", "t", "HEAD", "ending reference")
 	planCmd.Flags().BoolVarP(&planShowAll, "all", "a", false, "show all commits including non-conventional")
-	planCmd.Flags().BoolVarP(&planMinimal, "minimal", "m", false, "show minimal output")
+	planCmd.Flags().BoolVarP(&planMinimal, "minimal", "m", false, "show minimal text output (ignored with --json)")
 	planCmd.Flags().BoolVar(&planAnalyze, "analyze", false, "analyze commit classifications and stop")
 	planCmd.Flags().BoolVarP(&planReview, "review", "r", false, "review and adjust commit classifications before planning")
 	planCmd.Flags().Float64Var(&planMinConfidence, "min-confidence", 0, "minimum confidence to accept classifications")
@@ -53,6 +54,7 @@ func init() {
 	planCmd.Flags().BoolVar(&planSkipCognitive, "skip-cognitive", false, "skip Mnemos & Chronos cognitive backends")
 	planCmd.Flags().IntVar(&planChronosThreads, "chronos-threads", 0, "max concurrent Chronos ingest requests (overrides config)")
 	planCmd.Flags().BoolVar(&planForce, "force", false, "discard an existing release run for these same commits, including its approval")
+	planCmd.Flags().BoolVar(&planAllowDivergedVersionLine, "allow-diverged-version-line", false, "acknowledge a higher version tag outside the target history and allow saving this release plan")
 }
 
 // runPlan implements the plan command.
@@ -108,6 +110,9 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get repository info: %w", err)
 	}
+	if repoInfo.IsDirty {
+		printWarning("plan is based on committed history through HEAD; uncommitted changes are excluded")
+	}
 
 	// Prepare input
 	configuredCurrent, err := configuredCurrentVersion(ctx, app)
@@ -135,7 +140,7 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	if planReview {
-		return runPlanReview(ctx, app, input, repoInfo.RemoteURL)
+		return runPlanReview(ctx, app, input, repoInfo.RemoteURL, repoInfo.IsDirty)
 	}
 
 	// Execute use case with spinner (unless JSON output)
@@ -154,12 +159,18 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to plan release: %w", err)
 	}
+	if len(output.Warnings) > 0 && !dryRun && !planAllowDivergedVersionLine {
+		return fmt.Errorf("%s\nrelease plan not saved; inspect the branch and tag history, then rerun with --allow-diverged-version-line only if this is an intentional release line", strings.Join(output.Warnings, " "))
+	}
+	output.VersionLineAcknowledged = len(output.Warnings) > 0 && planAllowDivergedVersionLine && !dryRun
 
 	// Persist release run for subsequent commands (bump, notes, approve, publish)
 	var persisted persistedRun
 	var packageRuns []plannedPackage
 	if !dryRun {
-		persisted, err = persistReleaseRun(ctx, app, output, repoInfo)
+		persisted, err = persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{
+			TransitionMetadata: versionLineAcknowledgmentMetadata(output),
+		})
 		if err != nil {
 			printWarning(fmt.Sprintf("release run persistence failed: %v", err))
 		}
@@ -190,10 +201,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	// Output results
 	if outputJSON {
-		return outputPlanJSON(output, persisted, riskPreview)
+		return outputPlanJSON(output, persisted, riskPreview, repoInfo.IsDirty)
 	}
 
-	if err := outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview); err != nil {
+	if err := outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview, repoInfo.IsDirty); err != nil {
 		return err
 	}
 	printPlannedPackages(packageRuns)
@@ -230,6 +241,9 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	repoInfo, err := gitAdapter.GetInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+	if repoInfo.IsDirty {
+		printWarning("plan is based on committed history through HEAD; uncommitted changes are excluded")
 	}
 
 	// Find previous version tag
@@ -275,6 +289,10 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	if err != nil {
 		return fmt.Errorf("failed to plan release: %w", err)
 	}
+	if len(output.Warnings) > 0 && !dryRun && !planAllowDivergedVersionLine {
+		return fmt.Errorf("%s\nrelease plan not saved; inspect the branch and tag history, then rerun with --allow-diverged-version-line only if this is an intentional release line", strings.Join(output.Warnings, " "))
+	}
+	output.VersionLineAcknowledged = len(output.Warnings) > 0 && planAllowDivergedVersionLine && !dryRun
 
 	// Override next version to match existing tag
 	output.NextVersion = ver
@@ -285,8 +303,9 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 	if !dryRun {
 		var persisted persistedRun
 		persisted, err = persistReleaseRunWithOptions(ctx, app, output, repoInfo, persistReleaseRunOptions{
-			TagPushMode: true,
-			TagName:     tagName,
+			TagPushMode:        true,
+			TagName:            tagName,
+			TransitionMetadata: versionLineAcknowledgmentMetadata(output),
 		})
 		releaseID = persisted.ID
 		if err != nil {
@@ -304,14 +323,14 @@ func runPlanTagPush(ctx context.Context, app cliApp, ver version.SemanticVersion
 
 	// Output results
 	if outputJSON {
-		return outputPlanTagPushJSON(output, releaseID, riskPreview)
+		return outputPlanTagPushJSON(output, releaseID, riskPreview, repoInfo.IsDirty)
 	}
 
-	return outputPlanTagPushText(output, releaseID, riskPreview)
+	return outputPlanTagPushText(output, releaseID, riskPreview, repoInfo.IsDirty)
 }
 
 // outputPlanTagPushJSON outputs the tag-push plan as JSON.
-func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
+func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview, workingTreeDirty bool) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
 		"mode":            "tag-push",
@@ -321,6 +340,7 @@ func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID strin
 		"release_type":    output.ReleaseType.String(),
 		"repository_name": output.RepositoryName,
 		"branch":          output.Branch,
+		"working_tree":    workingTreeSummary(workingTreeDirty),
 		"summary": map[string]int{
 			"total":            output.ChangeSet.CommitCount(),
 			"features":         len(cats.Features),
@@ -328,6 +348,10 @@ func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID strin
 			"breaking_changes": len(cats.Breaking),
 		},
 	}
+	if len(output.Warnings) > 0 {
+		result["warnings"] = output.Warnings
+	}
+	result["version_line_acknowledged"] = output.VersionLineAcknowledged
 
 	if riskPreview != nil {
 		result["governance"] = map[string]any{
@@ -345,7 +369,7 @@ func outputPlanTagPushJSON(output *servicerelease.AnalyzeOutput, releaseID strin
 }
 
 // outputPlanTagPushText outputs the tag-push plan as text.
-func outputPlanTagPushText(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview) error {
+func outputPlanTagPushText(output *servicerelease.AnalyzeOutput, releaseID string, riskPreview *governanceRiskPreview, workingTreeDirty bool) error {
 	// Summary
 	printTitle("Tag-Push Mode Summary")
 	fmt.Println()
@@ -357,6 +381,11 @@ func outputPlanTagPushText(output *servicerelease.AnalyzeOutput, releaseID strin
 	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
 	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
 	_ = w.Flush()
+	printPlanWorkingTreeSummary(workingTreeDirty)
+	printPlanWarnings(output.Warnings)
+	if output.VersionLineAcknowledged && releaseID != "" {
+		printSuccess("Intentional release line acknowledgment recorded in the plan history.")
+	}
 
 	fmt.Println()
 
@@ -413,7 +442,7 @@ func runPlanAnalyze(ctx context.Context, app cliApp, input servicerelease.Analyz
 	return outputAnalysisText(result, commitInfos)
 }
 
-func runPlanReview(ctx context.Context, app cliApp, input servicerelease.AnalyzeInput, repoURL string) error {
+func runPlanReview(ctx context.Context, app cliApp, input servicerelease.AnalyzeInput, repoURL string, workingTreeDirty bool) error {
 	if ciMode {
 		return fmt.Errorf("--review is not supported in CI mode")
 	}
@@ -463,10 +492,10 @@ func runPlanReview(ctx context.Context, app cliApp, input servicerelease.Analyze
 	}
 
 	if outputJSON {
-		return outputPlanJSON(output, persisted, riskPreview)
+		return outputPlanJSON(output, persisted, riskPreview, workingTreeDirty)
 	}
 
-	return outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview)
+	return outputPlanText(output, persisted, planShowAll, planMinimal, riskPreview, workingTreeDirty)
 }
 
 func outputAnalysisJSON(result *analysis.AnalysisResult, commitInfos []analysis.CommitInfo) error {
@@ -697,8 +726,34 @@ type governanceRiskPreview struct {
 	RequiredActions []cgp.RequiredAction
 }
 
+func workingTreeSummary(dirty bool) map[string]any {
+	return map[string]any{
+		"clean":                        !dirty,
+		"uncommitted_changes_included": false,
+	}
+}
+
+func printPlanWorkingTreeSummary(dirty bool) {
+	if dirty {
+		fmt.Println("  Working tree: dirty (uncommitted changes excluded from this plan)")
+		fmt.Println()
+	}
+}
+
+func printPlanWarnings(warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+	printTitle("Release Planning Warnings")
+	fmt.Println()
+	for _, warning := range warnings {
+		printWarning(warning)
+	}
+	fmt.Println()
+}
+
 // outputPlanJSON outputs the plan as JSON.
-func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun, riskPreview *governanceRiskPreview) error {
+func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun, riskPreview *governanceRiskPreview, workingTreeDirty bool) error {
 	cats := output.ChangeSet.Categories()
 	result := map[string]any{
 		"release_id":      persisted.ID,
@@ -708,9 +763,10 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun
 		"repository_name": output.RepositoryName,
 		"branch":          output.Branch,
 		"ci_mode":         ciMode,
+		"working_tree":    workingTreeSummary(workingTreeDirty),
 		// A consumer needs this to read the commit count correctly: on a first
 		// release it covers the whole history, not the commits since a tag.
-		"first_release": persisted.FirstRelease,
+		"first_release": persisted.FirstRelease || output.FirstRelease,
 		"summary": map[string]int{
 			"total":            output.ChangeSet.CommitCount(),
 			"features":         len(cats.Features),
@@ -721,6 +777,10 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun
 		// the flattened keys above so existing consumers keep working.
 		"recommendation": buildRecommendationArtifact(output, riskPreview),
 	}
+	if len(output.Warnings) > 0 {
+		result["warnings"] = output.Warnings
+	}
+	result["version_line_acknowledged"] = output.VersionLineAcknowledged
 
 	// Add governance risk preview if available
 	if riskPreview != nil {
@@ -739,7 +799,7 @@ func outputPlanJSON(output *servicerelease.AnalyzeOutput, persisted persistedRun
 }
 
 // outputPlanText outputs the plan as text.
-func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun, showAll, minimal bool, riskPreview *governanceRiskPreview) error {
+func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun, showAll, minimal bool, riskPreview *governanceRiskPreview, workingTreeDirty bool) error {
 	// Summary
 	printTitle("Summary")
 	fmt.Println()
@@ -751,7 +811,7 @@ func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun
 	fmt.Fprintf(w, "  Total commits:\t%d\n", output.ChangeSet.CommitCount())
 	fmt.Fprintf(w, "  Repository:\t%s\n", output.RepositoryName)
 	fmt.Fprintf(w, "  Branch:\t%s\n", output.Branch)
-	if persisted.FirstRelease {
+	if persisted.FirstRelease || output.FirstRelease {
 		// Names the baseline rather than leaving the reader to infer it from a
 		// current version of 0.0.0. Planning used to fail outright here, so this is
 		// also the line that says the situation was understood rather than guessed.
@@ -759,6 +819,11 @@ func outputPlanText(output *servicerelease.AnalyzeOutput, persisted persistedRun
 			output.ChangeSet.CommitCount())
 	}
 	_ = w.Flush() // Ignore flush error for stdout display
+	printPlanWorkingTreeSummary(workingTreeDirty)
+	printPlanWarnings(output.Warnings)
+	if output.VersionLineAcknowledged && persisted.ID != "" {
+		printSuccess("Intentional release line acknowledgment recorded in the plan history.")
+	}
 
 	fmt.Println()
 
@@ -1105,8 +1170,19 @@ func persistReleaseRunFromApp(ctx context.Context, app cliApp, output *servicere
 
 // persistReleaseRunOptions contains optional parameters for persistReleaseRun.
 type persistReleaseRunOptions struct {
-	TagPushMode bool   // If true, transition directly to versioned state
-	TagName     string // The existing tag name (required if TagPushMode is true)
+	TagPushMode        bool              // If true, transition directly to versioned state
+	TagName            string            // The existing tag name (required if TagPushMode is true)
+	TransitionMetadata map[string]string // Durable context attached to the plan transition
+}
+
+func versionLineAcknowledgmentMetadata(output *servicerelease.AnalyzeOutput) map[string]string {
+	if output == nil || !output.VersionLineAcknowledged {
+		return nil
+	}
+	return map[string]string{
+		"release_line_acknowledged":       "true",
+		"unreachable_higher_version_tags": strings.Join(output.Warnings, " | "),
+	}
 }
 
 // persistReleaseRun stores the release run with pre-computed analysis data.
@@ -1177,11 +1253,18 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 	}
 
 	bumpKind := convertReleaseTypeToBumpKind(output.ReleaseType)
+	baseRef := ""
+	if output.ChangeSet != nil {
+		baseRef = output.ChangeSet.FromRef()
+	}
 
 	input := releaseapp.PlanReleaseInput{
 		RepoRoot: repoInfo.Path,
 		RepoID:   repoInfo.RemoteURL,
-		BaseRef:  "", // Auto-detect from tags
+		// Use the exact baseline the analyzer used. Auto-detecting again here can
+		// choose an unreachable higher tag on a maintenance branch and make the
+		// persisted run disagree with the acknowledged plan.
+		BaseRef: baseRef,
 		Actor: ports.ActorInfo{
 			Type: "user",
 			ID:   actorID,
@@ -1189,15 +1272,16 @@ func persistReleaseRunWithOptions(ctx context.Context, app cliApp, output *servi
 		Force: true, // supersede stale runs whose plan hash no longer matches
 		// Only an explicit `--force` discards a run that already exists for
 		// these exact commits — see PlanReleaseInput.DiscardExisting.
-		DiscardExisting: planForce,
-		ChangeSet:       output.ChangeSet,
-		CurrentVersion:  &output.CurrentVersion,
-		NextVersion:     &output.NextVersion,
-		BumpKind:        &bumpKind,
-		TagPrefix:       configuredTagPrefix(),
-		Confidence:      1.0, // Legacy analysis is authoritative
-		TagPushMode:     opts.TagPushMode,
-		TagName:         opts.TagName,
+		DiscardExisting:    planForce,
+		ChangeSet:          output.ChangeSet,
+		CurrentVersion:     &output.CurrentVersion,
+		NextVersion:        &output.NextVersion,
+		BumpKind:           &bumpKind,
+		TagPrefix:          configuredTagPrefix(),
+		Confidence:         1.0, // Legacy analysis is authoritative
+		TagPushMode:        opts.TagPushMode,
+		TagName:            opts.TagName,
+		TransitionMetadata: opts.TransitionMetadata,
 	}
 
 	planOutput, err := services.PlanRelease.Execute(ctx, input)

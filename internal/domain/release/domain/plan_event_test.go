@@ -3,7 +3,7 @@ package domain
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Every state transition on this aggregate raises an event except one: Plan raised nothing, so

@@ -25,10 +25,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/releasehistory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/application/releasehistory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 var dbImportCmd = &cobra.Command{
@@ -43,6 +43,9 @@ writes it into the backend persistence.backend selects:
   * every release run under .relicta/releases, and the pointer to the current one
   * the governance record in .relicta/governance/memory.json: release records,
     incidents, decisions and execution authorizations
+  * CGP proposals, decisions and authorizations under .relicta/cgp
+  * governance analytics events under .relicta/governance/analytics
+  * identity grants from the configured governance.identity_registry_path
 
 Deployment records cannot move. Neither database backend has a deployments table,
 so they stay in memory.json and the command says how many were left behind.
@@ -94,12 +97,78 @@ func runDBImport(ctx context.Context) error {
 		// "it failed" has to go and find out whether anything moved.
 		printPartialImport(result.Runs)
 		printPartialGovernanceImport(result.Governance)
+		printPartialCGPImport(result.CGP)
+		printPartialIdentityImport(result.Identities)
+		printPartialAnalyticsImport(result.Analytics)
 		return err
 	}
 
 	printImportReport(result.Runs, result.Into)
 	printGovernanceImportReport(result.Governance, result.Into)
+	printCGPImportReport(result.CGP, result.Into)
+	printIdentityImportReport(result.Identities, result.Into)
+	printAnalyticsImportReport(result.Analytics, result.Into)
 	return nil
+}
+
+func printAnalyticsImportReport(report releasehistory.AnalyticsReport, into container.ImportedInto) {
+	if report.Events == 0 {
+		printInfo("No analytics events found under .relicta/governance/analytics — nothing to import.")
+		return
+	}
+	if report.DryRun {
+		printInfo(fmt.Sprintf("Would import %d analytics event(s) into %s (%s).", report.Events, into.Backend, into.AnalyticsLocation))
+		return
+	}
+	printSuccess(fmt.Sprintf("Imported %d analytics event(s) into %s (%s); %d already existed.", report.Events, into.Backend, into.AnalyticsLocation, report.Existing))
+	printInfo("The analytics JSONL source was not modified. Remove it yourself once you have verified the import.")
+}
+
+func printPartialAnalyticsImport(report releasehistory.AnalyticsReport) {
+	if report.Imported > 0 {
+		printWarning(fmt.Sprintf("%d analytics event(s) were imported before the import stopped. The JSONL source is unchanged; rerunning `relicta db import` is safe.", report.Imported))
+	}
+}
+
+func printIdentityImportReport(report releasehistory.IdentityRegistryReport, into container.ImportedInto) {
+	if report.Records() == 0 {
+		return
+	}
+	if report.DryRun {
+		printInfo(fmt.Sprintf("Would import %d actor identity grant(s) into %s (%s).", report.Identities, into.Backend, into.IdentityLocation))
+		return
+	}
+	printSuccess(fmt.Sprintf("Imported %d actor identity grant(s) into %s (%s).", report.Identities, into.Backend, into.IdentityLocation))
+	printInfo("The configured identity registry source was not modified. Remove it yourself after verification.")
+}
+
+func printPartialIdentityImport(report releasehistory.IdentityRegistryReport) {
+	if report.Records() == 0 {
+		return
+	}
+	printWarning(fmt.Sprintf("%d actor identity grant(s) were written before import stopped; rerunning `relicta db import` is safe.", report.Identities))
+}
+
+func printCGPImportReport(report releasehistory.CGPProtocolReport, into container.ImportedInto) {
+	if report.Records() == 0 {
+		printInfo("No CGP protocol proposals found under .relicta/cgp — nothing to import.")
+		return
+	}
+	if report.DryRun {
+		printInfo(fmt.Sprintf("Would import CGP protocol records into %s (%s): %d proposal(s), %d decision(s), %d authorization(s).",
+			into.Backend, into.CGPLocation, report.Proposals, report.Decisions, report.Authorizations))
+		return
+	}
+	printSuccess(fmt.Sprintf("Imported CGP protocol records into %s (%s): %d proposal(s), %d decision(s), %d authorization(s).",
+		into.Backend, into.CGPLocation, report.Proposals, report.Decisions, report.Authorizations))
+	printInfo(".relicta/cgp was not modified. Remove it yourself once you have verified the import.")
+}
+
+func printPartialCGPImport(report releasehistory.CGPProtocolReport) {
+	if report.Written() == 0 {
+		return
+	}
+	printWarning(fmt.Sprintf("%d CGP protocol record(s) were written before the import stopped; .relicta/cgp is unchanged and rerunning `relicta db import` is safe.", report.Records()))
 }
 
 // currentRepoRoot resolves the repository the command is running in.

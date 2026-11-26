@@ -1,0 +1,79 @@
+# Linux and Windows release configuration used until Apple signing and
+# notarization credentials are configured. Keep artifact naming aligned with
+# .goreleaser.yaml so checksums and attestations use the same workflow.
+version: 2
+
+project_name: relicta
+
+before:
+  hooks:
+    - make frontend
+    - go mod tidy -diff
+    - go mod verify
+
+builds:
+  - id: relicta
+    main: ./cmd/relicta
+    binary: relicta
+    env:
+      - CGO_ENABLED=0
+    tags:
+      - embed_frontend
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.ver={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    ids:
+      - relicta
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+release:
+  # Relicta supplies the approved release notes to GoReleaser in CI.
+  draft: false
+  use_existing_draft: true
+  prerelease: auto
+  mode: keep-existing
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - --yes
+    artifacts: checksum
+    output: true

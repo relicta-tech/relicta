@@ -5,82 +5,88 @@
     <img alt="Relicta" src="brand/relicta-logo-light.svg" width="280">
   </picture>
 
-  <p><strong>Cryptographically-attested release governance for AI-native engineering. EU AI Act Annex IV ready.</strong></p>
+  <p><strong>Turn repository changes into reviewed releases, customer-facing notes, and an auditable approval record.</strong></p>
 
   <p>
     <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
     <a href="https://github.com/relicta-tech/relicta/actions/workflows/codeql.yaml"><img src="brand/nox-badge.svg" alt="nox"></a>
-    <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://img.shields.io/badge/coverctl-80.7%25-brightgreen" alt="coverctl"></a>
+    <a href="https://github.com/relicta-tech/relicta/actions/workflows/ci.yaml"><img src="https://img.shields.io/badge/coverage-gated_by_CI-blue" alt="Coverage enforced in CI"></a>
     <a href="https://goreportcard.com/report/github.com/relicta-tech/relicta"><img src="https://goreportcard.com/badge/github.com/relicta-tech/relicta" alt="Go Report Card"></a>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   </p>
 </div>
 
-When AI coding agents merge 60% of your PRs, your auditor will ask: *"How do you know which commits the AI authored, and what's your evidence the change-management process governed those decisions?"*
+Relicta helps release owners turn technical changes into a reviewable release packet: a proposed
+version, structured change summary, release notes, governance decision, and approval record. In
+the unreleased v5 workflow, a coding agent can draft customer-facing notes from that summary using
+product context already present in its session; a human reviews the saved text before approval.
 
-Relicta produces that evidence. Every release proposal flows through a cryptographically hash-chained audit trail with actor-typed governance (`human` / `ci` / `agent`), per-actor autonomy budgets, and exportable evidence bundles for **EU AI Act Article 12 + Annex IV**, **SOC 2 CC6.1/CC7.1/CC7.4/CC8.1**, **ISO/IEC 27001 / 42001**, **HIPAA**, and **PCI-DSS**.
+Relicta records release proposals and governance decisions in a hash-chained audit trail with actor-typed governance (`human` / `ci` / `agent`), per-actor autonomy budgets, and exportable evidence. Agent-authored release notes are stored as supplied and are not fact-checked by Relicta. These reports can support an organization’s compliance work; they do not establish compliance or replace legal and control-owner review.
 
 ## What Relicta is (and isn't)
 
-| | Relicta | Vanta / Drata | Microsoft AGT | semantic-release |
-|---|---------|---------------|---------------|------------------|
-| Posture scanning of CI/Git data | — | ✅ | — | — |
-| Runtime agent execution control | — | — | ✅ | — |
-| **Release-decision attestation** | ✅ | — | partial (Article 12 mapping only) | — |
-| **EU AI Act Annex IV** technical documentation | ✅ | — | — | — |
-| Hash-chained audit trail | ✅ | — | — | — |
-| Per-actor autonomy budgets | ✅ | — | — | — |
-| Pushes evidence to Vanta / Drata | ✅ | — | — | — |
-| Semantic versioning + conventional commits | ✅ | — | — | ✅ |
-| MIT-licensed CLI | ✅ | — | ✅ | ✅ |
+Relicta governs the **software release lifecycle**: it analyzes repository changes, proposes a
+version, prepares release communication, applies release policy, records approvals, and publishes
+artifacts. Its records connect the code changes and release decision to the resulting release.
 
-**Position:** Relicta is the **upstream provenance source** Vanta and Drata cannot generate from CI/Git data alone. Microsoft AGT governs what agents *do* in execution; Relicta proves how release *decisions* were governed.
+Relicta is not a general compliance-monitoring platform and does not mediate every action an AI
+agent takes while it is running. It can export release evidence to GRC platforms such as
+[Vanta](https://www.vanta.com/products/ai-governance) and [Drata](https://drata.com/products/agent-governance),
+which cover broader governance programs and describe agent inventory or control capabilities.
+Runtime controls such as [Microsoft's Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit)
+focus on enforcing policies around agent execution. These tools address adjacent parts of the
+software governance lifecycle; Relicta focuses on the release decision and its evidence.
 
 ## Features
 
-### EU AI Act Compliance (NEW — August 2026 ready)
+### EU AI Act evidence exports (supporting material)
 
-- **Article 12 Record-Keeping**: One log entry per governance decision with use period, reference data (policy + risk-model versions), input data (commits + files + blast), verifiers, and audit chain anchors. JSONL streaming format + CSV regulator export. 6-month retention enforced per Article 26(6).
-- **Annex IV Technical Documentation Generator**: Eight-section system documentation (general description, detailed elements, monitoring, risk management, lifecycle changes, harmonized standards, conformity scaffold, post-market monitoring) generated from existing CGP audit data. Markdown / PDF-ready. 10-year retention per Article 11.
+- **Article 12 supporting evidence**: Export release-governance decisions, CGP protocol version, change metadata, and recorded rationale as JSONL or CSV. Decisions are discovered through release records dated in the selected period; standalone decisions without a matching release record are not enumerated. Approval-event identities and audit-chain hashes are not included, and report generation does not verify chain integrity. These records are not automatically generated logs of each AI system use and cannot by themselves establish that Article 12 logging duties are met. The report shows a suggested date six months after its period ends. Articles 19(1) and 26(6) set role-specific minimum retention periods for certain logs, subject to intended purpose and other applicable law; confirm actual duties. Relicta does not determine role-specific duties or enforce storage retention or deletion.
+- **Annex IV supporting-evidence draft**: Generate an eight-section draft from available release-governance data, with missing provider documentation marked for completion. It is not complete target-system technical documentation or a conformity assessment. The conformity-declaration section is a scaffold requiring completion and review by the system provider and its legal/control owners. Article 18(1) sets a ten-year period for specified provider documentation from placing the system on the market or putting it into service. Relicta does not collect that event date or calculate a statutory deadline, and does not enforce storage retention or deletion.
+
+These exports are supporting material for an organization’s compliance work. They cover only data Relicta has recorded, can contain gaps or placeholders, and do not establish that a system complies with the EU AI Act. Review them against the applicable requirements with qualified legal and control owners before relying on or submitting them.
 
 ### Core Governance
 
 - **Change Governance Protocol (CGP)**: Public SDK (`pkg/cgp/`) for risk assessment, actor trust scoring, and security impact analysis
-- **Hash-Chained Audit Trail**: SHA-256 chain over JSON-canonical CGP decisions; integrity verified at report-generation time (99.1% test coverage)
+- **Hash-Chained Audit Trail**: SHA-256 links over canonical CGP decisions; verify them with `relicta audit verify`. Compliance report generation does not check chain integrity.
 - **Actor-Typed Governance**: First-class `human` / `ci` / `agent` / `system` actor kinds drive policy decisions
 - **Agent Autonomy Profiles**: Per-actor budgets cap blast radius, risk score, dollar cost, allowed/denied tools, time windows, and require human cosigners for privileged operations
 - **Policy DSL**: Declarative policy rules with what-if comparison and matrix testing
 - **Blast Radius Analysis**: Quantify the scope and impact of changes before they ship
 - **Approval Workflow**: Review and approve releases with full audit trails
-- **Release Attestation & Signing**: Generate and verify cryptographic attestations for releases
+- **Release Attestation & Signing**: Generate and verify governance attestations; release artifact signing is provided by the repository's release workflow
 - **MCP Server**: Claude / GPT / Cursor / Devin agents drive releases through the same governance gates as humans
 
-See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, [Deployment Evidence](docs/deployment-evidence.md) for recording that a release reached an environment and gating deployments on governance, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
+See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approval workflows, [Deployment Evidence](docs/deployment-evidence.md) for recording that a release reached an environment and gating deployments on governance, the [CGP Specification](docs/cgp-specification.md) for the complete protocol definition, [custom changelog templates](docs/changelog-templates.md) for release entry customization, and the [Skill Publishing Checklist](docs/skill-publishing-checklist.md) for sharing the Relicta governance skill publicly.
 
 ### Compliance Integrations (Push, don't replace)
 
-- **Vanta** evidence push: `relicta integrations vanta push --type article12|soc2` maps Relicta artefacts to Vanta custom evidence. Vanta released its remote MCP server and Claude plugin in April 2026 — Relicta complements with upstream cryptographic provenance Vanta cannot generate from Git data alone.
-- **Drata** integration follows the same pattern (planned).
+- **Vanta** evidence push: `relicta integrations vanta push --type article12|soc2` maps Relicta release-governance artefacts to Vanta custom evidence.
+- **Drata** evidence push: `relicta integrations drata push` exports supported evidence types to Drata.
 
 ### Release Automation
 
 - **Automatic Version Calculation**: Semantic version bumps from conventional commits
 - **Smart Commit Intelligence**: Infers intent from unstructured histories via heuristics and optional AI
-- **AI-Powered Release Notes**: Professional changelogs (OpenAI, Anthropic, Gemini, Azure, Ollama)
-- **Communication Narratives**: Audience-specific release communication (engineering, product, executive, external) with AI-powered generation and template fallback
-- **Pre-release Channels**: Alpha, beta, and RC versions with channel promotion workflow (`--channel` flag)
+- **Optional AI-Enhanced Release Notes**: Enable a configured provider (OpenAI, Anthropic, Gemini, Azure, or Ollama) for AI-written prose; deterministic notes remain the default when AI is disabled.
+- **Agent-Session Customer Notes (v5 source, not yet released)**: Draft release notes with the product context already in your MCP agent conversation; Relicta supplies the version and change recommendation, stores the draft as agent-authored, and keeps it in the normal review and approval flow. The `release-summary` MCP prompt fetches a read-only recommendation before drafting; saving notes is a separate step, and approval and publication remain separate. The current public v4.2.0 release does not include this workflow. See the [MCP release-notes workflow](docs/mcp.md#draft-customer-facing-release-notes-in-your-agent-session).
+- **Communication Narratives**: Audience-specific release communication (engineering, product, executive, external) with AI generation when configured and template-based fallback
+- **Pre-release Channels**: Alpha, beta, and RC versions with channel promotion workflow (`--channel` flag). The built-in RC channel is named `next`.
+- **Promotion governance**: `relicta promote` creates the target channel tag without a per-channel approval gate; review promotions through your existing release process.
 - **Plugin System**: Extensible via gRPC plugins (verified: GitHub, GitLab, Slack, Jira, npm; community-listed entries pending audit)
 
 ### Multi-Project Support
 
-- **Monorepo**: Auto-detect Go, npm, pnpm, and Cargo workspaces with independent, lockstep, or hybrid versioning strategies
-- **Multi-repo**: Repository groups with dependency ordering and CGP federation via `group` subcommands
+- **Monorepo**: Analyze configured package paths and version changed packages independently. Package-level lockstep, hybrid, and `monorepo.release_groups` strategies are not supported; configuration using them is rejected.
+- **Multi-repo**: Separately, `repository_groups` can plan and publish already-approved member releases in dependency order. Cross-repository CGP federation is not wired into the group workflow yet.
 
 ### Authentication & Access Control
 
-- **JWT Session Auth**: Token-based session authentication
-- **OIDC/SSO**: Okta, Azure AD, and Google Workspace integration
+- **Dashboard authentication**: API-key, password-session, and OIDC sign-in in the embedded UI, with configurable role mapping
 - **Role-Based Access**: Admin, Approver, and Viewer roles
+
+The embedded UI stores API keys persistently and session tokens for the current browser tab. OIDC browser sign-in uses a short-lived, single-use ticket before establishing the session; multi-replica deployments need session affinity during OIDC login, callback, and ticket exchange because those temporary handoff records are process-local. See the [dashboard authentication guide](docs/dashboard.md#authentication-modes) for supported server modes and configuration.
 
 ### Persistence
 
@@ -94,49 +100,54 @@ See the [CGP Guide](docs/governance.md) for policy DSL, risk scoring, and approv
 
 - **REST API v1**: OpenAPI-specified endpoints with health and readiness probes
 - **Real-time Events**: WebSocket and SSE streaming for live release status
-- **Standalone Frontend**: Deployable dashboard UI
+- **Standalone Frontend Container**: Nginx-served dashboard UI that proxies API and WebSocket traffic to a separately configured Relicta server; see the [dashboard deployment guide](docs/dashboard.md#standalone-frontend-container)
 
 ### Observability
 
-- **Prometheus Integration**: Metrics endpoint for release pipeline monitoring
-- **Webhook Receiver**: Accepts events from Alertmanager, PagerDuty, and Datadog
-- **Deployment Health Monitoring**: Track deployment outcomes post-release
-- **Release-Incident Correlation**: Link production incidents back to specific releases
+- **Prometheus Monitoring**: Optional metrics endpoint and configurable Prometheus queries for post-release health checks
+- **Alert Webhooks**: Accept configured alert events from Alertmanager, PagerDuty, Datadog, and generic senders
+- **Deployment Health Monitoring**: Watch configured post-release error-rate and latency signals
+- **Release-Incident Correlation**: Find potential links using time proximity, service names, and deployment labels; review the reported confidence and reasons
 
 ## Installation
 
-### Homebrew (Recommended)
+### Homebrew (Linux)
 
 ```bash
 brew install relicta-tech/tap/relicta
 ```
 
+Homebrew installation is currently supported on Linux. The current v4.2.0 release includes
+unsigned macOS binaries, which Gatekeeper may block. Apple signing and notarization credentials
+are not configured for the next release, so new releases will include Linux and Windows binaries
+only until those credentials are configured. The existing v4.2.0 tap Formula still offers its
+unsigned Darwin archives; avoid Homebrew on macOS and use `go install` or build from source.
+
 ### Download Binary
 
-Download the latest release for your platform:
-
-```bash
-# macOS (Apple Silicon)
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_darwin_arm64.tar.gz | tar xz
-sudo mv relicta /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_darwin_amd64.tar.gz | tar xz
-sudo mv relicta /usr/local/bin/
-
-# Linux (x86_64)
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_linux_amd64.tar.gz | tar xz
-sudo mv relicta /usr/local/bin/
-
-# Linux (ARM64)
-curl -L https://github.com/relicta-tech/relicta/releases/latest/download/relicta_linux_arm64.tar.gz | tar xz
-sudo mv relicta /usr/local/bin/
-```
+For Linux on x86_64 or ARM64, use the [verified direct-download steps](docs/quick-start.md#installation). They require Cosign and GitHub CLI, verify the signed checksum manifest and archive digest, and check GitHub build provenance before installation. For Windows amd64, follow the [PowerShell installation steps](docs/quick-start.md#verified-windows-binary-amd64), which perform the same checks before extracting the executable.
 
 ### Using Go
 
+The current public v4.2.0 module requires Go 1.25 or newer. Install that published version
+until the v5 module is released; v5 requires Go 1.26 or newer. On Windows, add Go's bin
+directory to the current PowerShell session if `relicta` is not already on `PATH`:
+
 ```bash
-go install github.com/relicta-tech/relicta/v4/cmd/relicta@latest
+go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+```
+
+The v5 source in this checkout is not published yet. After v5 is released, use
+`go install github.com/relicta-tech/relicta/v5/cmd/relicta@latest`.
+
+This builds the CLI without the embedded Vue dashboard. The current release configuration embeds
+the dashboard in release binaries; until a release built with that configuration is published,
+use `make build-with-frontend` from a source checkout when you need the web UI.
+
+```powershell
+$goBin = Join-Path (go env GOPATH) "bin"
+$env:Path = "$env:Path;$goBin"
+relicta version
 ```
 
 ### From Source
@@ -148,35 +159,59 @@ make build
 sudo mv bin/relicta /usr/local/bin/
 ```
 
-### GitHub Action (Recommended for CI/CD)
+### GitHub Actions
 
-The easiest way to use Relicta in your CI/CD pipeline:
+For a read-only release plan in CI, install a pinned Relicta module version with Go:
 
 ```yaml
-- uses: relicta-tech/relicta-action@v2
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
+name: Relicta plan
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+        with:
+          go-version: '1.26'
+      - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+      - run: relicta plan --dry-run --json
 ```
 
-**No Go, Make, or build tools required!** The action automatically downloads the correct binary, verifies checksums, and handles the entire release workflow. See the [GitHub Action documentation](https://github.com/relicta-tech/relicta-action) for details.
+The current [Relicta GitHub Action](https://github.com/relicta-tech/relicta-action) release warns
+and continues when binary checksum verification fails, so pinning its source commit does not make
+the downloaded binary trustworthy. Use the Go module path above or the verified
+[direct-download procedure](docs/quick-start.md#installation) for production workflows. Wait for a
+fail-closed Action release before using that Action to execute Relicta in CI.
 
 ## Quick Start
 
 > **New to Relicta?** See the [Quick Start Guide](docs/quick-start.md) for a comprehensive walkthrough.
 
-### One-Command Release (Recommended)
+### One-Command Release
 
-Run the complete release workflow in a single command:
+Preview first, then review the proposed version and configured version-file changes. The dry run
+does not generate release notes or evaluate governance. A live release can write changelog/version
+files, create a local tag, run publisher plugins, and push if configured. Run it only when you
+intend to execute that release, and review its generated notes before approving:
 
 ```bash
-# Interactive release (prompts for approval)
+# Execute an explicitly reviewed release; prompts for approval
 relicta release
-
-# CI/CD auto-approve
-relicta release --yes
 
 # Preview changes without releasing
 relicta release --dry-run
+
+# CI/CD only when unattended approval is an intentional policy
+relicta release --yes --ci
 
 # Pre-release to a channel
 relicta release --channel beta
@@ -204,19 +239,32 @@ relicta plan
 relicta evaluate
 ```
 
-4. Generate release notes (optionally with AI):
+4. Calculate and apply the version:
 
 ```bash
-relicta notes --ai
+relicta bump
 ```
 
-5. Approve the release:
+5. Generate release notes (optionally with AI):
+
+```bash
+# Optional provider-generated notes follow the project configuration.
+# For agent-authored notes, use the MCP flow: plan, bump, draft from the
+# recommendation in this agent session, then pass the text to relicta_notes.
+relicta notes
+```
+
+Planning, bumping, and saving notes prepare local release state; saving notes does not publish.
+Review and approve the release before `relicta publish`, which creates the configured tag and
+runs publisher plugins (and pushes the tag when configured).
+
+6. Approve the release:
 
 ```bash
 relicta approve
 ```
 
-6. Publish the release:
+7. Publish the release:
 
 ```bash
 relicta publish
@@ -231,7 +279,7 @@ versioning:
   strategy: conventional
   tag_prefix: v
   git_tag: true
-  git_push: true
+  git_push: false # Local tag by default; set true to push and trigger tag-based CI
 
 changelog:
   file: CHANGELOG.md
@@ -241,7 +289,7 @@ changelog:
 ai:
   enabled: true
   provider: openai
-  model: gpt-4
+  model: gpt-6.2-sol
   tone: professional
   audience: developers
 
@@ -253,36 +301,35 @@ persistence:
 channels:
   enabled: true
   default: stable
-  allowed:
-    - alpha
-    - beta
-    - rc
-    - stable
 
 communication:
-  audiences:
-    - engineering
-    - product
-    - executive
-    - external
-  ai_powered: true
-  template_fallback: true
+  default_audience: engineering
+  # Omit `audiences` to use Relicta's built-in audience profiles.
 
 observability:
-  prometheus:
-    enabled: true
-    endpoint: /metrics
-  webhooks:
-    alertmanager: true
-    pagerduty: true
-    datadog: true
+  providers:
+    - name: production
+      type: prometheus
+      endpoint: https://prometheus.example.com
+      bearer_token: ${PROMETHEUS_TOKEN}
+  health_check:
+    provider_name: production
+    window: 30m
+    error_rate_threshold: 5 # absolute error rate percent
+    latency_threshold: 50 # p95 percentage increase from the first measured check
+    # Override these if your Prometheus metrics use different names/labels.
+    error_rate_query: 'sum(rate(http_requests_errors_total[5m])) / sum(rate(http_requests_total[5m])) * 100'
+    latency_query: 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))'
+  auto_record: false # opt in only after validating metrics and governance-memory storage
 
 repository_groups:
   - name: platform
-    repos:
-      - relicta-tech/relicta
-      - relicta-tech/relicta-action
-    strategy: lockstep
+    repositories:
+      - name: relicta
+        path: ../relicta
+      - name: relicta-action
+        path: ../relicta-action
+    strategy: coordinated
 
 plugins:
   - name: github
@@ -300,18 +347,26 @@ workflow:
     - main
 ```
 
+Relicta defaults to creating a local tag without pushing it. Set `versioning.git_push: true`
+when you want Relicta to push tags; a push can start workflows in your repository. The GitHub
+plugin creates GitHub Releases and needs a token with repository release permissions. Avoid
+configuring multiple workflows to publish the same version on tag push. The enabled GitHub and
+Slack plugin examples above are separate processes and are unsigned; commands that load them
+require the explicit `--allow-untrusted-plugins` flag. See [Plugin Security](#plugins)
+before enabling third-party plugins.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `release` | **Run complete release workflow** (plan, bump, notes, approve, publish) |
-| `init` | Initialize Relicta with guided setup |
+| `init` | Create repository-aware defaults; use `init --guided` for interactive setup |
 | `plan` | Analyze commits and plan the next release |
-| `bump` | Apply version bump (create tag) |
+| `bump` | Apply the selected version to configured version files |
 | `notes` | Generate changelog and release notes |
 | `evaluate` | Evaluate risk using CGP (Change Governance Protocol) |
 | `approve` | Review and approve the release |
-| `publish` | Execute the release (create tag, run plugins) |
+| `publish` | Create the configured Git tag, run publisher plugins, and record the release |
 | `verify` | Verify release attestations and signatures |
 | `promote` | Promote a release between channels (e.g., beta to stable) |
 | `communicate` | Generate audience-specific release narratives |
@@ -326,11 +381,11 @@ workflow:
 | `mcp serve` | Start MCP server for AI agent integration |
 | `eval run` | Run AI eval harness against the embedded golden corpus (gates model bumps) |
 | `eval list` | List embedded golden cases |
-| `integrations vanta push` | Push Article 12 / SOC 2 evidence to Vanta as custom evidence |
-| `integrations drata push` | Push Article 12 / SOC 2 evidence to Drata |
-| `plugin sandbox-status` | Show plugin sandbox enforcement posture (memory, CPU, signature verification, platform caveats) |
-| `report --type eu-ai-act-article-12` | EU AI Act Article 12 record-keeping log bundle (jsonl / csv / markdown) |
-| `report --type eu-ai-act-annex-iv` | EU AI Act Annex IV technical documentation (8 sections, 10-year retention) |
+| `integrations vanta push` | Push scoped release-governance evidence mapped to Article 12 concepts / SOC 2 evidence to Vanta |
+| `integrations drata push` | Push scoped release-governance evidence mapped to Article 12 concepts / SOC 2 evidence to Drata |
+| `plugin sandbox-status` | Show plugin enforcement limits, signature status, and platform caveats |
+| `report --type eu-ai-act-article-12` | Release-governance evidence mapped to EU AI Act Article 12 concepts (jsonl / csv / markdown) |
+| `report --type eu-ai-act-annex-iv` | Draft release-governance evidence mapped to EU AI Act Annex IV; provider documentation and assessment remain to be completed |
 
 ### Global Flags
 
@@ -343,9 +398,9 @@ workflow:
 | `--ci` | | CI/CD mode: auto-approve, JSON output, non-interactive |
 | `--model` | | AI model to use (format: `provider/model`) |
 | `--redact` | | Redact secrets and API keys from output |
-| `--allow-untrusted-plugins` | | Load plugins on best-effort sandbox platforms (e.g. macOS); review `relicta plugin sandbox-status` first |
+| `--allow-untrusted-plugins` | | Required to load enabled plugins; signatures are not verified and sandbox enforcement varies by platform. Review `relicta plugin sandbox-status` first |
 | `--no-color` | | Disable colored output |
-| `--channel` | | Target release channel (alpha, beta, rc, stable) |
+| `--channel` | | Target release channel (alpha, beta, rc/next, stable) |
 
 ### Command-Specific Flags
 
@@ -356,19 +411,24 @@ Most commands support short flags for convenience. Here are the commonly used on
 | `plan` | `--analyze` | `-a` | Include detailed commit analysis |
 | `plan` | `--from` | `-f` | Starting point for analysis |
 | `bump` | `--level` | `-l` | Override bump type (major/minor/patch) |
-| `notes` | `--ai` | `-a` | Enable AI-powered notes generation |
-| `notes` | `--save` | `-s` | Save notes to changelog file |
+| `notes` | `--audience` | `-a` | Set the target audience for configured AI notes |
+| `notes` | `--tone` | `-t` | Set the tone for configured AI notes |
+| `notes` | `--language` | `-l` | Set the language for configured AI notes |
+| `notes` | `--output` | `-o` | Write generated notes to a file |
+| `notes` | `--emoji` | | Include emojis in generated notes |
 | `approve` | `--yes` | `-y` | Auto-approve without prompting |
 | `approve` | `--edit` | `-e` | Edit release notes before approving |
+| `publish` | `--skip-approval` | `-A` | Skip the approval check |
 | `publish` | `--skip-push` | `-P` | Skip pushing to remote |
 | `publish` | `--skip-tag` | `-T` | Skip git tag creation |
+| `publish` | `--skip-plugins` | `-G` | Skip running configured plugins |
 | `release` | `--yes` | `-y` | Auto-approve releases |
 | `cancel` | `--force` | `-f` | Force cancel without confirmation |
 | `clean` | `--keep` | `-k` | Keep the last N release runs |
 | `clean` | `--older-than` | `-o` | Remove runs older than duration |
 | `blast` | `--from` | `-f` | Starting git reference |
 | `blast` | `--to` | `-t` | Ending git reference |
-| `communicate` | `--audience` | `-a` | Target audience for narrative |
+| `communicate` | `--audiences` | | Select one or more narrative audiences |
 | `promote` | `--from` | `-f` | Source channel |
 | `promote` | `--to` | `-t` | Destination channel |
 | `serve` | `--port` | `-p` | Port to listen on |
@@ -420,6 +480,12 @@ Relicta follows the [Conventional Commits](https://www.conventionalcommits.org/)
 
 Relicta supports plugins for extending functionality:
 
+Plugins are unsigned and execute as separate processes. Before enabling one, review
+`relicta plugin sandbox-status`. Loading an enabled plugin requires
+`--allow-untrusted-plugins` on Linux, macOS, and Windows; signatures are not verified on
+any platform. The flag records this trust decision and does not verify the publisher or provide
+a complete security sandbox.
+
 ### GitHub Plugin
 
 Creates GitHub releases with release notes:
@@ -467,7 +533,7 @@ Relicta includes a [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 # Stdio transport (default, for Claude Desktop)
 relicta mcp serve
 
-# HTTP transport (for custom integrations)
+# Local HTTP transport (loopback only; remote use needs a trusted auth/TLS proxy)
 relicta mcp serve --port 8080
 ```
 
@@ -475,19 +541,32 @@ relicta mcp serve --port 8080
 
 | Tool | Description |
 |------|-------------|
-| `relicta.status` | Get current release state and pending actions |
-| `relicta.plan` | Analyze commits and plan the next release |
-| `relicta.bump` | Calculate and set the next version |
-| `relicta.notes` | Generate changelog and release notes |
-| `relicta.evaluate` | Evaluate risk using CGP (Change Governance Protocol) |
-| `relicta.approve` | Approve the release for publishing |
-| `relicta.publish` | Execute the release (create tags, run plugins) |
-| `relicta.rollback` | Roll back to a previous version |
-| `relicta.promote` | Promote a release between channels |
-| `relicta.communicate` | Generate audience-specific release narratives |
+| `relicta_status` | Get current release state and pending actions |
+| `relicta_init` | Initialize Relicta configuration |
+| `relicta_plan` | Analyze commits and plan the next release; returns a deterministic recommendation for agent-authored notes |
+| `relicta_bump` | Set the release version before generating notes |
+| `relicta_notes` | Generate notes or persist a draft written in the agent session |
+| `relicta_evaluate` | Evaluate release risk using CGP (Change Governance Protocol) |
+| `relicta_approve` | Approve the release for publishing |
+| `relicta_publish` | Execute the release (create tags, run plugins) |
+| `relicta_cancel` | Cancel an in-progress release |
+| `relicta_reset` | Reset a failed or canceled release |
+| `relicta_blast_radius` | Analyze impacted packages in a monorepo |
+| `relicta_infer_version` | Infer a version without starting a full release plan |
+| `relicta_summarize_diff` | Summarize changes for a selected audience |
+| `relicta_validate_release` | Run release pre-flight checks |
 | `cgp_propose` | Submit a change proposal for CGP evaluation |
 | `cgp_authorize` | Authorize a change through CGP policy gates |
 | `cgp_status` | Query CGP evaluation and authorization status |
+
+For agent-authored customer notes, call `relicta_plan`, use its deterministic
+`recommendation` as the source of release facts, call `relicta_bump`, then write
+the customer-facing draft in the agent session and pass it to `relicta_notes`
+using the `draft` field. Relicta persists that draft on the release for the
+normal review and approval flow; it does not call an AI provider for this path.
+For Relicta's own tag-triggered release workflow, commit the reviewed copy as
+`docs/release-notes/<version>.public.md` before planning; CI then presents the
+draft for protected review and publishes the approved text.
 
 ### Resources
 
@@ -498,6 +577,12 @@ relicta mcp serve --port 8080
 | `relicta://commits` | Recent commits since last release |
 | `relicta://changelog` | Generated changelog |
 | `relicta://risk-report` | CGP risk assessment |
+| `relicta://policy/current` | Active governance policy context |
+| `relicta://risk-budget` | Default and per-actor risk budgets |
+| `relicta://risk-budget/{actor_id}` | Risk budget for a specific actor |
+| `relicta://recent-incidents` | Recent governance incidents |
+| `relicta://compliance-frameworks` | Configured compliance framework context |
+| `relicta://approval` | Approval requirements for the current change |
 
 ### Claude Desktop Integration
 

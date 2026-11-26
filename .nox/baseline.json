@@ -16,13 +16,6 @@
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
-      "fingerprint": "b74dfe1201bfc9539f903ffd08e7339242162ea6529508afbc0dde75cf0ce543",
-      "rule_id": "AI-007",
-      "file_path": "internal/cli/eval.go",
-      "severity": "high",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
       "fingerprint": "a63442d143aa4f8369bc83f8c7671c0043d7a0bc5388ef5d75eadef82da366ac",
       "rule_id": "AI-008",
       "file_path": "internal/cgp/attribution/detector.go",
@@ -41,13 +34,6 @@
       "rule_id": "AI-017",
       "file_path": "internal/config/validate_extra_test.go",
       "severity": "low",
-      "created_at": "2026-08-08T09:01:35.852329Z"
-    },
-    {
-      "fingerprint": "259c584fdf64aaf01e45d8700b3534ad48d77c85fb5fbbe613ac4ad90850a0fe",
-      "rule_id": "AI-022",
-      "file_path": "internal/config/validate_extra_test.go",
-      "severity": "medium",
       "created_at": "2026-08-08T09:01:35.852329Z"
     },
     {
@@ -2128,120 +2114,297 @@
       "rule_id": "DATA-001",
       "file_path": "internal/cgp/memory/outcome_tracker_identity_test.go",
       "severity": "medium",
-      "created_at": "2026-08-11T16:40:00Z",
-      "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity \u2014 otherwise the same repository is keyed twice depending on how it was cloned \u2014 and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule."
+      "reason": "Same fixture shape already reviewed for governance_id_test.go: DATA-001 matches the SSH user in an scp-style git remote used as a test fixture. That user is the conventional one every git forge accepts, not a person's address. The fixture exists because the outcome tracker must reduce every remote spelling to one identity — otherwise the same repository is keyed twice depending on how it was cloned — and the scp branch splits on the last colon, so it cannot be tested without the user-at-host shape. Rewriting the literal to dodge the pattern would leave a fixture that no longer resembles the remotes it stands for. Worded without quoting a remote, because quoting one causes this file to be flagged by the same rule.",
+      "created_at": "2026-08-11T16:40:00Z"
     },
     {
       "fingerprint": "4f0b64b6a65d98c006bae5c810d8376ca3bd7090dece22816499d670f2efc000",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-17T14:45:00Z",
-      "reason": "GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained and unsafe by design. It has no fixed version, so it cannot be cleared by upgrading. relicta imports no x/crypto package at all -- 'go mod why golang.org/x/crypto' answers 'main module does not need package' -- and the scan configured with reachability analysis reports the same finding as info with '(not reachable: the affected package is not linked by this build)'. It is in the module graph because modernc.org/sqlite (ADR-013) promotes golang.org/x/mod into go.mod, and clearing GO-2026-6179 and GO-2026-6180 there requires x/mod v0.40.0, which requires x/crypto v0.55.0. One unfixable and unreachable advisory accepted to fix two real ones. This fingerprint is the one the CI workflow computes; see the entry below for the other configuration."
+      "reason": "GO-2026-5932: golang.org/x/crypto/openpgp is unmaintained and unsafe by design. It has no fixed version, so it cannot be cleared by upgrading. relicta imports no x/crypto package at all -- 'go mod why golang.org/x/crypto' answers 'main module does not need package' -- and the scan configured with reachability analysis reports the same finding as info with '(not reachable: the affected package is not linked by this build)'. It is in the module graph because modernc.org/sqlite (ADR-013) promotes golang.org/x/mod into go.mod, and clearing GO-2026-6179 and GO-2026-6180 there requires x/mod v0.40.0, which requires x/crypto v0.55.0. One unfixable and unreachable advisory accepted to fix two real ones. This fingerprint is the one the CI workflow computes; see the entry below for the other configuration.",
+      "created_at": "2026-08-17T14:45:00Z"
     },
     {
       "fingerprint": "966fddcbb45646aae656edfc396afafd6040f19011271cc0448f3c9ad206ed57",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-17T14:45:00Z",
-      "reason": "The same GO-2026-5932 advisory as the entry above. Two entries for one finding because this repository runs nox in two configurations -- one with reachability analysis, one without -- and they fingerprint it differently: the reachability pass appends '(not reachable: the affected package is not linked by this build)' to the message and lowers the severity to info, and the fingerprint covers the message. Both were read from the failing runs' own findings.json artifacts, which is the only reliable source: a local nox is a different version again and matches neither."
+      "reason": "The same GO-2026-5932 advisory as the entry above. Two entries for one finding because this repository runs nox in two configurations -- one with reachability analysis, one without -- and they fingerprint it differently: the reachability pass appends '(not reachable: the affected package is not linked by this build)' to the message and lowers the severity to info, and the fingerprint covers the message. Both were read from the failing runs' own findings.json artifacts, which is the only reliable source: a local nox is a different version again and matches neither.",
+      "created_at": "2026-08-17T14:45:00Z"
     },
     {
       "fingerprint": "5fd38944836d1d6ee20ef4b15039119f017c83209655a90d9f2fbf41d352af58",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-18T15:30:00Z",
-      "reason": "GO-2026-6172 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+      "reason": "GO-2026-6172 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version — upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it.",
+      "created_at": "2026-08-18T15:30:00Z"
     },
     {
       "fingerprint": "69d8d809851ac12cd4ec1da136b8a0c10b47a1b4757529af7af48d9bd653c944",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-18T15:30:00Z",
-      "reason": "GO-2026-6171 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+      "reason": "GO-2026-6171 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version — upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it.",
+      "created_at": "2026-08-18T15:30:00Z"
     },
     {
       "fingerprint": "12e6b3e0f0e9f1a0b9cec42424c80419840798e7e450fd6ee6685608c62aaff2",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-18T15:30:00Z",
-      "reason": "GO-2026-6170 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+      "reason": "GO-2026-6170 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version — upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it.",
+      "created_at": "2026-08-18T15:30:00Z"
     },
     {
       "fingerprint": "695da6dad5e65d724637495be449da223acfbac267b0d810479b96d097d4ec68",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-18T15:30:00Z",
-      "reason": "GO-2026-6168 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+      "reason": "GO-2026-6168 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version — upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it.",
+      "created_at": "2026-08-18T15:30:00Z"
     },
     {
       "fingerprint": "402cbe078729ab7dac815e48c9d16ccbbcb63ed16211edea5da052270b166831",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-08-18T15:30:00Z",
-      "reason": "GO-2026-6166 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version \u2014 upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it."
+      "reason": "GO-2026-6166 in github.com/lib/pq@v1.10.9. Five advisories published against that release with no fixed version — upgrading cannot clear them. relicta does not use lib/pq: its driver is pgx/v5, no file in the tree imports lib/pq, and `go list -deps ./cmd/relicta` does not contain it, so it is not in the shipped binary. It arrives through testcontainers-go/modules/postgres, which exists to start a database for tests. Fingerprint taken from the failing CI run's own findings.json, because a local nox is a different version and matches neither the baseline nor CI. Revisit if a fixed version appears or if anything in the tree starts importing it.",
+      "created_at": "2026-08-18T15:30:00Z"
     },
     {
       "fingerprint": "cba37825e1bca35b6f8eea5e2f5179fb8df8beb47e4dc9ee0c5830b986e7ed63",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-18T15:40:00Z",
-      "reason": "GO-GO-2026-6166 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+      "reason": "GO-GO-2026-6166 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis — the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' — it arrives only through testcontainers-go.",
+      "created_at": "2026-08-18T15:40:00Z"
     },
     {
       "fingerprint": "564d7fb6d3cb98ced97fbb800c91168dcb88573eb98c6114c384c3564c48dbbb",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-18T15:40:00Z",
-      "reason": "GO-GO-2026-6168 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+      "reason": "GO-GO-2026-6168 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis — the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' — it arrives only through testcontainers-go.",
+      "created_at": "2026-08-18T15:40:00Z"
     },
     {
       "fingerprint": "cf4ea95557e82eafd7ebbbbcff67615ac705583328a0637a07a2744a6f9408a6",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-18T15:40:00Z",
-      "reason": "GO-GO-2026-6170 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+      "reason": "GO-GO-2026-6170 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis — the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' — it arrives only through testcontainers-go.",
+      "created_at": "2026-08-18T15:40:00Z"
     },
     {
       "fingerprint": "fdbf7373f0e13abad6feff16313d79da8ed5e81d05de469671b4b934989594bd",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-18T15:40:00Z",
-      "reason": "GO-GO-2026-6171 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+      "reason": "GO-GO-2026-6171 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis — the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' — it arrives only through testcontainers-go.",
+      "created_at": "2026-08-18T15:40:00Z"
     },
     {
       "fingerprint": "e969889a45578decdb16965182bce28a979ec7f5c624140d4bc9bb5ae6736d65",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-08-18T15:40:00Z",
-      "reason": "GO-GO-2026-6172 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis \u2014 the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' \u2014 it arrives only through testcontainers-go."
+      "reason": "GO-GO-2026-6172 in github.com/lib/pq@v1.10.9, fingerprinted by the scan configured WITHOUT reachability analysis — the sibling of the entry for the same advisory above. This repository runs nox twice per PR and the two disagree on severity (medium here, info there) and on fingerprint, because the fingerprint covers the message and the reachability pass appends to it. Same reasoning either way: no fixed version exists, relicta's driver is pgx/v5, nothing in the tree imports lib/pq, and it is absent from 'go list -deps ./cmd/relicta' — it arrives only through testcontainers-go.",
+      "created_at": "2026-08-18T15:40:00Z"
     },
     {
       "fingerprint": "3047debbfa7f1d2dfe5579c8f6bcf606b99bc1a8ca34c40aa439599ecb3cc656",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "medium",
-      "created_at": "2026-10-28T00:00:00Z",
-      "reason": "GO-2026-5932 affects only golang.org/x/crypto/openpgp and its subpackages; it has no fixed version because the package is unmaintained and unsafe by design. The application imports other x/crypto packages (such as ssh and argon2), so the module must remain, but go list -deps ./... confirms no OpenPGP package is linked. This fingerprint is from the CI scan without reachability analysis, which reports at module level."
+      "reason": "GO-2026-5932 affects only golang.org/x/crypto/openpgp and its subpackages; it has no fixed version because the package is unmaintained and unsafe by design. The application imports other x/crypto packages (such as ssh and argon2), so the module must remain, but go list -deps ./... confirms no OpenPGP package is linked. This fingerprint is from the CI scan without reachability analysis, which reports at module level.",
+      "created_at": "2026-10-28T00:00:00Z"
     },
     {
       "fingerprint": "1c88366021576784e4d1e6e8cb6170dd46404452825a37a8c9a6ec3a9b13c601",
       "rule_id": "VULN-001",
       "file_path": "go.mod",
       "severity": "info",
-      "created_at": "2026-10-28T00:00:00Z",
-      "reason": "The same GO-2026-5932 package-scoped advisory as the entry above. CI\u2019s reachability scan states \"not reachable: the affected package is not linked by this build\"; its message and fingerprint differ from the scan without reachability analysis. The x/crypto module remains required for non-OpenPGP packages, and the advisory has no fixed version."
+      "reason": "The same GO-2026-5932 package-scoped advisory as the entry above. CI’s reachability scan states \"not reachable: the affected package is not linked by this build\"; its message and fingerprint differ from the scan without reachability analysis. The x/crypto module remains required for non-OpenPGP packages, and the advisory has no fixed version.",
+      "created_at": "2026-10-28T00:00:00Z"
+    },
+    {
+      "fingerprint": "9a110e91cae3bfbc489b1f6c2c6202b4ae9067996e83e4d6d43c3d18d2e2c866",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The static Nox result reflects the pinned Alpine base layer; the runtime Dockerfile upgrades Alpine packages. On 2026-11-25, the current Dockerfile built relicta-readiness:cli with --pull --no-cache; the final image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. A fresh Trivy vulnerability database scan including fixed and unfixed HIGH/CRITICAL advisories found zero OS or Go-binary findings. The release workflow must still scan the exact pushed digest. Re-review if the Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:33:04.353399Z"
+    },
+    {
+      "fingerprint": "9ee5f9d355c44f486a9fbf5b4136ba8348823c11fe94e2c673f5fea9530e8656",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The static Nox result reflects the pinned Alpine base layer; the runtime Dockerfile upgrades Alpine packages. On 2026-11-25, the current Dockerfile built relicta-readiness:cli with --pull --no-cache; the final image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. A fresh Trivy vulnerability database scan including fixed and unfixed HIGH/CRITICAL advisories found zero OS or Go-binary findings. The release workflow must still scan the exact pushed digest. Re-review if the Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:33:04.353408Z"
+    },
+    {
+      "fingerprint": "a81c45ed519e99e43991102fef399e43d4ac7d8522077c25b0a0f61067cd0551",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The static Nox result reflects the pinned Alpine base layer; the runtime Dockerfile upgrades Alpine packages. On 2026-11-25, the current Dockerfile built relicta-readiness:cli with --pull --no-cache; the final image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. A fresh Trivy vulnerability database scan including fixed and unfixed HIGH/CRITICAL advisories found zero OS or Go-binary findings. The release workflow must still scan the exact pushed digest. Re-review if the Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:33:04.353416Z"
+    },
+    {
+      "fingerprint": "ed3664cac066d70a3acbdf9038f9912b34eb0bae0811cd427e0ae1503fedaf44",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The static Nox result reflects the pinned Alpine base layer; the runtime Dockerfile upgrades Alpine packages. On 2026-11-25, the current Dockerfile built relicta-readiness:cli with --pull --no-cache; the final image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. A fresh Trivy vulnerability database scan including fixed and unfixed HIGH/CRITICAL advisories found zero OS or Go-binary findings. The release workflow must still scan the exact pushed digest. Re-review if the Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:33:04.353424Z"
+    },
+    {
+      "fingerprint": "2851dce9d3989c205b6461a4644f72138372e62e46f173fe0b57d51d1685ea61",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "Static Nox Dockerfile scanning fingerprints the pinned base image and does not model later Dockerfile package changes. On 2026-11-25, both current images were built with --pull --no-cache and scanned with a fresh Trivy vulnerability database including fixed and unfixed HIGH/CRITICAL advisories; neither final image had findings. The CLI image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. The web image removes nginx-module-image-filter and libexpat, and contains zlib 1.4-r0. The release workflow must still scan the exact pushed digest. Re-review if either Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:34:29.822527Z"
+    },
+    {
+      "fingerprint": "41131eda8752e6de09401f8c4866ec55ec1e19705e88f31926584175a8567eb1",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "Static Nox Dockerfile scanning fingerprints the pinned base image and does not model later Dockerfile package changes. On 2026-11-25, both current images were built with --pull --no-cache and scanned with a fresh Trivy vulnerability database including fixed and unfixed HIGH/CRITICAL advisories; neither final image had findings. The CLI image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. The web image removes nginx-module-image-filter and libexpat, and contains zlib 1.4-r0. The release workflow must still scan the exact pushed digest. Re-review if either Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:34:29.822536Z"
+    },
+    {
+      "fingerprint": "7630410e3fd5b279e344588b6ec9134e5a02b943929cfc959147d6865e3791a7",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "Static Nox Dockerfile scanning fingerprints the pinned base image and does not model later Dockerfile package changes. On 2026-11-25, both current images were built with --pull --no-cache and scanned with a fresh Trivy vulnerability database including fixed and unfixed HIGH/CRITICAL advisories; neither final image had findings. The CLI image contains libcrypto3/libssl3 3.5.9-r1 and zlib 1.4-r0. The web image removes nginx-module-image-filter and libexpat, and contains zlib 1.4-r0. The release workflow must still scan the exact pushed digest. Re-review if either Dockerfile or base image changes.",
+      "created_at": "2026-11-25T01:34:29.822547Z"
+    },
+    {
+      "fingerprint": "7e7c747cfb4cb5024e6414448a47a557c232765379bf56b30e6ba7281a8192cd",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "These workflow_dispatch paths are operator-invoked validation or reporting runs. The benchmark only creates PR comments on pull_request events; release dispatch now runs a read-only snapshot job; security dispatch uploads scanner SARIF; skill-quality and action validation are read-only. No production deployment or release publication is available through these manual paths.",
+      "created_at": "2026-11-25T01:34:29.848526Z"
+    },
+    {
+      "fingerprint": "d6f72dcf6d891f47df645927f35f109e85137f830900b37b41c1a6f77bb68f41",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "These workflow_dispatch paths are operator-invoked validation or reporting runs. The benchmark only creates PR comments on pull_request events; release dispatch now runs a read-only snapshot job; security dispatch uploads scanner SARIF; skill-quality and action validation are read-only. No production deployment or release publication is available through these manual paths.",
+      "created_at": "2026-11-25T01:34:29.848535Z"
+    },
+    {
+      "fingerprint": "c8133651435b0cb4119bbfc5ceaae2aef340789a55e79cadf7bf1a57f110adeb",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "These workflow_dispatch paths are operator-invoked validation or reporting runs. The benchmark only creates PR comments on pull_request events; release dispatch now runs a read-only snapshot job; security dispatch uploads scanner SARIF; skill-quality and action validation are read-only. No production deployment or release publication is available through these manual paths.",
+      "created_at": "2026-11-25T01:34:29.848619Z"
+    },
+    {
+      "fingerprint": "7e1f06a07405bee7f50bd0b4739169ceaffd3a132453835b45096972f68fab25",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "These workflow_dispatch paths are operator-invoked validation or reporting runs. The benchmark only creates PR comments on pull_request events; release dispatch now runs a read-only snapshot job; security dispatch uploads scanner SARIF; skill-quality and action validation are read-only. No production deployment or release publication is available through these manual paths.",
+      "created_at": "2026-11-25T01:34:29.848639Z"
+    },
+    {
+      "fingerprint": "08bb09c84f5b91f0c5aef501953fa6e42604e2f644fb0c18a33b44510068d9a0",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "These workflow_dispatch paths are operator-invoked validation or reporting runs. The benchmark only creates PR comments on pull_request events; release dispatch now runs a read-only snapshot job; security dispatch uploads scanner SARIF; skill-quality and action validation are read-only. No production deployment or release publication is available through these manual paths.",
+      "created_at": "2026-11-25T01:34:29.848822Z"
+    },
+    {
+      "fingerprint": "3c325ff86e7cd5b46a0e5dab5bb9e2815b440d1ea03cf2135559dca8a27b16f",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The source scanner attributes expat 2.10.0-r0 to the pinned nginx base before evaluating runtime package removal. web/docker/Dockerfile removes nginx-module-image-filter, fails the build if libexpat remains, then upgrades the remaining Alpine packages. Rebuilt relicta-web:readiness from that Dockerfile and verified apk reports libexpat absent in the final image. Keep this narrow baseline entry while the source scanner cannot model the Dockerfile removal step; re-review if that guard or final image changes.",
+      "owner": "runtime-security",
+      "created_at": "2026-11-25T18:31:46.346913Z"
+    },
+    {
+      "fingerprint": "6eacab0c38a9ddf32d397ec6742c0e7e4dab1238fd55a0180c62dd9ef6021a2f",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The source scanner attributes expat 2.10.0-r0 to the pinned nginx base before evaluating runtime package removal. web/docker/Dockerfile removes nginx-module-image-filter, fails the build if libexpat remains, then upgrades the remaining Alpine packages. Rebuilt relicta-web:readiness from that Dockerfile and verified apk reports libexpat absent in the final image. Keep this narrow baseline entry while the source scanner cannot model the Dockerfile removal step; re-review if that guard or final image changes.",
+      "owner": "runtime-security",
+      "created_at": "2026-11-25T18:31:46.346961Z"
+    },
+    {
+      "fingerprint": "858076e525331c246ac5595b4c7a95418200926aec40bd2812fbffe651d386de",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The source scanner attributes expat 2.10.0-r0 to the pinned nginx base before evaluating runtime package removal. web/docker/Dockerfile removes nginx-module-image-filter, fails the build if libexpat remains, then upgrades the remaining Alpine packages. Rebuilt relicta-web:readiness from that Dockerfile and verified apk reports libexpat absent in the final image. Keep this narrow baseline entry while the source scanner cannot model the Dockerfile removal step; re-review if that guard or final image changes.",
+      "owner": "runtime-security",
+      "created_at": "2026-11-25T18:31:46.346984Z"
+    },
+    {
+      "fingerprint": "3c325ff86e7cd5b46a0e5dab5bb9e2815b440d1ea03cf2135559dca8a27b16f1",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "VULN-001 reports the pinned nginx base-layer package before Dockerfile build steps. The web image build removes nginx-module-image-filter and its dependency chain, then upgrades Alpine packages; a no-cache final-image build verified libexpat is absent, nginx -t succeeds, and the dashboard serves its index. Nox does not model APK package removal or upgrades when analyzing the FROM image. Revisit if the Dockerfile changes or the final image scan finds expat.",
+      "owner": "security",
+      "created_at": "2026-11-25T18:47:40.598591Z"
+    },
+    {
+      "fingerprint": "a11d87295879c8963b2f5025693d1af7346d62e73d20615fc7c3747c5f560524",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "This match is from TestRunMetrics_ContextCanceled exercising the dedicated metrics command health handler, not a production route. The metrics server binds to 127.0.0.1 by default; remote binding requires an explicit host override documented with firewall or authenticated-proxy controls. Revisit if the metrics listener defaults change.",
+      "owner": "appsec",
+      "created_at": "2026-11-25T18:53:16.046571Z"
+    },
+    {
+      "fingerprint": "40e004728b23771e657683c5de84c97150e4589933d7a8ada8a401037f0b6bba",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The scanner merges standard health routes with an authenticated observability health route. Public /health and /api/v1/health intentionally support probes and return process health metadata; /api/v1/observability/health is inside middleware.Auth. The server refuses a non-loopback bind with auth mode none unless dashboard.auth.allow_insecure_no_auth is explicitly enabled. Revisit if health responses gain sensitive data or the binding guard changes.",
+      "owner": "appsec",
+      "created_at": "2026-11-25T18:53:16.195871Z"
+    },
+    {
+      "fingerprint": "f79121847d49d695d3f33788dc99cef4ce4cf8dc13c892c365177bc5671802b5",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The cognitive status route is registered inside the /api/v1 middleware.Auth group at /api/v1/health/cognitive and reports only whether configured backends are enabled. The scanner identifies the path as debug but does not account for the enclosing authenticated route group. Revisit if the handler moves outside that group.",
+      "owner": "appsec",
+      "created_at": "2026-11-25T18:53:16.525534Z"
+    },
+    {
+      "fingerprint": "4be8aa7c473ff2e7260d9aab52131742190429d0cc936270b4915255ada69b38",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The /api/v1/groups/{name}/status route is inside the /api/v1 middleware.Auth group and is read-only. The server blocks non-loopback mode=none binds unless dashboard.auth.allow_insecure_no_auth is explicitly enabled. The scanner does not resolve the enclosing Chi authentication middleware. Revisit if this route moves outside that group.",
+      "owner": "appsec",
+      "created_at": "2026-11-25T18:53:16.703831Z"
+    },
+    {
+      "fingerprint": "30abac9d8792ca9c74dc7fd7f0fc8db241db3cc7ae7540c5e7b238a9ce979e9c",
+      "rule_id": "",
+      "file_path": "",
+      "severity": "",
+      "reason": "The unauthenticated /healthz route is a liveness probe and returns only alive status and timestamp; it does not reveal component, credential, or dependency state. Remote dashboard access requires authentication unless an operator explicitly opts into insecure unauthenticated binding. Revisit if the response gains operational details.",
+      "owner": "appsec",
+      "created_at": "2026-11-25T18:54:30.155679Z"
     }
   ]
 }

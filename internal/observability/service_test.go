@@ -1,10 +1,11 @@
 package observability
 
 import (
+	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
 )
 
 // The subsystem was complete in parts and connected at none of them: nothing read
@@ -39,7 +40,7 @@ func TestAConfiguredProviderIsRegistered(t *testing.T) {
 		t.Fatal("a configured provider produced no service")
 	}
 
-	statuses := svc.GetProviderStatuses()
+	statuses := svc.GetProviderStatuses(context.Background())
 	if len(statuses) != 1 {
 		t.Fatalf("got %d provider statuses, want 1: %+v", len(statuses), statuses)
 	}
@@ -62,6 +63,37 @@ func TestAnUnknownProviderTypeIsRefused(t *testing.T) {
 	}
 	if got := err.Error(); got == "" {
 		t.Error("the error does not say which type is unsupported")
+	}
+}
+
+func TestHealthCheckProviderMustBeConfigured(t *testing.T) {
+	_, err := NewService(config.ObservabilityConfig{
+		Providers: []config.ObservabilityProviderConfig{
+			{Name: "prod", Type: "prometheus", Endpoint: "http://localhost:9090"},
+		},
+		HealthCheck: config.ObservabilityHealthCheckConfig{ProviderName: "prometheus-missing"},
+	}, nil, "repo")
+	if err == nil {
+		t.Fatal("unknown health-check provider was accepted")
+	}
+}
+
+func TestPrometheusEndpointMustBeAbsoluteHTTPURLWithoutCredentials(t *testing.T) {
+	for _, endpoint := range []string{
+		"localhost:9090",
+		"file:///tmp/prometheus",
+		"http://user:pass@localhost:9090",
+	} {
+		t.Run(endpoint, func(t *testing.T) {
+			_, err := NewService(config.ObservabilityConfig{
+				Providers: []config.ObservabilityProviderConfig{
+					{Name: "prod", Type: "prometheus", Endpoint: endpoint},
+				},
+			}, nil, "repo")
+			if err == nil {
+				t.Fatalf("invalid endpoint %q was accepted", endpoint)
+			}
+		})
 	}
 }
 

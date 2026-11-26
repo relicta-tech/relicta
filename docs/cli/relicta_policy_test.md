@@ -41,6 +41,7 @@ relicta policy test [flags]
       --fail-on-blocked                        exit with error if evaluation result is blocked
       --features int                           feature change count
   -f, --file string                            single policy file to test
+      --files strings                          changed file paths, so path- and breadth-conditioned rules can be exercised (e.g. --files internal/a.go,web/b.ts)
       --files-changed int                      changed files count
       --fixes int                              fix change count
   -h, --help                                   help for test
@@ -50,6 +51,9 @@ relicta policy test [flags]
       --list-scenarios                         with --matrix: list scenario names and exit
       --matrix string                          matrix file with multiple scenarios (.json, .yaml, .yml), or '-' for stdin
       --repository string                      repository identifier (default "local/repo")
+      --reputation float                       actor reputation 0.0-1.0 (unset: no reputation computed, as in a repo without history)
+      --reputation-samples int                 release records behind --reputation
+      --reputation-trend string                reputation trend for --reputation: improving, stable, declining (default "stable")
       --require-approved                       exit with error unless decision is approved
       --risk-score float                       risk score to evaluate (0.0-1.0) (default 0.3)
       --scenario stringArray                   matrix scenario name to run (repeatable)
@@ -60,19 +64,20 @@ relicta policy test [flags]
       --shard-total int                        matrix shard count (requires --shard-index)
       --summary                                for matrix mode: include aggregate result summary
       --summary-out string                     for matrix mode: write compact JSON summary report to file
+      --trust-level string                     actor trust level: untrusted, limited, trusted, full (default "limited")
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --dry-run                   simulate actions without making changes
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output

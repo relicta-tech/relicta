@@ -1,8 +1,8 @@
 #!/bin/bash
-# MCP Demo: AI-Managed Releases with Claude
+# MCP Demo: Agent-Managed Releases with Claude
 #
-# This script simulates what happens in Claude Desktop when using Relicta MCP.
-# For actual recording, use Claude Desktop with the MCP server running.
+# This script is an illustrative transcript, not a live MCP session. For an
+# actual recording, use Claude Desktop with the MCP server running.
 
 set -e
 cd /tmp/relicta-demo
@@ -28,7 +28,8 @@ pause() {
 
 clear
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}  Relicta MCP: AI-Managed Releases with Governance${NC}"
+echo -e "${CYAN}  Relicta MCP: Agent-Managed Releases with Governance${NC}"
+echo -e "${YELLOW}  Illustrative transcript — live values depend on your repository${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 pause 2
@@ -74,7 +75,7 @@ echo -e "${GREEN}Claude:${NC} Let me check the current release status..."
 echo ""
 pause 0.5
 
-echo -e "  ${YELLOW}→ Calling relicta.status${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_status${NC}"
 pause 1
 
 # Simulate status output
@@ -108,7 +109,7 @@ echo -e "${GREEN}Claude:${NC} I'll analyze the commits and evaluate the risk..."
 echo ""
 pause 0.5
 
-echo -e "  ${YELLOW}→ Calling relicta.plan --analyze${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_plan --analyze${NC}"
 pause 1.5
 
 cat << 'EOF'
@@ -128,20 +129,17 @@ EOF
 
 pause 2
 
-echo -e "  ${YELLOW}→ Calling relicta.evaluate${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_evaluate${NC}"
 pause 1.5
 
 cat << 'EOF'
 
   🛡️  CGP Risk Assessment
   ─────────────────────────────────────
-  Risk Score:       0.65 (medium)
   Decision:         require_approval
 
-  Risk Factors:
-    • Breaking changes detected     +0.30
-    • API surface modified          +0.20
-    • Multiple areas affected       +0.15
+  Review reason:
+    • A compatibility-breaking API change was detected
 
   Recommendation:
     ⚠️  Manual review required before publish
@@ -150,8 +148,8 @@ EOF
 
 pause 3
 
-echo -e "${GREEN}Claude:${NC} This is a major release (v2.0.0) due to breaking API changes."
-echo "        The CGP risk score is 0.65 (medium), so manual approval is required."
+echo -e "${GREEN}Claude:${NC} This is a major release due to the incompatible API v2 change."
+echo "        The breaking change requires human review before publishing."
 echo "        The breaking change is in the API module - shall I show the details?"
 pause 3
 
@@ -162,11 +160,11 @@ type_slow "Generate release notes and I'll approve it for publishing"
 pause 1
 
 echo ""
-echo -e "${GREEN}Claude:${NC} Generating AI-powered release notes..."
+echo -e "${GREEN}Claude:${NC} Drafting customer-facing notes from the plan and our product context..."
 echo ""
 pause 0.5
 
-echo -e "  ${YELLOW}→ Calling relicta.notes --ai${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_notes with agent-authored draft${NC}"
 pause 2
 
 cat << 'EOF'
@@ -174,20 +172,15 @@ cat << 'EOF'
   📝 Release Notes (v2.0.0)
   ─────────────────────────────────────
 
-  ## Breaking Changes
+  ## Compatibility
 
-  - **API v2**: Complete API redesign with new request
-    handling. Migration guide available in docs.
+  - **API v2**: The new request API is not compatible with v1.
+    Update existing integrations before adopting v2.
 
   ## Features
 
-  - **Authentication**: New login/logout functions with
-    token-based auth
-  - **Greeting API**: Added farewell function
-
-  ## Documentation
-
-  - Updated README with feature overview
+  - Added login and logout functions.
+  - Added a farewell function alongside the greeting function.
 
 EOF
 
@@ -205,12 +198,12 @@ echo ""
 echo -e "${GREEN}Claude:${NC} Approving and publishing the release..."
 echo ""
 
-echo -e "  ${YELLOW}→ Calling relicta.approve${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_approve${NC}"
 pause 1
 echo -e "  ${GREEN}✓ Release approved${NC}"
 pause 0.5
 
-echo -e "  ${YELLOW}→ Calling relicta.publish${NC}"
+echo -e "  ${YELLOW}→ Calling relicta_publish${NC}"
 pause 2
 
 cat << 'EOF'

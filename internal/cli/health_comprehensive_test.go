@@ -227,7 +227,7 @@ func TestOutputHealthText_Verbose(t *testing.T) {
 					"version": "2.39.0",
 					"path":    "/usr/bin/git",
 				},
-				Latency: 5000000, // 5ms in nanoseconds
+				Latency: 5, // milliseconds, matching the JSON field name
 			},
 		},
 		Environment: map[string]string{

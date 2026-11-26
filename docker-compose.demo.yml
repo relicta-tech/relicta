@@ -1,34 +1,19 @@
-version: "3.8"
-
 services:
-  mnemos:
-    image: felixgeelhaar/mnemos:latest
-    ports:
-      - "7777:7777"
-    volumes:
-      - mnemos_data:/data
-    environment:
-      - MNEMOS_STORAGE_PATH=/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   chronos:
-    image: felixgeelhaar/chronos:latest
+    image: ghcr.io/klarlabs-studio/chronos:0.26.1
     ports:
-      - "7778:7778"
-    volumes:
-      - chronos_data:/data
+      - "127.0.0.1:7778:7778"
     environment:
-      - CHRONOS_STORAGE_PATH=/data
+      CHRONOS_DB_DSN: sqlite:///tmp/chronos-demo.db
+      CHRONOS_HTTP_HOST: 0.0.0.0
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7778/health"]
-      interval: 10s
+      test: ["CMD", "/chronos", "health"]
+      interval: 30s
       timeout: 5s
-      retries: 5
-
-volumes:
-  mnemos_data:
-  chronos_data:
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M

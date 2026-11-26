@@ -1,11 +1,16 @@
 # Stage 1: Build the Vue frontend
-FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32 AS builder
+FROM node:24-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 WORKDIR /app
 
+# Pull patched Alpine packages from the maintained v3.24 repositories.
+RUN apk upgrade --no-cache
+
 # Install dependencies first (cache layer)
 COPY package.json package-lock.json ./
-RUN npm ci
+# The pinned Node image bundles an older npm with vulnerable bundled
+# dependencies. Upgrade npm to a fixed, Node 24-compatible release before use.
+RUN npm install --global --ignore-scripts npm@12.2.3 && npm ci
 
 # Copy source and build
 COPY . .
@@ -17,16 +22,30 @@ ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 
 # Stage 2: Serve with nginx
-FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+FROM nginx:1.30.8-alpine3.24@sha256:8eb04fe3b385090e9aa02961f77398ad09b6bf33ab07f6669a5bb7acce22c0d3
 
-# Copy custom nginx config
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# This dashboard only serves static files and proxies API traffic; it does not
+# use Nginx's optional image transformation module. Removing it also drops the
+# libgd/fontconfig/expat dependency chain from the runtime image.
+# Apply security fixes published after the pinned base image was built.
+RUN apk del nginx-module-image-filter && \
+    if apk info -e libexpat >/dev/null 2>&1; then \
+        echo "libexpat remains installed after removing nginx-module-image-filter" >&2; \
+        exit 1; \
+    fi && \
+    apk upgrade --no-cache
+
+# Nginx proxies API and WebSocket requests to this Relicta server. The official
+# image entrypoint expands this template from RELICTA_API_URL at container start.
+ENV RELICTA_API_URL=http://relicta:8080
+COPY docker/nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built frontend
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Run as non-root
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /etc/nginx/conf.d && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
     touch /var/run/nginx.pid && \

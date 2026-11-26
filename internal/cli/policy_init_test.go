@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
-	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/cli/templates"
 )
 
 // Governance is enabled by default, and a policy is how a team encodes rules the

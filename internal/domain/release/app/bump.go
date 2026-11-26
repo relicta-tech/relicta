@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // BumpVersionInput contains the input for bumping the version.
@@ -18,8 +18,9 @@ type BumpVersionInput struct {
 	Force    bool // Force bump even if HEAD changed
 
 	// Optional: if not provided, uses the version proposal from planning
-	OverrideVersion *version.SemanticVersion
-	OverrideTagName string
+	OverrideVersion  *version.SemanticVersion
+	OverrideTagName  string
+	OverrideBumpKind *domain.BumpKind
 }
 
 // BumpVersionOutput contains the output from bumping the version.
@@ -92,6 +93,11 @@ func (uc *BumpVersionUseCase) Execute(ctx context.Context, input BumpVersionInpu
 	// Determine the version to use
 	versionNext := run.VersionNext()
 	tagName := run.TagName()
+	if input.OverrideBumpKind != nil {
+		if err := run.SetBumpKind(*input.OverrideBumpKind); err != nil {
+			return nil, fmt.Errorf("failed to set bump kind: %w", err)
+		}
+	}
 
 	if input.OverrideVersion != nil {
 		versionNext = *input.OverrideVersion

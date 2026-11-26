@@ -13,14 +13,15 @@ import (
 	mcpmw "go.klarlabs.de/mcp/middleware"
 	"go.klarlabs.de/mcp/transport"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	cgpprotocol "github.com/relicta-tech/relicta/v4/internal/cgp/protocol"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	relictaerrors "github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	cgpprotocol "github.com/relicta-tech/relicta/v5/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	relictaerrors "github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // ReloadedComponents carries everything a reload has to refresh.
@@ -36,9 +37,10 @@ import (
 // Any field may be nil, meaning "initialization did not produce one"; the server
 // keeps what it had rather than clearing a working component.
 type ReloadedComponents struct {
-	Config    *config.Config
-	Adapter   *Adapter
-	Evaluator *evaluator.Evaluator
+	Config        *config.Config
+	Adapter       *Adapter
+	Evaluator     *evaluator.Evaluator
+	ProposalStore cgpprotocol.ProposalStore
 }
 
 // ConfigReloader is called after relicta_init creates a config file mid-session.
@@ -65,7 +67,9 @@ type Server struct {
 	evaluator    *evaluator.Evaluator
 
 	// CGP protocol service for wire format tools
-	cgpService *cgpprotocol.Service
+	cgpService    *cgpprotocol.Service
+	proposalStore cgpprotocol.ProposalStore
+	auditStore    audit.Store
 
 	// Application layer adapter
 	adapter *Adapter
@@ -151,6 +155,19 @@ func WithCGPService(svc *cgpprotocol.Service) ServerOption {
 	}
 }
 
+// WithProposalStore selects the durable store used by the CGP protocol tools.
+func WithProposalStore(store cgpprotocol.ProposalStore) ServerOption {
+	return func(s *Server) {
+		s.proposalStore = store
+		s.cgpService = nil
+	}
+}
+
+// WithAuditStore enables hash chained records for protocol governance actions.
+func WithAuditStore(store audit.Store) ServerOption {
+	return func(s *Server) { s.auditStore = store; s.cgpService = nil }
+}
+
 // WithAdapter sets the application layer adapter.
 func WithAdapter(adapter *Adapter) ServerOption {
 	return func(s *Server) {
@@ -229,7 +246,9 @@ func errNotConfigured(tool string) error {
 // StatusInput represents input for the status tool.
 // Maps to CLI: relicta status (no additional flags)
 // Returns current release state, version, and next recommended action.
-type StatusInput struct{}
+type StatusInput struct {
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to inspect. Uses the active release if empty."`
+}
 
 // InitToolInput represents input for the init tool.
 // Maps to CLI: relicta init [--force] [--format FORMAT]
@@ -242,63 +261,75 @@ type InitToolInput struct {
 // PlanToolInput represents input for the plan tool.
 // Maps to CLI: relicta plan [--from REF] [--to REF] [--analyze] [--no-ai] [--minimal]
 type PlanToolInput struct {
-	From          string  `json:"from,omitempty" jsonschema:"description=Starting reference for commit analysis (tag like 'v1.0.0' or commit SHA). Leave empty for automatic detection from latest version tag."`
-	To            string  `json:"to,omitempty" jsonschema:"description=Ending reference for commit analysis (tag or commit SHA). Defaults to HEAD."`
-	Analyze       bool    `json:"analyze,omitempty" jsonschema:"description=Include detailed commit classification analysis in the output. Shows how each commit was categorized."`
-	NoAI          bool    `json:"no_ai,omitempty" jsonschema:"description=Disable AI-powered commit classification. Uses only conventional commit parsing."`
-	MinConfidence float64 `json:"min_confidence,omitempty" jsonschema:"description=Minimum confidence threshold (0.0-1.0) to accept AI commit classifications. Default is 0.7."`
+	From                     string  `json:"from,omitempty" jsonschema:"description=Starting reference for commit analysis (tag like 'v1.0.0' or commit SHA). Leave empty for automatic detection from latest version tag."`
+	To                       string  `json:"to,omitempty" jsonschema:"description=Ending reference for commit analysis (tag or commit SHA). Defaults to HEAD."`
+	Analyze                  bool    `json:"analyze,omitempty" jsonschema:"description=Include detailed commit classification analysis in the output. Shows how each commit was categorized."`
+	DryRun                   bool    `json:"dry_run,omitempty" jsonschema:"description=Analyze and return the recommendation without persisting a release plan. Use this to review changes or draft notes before starting a release."`
+	AllowDivergedVersionLine bool    `json:"allow_diverged_version_line,omitempty" jsonschema:"description=Acknowledge a higher version tag outside the target history and allow persisting this plan. Set true only after confirming the target is an intentional maintenance release line."`
+	NoAI                     bool    `json:"no_ai,omitempty" jsonschema:"description=Disable AI-powered commit classification. Uses only conventional commit parsing."`
+	MinConfidence            float64 `json:"min_confidence,omitempty" jsonschema:"description=Minimum confidence threshold (0.0-1.0) to accept AI commit classifications. Default is 0.7."`
 }
 
 // BumpToolInput represents input for the bump tool.
 // Maps to CLI: relicta bump [--level LEVEL] [--version VERSION] [--prerelease ID] [--build META]
 type BumpToolInput struct {
-	Level      string `json:"level,omitempty" jsonschema:"description=Version bump level. Use 'auto' to determine from commits or specify 'major'/'minor'/'patch' explicitly.,enum=major|minor|patch|auto,default=auto"`
-	Version    string `json:"version,omitempty" jsonschema:"description=Set an explicit version (e.g. '2.0.0'). Overrides level and bypasses commit analysis."`
-	Prerelease string `json:"prerelease,omitempty" jsonschema:"description=Prerelease identifier to append (e.g. 'alpha', 'beta', 'rc.1'). Creates versions like '1.2.0-beta'."`
-	Build      string `json:"build,omitempty" jsonschema:"description=Build metadata to append (e.g. 'build.123'). Creates versions like '1.2.0+build.123'."`
+	ReleaseID  string `json:"release_id,omitempty" jsonschema:"description=Release ID to bump. Uses the latest planned release if empty; pass the release_id returned by relicta_status to bind this action to the reviewed release."`
+	Level      string `json:"level,omitempty" jsonschema:"description=Version bump level. Use 'auto' to keep the plan recommendation or specify 'major'/'minor'/'patch' explicitly.,enum=major|minor|patch|auto,default=auto"`
+	Version    string `json:"version,omitempty" jsonschema:"description=Set an explicit semantic version (e.g. '2.0.0'). Overrides level and the planned version."`
+	Prerelease string `json:"prerelease,omitempty" jsonschema:"description=Validated prerelease identifier to apply (e.g. 'alpha', 'beta', 'rc.1'). Simple alpha/beta/rc/canary values use the standard prerelease counter behavior."`
+	Build      string `json:"build,omitempty" jsonschema:"description=Validated build metadata to append to the selected version (e.g. 'build.123')."`
 }
 
 // NotesToolInput represents input for the notes tool.
-// Maps to CLI: relicta notes [--ai] [--audience TYPE] [--tone STYLE] [--language LANG] [--emoji]
+// MCP callers may supply a draft authored in their agent session; otherwise
+// the configured notes generator is used.
 type NotesToolInput struct {
-	AI       bool   `json:"ai,omitempty" jsonschema:"description=Use AI to generate enhanced release notes. Requires OPENAI_API_KEY or configured AI provider."`
-	Audience string `json:"audience,omitempty" jsonschema:"description=Target audience affects terminology and detail level.,enum=developers|users|public|stakeholders,default=developers"`
-	Tone     string `json:"tone,omitempty" jsonschema:"description=Writing style for AI-generated notes.,enum=technical|friendly|professional|marketing,default=professional"`
-	Language string `json:"language,omitempty" jsonschema:"description=Output language for release notes (e.g. 'English', 'Spanish', 'Japanese'). Default is English."`
-	Emoji    bool   `json:"emoji,omitempty" jsonschema:"description=Include emojis in release notes output for visual categorization."`
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to update. Uses the active release if empty; pass the release_id returned by relicta_status to bind this action to the reviewed release."`
+	AI        bool   `json:"ai,omitempty" jsonschema:"description=Use AI to generate enhanced release notes. Requires OPENAI_API_KEY or configured AI provider."`
+	Draft     string `json:"draft,omitempty" jsonschema:"description=Customer-facing release notes written by the calling agent. Base every claim on relicta_plan's recommendation and omit internal implementation details customers do not need. Relicta persists this exact text, including whitespace, for approval but does not fact-check or edit it. When supplied, this takes precedence over ai."`
+	Audience  string `json:"audience,omitempty" jsonschema:"description=Target audience affects terminology and detail level.,enum=developers|users|public|stakeholders,default=developers"`
+	Tone      string `json:"tone,omitempty" jsonschema:"description=Writing style for AI-generated notes.,enum=technical|friendly|professional|marketing,default=professional"`
+	Language  string `json:"language,omitempty" jsonschema:"description=Output language for release notes (e.g. 'English', 'Spanish', 'Japanese'). Default is English."`
+	Emoji     bool   `json:"emoji,omitempty" jsonschema:"description=Include emojis in release notes output for visual categorization."`
 }
 
 // EvaluateToolInput represents input for the evaluate tool.
 // Maps to CLI: relicta evaluate (no additional flags)
-type EvaluateToolInput struct{}
+type EvaluateToolInput struct {
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to evaluate. Uses the latest active release if empty; pass the release_id returned by relicta_status to bind evaluation to the reviewed release."`
+}
 
 // ApproveToolInput represents input for the approve tool.
 // Maps to CLI: relicta approve [--yes] [--edit]
 type ApproveToolInput struct {
-	Notes   string `json:"notes,omitempty" jsonschema:"description=Updated release notes content. If provided, replaces the generated notes before approval."`
-	Message string `json:"message,omitempty" jsonschema:"description=Approval message or reason for the release. Recorded in the audit trail."`
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to approve. Uses the active release if empty; pass the release_id returned by relicta_status to bind approval to the reviewed release."`
+	Notes     string `json:"notes,omitempty" jsonschema:"description=Updated release notes content. If provided, replaces the generated notes before approval."`
+	Message   string `json:"message,omitempty" jsonschema:"description=Approval message or reason for the release. Recorded in the audit trail."`
 }
 
 // PublishToolInput represents input for the publish tool.
 // Maps to CLI: relicta publish [--dry-run] [--skip-push] [--skip-tag] [--skip-plugins]
 type PublishToolInput struct {
-	DryRun      bool `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making actual changes. Shows what would happen."`
-	SkipPush    bool `json:"skip_push,omitempty" jsonschema:"description=Skip pushing git tags to the remote repository."`
-	SkipTag     bool `json:"skip_tag,omitempty" jsonschema:"description=Skip creating the git tag. Useful when tag already exists."`
-	SkipPlugins bool `json:"skip_plugins,omitempty" jsonschema:"description=Skip running configured plugins (GitHub release, Slack notification, etc.)."`
+	ReleaseID   string `json:"release_id,omitempty" jsonschema:"description=Release ID to publish. Uses the active release if empty; pass the release_id returned by relicta_status to bind publishing to the approved release."`
+	DryRun      bool   `json:"dry_run,omitempty" jsonschema:"description=Simulate the release without making actual changes. Shows what would happen."`
+	SkipPush    bool   `json:"skip_push,omitempty" jsonschema:"description=Skip pushing git tags to the remote repository."`
+	SkipTag     bool   `json:"skip_tag,omitempty" jsonschema:"description=Skip creating the git tag. Useful when tag already exists."`
+	SkipPlugins bool   `json:"skip_plugins,omitempty" jsonschema:"description=Skip running configured plugins (GitHub release, Slack notification, etc.)."`
 }
 
 // CancelToolInput represents input for the cancel tool.
 // Maps to CLI: relicta cancel [--reason TEXT] [--force]
 type CancelToolInput struct {
-	Reason string `json:"reason,omitempty" jsonschema:"description=Reason for canceling the release. Recorded in the audit trail for traceability."`
-	Force  bool   `json:"force,omitempty" jsonschema:"description=Force cancel even if release is in publishing state. Use with caution - may leave artifacts in inconsistent state."`
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to cancel. Uses the latest active release if empty; pass the release_id returned by relicta_status to bind this action to the reviewed release."`
+	Reason    string `json:"reason,omitempty" jsonschema:"description=Reason for canceling the release. Recorded in the audit trail for traceability."`
+	Force     bool   `json:"force,omitempty" jsonschema:"description=Force cancel even if release is in publishing state. Use with caution - may leave artifacts in inconsistent state."`
 }
 
 // ResetToolInput represents input for the reset tool.
 // Maps to CLI: relicta reset [--force]
 type ResetToolInput struct {
-	Force bool `json:"force,omitempty" jsonschema:"description=Force reset even if a release is in progress. Clears all release state and starts fresh."`
+	ReleaseID string `json:"release_id,omitempty" jsonschema:"description=Release ID to reset. Uses the latest release if empty; pass the release_id returned by relicta_status to bind this action to the reviewed release."`
+	Force     bool   `json:"force,omitempty" jsonschema:"description=Force reset even if a release is in progress. Clears all release state and starts fresh."`
 }
 
 // --- Specialized AI Agent Tool Inputs ---
@@ -523,7 +554,7 @@ func (s *Server) ServeHTTP(ctx context.Context, address string) error {
 func (s *Server) registerTools() {
 	// Status tool
 	s.server.Tool("relicta_status").
-		Description("Get the current release state and pending actions").
+		Description("Get the current release state and pending actions. Pass release_id to inspect a specific run; carry the returned ID into notes, approval, or publish to keep the workflow bound to that release.").
 		UIResource("ui://relicta/status").
 		OutputSchema(StatusToolOutput{}).
 		Handler(s.handleStatus)
@@ -535,19 +566,20 @@ func (s *Server) registerTools() {
 
 	// Plan tool
 	s.server.Tool("relicta_plan").
-		Description("Analyze commits since the last release and suggest a version bump").
+		Description("Analyze commits since the last release and suggest a version bump. Set dry_run=true to return the recommendation without creating a release plan, useful for drafting customer notes before starting a release.").
 		UIResource("ui://relicta/commits").
 		OutputSchema(PlanToolOutput{}).
 		Handler(s.handlePlan)
 
 	// Bump tool
 	s.server.Tool("relicta_bump").
-		Description("Calculate and set the next version based on commits").
+		Description("Apply the planned version to the active release and configured version files. This changes local repository/release state but does not create a Git tag or publish artifacts. Pass release_id from relicta_status to target the reviewed run.").
 		Handler(s.handleBump)
 
 	// Notes tool
 	s.server.Tool("relicta_notes").
-		Description("Generate changelog and release notes for the current release").
+		Description("Generate release notes, or save a customer-facing draft written by the calling agent. Saving notes only updates the release draft; it does not approve or publish. Pass release_id from relicta_status to target the reviewed run. For a draft, first review relicta_plan's deterministic recommendation and keep every claim within those facts; exclude internal implementation details unless users need them. Pass the finished draft in draft. Relicta stores it on the release for approval but does not fact-check or edit agent-authored prose. Returns the persisted notes as structured output.").
+		OutputSchema(NotesToolOutput{}).
 		Handler(s.handleNotes)
 
 	// Evaluate tool
@@ -558,13 +590,13 @@ func (s *Server) registerTools() {
 
 	// Approve tool
 	s.server.Tool("relicta_approve").
-		Description("Approve the release for publishing").
+		Description("Approve the release for publishing. Pass release_id from relicta_status to bind approval to the reviewed run.").
 		UIResource("ui://relicta/approval").
 		Handler(s.handleApprove)
 
 	// Publish tool
 	s.server.Tool("relicta_publish").
-		Description("Execute the release by creating tags and running plugins").
+		Description("Execute an approved release. This is the external side-effect boundary: it can create and push a Git tag and run configured publisher plugins. Confirm the exact release and approval before calling. Pass release_id from relicta_status to bind publishing to the approved run.").
 		UIResource("ui://relicta/pipeline").
 		Handler(s.handlePublish)
 
@@ -664,7 +696,7 @@ func (s *Server) registerResources() {
 // registerPrompts registers all prompt handlers.
 func (s *Server) registerPrompts() {
 	s.server.Prompt("release-summary").
-		Description("Generate a summary of the upcoming release").
+		Description("Draft release notes grounded in a read-only Relicta plan recommendation").
 		Argument("style", "Summary style: brief, detailed, or technical", false).
 		Handler(s.handlePromptReleaseSummary)
 
@@ -736,8 +768,12 @@ func (s *Server) ensureCGPService(ctx context.Context) error {
 		// an earlier session, indistinguishable from an ID that never existed, and a
 		// governance decision made over the protocol left no durable evidence at all
 		// — the opposite of the property the audit trail exists for.
+		store := s.proposalStore
+		if store == nil {
+			store = cgpprotocol.NewFileProposalStore(s.ensureRepoPath(ctx))
+		}
 		s.cgpService = cgpprotocol.NewService(s.evaluator,
-			cgpprotocol.WithStore(cgpprotocol.NewFileProposalStore(s.ensureRepoPath(ctx))))
+			cgpprotocol.WithStore(store), cgpprotocol.WithAuditStore(s.auditStore))
 		return nil
 	}
 

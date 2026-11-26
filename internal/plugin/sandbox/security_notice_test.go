@@ -24,11 +24,14 @@ func TestCurrentPosture_LevelByPlatform(t *testing.T) {
 	p := CurrentPosture()
 	switch runtime.GOOS {
 	case "linux":
-		if p.Level != EnforcementStrict {
-			t.Errorf("linux should be strict; got %q", p.Level)
+		if p.Level != EnforcementBestEffort {
+			t.Errorf("linux should be best-effort because limits are applied after process start; got %q", p.Level)
 		}
-		if !p.MemoryEnforced {
-			t.Error("linux should report memory as enforced")
+		if p.MemoryEnforced {
+			t.Error("linux must not claim memory limits are effective from process start")
+		}
+		if p.CPUEnforced {
+			t.Error("linux must not claim max_cpu_percent is enforced")
 		}
 	case "darwin":
 		if p.Level != EnforcementBestEffort {
@@ -87,8 +90,8 @@ func TestRequireExplicitTrust(t *testing.T) {
 	got := RequireExplicitTrust()
 	switch runtime.GOOS {
 	case "linux":
-		if got {
-			t.Error("linux strict enforcement should not require explicit trust opt-in")
+		if !got {
+			t.Error("linux best-effort enforcement and missing signatures should require explicit trust opt-in")
 		}
 	case "darwin":
 		if !got {

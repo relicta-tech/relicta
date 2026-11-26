@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/reputation"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/reputation"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
 )
 
 const (

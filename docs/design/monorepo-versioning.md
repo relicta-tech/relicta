@@ -8,8 +8,8 @@ tested and reachable from nothing. See ADR-015.
 
 **Implemented and reachable:** `strategy: independent`. `relicta bump` discovers packages from
 `monorepo.package_paths`, maps commits to the packages they touch, computes each package's bump
-from its own commits, and writes its own manifest (npm, Cargo, Python, Go, Maven, Gradle,
-Composer, Gem, NuGet, plain `VERSION`).
+from its own commits, and writes its version file (for example `package.json`, `Cargo.toml`,
+`pyproject.toml`, a Go `version.go` constant, a Maven or Gradle file, or a plain `VERSION`).
 
 **Refused at config load, because nothing implements them:** `lockstep`, `hybrid`,
 `release_groups`.
@@ -31,8 +31,7 @@ one decision — and say so on every run in a monorepo.
 
 Independent versioning for packages within a monorepo, enabling:
 - Per-package semantic versioning
-- Coordinated multi-package releases
-- Automatic version file updates (package.json, go.mod, Cargo.toml, etc.)
+- Automatic version file updates (including package manifests and supported project version files)
 - Package-specific changelogs
 
 ## Architecture
@@ -69,63 +68,31 @@ PackageReleaseState:
   Pending → Included → Excluded → Released → Skipped
 ```
 
-### Configuration
+### Current configuration
+
+This example uses configuration currently accepted by Relicta. `lockstep`, `hybrid`,
+`release_groups`, custom `version_files`, and `package_overrides.version_file` or
+`version_field` are not supported and are rejected during configuration validation.
 
 ```yaml
 # .relicta.yaml
 monorepo:
   enabled: true
-  strategy: independent  # independent | lockstep | hybrid
-
-  # Package discovery (extends blast_radius config)
-  packages:
-    paths:
-      - "packages/*"
-      - "plugins/*"
-    exclude:
-      - "packages/internal-*"
-
-  # Per-package overrides
+  strategy: independent
+  package_paths:
+    - "packages/*"
+    - "plugins/*"
+  exclude_paths:
+    - "packages/internal-*"
   package_overrides:
     packages/core:
-      tag_prefix: "core-v"
-      version_file: package.json
+      tag_prefix: "core-"
+      changelog_file: RELEASE_NOTES.md
     packages/cli:
-      tag_prefix: "cli-v"
-      version_file: package.json
-
-  # Version file patterns
-  version_files:
-    go_module:
-      file: "go.mod"
-      pattern: "^module"  # Go modules don't store version in go.mod
-      update: false       # Use git tags only
-    npm:
-      file: "package.json"
-      field: "version"
-      update: true
-    cargo:
-      file: "Cargo.toml"
-      field: "version"
-      update: true
-    python:
-      files: ["setup.py", "pyproject.toml", "__version__.py"]
-      update: true
-
-  # Coordinated releases
-  release_groups:
-    - name: "core"
-      packages: ["packages/core", "packages/shared"]
-      strategy: lockstep  # All packages in group share same version
-    - name: "plugins"
-      packages: ["plugins/*"]
-      strategy: independent
-
-  # Changelog settings
+      skip_versioning: true
   changelog:
-    per_package: true     # Generate per-package changelogs
-    root_changelog: true  # Also generate root CHANGELOG.md
-    format: conventional
+    per_package: true
+    root_changelog: true
 ```
 
 ## Implementation Plan
@@ -259,6 +226,9 @@ func (w *NPMVersionWriter) WriteVersion(ctx context.Context, pkgPath string, ver
 ```
 
 ## Tag Naming Convention
+
+Independent tags are implemented. Lockstep and group tags below describe possible future
+strategies; those strategies are currently refused by configuration validation.
 
 | Strategy | Tag Format | Example |
 |----------|------------|---------|

@@ -28,8 +28,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 // GovernanceSource is the store being read. Reads only — see the file comment.

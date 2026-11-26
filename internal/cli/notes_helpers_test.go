@@ -2,13 +2,16 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 func TestPrintNotesNextSteps(t *testing.T) {
@@ -73,4 +76,65 @@ func TestBuildNotesInputForServices(t *testing.T) {
 		input := buildNotesInputForServices("/test/repo", false) // hasAI = false
 		assert.False(t, input.Options.UseAI)
 	})
+}
+
+func TestNotesSourceLabel(t *testing.T) {
+	tests := map[string]string{
+		"":                   "deterministic template",
+		"basic":              "deterministic template",
+		"agent":              "calling agent draft",
+		"changelog-fallback": "AI changelog only; release-note prose unavailable",
+		"openai":             "AI-generated (openai)",
+	}
+	for provider, want := range tests {
+		t.Run(provider, func(t *testing.T) {
+			if got := notesSourceLabel(provider); got != want {
+				t.Errorf("notesSourceLabel(%q) = %q, want %q", provider, got, want)
+			}
+		})
+	}
+}
+
+func TestOutputNotesJSONFromServices(t *testing.T) {
+	oldStdout, oldJSON := os.Stdout, outputJSON
+	oldCfg := cfg
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	outputJSON = true
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+		outputJSON = oldJSON
+		cfg = oldCfg
+	})
+
+	cfg = config.DefaultConfig()
+	cfg.AI.Enabled = true
+	output := &releaseapp.GenerateNotesOutput{
+		RunID: "run-1", InputsHash: "hash-1",
+		Notes: &domain.ReleaseNotes{
+			Text: "A customer friendly summary", Provider: "changelog-fallback",
+			TonePreset: "friendly", AudiencePreset: "users", Model: "model-1",
+		},
+	}
+	if err := outputNotesJSONFromServices(context.Background(), output, ".", commandTestApp{}); err != nil {
+		t.Fatalf("outputNotesJSONFromServices: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = oldStdout
+
+	var got map[string]any
+	if err := json.NewDecoder(r).Decode(&got); err != nil {
+		t.Fatalf("decode JSON output: %v", err)
+	}
+	if got["release_id"] != "run-1" || got["inputs_hash"] != "hash-1" || got["provider"] != "changelog-fallback" {
+		t.Errorf("missing release note metadata: %#v", got)
+	}
+	if got["ai_generated"] != true || got["warning"] == nil || got["release_notes"] != "A customer friendly summary" {
+		t.Errorf("unexpected fallback warning/output: %#v", got)
+	}
 }

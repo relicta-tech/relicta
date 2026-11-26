@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
-	"github.com/relicta-tech/relicta/v4/internal/cli/templates"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/cli/templates"
 )
 
 var (

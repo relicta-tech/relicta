@@ -5,17 +5,19 @@ package release
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/analysis"
-	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/analysis"
+	analysisfactory "github.com/relicta-tech/relicta/v5/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // AnalyzerConfig holds configuration for the release analyzer.
@@ -107,13 +109,16 @@ func (i *AnalyzeInput) Validate() error {
 
 // AnalyzeOutput contains the results of release analysis.
 type AnalyzeOutput struct {
-	CurrentVersion version.SemanticVersion
-	NextVersion    version.SemanticVersion
-	ReleaseType    changes.ReleaseType
-	ChangeSet      *changes.ChangeSet
-	RepositoryName string
-	Branch         string
-	Commits        []*sourcecontrol.Commit
+	CurrentVersion          version.SemanticVersion
+	NextVersion             version.SemanticVersion
+	ReleaseType             changes.ReleaseType
+	Warnings                []string
+	VersionLineAcknowledged bool
+	FirstRelease            bool
+	ChangeSet               *changes.ChangeSet
+	RepositoryName          string
+	Branch                  string
+	Commits                 []*sourcecontrol.Commit
 
 	// Analysis contains detailed classification results.
 	Analysis *analysis.AnalysisResult
@@ -148,6 +153,10 @@ func (a *Analyzer) Analyze(ctx context.Context, input AnalyzeInput) (*AnalyzeOut
 	}
 
 	repoInfo, currentVersion, fromRef, commits, err := a.collectCommits(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	warnings, err := a.unreachableHigherVersionWarnings(ctx, input, currentVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -228,12 +237,58 @@ func (a *Analyzer) Analyze(ctx context.Context, input AnalyzeInput) (*AnalyzeOut
 		CurrentVersion: currentVersion,
 		NextVersion:    nextVersion,
 		ReleaseType:    releaseType,
+		Warnings:       warnings,
+		FirstRelease:   fromRef == "",
 		ChangeSet:      changeSet,
 		RepositoryName: repoName,
 		Branch:         branch,
 		Commits:        commits,
 		Analysis:       analysisResult,
 	}, nil
+}
+
+// unreachableHigherVersionWarnings calls out version tags newer than the
+// reachable baseline. The commit range must still use an ancestor of the target
+// ref, but silently proposing a lower version can look like a normal release
+// plan when the checkout is stale or the release line has diverged.
+func (a *Analyzer) unreachableHigherVersionWarnings(
+	ctx context.Context,
+	input AnalyzeInput,
+	currentVersion version.SemanticVersion,
+) ([]string, error) {
+	toRef := input.ToRef
+	if toRef == "" {
+		toRef = "HEAD"
+	}
+
+	tags, err := a.gitRepo.GetTags(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check version tags outside target history: %w", err)
+	}
+
+	var highest *sourcecontrol.Tag
+	for _, tag := range tags.VersionTagsWithPrefix(input.TagPrefix) {
+		tagVersion := tag.Version()
+		if tagVersion == nil || !tagVersion.GreaterThan(currentVersion) {
+			continue
+		}
+		if _, rangeErr := a.gitRepo.GetCommitsBetween(ctx, tag.Name(), toRef); rangeErr == nil {
+			continue
+		} else if !errors.Is(rangeErr, sourcecontrol.ErrRefNotAncestor) {
+			return nil, fmt.Errorf("failed to check version tag %s against target %s: %w", tag.Name(), toRef, rangeErr)
+		}
+		if highest == nil || tagVersion.GreaterThan(*highest.Version()) {
+			highest = tag
+		}
+	}
+	if highest == nil {
+		return nil, nil
+	}
+
+	return []string{fmt.Sprintf(
+		"Repository contains higher version tag %s, which is not an ancestor of %s; this plan uses reachable baseline %s. Update the target branch or confirm this is an intentional maintenance line before releasing.",
+		highest.Name(), toRef, currentVersion,
+	)}, nil
 }
 
 // AnalyzeCommits runs commit analysis without building a full plan.
@@ -342,14 +397,26 @@ func (a *Analyzer) collectCommits(ctx context.Context, input AnalyzeInput) (*sou
 
 	var currentVersion version.SemanticVersion
 	fromRef := input.FromRef
+	toRef := input.ToRef
+	if toRef == "" {
+		toRef = "HEAD"
+	}
 
 	if fromRef == "" {
 		versionTags := tags.VersionTagsWithPrefix(input.TagPrefix)
-		if latestTag := versionTags.Latest(); latestTag != nil {
-			fromRef = latestTag.Name()
-			if v := latestTag.Version(); v != nil {
+		sort.Sort(sort.Reverse(versionTags))
+		for _, tag := range versionTags {
+			if _, rangeErr := a.gitRepo.GetCommitsBetween(ctx, tag.Name(), toRef); rangeErr != nil {
+				if errors.Is(rangeErr, sourcecontrol.ErrRefNotAncestor) {
+					continue
+				}
+				return nil, version.SemanticVersion{}, "", nil, fmt.Errorf("failed to get commits: %w", rangeErr)
+			}
+			fromRef = tag.Name()
+			if v := tag.Version(); v != nil {
 				currentVersion = *v
 			}
+			break
 		}
 	} else {
 		if v, err := version.Parse(strings.TrimPrefix(fromRef, input.TagPrefix)); err == nil {
@@ -362,11 +429,6 @@ func (a *Analyzer) collectCommits(ctx context.Context, input AnalyzeInput) (*sou
 	// point in history it was cut at, so there is nothing else to range from.
 	if input.CurrentVersion != nil {
 		currentVersion = *input.CurrentVersion
-	}
-
-	toRef := input.ToRef
-	if toRef == "" {
-		toRef = "HEAD"
 	}
 
 	commits, err := a.gitRepo.GetCommitsBetween(ctx, fromRef, toRef)

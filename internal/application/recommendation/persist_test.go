@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // The artifact is stored rather than recomputed on read. A reconstruction from a

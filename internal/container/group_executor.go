@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"time"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	inframultirepo "github.com/relicta-tech/relicta/v4/internal/infrastructure/multirepo"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	inframultirepo "github.com/relicta-tech/relicta/v5/internal/infrastructure/multirepo"
 )
 
 // groupExecutor publishes a member repository's already-approved release.
@@ -114,39 +114,56 @@ func (e *groupExecutor) openApproved(ctx context.Context, repoPath string) (*App
 	// repository's configuration would apply governance it never agreed to. Defaults when
 	// it has no config file, which is what relicta does for any unconfigured repository.
 	cfg, err := config.LoadFromDirectory(repoPath)
-	if err != nil || cfg == nil {
-		cfg = config.DefaultConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading configuration for %s: %w", repoPath, err)
+	}
+	if cfg == nil {
+		return nil, nil, fmt.Errorf("loading configuration for %s returned no configuration", repoPath)
+	}
+	if err := config.Validate(cfg); err != nil {
+		return nil, nil, fmt.Errorf("invalid configuration for %s: %w", repoPath, err)
 	}
 
 	app, err := NewForRepo(cfg, repoPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("preparing %s: %w", repoPath, err)
 	}
+	// Cleanup must complete even if the setup context has already been canceled.
+	//nolint:contextcheck // the shutdown timeout intentionally outlives ctx.
+	cleanupOnError := func(cause error) (*App, *domain.ReleaseRun, error) {
+		if closeErr := app.CloseWithTimeout(10 * time.Second); closeErr != nil {
+			e.logger.Warn("closing member container after setup failure", "repo", repoPath, "error", closeErr)
+		}
+		return nil, nil, cause
+	}
 	if err := app.Initialize(ctx); err != nil {
-		return nil, nil, fmt.Errorf("initializing %s: %w", repoPath, err)
+		return cleanupOnError(fmt.Errorf("initializing %s: %w", repoPath, err))
 	}
 	if err := app.InitReleaseServices(ctx, repoPath); err != nil {
-		return nil, nil, fmt.Errorf("preparing release services for %s: %w", repoPath, err)
+		return cleanupOnError(fmt.Errorf("preparing release services for %s: %w", repoPath, err))
 	}
 
 	services := app.ReleaseServices()
 	if services == nil || services.Repository == nil {
-		return nil, nil, fmt.Errorf("release services are not available for %s", repoPath)
+		return cleanupOnError(fmt.Errorf("release services are not available for %s", repoPath))
 	}
 
 	run, err := services.Repository.LoadLatest(ctx, repoPath)
 	if err != nil || run == nil {
-		return nil, nil, fmt.Errorf("no planned release in %s: run 'relicta plan' there first", repoPath)
+		if err != nil {
+			return cleanupOnError(fmt.Errorf("loading planned release in %s: %w", repoPath, err))
+		}
+		return cleanupOnError(fmt.Errorf("no planned release in %s: run 'relicta plan' there first", repoPath))
 	}
 
 	// Checked again here, not only by the readiness report. The two are separated by
 	// however long the earlier members took to publish, and this is the check that
 	// actually guards the publish.
 	if run.State() != domain.StateApproved && run.State() != domain.StatePublishing {
-		return nil, nil, fmt.Errorf(
+		return cleanupOnError(fmt.Errorf(
 			"%s is in state %q and not approved: a group release publishes what was already "+
 				"approved and approves nothing itself — run 'relicta approve' there",
-			repoPath, run.State())
+			repoPath, run.State()))
 	}
 
 	return app, run, nil

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 // runInState builds a ReleaseRun pinned to a given state and UpdatedAt, so the

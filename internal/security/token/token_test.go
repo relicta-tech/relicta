@@ -155,6 +155,48 @@ func TestRevokeToken_InvalidToken(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRevokePairRevokesBothSessionTokens(t *testing.T) {
+	svc := newTestService(t)
+	pair, err := svc.Issue("pair-user", []string{"admin"})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.RevokePair(pair.AccessToken, pair.RefreshToken))
+	_, err = svc.Validate(pair.AccessToken)
+	assert.ErrorContains(t, err, "revoked")
+	_, err = svc.Validate(pair.RefreshToken)
+	assert.ErrorContains(t, err, "revoked")
+}
+
+func TestRevokePairRejectsUnrelatedOrMismatchedTokens(t *testing.T) {
+	svc := newTestService(t)
+	first, err := svc.Issue("same-user", []string{"viewer"})
+	require.NoError(t, err)
+	second, err := svc.Issue("same-user", []string{"viewer"})
+	require.NoError(t, err)
+	otherUser, err := svc.Issue("other-user", []string{"viewer"})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name          string
+		access        string
+		refresh       string
+		errorContains string
+	}{
+		{name: "different session", access: first.AccessToken, refresh: second.RefreshToken, errorContains: "different sessions"},
+		{name: "different subject", access: first.AccessToken, refresh: otherUser.RefreshToken, errorContains: "different subjects"},
+		{name: "wrong token order", access: first.RefreshToken, refresh: first.AccessToken, errorContains: "not an access token"},
+		{name: "invalid access token", access: "invalid", refresh: first.RefreshToken, errorContains: "invalid access token"},
+		{name: "invalid refresh token", access: first.AccessToken, refresh: "invalid", errorContains: "invalid refresh token"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.RevokePair(tt.access, tt.refresh)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorContains)
+		})
+	}
+}
+
 func TestRefresh(t *testing.T) {
 	svc := newTestService(t)
 	original, err := svc.Issue("heidi", []string{"approver", "viewer"})

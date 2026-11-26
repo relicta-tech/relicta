@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // applyProcessLimits applies macOS-specific resource limits to the command and,
@@ -47,13 +47,13 @@ func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 	cmd.SysProcAttr.Setpgid = true
 
 	// Apply memory limit if configured
-	// Note: macOS resource limits are less effective than Linux cgroups
+	// Note: macOS resource limits are best-effort and can be ignored by the kernel.
 	if s.capabilities.MaxMemoryMB > 0 {
 		// Warn user that macOS limits are best-effort
 		slog.Warn("plugin memory limits are best-effort on macOS",
 			"plugin", s.name,
 			"limit_mb", s.capabilities.MaxMemoryMB,
-			"recommendation", "use Linux/Docker for strict enforcement")
+			"recommendation", "use an external runtime with strict resource controls; Relicta limits are best-effort")
 
 		// Convert MB to bytes
 		memBytes := uint64(s.capabilities.MaxMemoryMB) * 1024 * 1024
@@ -77,9 +77,7 @@ func (s *Sandbox) applyProcessLimits(cmd *exec.Cmd) error {
 
 	// Confine network/filesystem via a seatbelt profile when capabilities ask
 	// for it. Best-effort: a missing sandbox-exec degrades to unconfined.
-	s.wrapWithSeatbelt(cmd)
-
-	return nil
+	return s.wrapWithSeatbelt(cmd)
 }
 
 // needsSeatbelt reports whether the capabilities call for a sandbox-exec
@@ -139,20 +137,16 @@ func buildSeatbeltProfile(caps *config.PluginCapabilities) string {
 }
 
 // wrapWithSeatbelt rewrites cmd to run under `sandbox-exec -p <profile>` when the
-// capabilities require confinement. If sandbox-exec is unavailable the command is
-// left unchanged and a warning is logged (best-effort, consistent with the
-// resource-limit posture on macOS).
-func (s *Sandbox) wrapWithSeatbelt(cmd *exec.Cmd) {
+// capabilities require confinement. If sandbox-exec is unavailable, command
+// preparation fails so the plugin cannot start without its requested controls.
+func (s *Sandbox) wrapWithSeatbelt(cmd *exec.Cmd) error {
 	if !needsSeatbelt(s.capabilities) {
-		return
+		return nil
 	}
 
 	sbexec, err := exec.LookPath("sandbox-exec")
 	if err != nil {
-		slog.Warn("sandbox-exec not found; plugin runs without seatbelt confinement",
-			"plugin", s.name,
-			"recommendation", "ensure sandbox-exec is on PATH, or run on Linux for cgroup enforcement")
-		return
+		return fmt.Errorf("plugin %q requests network or filesystem restrictions, but sandbox-exec is unavailable; install sandbox-exec or adjust the plugin capabilities", s.name)
 	}
 
 	profile := buildSeatbeltProfile(s.capabilities)
@@ -170,6 +164,7 @@ func (s *Sandbox) wrapWithSeatbelt(cmd *exec.Cmd) {
 		"plugin", s.name,
 		"network_egress_denied", !s.capabilities.AllowNetwork,
 		"filesystem_write_confined", !s.capabilities.AllowFilesystem || len(s.capabilities.AllowedPaths) > 0)
+	return nil
 }
 
 // ApplyResourceLimits is a no-op on macOS.

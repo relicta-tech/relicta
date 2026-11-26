@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/security/token"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/security/token"
 )
 
 // contextKey is a custom type for context keys to avoid collisions.
@@ -114,7 +114,7 @@ func validateSession(r *http.Request, tokenSvc *token.Service) *AuthenticatedUse
 
 	tokenStr := strings.TrimPrefix(auth, "Bearer ")
 
-	claims, err := tokenSvc.Validate(tokenStr)
+	claims, err := tokenSvc.ValidateAccess(tokenStr)
 	if err != nil {
 		return nil
 	}
@@ -136,12 +136,6 @@ func validateAPIKey(r *http.Request, keys []config.DashboardAPIKeyConfig) *Authe
 		if strings.HasPrefix(auth, "Bearer ") {
 			apiKey = strings.TrimPrefix(auth, "Bearer ")
 		}
-	}
-
-	// Fall back to query parameter (for WebSocket upgrade requests only).
-	// API keys in URLs are logged by proxies and browsers — restrict to upgrades.
-	if apiKey == "" && r.Header.Get("Upgrade") == "websocket" {
-		apiKey = r.URL.Query().Get("api_key")
 	}
 
 	if apiKey == "" {

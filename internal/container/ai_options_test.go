@@ -3,8 +3,8 @@ package container
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
 )
 
 // Two AI settings were documented, defaulted, validated — and read by nothing.

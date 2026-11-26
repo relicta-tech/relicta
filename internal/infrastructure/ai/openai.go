@@ -9,9 +9,9 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 func init() {
@@ -62,16 +62,24 @@ func NewOpenAIService(cfg ServiceConfig) (Service, error) {
 
 	// Configure for Azure OpenAI if detected
 	if isAzure {
-		clientConfig.APIType = openai.APITypeAzure
-		if cfg.BaseURL != "" {
-			clientConfig.BaseURL = cfg.BaseURL
-		}
-		// Azure OpenAI requires an API version
-		if cfg.APIVersion != "" {
-			clientConfig.APIVersion = cfg.APIVersion
+		if strings.HasSuffix(strings.TrimRight(cfg.BaseURL, "/"), "/openai/v1") {
+			// Azure's current v1 endpoint uses standard OpenAI routes and does not
+			// require a dated api-version query parameter. The SDK's legacy Azure
+			// mode inserts /deployments/{name} and would produce the wrong route.
+			clientConfig.APIType = openai.APITypeOpenAI
+			clientConfig.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
+			clientConfig.APIVersion = ""
 		} else {
-			// Use a reasonable default if not specified
-			clientConfig.APIVersion = "2024-02-15-preview"
+			// Preserve compatibility with the legacy dated Azure endpoint.
+			clientConfig.APIType = openai.APITypeAzure
+			if cfg.BaseURL != "" {
+				clientConfig.BaseURL = cfg.BaseURL
+			}
+			if cfg.APIVersion != "" {
+				clientConfig.APIVersion = cfg.APIVersion
+			} else {
+				clientConfig.APIVersion = "2024-02-15-preview"
+			}
 		}
 	} else if cfg.BaseURL != "" {
 		// For standard OpenAI with custom base URL
@@ -188,6 +196,13 @@ func (s *openAIService) CompleteStructured(ctx context.Context, systemPrompt, us
 	}
 
 	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
+		temperature := s.config.Temperature
+		if isReasoningModel(s.config.Model) {
+			// Reasoning models reject sampling controls such as temperature when
+			// reasoning_effort is not "none". Leave it omitted so the API uses
+			// the model's supported default.
+			temperature = 0
+		}
 		resp, err := s.client.CreateChatCompletion(
 			ctx,
 			openai.ChatCompletionRequest{
@@ -201,7 +216,7 @@ func (s *openAIService) CompleteStructured(ctx context.Context, systemPrompt, us
 				// current reasoning model a 400. Both name the same cap for the models
 				// that accept either.
 				MaxCompletionTokens: s.config.MaxTokens,
-				Temperature:         float32(s.config.Temperature),
+				Temperature:         float32(temperature),
 				ResponseFormat:      respFormat,
 			},
 		)
@@ -223,6 +238,12 @@ func (s *openAIService) CompleteStructured(ctx context.Context, systemPrompt, us
 // complete sends a completion request to OpenAI using Fortify resilience patterns.
 func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
 	result, err := s.resilience.Execute(ctx, func(ctx context.Context) (string, error) {
+		temperature := s.config.Temperature
+		if isReasoningModel(s.config.Model) {
+			// See CompleteStructured: reasoning models do not accept this
+			// sampling control at the default reasoning effort.
+			temperature = 0
+		}
 		resp, err := s.client.CreateChatCompletion(
 			ctx,
 			openai.ChatCompletionRequest{
@@ -238,7 +259,7 @@ func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt s
 					},
 				},
 				MaxCompletionTokens: s.config.MaxTokens,
-				Temperature:         float32(s.config.Temperature),
+				Temperature:         float32(temperature),
 			},
 		)
 		if err != nil {
@@ -257,6 +278,16 @@ func (s *openAIService) complete(ctx context.Context, systemPrompt, userPrompt s
 	}
 
 	return result, nil
+}
+
+func isReasoningModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	for _, prefix := range []string{"gpt-5", "gpt-6", "o1", "o3", "o4"} {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // noopService is a no-op implementation used when AI is not configured.

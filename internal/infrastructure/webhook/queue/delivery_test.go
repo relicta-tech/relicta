@@ -45,6 +45,57 @@ func TestNewFileQueue_WithConcurrency(t *testing.T) {
 	}
 }
 
+func TestWorkerLockIsExclusiveAndReleasedOnClose(t *testing.T) {
+	dir := t.TempDir()
+	first, err := NewFileQueue(dir)
+	if err != nil {
+		t.Fatalf("NewFileQueue(first): %v", err)
+	}
+	second, err := NewFileQueue(dir)
+	if err != nil {
+		t.Fatalf("NewFileQueue(second): %v", err)
+	}
+
+	owned, err := first.TryAcquireWorker()
+	if err != nil || !owned || !first.OwnsWorker() {
+		t.Fatalf("first TryAcquireWorker = %v, %v; owns=%v", owned, err, first.OwnsWorker())
+	}
+	owned, err = second.TryAcquireWorker()
+	if err != nil || owned || second.OwnsWorker() {
+		t.Fatalf("second TryAcquireWorker = %v, %v; owns=%v; want lock contention", owned, err, second.OwnsWorker())
+	}
+	if err := first.Close(); err != nil {
+		t.Fatalf("first Close: %v", err)
+	}
+	if first.OwnsWorker() {
+		t.Fatal("first queue still owns worker after Close")
+	}
+	owned, err = second.TryAcquireWorker()
+	if err != nil || !owned {
+		t.Fatalf("second TryAcquireWorker after release = %v, %v; want true, nil", owned, err)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatalf("second Close: %v", err)
+	}
+}
+
+func TestListInFlight(t *testing.T) {
+	q, err := NewFileQueue(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewFileQueue: %v", err)
+	}
+	if err := q.Enqueue(&Delivery{ID: "in-flight", EndpointURL: "https://example.com", Payload: json.RawMessage(`{}`)}); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	if _, err := q.Dequeue("https://example.com", 1); err != nil {
+		t.Fatalf("Dequeue: %v", err)
+	}
+	items, err := q.ListInFlight("https://example.com")
+	if err != nil || len(items) != 1 || items[0].ID != "in-flight" {
+		t.Fatalf("ListInFlight = %#v, %v", items, err)
+	}
+}
+
 func TestEnqueue_PersistsToDisk(t *testing.T) {
 	dir := t.TempDir()
 	q, err := NewFileQueue(dir)

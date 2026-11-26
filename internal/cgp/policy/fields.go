@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // A condition can name a field the evaluator does not provide, and nothing says
@@ -68,6 +68,7 @@ func representativeEvalContext() map[string]any {
 			CommitRange: "HEAD~1..HEAD",
 			Commits:     []string{"0000000"},
 			Files:       []string{"main.go"},
+			Packages:    []string{"example"},
 		},
 		Intent: cgp.ProposalIntent{Summary: "example", SuggestedBump: cgp.BumpTypeMinor},
 		// actor.reputation.* exists only when the governance service computed a

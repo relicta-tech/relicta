@@ -3,6 +3,7 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,30 +12,33 @@ import (
 	"sync"
 	"time"
 
-	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/v4/internal/analytics"
-	"github.com/relicta-tech/relicta/v4/internal/application/blast"
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/application/versioning"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	chronosinfra "github.com/relicta-tech/relicta/v4/internal/infrastructure/chronos"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
-	memoryinfra "github.com/relicta-tech/relicta/v4/internal/infrastructure/memory"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/webhook"
-	"github.com/relicta-tech/relicta/v4/internal/plugin"
-	pluginaudit "github.com/relicta-tech/relicta/v4/internal/plugin/audit"
-	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
+	analysisfactory "github.com/relicta-tech/relicta/v5/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v5/internal/analytics"
+	"github.com/relicta-tech/relicta/v5/internal/application/blast"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/integration"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	chronosinfra "github.com/relicta-tech/relicta/v5/internal/infrastructure/chronos"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
+	memoryinfra "github.com/relicta-tech/relicta/v5/internal/infrastructure/memory"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/webhook"
+	webhookqueue "github.com/relicta-tech/relicta/v5/internal/infrastructure/webhook/queue"
+	workspaceinfra "github.com/relicta-tech/relicta/v5/internal/infrastructure/workspace"
+	"github.com/relicta-tech/relicta/v5/internal/plugin"
+	pluginaudit "github.com/relicta-tech/relicta/v5/internal/plugin/audit"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 // defaultShutdownTimeout is the default timeout for graceful shutdown of components.
@@ -120,7 +124,8 @@ type App struct {
 	analyticsService *analytics.Service
 
 	// Release workflow services (domain use cases)
-	releaseServices *domainrelease.Services
+	releaseServices  *domainrelease.Services
+	webhookPublisher *webhook.Publisher
 
 	// Cleanup tracking
 	closeables []Closeable
@@ -152,6 +157,28 @@ func NewForRepo(cfg *config.Config, repoPath string) (*App, error) {
 	}
 	app.repoPath = repoPath
 	return app, nil
+}
+
+// OpenWebhookQueue opens the current repository's durable webhook queue without
+// starting a delivery worker. Recovery is performed only by a publisher after it
+// acquires the exclusive worker reservation.
+func OpenWebhookQueue(ctx context.Context, cfg *config.Config) (*webhookqueue.FileQueue, error) {
+	gitOpts := []git.ServiceOption{}
+	if cfg != nil {
+		gitOpts = append(gitOpts, git.WithCLIFallback(cfg.Git.UseCLI()))
+	}
+	service, err := git.NewService(gitOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("initialize git service: %w", err)
+	}
+	repoRoot, err := service.GetRepositoryRoot(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("resolve repository root: %w", err)
+	}
+	if repoRoot == "" {
+		return nil, fmt.Errorf("webhook queue requires a git repository")
+	}
+	return webhookqueue.NewFileQueue(filepath.Join(repoRoot, ".relicta", "webhooks"))
 }
 
 // registerCloseable registers a component for cleanup during shutdown.
@@ -192,8 +219,15 @@ func (c *App) Initialize(ctx context.Context) error {
 		return err
 	}
 
-	// Initialize application layer
-	return c.initApplicationLayer(ctx)
+	// Initialize application layer before starting asynchronous queue workers so a
+	// failed initialization cannot leak a goroutine.
+	if err := c.initApplicationLayer(ctx); err != nil {
+		return err
+	}
+	if c.webhookPublisher != nil {
+		c.webhookPublisher.Start(ctx)
+	}
+	return nil
 }
 
 // initInfrastructure initializes infrastructure layer components.
@@ -267,11 +301,16 @@ func (c *App) initInfrastructure(ctx context.Context) error {
 
 	// Add webhook publisher if webhooks are configured
 	if len(c.config.Webhooks) > 0 {
-		webhookPublisher := webhook.NewPublisher(c.config.Webhooks, publisher)
-		// Registered so shutdown waits for deliveries in flight. Each command is its own
-		// process, so without this the goroutine carrying a delivery is killed when the
-		// command returns and the webhook simply never arrives.
+		queueDir := filepath.Join(repoRoot, ".relicta", "webhooks")
+		deliveryQueue, queueErr := webhookqueue.NewFileQueue(queueDir)
+		if queueErr != nil {
+			return errors.StateWrap(queueErr, "initInfrastructure", "failed to open durable webhook queue")
+		}
+		webhookPublisher := webhook.NewPersistentPublisher(c.config.Webhooks, publisher, deliveryQueue)
+		// The durable worker resumes pending deliveries after restart and is stopped
+		// cleanly with the container. Delivery records remain on disk across commands.
 		c.registerCloseable(webhookPublisher)
+		c.webhookPublisher = webhookPublisher
 		publisher = webhookPublisher
 		c.logger.Debug("webhook publisher initialized", "webhook_count", len(c.config.Webhooks))
 	}
@@ -674,6 +713,13 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	// Initialize Governance service (CGP) if enabled
 	if c.config.Governance.Enabled {
 		if err := c.initGovernanceService(ctx); err != nil {
+			if c.config.Governance.IdentityRegistryPath != "" &&
+				c.config.Persistence.Backend != "" && c.config.Persistence.Backend != config.BackendFile {
+				// A configured database registry can raise actor trust and loosen
+				// governance decisions. Continuing without it would silently change the
+				// operator's policy, so the selected backend must be available.
+				return errors.StateWrap(err, "initInfrastructure", "configured identity registry is unavailable")
+			}
 			// Governance failure is non-fatal in advisory mode
 			c.logger.Warn("governance service initialization failed", "error", err)
 		}
@@ -687,8 +733,7 @@ func (c *App) initApplicationLayer(ctx context.Context) error {
 	return nil
 }
 
-// initAnalyticsService initializes the governance analytics service backed by
-// a file store under the repository's .relicta/governance/analytics directory.
+// initAnalyticsService initializes governance analytics using the configured persistence backend.
 func (c *App) initAnalyticsService(ctx context.Context) error {
 	repoPath := "."
 	if c.gitAdapter != nil {
@@ -696,11 +741,14 @@ func (c *App) initAnalyticsService(ctx context.Context) error {
 			repoPath = info.Path
 		}
 	}
-	store, err := analytics.NewFileStore(filepath.Join(repoPath, ".relicta", "governance", "analytics"))
+	resolved, err := persistence.OpenAnalyticsStore(ctx, c.config.Persistence, repoPath,
+		filepath.Join(repoPath, ".relicta", "governance", "analytics"))
 	if err != nil {
 		return err
 	}
-	c.analyticsService = analytics.NewService(store)
+	c.registerCloseable(resolved.Closer)
+	c.analyticsService = analytics.NewService(resolved.Store)
+	c.logger.Info("analytics store opened", "backend", string(resolved.Backend), "location", resolved.Location)
 	return nil
 }
 
@@ -726,15 +774,40 @@ func (c *App) initGovernanceService(ctx context.Context) error {
 	// would be the second, and the two would disagree the moment the setting was not
 	// `file` — the service recording releases in memory.json while the outcome tracker
 	// recorded them in the database.
+	var registryStores []identity.RegistryStore
+	if configuredPath := c.config.Governance.IdentityRegistryPath; configuredPath != "" &&
+		c.config.Persistence.Backend != "" && c.config.Persistence.Backend != config.BackendFile {
+		registryPath := configuredPath
+		if !filepath.IsAbs(registryPath) && repoPath != "" {
+			registryPath = filepath.Join(repoPath, registryPath)
+		}
+		resolved, openErr := persistence.OpenIdentityRegistryStore(ctx,
+			c.config.Persistence, repoPath, registryPath)
+		if openErr != nil {
+			return errors.StateWrap(openErr, "initGovernanceService", "failed to open configured identity registry")
+		}
+		if resolved.Closer != nil {
+			c.registerCloseable(resolved.Closer)
+		}
+		registryStores = append(registryStores, resolved.Store)
+		c.logger.Info("identity registry store opened", "backend", string(resolved.Backend), "location", resolved.Location)
+	}
+
 	c.governanceService, err = governance.NewServiceFromConfig(
 		ctx,
 		&c.config.Governance,
 		repoPath,
 		c.logger,
 		c.memoryStore,
+		registryStores...,
 	)
 	if err != nil {
 		return errors.StateWrap(err, "initGovernanceService", "failed to create governance service")
+	}
+	if c.gitAdapter != nil && repoPath != "" {
+		c.governanceService = governance.NewServiceWithRepositoryEvidence(
+			c.governanceService, c.gitAdapter, workspaceinfra.NewFileDetector(), repoPath,
+		)
 	}
 
 	c.logger.Info("governance service initialized",
@@ -804,7 +877,7 @@ func (c *App) initReleaseServices(ctx context.Context, repoRoot string) error {
 		WithPackageTags(c.packageTagResolver(repoRoot)),
 		WithAttestationConfig(&c.config.Attestation),
 		WithAuditChain(c.auditChainStore()))
-	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot)
+	versionWriter := NewVersionWriterAdapter(c.gitAdapter, repoRoot, c.config.Versioning.ResolvedVersionFiles())
 
 	// Configure release services
 	cfg := domainrelease.Config{
@@ -1151,6 +1224,7 @@ func ChangelogRenderOptions(appConfig *config.Config) communication.RenderOption
 	if format := communication.ChangelogFormat(cfg.Format); format.IsValid() {
 		opts.Format = format
 	}
+	opts.TemplatePath = cfg.Template
 	// group_by decided nothing: the renderer always grouped by type, so "type" was
 	// accidentally right and "scope" and "none" were silently ignored by a validator that
 	// accepts all three.

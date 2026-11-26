@@ -6,7 +6,7 @@ import (
 )
 
 // Every signing problem used to surface during publish, from inside the attestation step:
-// keyless fails with "keyless signing requires sigstore-go", local with no key fails with
+// keyless was incomplete, local with no key fails with
 // "key_path is required". By then the tag exists and the release is half done — and unless
 // attestation.required is set the failure is only a warning, so the operator gets a release
 // with no attestation and a line of log saying why.

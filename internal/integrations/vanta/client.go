@@ -1,11 +1,10 @@
 // Package vanta provides a Vanta REST API client for pushing Relicta
-// governance evidence (audit chain entries, governance decisions, approval
-// records, compliance reports) into Vanta as custom evidence artifacts.
+// release-governance and compliance-report evidence as custom artifacts.
 //
 // Vanta released its remote MCP server in April 2026 and a Claude plugin for
 // developer-side workflows. Relicta complements Vanta: Relicta produces
-// cryptographically attested release-decision evidence; Vanta ingests it as
-// upstream provenance for SOC 2 / ISO 27001 / HIPAA / PCI control evidence.
+// release-governance evidence; Vanta ingests it as supporting material for
+// SOC 2 / ISO 27001 / HIPAA / PCI control evidence.
 //
 // This package is intentionally minimal — it ships in the CLI binary and
 // avoids a heavyweight plugin gRPC contract. A full standalone plugin can

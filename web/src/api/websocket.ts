@@ -1,5 +1,6 @@
 import { ref, onUnmounted, type Ref } from 'vue'
 import type { WebSocketMessage, WebSocketEventType } from '@/types/api'
+import { getDashboardAuthHeaders } from '@/api/client'
 
 export interface UseWebSocketOptions {
   autoConnect?: boolean
@@ -35,49 +36,66 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   let ws: WebSocket | null = null
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
+  let connectInProgress = false
+  let connectGeneration = 0
   const handlers = new Map<string, Set<(message: WebSocketMessage) => void>>()
 
-  function getWebSocketUrl(): string {
+  async function getWebSocketUrl(): Promise<string> {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const apiKey = localStorage.getItem('relicta_api_key')
-    let url = `${protocol}//${host}/api/v1/ws`
-    if (apiKey) {
-      url += `?api_key=${encodeURIComponent(apiKey)}`
+    const headers = await getDashboardAuthHeaders()
+    const response = await fetch('/api/v1/ws/ticket', {
+      method: 'POST',
+      headers,
+      cache: 'no-store',
+    })
+    if (!response.ok) {
+      throw new Error(`WebSocket ticket request failed (${response.status})`)
     }
-    return url
+    const { ticket } = await response.json() as { ticket?: string }
+    if (!ticket) throw new Error('WebSocket ticket response was empty')
+    return `${protocol}//${host}/api/v1/ws?ticket=${encodeURIComponent(ticket)}`
   }
 
-  function connect() {
+  async function connect() {
     if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
       return
     }
+    if (connectInProgress) return
 
+    connectInProgress = true
+    const generation = ++connectGeneration
     status.value = 'connecting'
 
     try {
-      ws = new WebSocket(getWebSocketUrl())
+      const url = await getWebSocketUrl()
+      if (generation !== connectGeneration) return
+      ws = new WebSocket(url)
 
       ws.onopen = () => {
+        if (generation !== connectGeneration) return
         status.value = 'connected'
         reconnectCount.value = 0
       }
 
       ws.onclose = () => {
+        if (generation !== connectGeneration) return
         status.value = 'disconnected'
         ws = null
 
         if (reconnect && reconnectCount.value < maxReconnectAttempts) {
           reconnectCount.value++
-          reconnectTimeout = setTimeout(connect, reconnectInterval)
+          reconnectTimeout = setTimeout(() => { void connect() }, reconnectInterval)
         }
       }
 
       ws.onerror = () => {
+        if (generation !== connectGeneration) return
         status.value = 'error'
       }
 
       ws.onmessage = (event) => {
+        if (generation !== connectGeneration) return
         try {
           const message: WebSocketMessage = JSON.parse(event.data)
           lastMessage.value = message
@@ -98,12 +116,22 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         }
       }
     } catch (error) {
-      status.value = 'error'
-      console.error('Failed to create WebSocket connection:', error)
+      if (generation === connectGeneration) {
+        status.value = 'error'
+        if (reconnect && reconnectCount.value < maxReconnectAttempts) {
+          reconnectCount.value++
+          reconnectTimeout = setTimeout(() => { void connect() }, reconnectInterval)
+        }
+      }
+      console.error('Failed to establish WebSocket connection:', error)
+    } finally {
+      if (generation === connectGeneration) connectInProgress = false
     }
   }
 
   function disconnect() {
+    connectGeneration++
+    connectInProgress = false
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout)
       reconnectTimeout = null
@@ -140,7 +168,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   // Auto-connect if enabled
   if (autoConnect) {
-    connect()
+    void connect()
   }
 
   // Cleanup on unmount

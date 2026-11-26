@@ -3,7 +3,7 @@ package memory
 import (
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // A release is a tag being published. A deployment is a change reaching an

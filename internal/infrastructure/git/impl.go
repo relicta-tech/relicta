@@ -24,7 +24,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 
-	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	rperrors "github.com/relicta-tech/relicta/v5/internal/errors"
 )
 
 // errStopIteration is a sentinel error used to signal early termination of commit iteration.
@@ -68,12 +69,14 @@ func NewService(opts ...ServiceOption) (*ServiceImpl, error) {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to get absolute path")
 	}
 
-	// DetectDotGit walks up from absPath to find the repository root, so relicta
-	// works from any subdirectory the way git itself does. Plain PlainOpen only
-	// looks at absPath, which made every git-backed command fail below the root
-	// while `relicta health` (which shells out to `git rev-parse`) still reported
-	// the repository as present.
-	repo, err := git.PlainOpenWithOptions(absPath, &git.PlainOpenOptions{DetectDotGit: true})
+	// Resolve linked worktrees and extension-enabled repositories first:
+	// go-git's default opener misses shared refs in linked worktrees and rejects
+	// extensions.worktreeConfig. Ordinary repositories fall back to go-git's
+	// detector, which also supports running from subdirectories.
+	repo, err := openWorktreeConfigRepository(absPath)
+	if err != nil {
+		repo, err = git.PlainOpenWithOptions(absPath, &git.PlainOpenOptions{DetectDotGit: true})
+	}
 	if err != nil {
 		return nil, rperrors.GitWrap(err, "git.NewService", "failed to open repository")
 	}
@@ -320,12 +323,14 @@ func (s *ServiceImpl) getCommitsBetweenHashes(ctx context.Context, from, to plum
 	defer iter.Close()
 
 	commits := make([]Commit, 0, estimatedCommitsPerRelease)
+	foundFrom := false
 	err = iter.ForEach(func(c *object.Commit) error {
 		// Check for context cancellation during iteration
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
 		if c.Hash == from {
+			foundFrom = true
 			return errStopIteration
 		}
 		commits = append(commits, *s.convertCommit(c))
@@ -337,6 +342,9 @@ func (s *ServiceImpl) getCommitsBetweenHashes(ctx context.Context, from, to plum
 			return nil, rperrors.GitWrap(ctx.Err(), op, "operation canceled")
 		}
 		return nil, rperrors.GitWrap(err, op, "failed to iterate commits")
+	}
+	if !foundFrom {
+		return nil, fmt.Errorf("%w: %s", sourcecontrol.ErrRefNotAncestor, from)
 	}
 
 	return commits, nil
@@ -640,16 +648,20 @@ func (s *ServiceImpl) GetTag(_ context.Context, name string) (*Tag, error) {
 		}, nil
 	}
 
+	commit, err := obj.Commit()
+	if err != nil {
+		return nil, rperrors.GitWrap(err, op, "failed to resolve tag target commit")
+	}
 	return &Tag{
 		Name:    name,
-		Hash:    obj.Hash.String(),
+		Hash:    commit.Hash.String(),
 		Message: obj.Message,
 		Date:    obj.Tagger.When,
 	}, nil
 }
 
 // CreateTag creates a new tag.
-func (s *ServiceImpl) CreateTag(_ context.Context, name, message string, opts TagOptions) error {
+func (s *ServiceImpl) CreateTag(ctx context.Context, name, message string, opts TagOptions) error {
 	const op = "git.CreateTag"
 
 	// Resolve the reference
@@ -661,6 +673,24 @@ func (s *ServiceImpl) CreateTag(_ context.Context, name, message string, opts Ta
 	hash, err := s.resolveRef(ref)
 	if err != nil {
 		return rperrors.GitWrap(err, op, fmt.Sprintf("failed to resolve reference %s", ref))
+	}
+
+	if opts.Sign {
+		args := []string{"tag", "-s", "-m", message}
+		if s.cfg.GPGKeyID != "" {
+			args = append(args, "-u", s.cfg.GPGKeyID)
+		}
+		if opts.Force {
+			args = append(args, "-f")
+		}
+		args = append(args, "--", name, hash.String())
+		cmd := exec.CommandContext(ctx, "git", args...)
+		cmd.Dir = s.worktree.Filesystem.Root()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return rperrors.GitWrap(err, op, fmt.Sprintf("failed to create signed tag %s: %s", name, strings.TrimSpace(string(output))))
+		}
+		return nil
 	}
 
 	if opts.Annotated {

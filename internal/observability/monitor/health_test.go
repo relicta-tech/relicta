@@ -7,23 +7,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
 )
 
 // --- Mock Provider -------------------------------------------------------
 
 type mockProvider struct {
-	name       string
-	metrics    []providers.MetricSample
-	alerts     []providers.Alert
-	metricsErr error
-	alertsErr  error
-	healthErr  error
+	name          string
+	metrics       []providers.MetricSample
+	metricsByName map[string][]providers.MetricSample
+	queries       []providers.MetricQuery
+	alerts        []providers.Alert
+	metricsErr    error
+	alertsErr     error
+	healthErr     error
 }
 
 func (m *mockProvider) Name() string { return m.name }
 
-func (m *mockProvider) QueryMetrics(_ context.Context, _ providers.MetricQuery) ([]providers.MetricSample, error) {
+func (m *mockProvider) QueryMetrics(_ context.Context, query providers.MetricQuery) ([]providers.MetricSample, error) {
+	m.queries = append(m.queries, query)
+	if samples, ok := m.metricsByName[query.Expression]; ok {
+		return samples, m.metricsErr
+	}
 	return m.metrics, m.metricsErr
 }
 
@@ -78,7 +84,7 @@ func TestDefaultMonitorConfig(t *testing.T) {
 	}
 }
 
-func TestHealthMonitor_StartWatch_DuplicateRejected(t *testing.T) {
+func TestHealthMonitor_StartWatch_DuplicateIsIdempotent(t *testing.T) {
 	reg := providers.NewRegistry()
 	hm := NewHealthMonitor(DefaultMonitorConfig(), reg, nil)
 
@@ -92,8 +98,8 @@ func TestHealthMonitor_StartWatch_DuplicateRejected(t *testing.T) {
 	defer hm.StopWatch("rel-1")
 
 	err = hm.StartWatch(ctx, "rel-1")
-	if err == nil {
-		t.Error("expected error on duplicate watch")
+	if err != nil {
+		t.Errorf("duplicate StartWatch() error = %v, want nil", err)
 	}
 }
 
@@ -217,6 +223,77 @@ func TestHealthMonitor_CheckHealth_ThresholdCrossed(t *testing.T) {
 	}
 	if len(status.Violations) == 0 {
 		t.Error("expected violations to be populated")
+	}
+}
+
+func TestHealthMonitor_CheckHealth_UsesRatesAndLatencyDelta(t *testing.T) {
+	const errorQuery = `sum(rate(http_requests_errors_total[5m])) / sum(rate(http_requests_total[5m])) * 100`
+	const latencyQuery = `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))`
+	mock := &mockProvider{
+		name: "test",
+		metricsByName: map[string][]providers.MetricSample{
+			errorQuery:   {{Timestamp: time.Now(), Value: 2.0}},
+			latencyQuery: {{Timestamp: time.Now().Add(-time.Minute), Value: 0.2}, {Timestamp: time.Now(), Value: 0.28}},
+		},
+	}
+	reg := providers.NewRegistry()
+	if err := reg.Register("test", mock); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultMonitorConfig()
+	cfg.ProviderName = "test"
+	hm := NewHealthMonitor(cfg, reg, nil)
+
+	status, err := hm.CheckHealth(context.Background(), "rel-rate")
+	if err != nil {
+		t.Fatalf("CheckHealth() error = %v", err)
+	}
+	if !status.Measured || !status.Healthy {
+		t.Fatalf("expected measured healthy status, got %+v", status)
+	}
+	if status.ErrorRate != 2 || status.LatencyP95 != 0.28 {
+		t.Fatalf("got error rate %.2f and p95 %.2f seconds, want 2 and 0.28",
+			status.ErrorRate, status.LatencyP95)
+	}
+	if got := percentIncrease(0.2, status.LatencyP95); got < 39.99 || got > 40.01 {
+		t.Fatalf("latency increase = %.2f%%, want 40%%", got)
+	}
+	if len(mock.queries) != 2 || mock.queries[0].Expression != errorQuery || mock.queries[1].Expression != latencyQuery {
+		t.Fatalf("monitor did not use configured PromQL semantics: %+v", mock.queries)
+	}
+}
+
+func TestHealthMonitor_CheckHealth_UnmeasuredZeroLatencyBaseline(t *testing.T) {
+	const latencyQuery = `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))`
+	mock := &mockProvider{
+		name: "test",
+		metricsByName: map[string][]providers.MetricSample{
+			latencyQuery: {{Timestamp: time.Now().Add(-time.Minute), Value: 0}, {Timestamp: time.Now(), Value: 0.1}},
+		},
+		alertsErr: fmt.Errorf("alerts unavailable"),
+	}
+	reg := providers.NewRegistry()
+	if err := reg.Register("test", mock); err != nil {
+		t.Fatal(err)
+	}
+	cfg := DefaultMonitorConfig()
+	cfg.ProviderName = "test"
+	hm := NewHealthMonitor(cfg, reg, nil)
+	status, err := hm.CheckHealth(context.Background(), "rel-no-baseline")
+	if err != nil {
+		t.Fatalf("CheckHealth() error = %v", err)
+	}
+	if status.Measured || status.LatencyIncrease != 0 || len(status.Unmeasured) == 0 {
+		t.Fatalf("zero latency baseline should be explicitly unmeasured, got %+v", status)
+	}
+}
+
+func TestPercentIncrease(t *testing.T) {
+	if got := percentIncrease(10, 15); got != 50 {
+		t.Fatalf("percentIncrease(10, 15) = %v, want 50", got)
+	}
+	if got := percentIncrease(0, 15); got != 0 {
+		t.Fatalf("zero baseline should not produce a percentage, got %v", got)
 	}
 }
 

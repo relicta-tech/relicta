@@ -45,11 +45,13 @@ package audit
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 // EventRecorder appends governance evidence for the release transitions it sees, then
@@ -73,14 +75,12 @@ func NewEventRecorder(store Store, repository string, next release.EventPublishe
 
 // Publish records the governance-relevant events and forwards all of them.
 //
-// A failed append is logged and does not stop the release, matching the outcome tracker
-// beside it. That is a real trade and worth naming: the alternative — failing the publish
-// — turns a full disk into a blocked release, and relicta's own evidence is not worth
-// more than the release it is evidence of. What makes it acceptable is that the loss is
-// visible rather than silent: a missing entry breaks nothing in the chain (the entries
-// around it still link), but the attestation's entry count stops matching the release
-// history, and `relicta audit` prints the chain's length beside the releases it has.
+// A failed append is logged and accumulated, but does not stop forwarding the batch to
+// the next publisher. Returning the error lets EventPublishingRepository retain the
+// events on the live aggregate instead of marking the batch delivered. This does not
+// make retry durable across process exit; that requires an outbox.
 func (r *EventRecorder) Publish(ctx context.Context, events ...release.DomainEvent) error {
+	var publishErr error
 	for _, event := range events {
 		entry := r.entryFor(event)
 		if entry == nil {
@@ -92,13 +92,14 @@ func (r *EventRecorder) Publish(ctx context.Context, events ...release.DomainEve
 				"release_id", string(event.AggregateID()),
 				"entry", entry.ID,
 				"error", err)
+			publishErr = errors.Join(publishErr, fmt.Errorf("append audit event %s for release %s: %w", event.EventName(), event.AggregateID(), err))
 		}
 	}
 
 	if r.next != nil {
-		return r.next.Publish(ctx, events...)
+		publishErr = errors.Join(publishErr, r.next.Publish(ctx, events...))
 	}
-	return nil
+	return publishErr
 }
 
 // entryFor builds the chain entry a transition deserves, or nil for one that is not

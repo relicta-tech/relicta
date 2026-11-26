@@ -6,61 +6,78 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
-// Article12Report is an EU AI Act Article 12 record-keeping bundle.
+const article12EvidenceScope = "Release-governance evidence only: governance-decision or release-record timestamps, release-process duration when available, CGP protocol version, repository change metadata and recorded rationale. Decisions are discovered through release records in the selected period; standalone decisions without a matching release record are not enumerated. Approval-event identities and audit-chain hashes are not included, and audit-chain integrity is not checked by this export. This export does not record each AI system use or automatically generated operational logs and cannot by itself establish that Article 12 logging duties are met."
+
+// Article12Report is a release-governance evidence export mapped to selected
+// EU AI Act Article 12 concepts. It is not an Article 12 operational log.
 //
 // Article 12 (Regulation 2024/1689) requires high-risk AI systems to keep
 // automatic logs of events traceable to identified persons, with the period
 // of each use, reference databases, input data leading to a match, and
-// identification of natural persons verifying results. Article 26(6) sets
-// a minimum retention of six months per log entry; Article 11/Annex IV
-// retains technical documentation for ten years.
+// identification of natural persons verifying results. Articles 19(1) and
+// 26(6) set minimum six-month periods for certain logs retained by providers
+// and deployers respectively, subject to intended purpose and other law.
 //
-// Relicta builds this bundle from the existing CGP audit chain, governance
-// decisions, and approval records — no extra data collection required.
+// Relicta builds this export from governance decisions and release records. It
+// does not load or verify the CGP audit chain or include approval events. It
+// does not record each AI system use or
+// automatically generated operational logs and cannot, by itself, establish
+// that Article 12 logging duties are met.
 type Article12Report struct {
-	// SystemIdentifier names the AI system whose decisions are being logged.
-	// Defaults to the repository identifier under audit.
+	// SystemIdentifier names the target-system/repository identity associated
+	// with the records.
 	SystemIdentifier string `json:"systemIdentifier"`
 
-	// LogEntries contains one event per governance decision in the period.
+	// LogEntries contains governance decisions, with release records filling
+	// gaps when explicit decisions are unavailable.
 	LogEntries []Article12LogEntry `json:"logEntries"`
 
-	// RetentionDeadline is the earliest date entries in this bundle may be
-	// purged (period.End + 6 months per Article 26(6)).
-	RetentionDeadline time.Time `json:"retentionDeadline"`
+	// EvidenceScope states what this export contains and what it does not cover.
+	EvidenceScope string `json:"evidenceScope"`
 
-	// AuditChainIntegrityVerified reports whether the underlying CGP audit
-	// chain was verified at report generation time. False signals tampering
-	// or storage corruption — auditors should reject the report.
-	AuditChainIntegrityVerified bool `json:"auditChainIntegrityVerified"`
+	// SuggestedRetentionDate is six months after the report period end. It is
+	// an export-based reference only; actual duties depend on role, intended
+	// purpose, and other applicable law.
+	SuggestedRetentionDate time.Time `json:"suggestedRetentionDate"`
+
+	// AuditChainIntegrityStatus reports whether the underlying chain was
+	// checked. This report generator does not load or verify the CGP audit chain.
+	AuditChainIntegrityStatus string `json:"auditChainIntegrityStatus"`
 
 	// GenerationNotes captures any caveats encountered during report
 	// generation (missing audit trails, unparseable timestamps, etc.).
 	GenerationNotes []string `json:"generationNotes,omitempty"`
 }
 
-// Article12LogEntry is a single Article 12 log record.
+// Article12LogEntry is a single release-governance evidence record mapped to
+// selected Article 12 concepts.
 //
-// Field mapping (Article 12 §1, point 1(a) Annex III specialisation):
+// Relicta evidence fields (not a one-to-one mapping to statutory fields):
 //
-//	StartedAt / EndedAt          → period of each use of the system
-//	ReferenceData                → reference database against which input was checked
-//	InputData                    → input data for which the search led to a match
-//	Verifiers                    → identification of natural persons involved in verification
-//	OutputDecision / OutputRationale → output produced
-//	AuditChainHash               → tamper-evidence handle into the underlying chain
+//	ReleaseProcessStartedAt      → release process start inferred from recorded duration when available
+//	ReleaseRecordedAt            → release record or governance decision timestamp
+//	ReferenceData                → CGP protocol version
+//	InputData                    → repository and change metadata/counts, not raw AI inputs
+//	Verifiers                    → not populated by the current report generator
+//	OutputDecision / OutputRationale → recorded governance outcome
+//	AuditChainHash               → not populated by the current report generator
 type Article12LogEntry struct {
+	// EvidenceScope travels with each JSONL/CSV row so an individual record
+	// retains its limitation when exported or uploaded separately.
+	EvidenceScope string `json:"evidenceScope"`
+
 	// EntryID is a stable identifier for this log entry.
 	EntryID string `json:"entryId"`
 
-	// EventTimestamp is when the entry was recorded (decision timestamp).
+	// EventTimestamp is the decision timestamp when available, otherwise the
+	// release-record timestamp.
 	EventTimestamp time.Time `json:"eventTimestamp"`
 
-	// SystemIdentifier names the AI system at the time of the event.
+	// SystemIdentifier names the configured target-system/repository identity.
 	SystemIdentifier string `json:"systemIdentifier"`
 
 	// ReleaseID is the release/proposal this event is tied to.
@@ -69,26 +86,27 @@ type Article12LogEntry struct {
 	// Version is the version under governance.
 	Version string `json:"version"`
 
-	// StartedAt is the start of the use period (proposal creation).
-	StartedAt time.Time `json:"startedAt"`
+	// ReleaseProcessStartedAt is inferred from release time minus recorded
+	// process duration when available; otherwise it equals the record timestamp.
+	// It is not the start of an AI system use or necessarily proposal creation.
+	ReleaseProcessStartedAt time.Time `json:"releaseProcessStartedAt"`
 
-	// EndedAt is the end of the use period (decision timestamp).
-	EndedAt time.Time `json:"endedAt"`
+	// ReleaseRecordedAt is the release record timestamp or decision timestamp.
+	ReleaseRecordedAt time.Time `json:"releaseRecordedAt"`
 
-	// ReferenceData identifies the reference databases checked.
-	// For Relicta, these are policy revisions, risk-model versions, and
-	// audit chain anchors.
+	// ReferenceData identifies governance references included in the source
+	// record. The current report generator only populates CGPVersion.
 	ReferenceData ReferenceData `json:"referenceData"`
 
-	// InputData captures the input that led to the governance match.
+	// InputData captures repository change metadata used by release governance.
 	InputData InputData `json:"inputData"`
 
-	// Actor is the entity that initiated the proposal.
+	// Actor is the entity recorded as responsible for the governed release.
 	Actor cgp.Actor `json:"actor"`
 
-	// Verifiers lists natural persons who verified the result (approvers).
-	// Empty list signals an autonomous decision — auditors will scrutinize.
-	Verifiers []Verifier `json:"verifiers"`
+	// Verifiers can list recorded governance approvers. The current report
+	// generator does not populate approval events; an empty list means unknown.
+	Verifiers []Verifier `json:"verifiers,omitempty"`
 
 	// OutputDecision is the governance decision recorded.
 	OutputDecision string `json:"outputDecision"`
@@ -99,11 +117,12 @@ type Article12LogEntry struct {
 	// RiskScore at decision time (0.0–1.0).
 	RiskScore float64 `json:"riskScore"`
 
-	// AuditChainHash is the hash-chained audit anchor for tamper-evidence.
+	// AuditChainHash is a source-provided hash-chain anchor, when available.
+	// The current report generator does not load audit-chain entries.
 	AuditChainHash string `json:"auditChainHash,omitempty"`
 }
 
-// ReferenceData captures the reference inputs used by the AI system.
+// ReferenceData captures references used by release governance.
 type ReferenceData struct {
 	// PolicyID identifies the governance policy applied.
 	PolicyID string `json:"policyId,omitempty"`
@@ -118,7 +137,7 @@ type ReferenceData struct {
 	CGPVersion string `json:"cgpVersion"`
 }
 
-// InputData captures the input that the AI system processed.
+// InputData captures repository and change metadata, not raw AI-system input.
 type InputData struct {
 	// Repository under change.
 	Repository string `json:"repository"`
@@ -157,13 +176,15 @@ type Verifier struct {
 // buildArticle12 constructs an Article12Report from fetched data.
 //
 // The system identifier is taken from config.Repository when set.
-// The retention deadline is six months past the report period's end.
+// The export-based suggested date is six months past the report period end;
+// this is not a determination of a particular entity's legal obligations.
 func (g *Generator) buildArticle12(data *reportData, systemID string) *Article12Report {
 	report := &Article12Report{
-		SystemIdentifier:            systemID,
-		LogEntries:                  make([]Article12LogEntry, 0, len(data.releases)),
-		RetentionDeadline:           data.period.End.AddDate(0, 6, 0),
-		AuditChainIntegrityVerified: true,
+		SystemIdentifier:          systemID,
+		LogEntries:                make([]Article12LogEntry, 0, len(data.releases)),
+		EvidenceScope:             article12EvidenceScope,
+		SuggestedRetentionDate:    data.period.End.AddDate(0, 6, 0),
+		AuditChainIntegrityStatus: "not_checked",
 	}
 
 	if systemID == "" {
@@ -197,6 +218,12 @@ func (g *Generator) buildArticle12(data *reportData, systemID string) *Article12
 		}
 		report.LogEntries = append(report.LogEntries, buildLogEntryFromRelease(r, report.SystemIdentifier))
 	}
+	for i := range report.LogEntries {
+		report.LogEntries[i].EvidenceScope = report.EvidenceScope
+	}
+	report.GenerationNotes = append(report.GenerationNotes,
+		"CGP audit-chain integrity is not checked by this report; run `relicta audit verify` separately",
+		"approval-event identities and audit-chain hashes are not included; an empty verifier list does not establish an autonomous decision")
 
 	if len(report.LogEntries) == 0 {
 		report.GenerationNotes = append(report.GenerationNotes,
@@ -206,16 +233,16 @@ func (g *Generator) buildArticle12(data *reportData, systemID string) *Article12
 	return report
 }
 
-// buildLogEntryFromDecision converts a CGP GovernanceDecision into an
-// Article 12 log entry, enriching from the release record when available.
+// buildLogEntryFromDecision converts a CGP GovernanceDecision into a
+// release-governance evidence record, enriching from the release when available.
 func buildLogEntryFromDecision(d *cgp.GovernanceDecision, releases map[string]*memory.ReleaseRecord, systemID string) Article12LogEntry {
 	entry := Article12LogEntry{
-		EntryID:          fmt.Sprintf("art12:%s", d.ID),
-		EventTimestamp:   d.Timestamp,
-		SystemIdentifier: systemID,
-		ReleaseID:        d.ProposalID,
-		StartedAt:        d.Timestamp, // best-effort; refined from release below
-		EndedAt:          d.Timestamp,
+		EntryID:                 fmt.Sprintf("art12:%s", d.ID),
+		EventTimestamp:          d.Timestamp,
+		SystemIdentifier:        systemID,
+		ReleaseID:               d.ProposalID,
+		ReleaseProcessStartedAt: d.Timestamp,
+		ReleaseRecordedAt:       d.Timestamp,
 		ReferenceData: ReferenceData{
 			CGPVersion: d.CGPVersion,
 		},
@@ -234,28 +261,28 @@ func buildLogEntryFromDecision(d *cgp.GovernanceDecision, releases map[string]*m
 			BreakingChanges: rel.BreakingChanges,
 			SecurityChanges: rel.SecurityChanges,
 		}
-		// Refine the use period to span proposal-to-publish if duration is known.
+		// Derive the release-process start from recorded duration when known.
 		if rel.Duration > 0 {
-			entry.StartedAt = rel.ReleasedAt.Add(-rel.Duration)
-			entry.EndedAt = rel.ReleasedAt
+			entry.ReleaseProcessStartedAt = rel.ReleasedAt.Add(-rel.Duration)
+			entry.ReleaseRecordedAt = rel.ReleasedAt
 		}
 	}
 
 	return entry
 }
 
-// buildLogEntryFromRelease produces an Article 12 entry directly from a
+// buildLogEntryFromRelease produces a governance evidence record directly from a
 // release record when no explicit decision metadata is available.
 func buildLogEntryFromRelease(r *memory.ReleaseRecord, systemID string) Article12LogEntry {
 	entry := Article12LogEntry{
-		EntryID:          fmt.Sprintf("art12:rel:%s", r.ID),
-		EventTimestamp:   r.ReleasedAt,
-		SystemIdentifier: systemID,
-		ReleaseID:        r.ID,
-		Version:          r.Version,
-		StartedAt:        r.ReleasedAt,
-		EndedAt:          r.ReleasedAt,
-		Actor:            r.Actor,
+		EntryID:                 fmt.Sprintf("art12:rel:%s", r.ID),
+		EventTimestamp:          r.ReleasedAt,
+		SystemIdentifier:        systemID,
+		ReleaseID:               r.ID,
+		Version:                 r.Version,
+		ReleaseProcessStartedAt: r.ReleasedAt,
+		ReleaseRecordedAt:       r.ReleasedAt,
+		Actor:                   r.Actor,
 		InputData: InputData{
 			Repository:      r.Repository,
 			FilesChanged:    r.FilesChanged,
@@ -267,14 +294,13 @@ func buildLogEntryFromRelease(r *memory.ReleaseRecord, systemID string) Article1
 		RiskScore:      r.RiskScore,
 	}
 	if r.Duration > 0 {
-		entry.StartedAt = r.ReleasedAt.Add(-r.Duration)
+		entry.ReleaseProcessStartedAt = r.ReleasedAt.Add(-r.Duration)
 	}
 	return entry
 }
 
-// RenderJSONL emits one Article 12 log entry per line. JSON Lines is the
-// canonical format for Article 12 logs because each line is independently
-// readable and append-friendly for streaming retention systems.
+// RenderJSONL emits one release-governance evidence record per line. Each row
+// carries its evidence scope so it is not mistaken for an operational AI log.
 func RenderJSONL(report *Article12Report) (string, error) {
 	if report == nil {
 		return "", fmt.Errorf("nil report")
@@ -290,20 +316,20 @@ func RenderJSONL(report *Article12Report) (string, error) {
 	return b.String(), nil
 }
 
-// RenderCSV emits a flat CSV view of Article 12 log entries for regulator
-// portals that ingest tabular evidence (less common but explicitly accepted).
+// RenderCSV emits a flat CSV view of release-governance evidence records.
 func RenderCSV(report *Article12Report) (string, error) {
 	if report == nil {
 		return "", fmt.Errorf("nil report")
 	}
 	var b strings.Builder
-	b.WriteString("entry_id,event_timestamp,started_at,ended_at,system_id,release_id,version,actor_kind,actor_id,decision,risk_score,verifiers,policy_id,policy_version,risk_model_version,cgp_version,repository,files_changed,lines_changed,breaking_changes,security_changes,audit_chain_hash\n")
+	b.WriteString("evidence_scope,entry_id,event_timestamp,release_process_started_at,release_recorded_at,system_id,release_id,version,actor_kind,actor_id,decision,risk_score,cgp_version,repository,files_changed,lines_changed,breaking_changes,security_changes\n")
 	for _, e := range report.LogEntries {
-		fmt.Fprintf(&b, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%.4f,%s,%s,%s,%s,%s,%s,%d,%d,%d,%d,%s\n",
+		fmt.Fprintf(&b, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%.4f,%s,%s,%d,%d,%d,%d\n",
+			csvEscape(e.EvidenceScope),
 			csvEscape(e.EntryID),
 			e.EventTimestamp.UTC().Format(time.RFC3339),
-			e.StartedAt.UTC().Format(time.RFC3339),
-			e.EndedAt.UTC().Format(time.RFC3339),
+			e.ReleaseProcessStartedAt.UTC().Format(time.RFC3339),
+			e.ReleaseRecordedAt.UTC().Format(time.RFC3339),
 			csvEscape(e.SystemIdentifier),
 			csvEscape(e.ReleaseID),
 			csvEscape(e.Version),
@@ -311,28 +337,15 @@ func RenderCSV(report *Article12Report) (string, error) {
 			csvEscape(e.Actor.ID),
 			csvEscape(e.OutputDecision),
 			e.RiskScore,
-			csvEscape(joinVerifiers(e.Verifiers)),
-			csvEscape(e.ReferenceData.PolicyID),
-			csvEscape(e.ReferenceData.PolicyVersion),
-			csvEscape(e.ReferenceData.RiskModelVersion),
 			csvEscape(e.ReferenceData.CGPVersion),
 			csvEscape(e.InputData.Repository),
 			e.InputData.FilesChanged,
 			e.InputData.LinesChanged,
 			e.InputData.BreakingChanges,
 			e.InputData.SecurityChanges,
-			csvEscape(e.AuditChainHash),
 		)
 	}
 	return b.String(), nil
-}
-
-func joinVerifiers(verifiers []Verifier) string {
-	parts := make([]string, 0, len(verifiers))
-	for _, v := range verifiers {
-		parts = append(parts, fmt.Sprintf("%s:%s", v.Kind, v.ID))
-	}
-	return strings.Join(parts, "|")
 }
 
 func csvEscape(s string) string {

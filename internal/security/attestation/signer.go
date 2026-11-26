@@ -96,7 +96,7 @@ func (s *Signer) Sign(ctx context.Context, stmt *Statement) (*SignedAttestation,
 		return att, nil
 
 	case SigningModeKeyless:
-		return nil, fmt.Errorf("keyless signing requires sigstore-go; install with: go get github.com/sigstore/sigstore-go")
+		return nil, fmt.Errorf("keyless signing is not implemented end to end (sigstore-go integration, bundle persistence, and OIDC identity/trust verification are missing)")
 
 	default:
 		return nil, fmt.Errorf("unsupported signing mode: %s", s.mode)

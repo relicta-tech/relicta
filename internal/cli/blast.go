@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/blast"
-	"github.com/relicta-tech/relicta/v4/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/application/blast"
+	"github.com/relicta-tech/relicta/v5/internal/container"
 )
 
 // Risk score thresholds for formatting badges

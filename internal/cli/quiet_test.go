@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // output.quiet had no reader, so a repository that asked for quiet output got the full chrome

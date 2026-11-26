@@ -1,0 +1,13 @@
+scan:
+  intelligence:
+    # CI checks public advisories directly through OSV.dev and does not send
+    # dependency metadata to the Klarlabs intelligence service.
+    disabled: true
+  slop:
+    # Use Nox's signed-in-binary feed so scans do not depend on the feed
+    # service being reachable at scan time.
+    feed: bundled
+plugins:
+  required:
+    - nox/depconfusion@0.2.4
+    - nox/attack-surface@0.3.0

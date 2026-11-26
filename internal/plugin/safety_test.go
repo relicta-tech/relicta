@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 func TestValidateSafety_UndeclaredIsGracePeriodWarning(t *testing.T) {

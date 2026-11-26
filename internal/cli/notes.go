@@ -6,16 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 var (
 	notesOutput       string
+	notesDraftFile    string
 	notesTone         string
 	notesAudience     string
 	notesIncludeEmoji bool
@@ -24,6 +26,7 @@ var (
 
 func init() {
 	notesCmd.Flags().StringVarP(&notesOutput, "output", "o", "", "output file (default: stdout)")
+	notesCmd.Flags().StringVar(&notesDraftFile, "draft-file", "", "read a customer-facing draft from a file (relative paths use the repository root)")
 	notesCmd.Flags().StringVarP(&notesTone, "tone", "t", "", "AI tone (technical, friendly, professional, marketing)")
 	notesCmd.Flags().StringVarP(&notesAudience, "audience", "a", "", "target audience (developers, users, public, stakeholders)")
 	notesCmd.Flags().BoolVar(&notesIncludeEmoji, "emoji", false, "include emojis in output")
@@ -38,17 +41,9 @@ func buildNotesInputForServices(repoRoot string, hasAI bool) releaseapp.Generate
 			AudiencePreset: notesAudience,
 			TonePreset:     notesTone,
 			IncludeEmoji:   notesIncludeEmoji,
-			// Follows ai.enabled in config, the same rule `relicta release` uses.
-			//
-			// The --ai flag is gone (ADR-009, ADR-010). ADR-009's position is that
-			// relicta emits the structured material and the caller writes the prose,
-			// so an ad-hoc "generate prose this once" switch works against the grain
-			// of the deterministic path — and it defaulted to false, so it was
-			// opt-in on top of an opt-in. Configuration remains the way to ask for
-			// AI notes, which keeps notes and release consistent: they disagreed
-			// before, one reading a flag and the other the config.
-			UseAI:         cfg.AI.Enabled && hasAI,
-			RepositoryURL: cfg.Changelog.RepositoryURL,
+			UseAI:          cfg.AI.Enabled && hasAI,
+			Language:       notesLanguage,
+			RepositoryURL:  cfg.Changelog.RepositoryURL,
 		},
 		Actor: ports.ActorInfo{
 			Type: "user",
@@ -106,6 +101,9 @@ func runNotes(cmd *cobra.Command, args []string) error {
 	if !app.HasReleaseServices() {
 		return fmt.Errorf("release services not available")
 	}
+	if cfg != nil && cfg.AI.Enabled && !app.HasAI() {
+		printWarning("AI notes were requested but no configured provider is available; generating a deterministic changelog instead.")
+	}
 
 	services := app.ReleaseServices()
 	if services == nil || services.GenerateNotes == nil {
@@ -121,6 +119,23 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 
 	// Build input
 	input := buildNotesInputForServices(repoPath, app.HasAI())
+	if notesDraftFile != "" {
+		draftPath := notesDraftFile
+		if !filepath.IsAbs(draftPath) {
+			draftPath = filepath.Join(repoPath, draftPath)
+		}
+		draft, err := os.ReadFile(draftPath)
+		if err != nil {
+			return fmt.Errorf("failed to read release-notes draft %q: %w", notesDraftFile, err)
+		}
+		if strings.TrimSpace(string(draft)) == "" {
+			return fmt.Errorf("release-notes draft %q is empty", notesDraftFile)
+		}
+		input.DraftText = string(draft)
+	}
+	if !input.Options.UseAI && (notesAudience != "" || notesTone != "" || notesLanguage != "English") {
+		printWarning("--audience, --tone, and --language only affect AI-generated notes. Enable AI in .relicta.yaml.")
+	}
 
 	// Tell the user which auto-detected provider will serve this request —
 	// only now that AI is actually being used (issue #127: this notice used
@@ -163,9 +178,17 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 	// Output notes
 	fmt.Println()
 	printTitle("Release Notes")
-	fmt.Println()
 	if output.Notes != nil {
+		fmt.Printf("Source: %s\n", notesSourceLabel(output.Notes.Provider))
+		if output.Notes.Provider == "changelog-fallback" {
+			printWarning("AI release-note prose could not be generated; the saved text contains only the changelog. Rewrite it for customers before approval.")
+		} else if input.Options.UseAI && output.Notes.Provider == "basic" {
+			printWarning("AI-generated release-note prose was not produced; deterministic changelog text was saved. Rewrite it for customers before approval.")
+		}
+		fmt.Println()
 		fmt.Println(output.Notes.Text)
+	} else {
+		fmt.Println()
 	}
 
 	// Write to file if specified
@@ -182,12 +205,26 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 	return nil
 }
 
+// notesSourceLabel describes how the persisted release notes were authored.
+func notesSourceLabel(provider string) string {
+	switch provider {
+	case "", "basic":
+		return "deterministic template"
+	case "agent":
+		return "calling agent draft"
+	case "changelog-fallback":
+		return "AI changelog only; release-note prose unavailable"
+	default:
+		return "AI-generated (" + provider + ")"
+	}
+}
+
 // outputNotesJSONFromServices outputs notes as JSON from domain services.
 func outputNotesJSONFromServices(ctx context.Context, output *releaseapp.GenerateNotesOutput, repoPath string, app cliApp) error {
 	result := map[string]any{
 		"release_id":   string(output.RunID),
 		"inputs_hash":  output.InputsHash,
-		"ai_generated": output.Notes != nil && output.Notes.Provider != "" && output.Notes.Provider != "basic",
+		"ai_generated": output.Notes != nil && output.Notes.Provider != "" && output.Notes.Provider != "basic" && output.Notes.Provider != "agent",
 	}
 
 	if output.Notes != nil {
@@ -196,6 +233,11 @@ func outputNotesJSONFromServices(ctx context.Context, output *releaseapp.Generat
 		result["audience_preset"] = output.Notes.AudiencePreset
 		result["provider"] = output.Notes.Provider
 		result["model"] = output.Notes.Model
+		if output.Notes.Provider == "changelog-fallback" {
+			result["warning"] = "AI release-note prose could not be generated; the saved text contains only the changelog. Rewrite it for customers before approval."
+		} else if cfg != nil && cfg.AI.Enabled && output.Notes.Provider == "basic" {
+			result["warning"] = "AI-generated release-note prose was not produced; deterministic changelog text was saved. Rewrite it for customers before approval."
+		}
 	}
 
 	// Try to get version from the release

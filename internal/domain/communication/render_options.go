@@ -5,14 +5,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // RenderOptions describes how a changelog entry is built and rendered.
 //
 // Every field here corresponds to a `changelog.*` setting that shipped with a default and was
-// read by nothing: format, exclude, categories, include_commit_hash, include_author,
+// read by nothing: format, template, exclude, categories, include_commit_hash, include_author,
 // include_date, link_commits. The defaults describe a Keep a Changelog renderer precisely —
 // and what a release actually wrote was a flat list of commit subjects with no version
 // heading, so consecutive releases ran together in one undifferentiated file.
@@ -20,9 +20,11 @@ import (
 // A domain value rather than the config struct: the translation from configuration happens at
 // the edge, and the renderer stays testable without one.
 type RenderOptions struct {
-	// Format selects the rendering style. Only the entry layout differs; the section
-	// contents are the same.
+	// Format selects the section layout and vocabulary, or custom template rendering.
 	Format ChangelogFormat
+	// TemplatePath is the custom Go text/template used when Format is FormatCustom.
+	// Its input is a ChangelogEntry.
+	TemplatePath string
 
 	// GroupBy decides what an entry's sections are: one per commit type, one per commit
 	// scope, or none at all. The zero value groups by type, which is the shipped default.

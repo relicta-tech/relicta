@@ -2,10 +2,12 @@ package receiver
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -19,10 +21,11 @@ type collectingHandler struct {
 	incidents []Incident
 }
 
-func (h *collectingHandler) handle(inc Incident) {
+func (h *collectingHandler) handle(_ context.Context, inc Incident) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.incidents = append(h.incidents, inc)
+	return nil
 }
 
 func (h *collectingHandler) get() []Incident {
@@ -192,6 +195,63 @@ func TestWebhookReceiver_Generic(t *testing.T) {
 	}
 	if incidents[0].Name != "CustomAlert" {
 		t.Errorf("expected CustomAlert, got %s", incidents[0].Name)
+	}
+}
+
+func TestWebhookReceiver_ProcessingFailureIsRetryable(t *testing.T) {
+	recv := NewWebhookReceiver("", func(context.Context, Incident) error {
+		return errors.New("storage unavailable")
+	})
+	body, err := json.Marshal(genericPayload{ID: "gen-2", Name: "CustomAlert"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/webhook/generic", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	recv.HandleWebhook("generic")(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestWebhookReceiver_RejectsOversizedPayload(t *testing.T) {
+	recv := NewWebhookReceiver("", nil)
+	body := bytes.Repeat([]byte(" "), maxWebhookBodyBytes+1)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/generic", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	recv.HandleWebhook("generic")(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestWebhookReceiver_DerivesStableIDWhenProviderOmitsOne(t *testing.T) {
+	collector := &collectingHandler{}
+	recv := NewWebhookReceiver("", collector.handle)
+	body, err := json.Marshal(genericPayload{
+		Name:        "CustomAlert",
+		Severity:    "warning",
+		Description: "Something happened",
+		Service:     "auth-service",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		req := httptest.NewRequest(http.MethodPost, "/webhook/generic", bytes.NewReader(body))
+		w := httptest.NewRecorder()
+		recv.HandleWebhook("generic")(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+		}
+	}
+	incidents := collector.get()
+	if len(incidents) != 2 || incidents[0].ID == "" || incidents[0].ID != incidents[1].ID {
+		t.Fatalf("retry IDs = %#v, want the same non-empty ID", incidents)
 	}
 }
 

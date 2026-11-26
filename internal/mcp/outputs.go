@@ -1,8 +1,8 @@
 package mcp
 
 import (
-	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/application/recommendation"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // Structured tool outputs.
@@ -28,6 +28,9 @@ type StatusToolOutput struct {
 	CanApprove      bool   `json:"can_approve"`
 	NextAction      string `json:"next_action"`
 	ApprovalMessage string `json:"approval_message,omitempty"`
+	Notes           string `json:"notes,omitempty"`
+	NotesSource     string `json:"notes_source,omitempty"`
+	NotesWarning    string `json:"notes_warning,omitempty"`
 	Stale           bool   `json:"stale,omitempty"`
 	Warning         string `json:"warning,omitempty"`
 }
@@ -43,21 +46,39 @@ type PlanCommitInfo struct {
 
 // PlanToolOutput is the structured output for relicta_plan.
 type PlanToolOutput struct {
-	ReleaseID      string           `json:"release_id"`
-	CurrentVersion string           `json:"current_version"`
-	NextVersion    string           `json:"next_version"`
-	ReleaseType    string           `json:"release_type"`
-	CommitCount    int              `json:"commit_count"`
-	HasBreaking    bool             `json:"has_breaking"`
-	HasFeatures    bool             `json:"has_features"`
-	HasFixes       bool             `json:"has_fixes"`
-	Commits        []PlanCommitInfo `json:"commits,omitempty"`
+	ReleaseID               string           `json:"release_id"`
+	CurrentVersion          string           `json:"current_version"`
+	NextVersion             string           `json:"next_version"`
+	ReleaseType             string           `json:"release_type"`
+	Warnings                []string         `json:"warnings,omitempty"`
+	VersionLineAcknowledged bool             `json:"version_line_acknowledged"`
+	CommitCount             int              `json:"commit_count"`
+	HasBreaking             bool             `json:"has_breaking"`
+	HasFeatures             bool             `json:"has_features"`
+	HasFixes                bool             `json:"has_fixes"`
+	Commits                 []PlanCommitInfo `json:"commits,omitempty"`
 
 	// Recommendation is the deterministic artifact (ADR-009): the facts needed to
 	// write release notes, plus the provenance to verify them. Present so a
 	// calling agent can write the prose itself rather than having Relicta call a
 	// second model with less context than the agent already has.
-	Recommendation *recommendation.Artifact `json:"recommendation,omitempty"`
+	Recommendation          *recommendation.Artifact `json:"recommendation,omitempty"`
+	RecommendationPersisted bool                     `json:"recommendation_persisted"`
+	RecommendationWarning   string                   `json:"recommendation_warning,omitempty"`
+}
+
+// NotesToolOutput is the structured output for relicta_notes.
+type NotesToolOutput struct {
+	ReleaseID     string `json:"release_id"`
+	Version       string `json:"version"`
+	State         string `json:"state"`
+	Notes         string `json:"notes"`
+	Summary       string `json:"summary"`
+	Changelog     string `json:"changelog,omitempty"`
+	AIGenerated   bool   `json:"ai_generated"`
+	AgentAuthored bool   `json:"agent_authored"`
+	Source        string `json:"source,omitempty"`
+	Warning       string `json:"warning,omitempty"`
 }
 
 // InferVersionToolOutput is the structured output for relicta_infer_version.

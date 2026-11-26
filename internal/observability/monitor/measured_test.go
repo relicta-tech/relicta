@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
 )
 
 // No data beats wrong data.

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // Reconcile detects an ungoverned deployment after it happened; Authorize refuses it

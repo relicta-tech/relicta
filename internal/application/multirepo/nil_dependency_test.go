@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/multirepo"
 )
 
 // The CLI built this coordinator with NewCoordinator(nil, nil), and both nils were

@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
 )
 
 // The dashboard's observability routes distinguish "nobody is watching" from "everything is
@@ -42,9 +42,9 @@ func TestAConfiguredProviderInstallsAService(t *testing.T) {
 	if svc == nil {
 		t.Fatal("a configured provider installed no service")
 	}
-	if len(svc.GetProviderStatuses()) != 1 {
+	if len(svc.GetProviderStatuses(context.Background())) != 1 {
 		t.Errorf("the installed service reports %d providers, want 1",
-			len(svc.GetProviderStatuses()))
+			len(svc.GetProviderStatuses(context.Background())))
 	}
 }
 
@@ -72,20 +72,20 @@ func (w *watchRecorder) GetDeploymentHealth() []monitor.HealthStatus { return ni
 func (w *watchRecorder) GetCorrelations(string) []correlation.ReleaseCorrelation {
 	return nil
 }
-func (w *watchRecorder) GetProviderStatuses() []providers.ProviderStatus { return nil }
-func (w *watchRecorder) HandleWebhook(string) http.HandlerFunc           { return nil }
+func (w *watchRecorder) GetProviderStatuses(context.Context) []providers.ProviderStatus { return nil }
+func (w *watchRecorder) HandleWebhook(string) http.HandlerFunc                          { return nil }
 
 // Only a published release is watched. A plan or an approval has not been deployed, and
 // watching one would attribute whatever the metrics show to a release that has not shipped.
 func TestOnlyAPublishedReleaseIsWatched(t *testing.T) {
 	rec := &watchRecorder{}
 
-	startHealthWatch(rec, &release.RunPublishedEvent{RunID: "run-1"})
+	startHealthWatch(context.Background(), rec, &release.RunPublishedEvent{RunID: "run-1"})
 	if len(rec.watched) != 1 || rec.watched[0] != "run-1" {
 		t.Fatalf("watched %v, want [run-1]", rec.watched)
 	}
 
-	startHealthWatch(rec, &release.RunPlannedEvent{RunID: "run-2"})
+	startHealthWatch(context.Background(), rec, &release.RunPlannedEvent{RunID: "run-2"})
 	if len(rec.watched) != 1 {
 		t.Errorf("watched %v after a plan event; a release that has not shipped has nothing "+
 			"to observe", rec.watched)
@@ -95,5 +95,5 @@ func TestOnlyAPublishedReleaseIsWatched(t *testing.T) {
 // A service that cannot watch — one built without a health monitor — must not panic the
 // event subscription it is called from.
 func TestAServiceThatCannotWatchIsSkipped(t *testing.T) {
-	startHealthWatch(nil, &release.RunPublishedEvent{RunID: "run-1"})
+	startHealthWatch(context.Background(), nil, &release.RunPublishedEvent{RunID: "run-1"})
 }

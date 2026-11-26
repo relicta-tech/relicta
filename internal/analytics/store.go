@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/fileutil"
+	"github.com/relicta-tech/relicta/v5/internal/fileutil"
 )
 
 // MaxEventFileSize is the maximum allowed size for analytics event files (1MB).
@@ -43,6 +43,15 @@ type FileStore struct {
 func NewFileStore(basePath string) (*FileStore, error) {
 	if err := os.MkdirAll(basePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create analytics directory: %w", err)
+	}
+	return &FileStore{basePath: basePath}, nil
+}
+
+// OpenFileStore opens an existing file store for reading without creating or changing its
+// directory. A missing directory represents an empty history.
+func OpenFileStore(basePath string) (*FileStore, error) {
+	if basePath == "" {
+		return nil, fmt.Errorf("analytics directory path is required")
 	}
 	return &FileStore{basePath: basePath}, nil
 }

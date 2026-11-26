@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // The hints exist so a reader does not have to work out the shape of a setting from the schema.

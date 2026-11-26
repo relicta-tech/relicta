@@ -8,8 +8,8 @@ import (
 
 	"github.com/charmbracelet/log"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/security"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/security"
 )
 
 func resetCLIState(t *testing.T) func() {

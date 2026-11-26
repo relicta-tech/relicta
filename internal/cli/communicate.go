@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
 )
 
 var (
@@ -104,9 +105,16 @@ func runCommunicate(cmd *cobra.Command, _ []string) error {
 	bundles := bundler.BundleChanges(run.ChangeSet())
 
 	// Build narrative input
+	productName := strings.TrimSpace(commProductName)
+	if productName == "" && cfg != nil {
+		productName = strings.TrimSpace(cfg.Changelog.ProductName)
+	}
+	if productName == "" {
+		productName = strings.TrimSpace(repoInfo.Name)
+	}
 	input := communication.NarrativeInput{
 		Version:     run.VersionNext().String(),
-		ProductName: commProductName,
+		ProductName: productName,
 		Bundles:     bundles,
 		ChangeSet:   run.ChangeSet(),
 		Format:      format,
@@ -158,7 +166,11 @@ func generateAndOutputNarratives(ctx context.Context, gen *communication.Narrati
 
 		printTitle(fmt.Sprintf("Audience: %s", n.Audience))
 		fmt.Println()
-		fmt.Println(n.Body)
+		if n.Warning != "" {
+			printWarning(n.Warning)
+			fmt.Println()
+		}
+		fmt.Println(narrativeBody(n))
 
 		// Write to file if output dir specified
 		if commOutputDir != "" {
@@ -166,7 +178,7 @@ func generateAndOutputNarratives(ctx context.Context, gen *communication.Narrati
 			if err := os.MkdirAll(commOutputDir, 0o755); err != nil {
 				return fmt.Errorf("failed to create output directory: %w", err)
 			}
-			if err := os.WriteFile(filename, []byte(n.Body), filePermReadable); err != nil {
+			if err := os.WriteFile(filename, []byte(narrativeArtifactText(n)), filePermReadable); err != nil {
 				return fmt.Errorf("failed to write %s: %w", filename, err)
 			}
 			printSuccess(fmt.Sprintf("Written to %s", filename))
@@ -176,16 +188,57 @@ func generateAndOutputNarratives(ctx context.Context, gen *communication.Narrati
 	return nil
 }
 
+func narrativeArtifactText(n *communication.Narrative) string {
+	if n == nil {
+		return ""
+	}
+	body := narrativeBody(n)
+	if n.Warning == "" {
+		return body
+	}
+	switch n.Format {
+	case communication.OutputHTML:
+		return "<p><strong>Editorial review required:</strong> " + html.EscapeString(n.Warning) + "</p>\n\n" + body
+	case communication.OutputPlainText:
+		return "EDITORIAL REVIEW REQUIRED: " + n.Warning + "\n\n" + body
+	default:
+		return "> **Editorial review required:** " + n.Warning + "\n\n" + body
+	}
+}
+
+func narrativeBody(n *communication.Narrative) string {
+	if n == nil {
+		return ""
+	}
+	body := n.Body
+	titleInBody := n.Title
+	if n.Format == communication.OutputHTML {
+		titleInBody = html.EscapeString(titleInBody)
+	}
+	if n.Provider == "template" || n.Title == "" || strings.HasPrefix(strings.TrimSpace(body), titleInBody) {
+		return body
+	}
+	switch n.Format {
+	case communication.OutputHTML:
+		return "<h1>" + html.EscapeString(n.Title) + "</h1>\n\n" + body
+	case communication.OutputPlainText:
+		return n.Title + "\n" + strings.Repeat("=", len(n.Title)) + "\n\n" + body
+	default:
+		return "# " + n.Title + "\n\n" + body
+	}
+}
+
 func outputNarrativesJSON(narratives []*communication.Narrative) error {
 	results := make([]map[string]any, len(narratives))
 	for i, n := range narratives {
 		results[i] = map[string]any{
 			"audience":     string(n.Audience),
 			"title":        n.Title,
-			"body":         n.Body,
+			"body":         narrativeBody(n),
 			"format":       string(n.Format),
 			"provider":     n.Provider,
 			"generated_at": n.GeneratedAt,
+			"warning":      n.Warning,
 		}
 	}
 

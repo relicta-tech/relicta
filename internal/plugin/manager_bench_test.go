@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/plugin/sandbox"
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/integration"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/sandbox"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 func BenchmarkNewManager(b *testing.B) {
@@ -108,25 +108,25 @@ func BenchmarkCollectPluginsForHook(b *testing.B) {
 
 	b.Run("PostPublish_3_plugins", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
 	b.Run("OnSuccess_2_plugins", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookOnSuccess)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookOnSuccess)
 		}
 	})
 
 	b.Run("OnError_1_plugin", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookOnError)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookOnError)
 		}
 	})
 
 	b.Run("PreInit_0_plugins", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPreInit)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPreInit)
 		}
 	})
 }
@@ -172,19 +172,19 @@ func BenchmarkCollectPluginsForHook_Large(b *testing.B) {
 
 	b.Run("PostPublish_all", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
 	b.Run("OnSuccess_half", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookOnSuccess)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookOnSuccess)
 		}
 	})
 
 	b.Run("OnError_third", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookOnError)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookOnError)
 		}
 	})
 }
@@ -556,7 +556,7 @@ func BenchmarkManager_RegistrationScale(b *testing.B) {
 		populatePlugins(m, 50)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
@@ -566,7 +566,7 @@ func BenchmarkManager_RegistrationScale(b *testing.B) {
 		populatePlugins(m, 100)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
@@ -630,7 +630,7 @@ func BenchmarkPluginDiscovery_LargeScale(b *testing.B) {
 		createMixedPlugins(m, 100, 20)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
@@ -640,7 +640,7 @@ func BenchmarkPluginDiscovery_LargeScale(b *testing.B) {
 		createMixedPlugins(m, 100, 50)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 
@@ -650,7 +650,7 @@ func BenchmarkPluginDiscovery_LargeScale(b *testing.B) {
 		createMixedPlugins(m, 100, 100)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = m.collectPluginsForHook(plugin.HookPostPublish)
+			_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 		}
 	})
 }
@@ -678,7 +678,7 @@ func BenchmarkHookExecution_Overhead(b *testing.B) {
 
 	b.Run("collect_and_check_5_plugins", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			plugins := m.collectPluginsForHook(plugin.HookPostPublish)
+			plugins, _ := m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 			// Access the collected plugin info
 			for _, p := range plugins {
 				_ = p.name // Access plugin name to simulate usage
@@ -782,7 +782,7 @@ func BenchmarkConcurrentPluginOperations(b *testing.B) {
 	b.Run("parallel_collect", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
-				_ = m.collectPluginsForHook(plugin.HookPostPublish)
+				_, _ = m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 			}
 		})
 	})
@@ -835,7 +835,7 @@ func BenchmarkPluginLifecycle(b *testing.B) {
 			_ = adapter
 
 			// 4. Collect plugins for hook
-			plugins := m.collectPluginsForHook(plugin.HookPostPublish)
+			plugins, _ := m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
 			_ = plugins
 
 			// 5. Prepare sandbox for each

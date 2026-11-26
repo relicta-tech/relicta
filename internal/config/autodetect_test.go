@@ -23,8 +23,8 @@ func TestAutoDetectAI_OpenAI(t *testing.T) {
 	if !l.v.GetBool("ai.enabled") {
 		t.Error("expected ai.enabled to be true")
 	}
-	if l.v.GetString("ai.model") != "gpt-4o-mini" {
-		t.Errorf("expected model gpt-4o-mini, got %s", l.v.GetString("ai.model"))
+	if l.v.GetString("ai.model") != "gpt-6-luna" {
+		t.Errorf("expected model gpt-6-luna, got %s", l.v.GetString("ai.model"))
 	}
 }
 
@@ -42,8 +42,8 @@ func TestAutoDetectAI_Anthropic(t *testing.T) {
 	if l.v.GetString("ai.provider") != "anthropic" {
 		t.Errorf("expected provider anthropic, got %s", l.v.GetString("ai.provider"))
 	}
-	if l.v.GetString("ai.model") != "claude-sonnet-4" {
-		t.Errorf("expected model claude-sonnet-4, got %s", l.v.GetString("ai.model"))
+	if l.v.GetString("ai.model") != "claude-sonnet-4-6" {
+		t.Errorf("expected model claude-sonnet-4-6, got %s", l.v.GetString("ai.model"))
 	}
 }
 
@@ -61,8 +61,8 @@ func TestAutoDetectAI_Gemini(t *testing.T) {
 	if l.v.GetString("ai.provider") != "gemini" {
 		t.Errorf("expected provider gemini, got %s", l.v.GetString("ai.provider"))
 	}
-	if l.v.GetString("ai.model") != "gemini-2.0-flash-exp" {
-		t.Errorf("expected model gemini-2.0-flash-exp, got %s", l.v.GetString("ai.model"))
+	if l.v.GetString("ai.model") != "gemini-3.5-flash-lite" {
+		t.Errorf("expected model gemini-3.5-flash-lite, got %s", l.v.GetString("ai.model"))
 	}
 }
 
@@ -80,8 +80,8 @@ func TestAutoDetectAI_AzureOpenAI(t *testing.T) {
 	if l.v.GetString("ai.provider") != "azure-openai" {
 		t.Errorf("expected provider azure-openai, got %s", l.v.GetString("ai.provider"))
 	}
-	if l.v.GetString("ai.model") != "gpt-4" {
-		t.Errorf("expected model gpt-4, got %s", l.v.GetString("ai.model"))
+	if l.v.GetString("ai.model") != "" {
+		t.Errorf("expected deployment name to be unset, got %s", l.v.GetString("ai.model"))
 	}
 }
 

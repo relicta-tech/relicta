@@ -20,9 +20,9 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // OpenGovernanceMemory resolves persistence.backend into a governance memory store for the

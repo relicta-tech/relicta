@@ -7,13 +7,13 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // DefaultMemoryStorePath is where governance history lives inside a repository.
@@ -68,6 +68,7 @@ func NewServiceFromConfig(
 	repoPath string,
 	logger *slog.Logger,
 	memoryStore memory.Store,
+	registryStores ...identity.RegistryStore,
 ) (*Service, error) {
 	if logger == nil {
 		logger = slog.Default()
@@ -132,8 +133,17 @@ func NewServiceFromConfig(
 		opts = append(opts, WithMemoryStore(memoryStore))
 	}
 
-	// Set up identity registry if configured
-	if cfg.IdentityRegistryPath != "" {
+	// A registry supplied by the composition root follows persistence.backend.
+	// Otherwise preserve the file-backed configuration behavior for existing callers.
+	if len(registryStores) > 0 {
+		if registryStores[0] != nil {
+			registry, err := identity.NewRegistry(ctx, registryStores[0], identity.WithLogger(logger))
+			if err != nil {
+				return nil, fmt.Errorf("loading identity registry: %w", err)
+			}
+			opts = append(opts, WithIdentityRegistry(registry))
+		}
+	} else if cfg.IdentityRegistryPath != "" {
 		regDir := cfg.IdentityRegistryPath
 		if !filepath.IsAbs(regDir) && repoPath != "" {
 			regDir = filepath.Join(repoPath, regDir)

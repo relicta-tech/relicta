@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // `relicta release` carried two gaps that `relicta publish` and `relicta bump` did not, and

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
 )
 
 var (
@@ -40,16 +40,30 @@ Supported report types:
                           approval evidence, risk assessments, incidents)
   summary                 General governance summary with risk distribution,
                           approval breakdown, and actor activity
-  eu-ai-act-article-12    EU AI Act Article 12 record-keeping log bundle —
-                          one entry per governance decision with use period,
-                          reference data, input data, verifiers, and audit
-                          chain anchors. 6-month retention enforced.
-  eu-ai-act-annex-iv      EU AI Act Annex IV technical documentation —
-                          eight-section system documentation: general
-                          description, detailed elements, monitoring/control,
-                          risk management, lifecycle changes, harmonized
-                          standards, conformity declaration scaffold, and
-                          post-market monitoring. 10-year retention enforced.
+  eu-ai-act-article-12    Release-governance evidence mapped to EU AI Act
+                          Article 12 concepts — one entry per governance
+                          decision (release records fill gaps) with
+                          governance/release timestamps, change metadata,
+                          and CGP protocol version. Approver identities and
+                          audit-chain hashes are not included, and chain
+                          integrity is not checked by this report. It is
+                          not an operational log of each AI system use and
+                          cannot by itself establish Article 12 logging
+                          compliance. It shows a suggested date six months
+                          after the report period ends. Articles 19(1) and
+                          26(6) set role-specific minimum periods for certain
+                          logs, subject to intended purpose and other law;
+                          confirm actual duties. Relicta does not enforce
+                          storage retention or deletion.
+  eu-ai-act-annex-iv      Draft release-governance evidence mapped to EU AI
+                          Act Annex IV. It is not complete target-system
+                          technical documentation or a conformity assessment;
+                          provider-completed details are marked TODO. Article
+                          18(1) sets a provider documentation period of ten
+                          years from placing on the market or putting into
+                          service. Relicta lacks that event date and does not
+                          calculate a deadline or enforce storage retention/
+                          deletion.
 
 Examples:
 
@@ -115,7 +129,7 @@ func runReport(cmd *cobra.Command, args []string) error {
 	// records: `relicta report --type dora` said "Total Deployments: 0" for a
 	// repository with twelve published releases that `relicta history` listed.
 	//
-	// Empty is not the worst of it. SOC 2 and EU AI Act Article 12 reports are
+	// Empty is not the worst of it. SOC 2 and EU AI Act Article 12 evidence exports are
 	// artifacts someone hands to an auditor, and a clean one — no incidents, no
 	// failures — asserted from data that was never read is an affirmative false
 	// statement, not a missing feature. A report that cannot see the history has to

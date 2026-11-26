@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // CommitInfo contains commit metadata for attribution detection.

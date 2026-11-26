@@ -6,7 +6,7 @@ on:
       version:
         description: 'Relicta version to test'
         required: false
-        default: 'v2.0.0'
+        default: 'v4.2.0'
 
 # Default permissions - least privilege
 permissions:
@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Test Relicta Action
         uses: relicta-tech/relicta-action@0268e9a3001e9483874e5501d59fa929a42130f3 # v2
@@ -27,9 +28,10 @@ jobs:
           version: ${{ github.event.inputs.version }}
           command: plan
           dry-run: 'true'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-approve: 'false'
 
       - name: Verify relicta is installed
         run: |
-          which relicta || echo "relicta not in PATH"
-          relicta version || echo "relicta command failed"
+          set -eu
+          command -v relicta
+          relicta version

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 func setupStore(t *testing.T, releases ...*memory.ReleaseRecord) memory.Store {

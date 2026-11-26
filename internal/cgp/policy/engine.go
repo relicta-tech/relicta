@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // Engine evaluates policies against proposals.
@@ -615,36 +615,27 @@ func buildEvalContext(proposal *cgp.ChangeProposal, analysis *cgp.ChangeAnalysis
 			"repository":  proposal.Scope.Repository,
 			"branch":      proposal.Scope.Branch,
 			"commitRange": proposal.Scope.CommitRange,
-			"fileCount":   len(proposal.Scope.Files),
-			// The paths themselves, not only how many. Only the count was exposed,
-			// so path-ownership rules — "infrastructure changes need the platform
-			// team" — were inexpressible, and the three shipped policies that write
-			// them as `change.files contains "terraform/"` matched nothing.
-			"files": proposal.Scope.Files,
-
-			// How widely the change is spread, which fileCount cannot express: a
-			// thousand-line change inside one package is routine, and a twelve-line
-			// change touching six areas is the one worth a second reader. Combined
-			// with the size operator, `scope.areas size > 3` is that rule.
-			//
-			// These are path-derived breadth, deliberately named for what they
-			// measure rather than "domains" or "packages". Real package attribution
-			// needs the workspace layout, which this engine is not given — see
-			// docs/backlog.md. Approximating it with fileCount was rejected for being
-			// backwards, and approximating it with a name that implies package
-			// boundaries would be the same mistake with better marketing.
-			"areas":     topLevelAreas(proposal.Scope.Files),
-			"areaCount": len(topLevelAreas(proposal.Scope.Files)),
-			// Distinct parent directories, for a finer-grained version of the same
-			// question.
-			"directories":    changedDirectories(proposal.Scope.Files),
-			"directoryCount": len(changedDirectories(proposal.Scope.Files)),
+		}
+		if len(proposal.Scope.Files) > 0 {
+			ctx["scope"].(map[string]any)["files"] = proposal.Scope.Files
+			ctx["scope"].(map[string]any)["fileCount"] = len(proposal.Scope.Files)
+			ctx["scope"].(map[string]any)["areas"] = topLevelAreas(proposal.Scope.Files)
+			ctx["scope"].(map[string]any)["areaCount"] = len(topLevelAreas(proposal.Scope.Files))
+			ctx["scope"].(map[string]any)["directories"] = changedDirectories(proposal.Scope.Files)
+			ctx["scope"].(map[string]any)["directoryCount"] = len(changedDirectories(proposal.Scope.Files))
+		}
+		if len(proposal.Scope.Packages) > 0 {
+			ctx["scope"].(map[string]any)["packages"] = proposal.Scope.Packages
+			ctx["scope"].(map[string]any)["packageCount"] = len(proposal.Scope.Packages)
 		}
 		ctx["commit_count"] = len(proposal.Scope.Commits)
 	}
 
 	// Analysis context
 	if analysis != nil {
+		// Analysis is the authoritative source for detected breaking changes.
+		// Proposal intent is caller supplied and may be empty in release planning.
+		ctx["has_breaking_changes"] = ctx["has_breaking_changes"] == true || analysis.Breaking > 0
 		ctx["change"] = map[string]any{
 			"features":     analysis.Features,
 			"fixes":        analysis.Fixes,

@@ -2,14 +2,23 @@ package protocol
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
-	internalcgp "github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	internalcgp "github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
+
+// ErrRecordNotFound marks an ordinary absent protocol record. Callers can
+// distinguish an incomplete handshake from storage failures or corrupt data.
+var ErrRecordNotFound = errors.New("protocol record not found")
 
 // ProposalStore persists proposals and their associated decisions.
 type ProposalStore interface {
@@ -32,11 +41,18 @@ type ProposalStore interface {
 	GetAuthorization(ctx context.Context, proposalID string) (*cgpsdk.ExecutionAuthorization, error)
 }
 
+// RecordStore adds proposal enumeration for human-readable audit surfaces.
+type RecordStore interface {
+	ProposalStore
+	ListProposals(ctx context.Context) ([]string, error)
+}
+
 // Service bridges CGP wire format messages to the internal evaluation pipeline.
 type Service struct {
-	evaluator *evaluator.Evaluator
-	store     ProposalStore
-	logger    *slog.Logger
+	evaluator  *evaluator.Evaluator
+	store      ProposalStore
+	auditStore audit.Store
+	logger     *slog.Logger
 }
 
 // ServiceOption configures the CGP protocol service.
@@ -54,6 +70,11 @@ func WithStore(store ProposalStore) ServiceOption {
 	return func(s *Service) {
 		s.store = store
 	}
+}
+
+// WithAuditStore appends protocol actions to the repository's shared governance chain.
+func WithAuditStore(store audit.Store) ServiceOption {
+	return func(s *Service) { s.auditStore = store }
 }
 
 // NewService creates a new CGP protocol service.
@@ -83,7 +104,32 @@ func (s *Service) EvaluateProposal(ctx context.Context, proposal *cgpsdk.ChangeP
 
 	// Persist the incoming proposal.
 	if err := s.store.SaveProposal(ctx, proposal); err != nil {
-		s.logger.Warn("failed to persist proposal", "error", err)
+		return nil, fmt.Errorf("persist proposal %s: %w", proposal.ID, err)
+	}
+	if s.auditStore != nil {
+		proposalDetails := map[string]any{
+			"repository":  proposal.Scope.Repository,
+			"branch":      proposal.Scope.Branch,
+			"commitRange": proposal.Scope.CommitRange,
+			"commits":     proposal.Scope.Commits,
+			"files":       proposal.Scope.Files,
+			"summary":     proposal.Intent.Summary,
+			"confidence":  proposal.Intent.Confidence,
+			"categories":  proposal.Intent.Categories,
+		}
+		detailsJSON, err := json.Marshal(proposalDetails)
+		if err != nil {
+			return nil, fmt.Errorf("encode proposal audit event %s: %w", proposal.ID, err)
+		}
+		detailsHash := sha256.Sum256(detailsJSON)
+		entry := audit.NewEntry(proposal.ID+"_proposal_"+hex.EncodeToString(detailsHash[:8]), audit.EventProposalReceived).
+			WithProposal(proposal.ID).
+			WithActor(proposal.Actor.ID, internalcgp.ActorKind(proposal.Actor.Kind)).
+			WithTimestamp(proposal.Timestamp).
+			WithDetails(proposalDetails).Build()
+		if err := audit.NewRecorder(s.auditStore, proposal.Scope.Repository).RecordIgnoringDuplicate(ctx, entry); err != nil {
+			return nil, fmt.Errorf("record proposal audit event %s: %w", proposal.ID, err)
+		}
 	}
 
 	// Convert SDK types to internal types for the evaluator.
@@ -99,7 +145,22 @@ func (s *Service) EvaluateProposal(ctx context.Context, proposal *cgpsdk.ChangeP
 
 	// Persist the decision.
 	if err := s.store.SaveDecision(ctx, decision); err != nil {
-		s.logger.Warn("failed to persist decision", "error", err)
+		return nil, fmt.Errorf("persist decision for proposal %s: %w", proposal.ID, err)
+	}
+	if s.auditStore != nil {
+		entry := audit.NewEntry(decision.ID+"_decision", audit.EventDecisionMade).
+			WithProposal(decision.ProposalID).
+			WithTimestamp(decision.Timestamp).
+			WithDetail("decision", decision.Decision).
+			WithDetail("riskScore", decision.RiskScore).
+			WithDetail("riskFactors", result.Decision.RiskFactors).
+			WithDetail("recommendedVersion", decision.RecommendedVersion).
+			WithDetail("rationale", decision.Rationale).
+			WithDetail("requiredActions", decision.RequiredActions).
+			WithDetail("conditions", decision.Conditions).Build()
+		if err := audit.NewRecorder(s.auditStore, proposal.Scope.Repository).RecordIgnoringDuplicate(ctx, entry); err != nil {
+			return nil, fmt.Errorf("record decision audit event %s: %w", decision.ID, err)
+		}
 	}
 
 	s.logger.Info("CGP evaluation complete",
@@ -144,6 +205,22 @@ func (s *Service) RecordAuthorization(ctx context.Context, auth *cgpsdk.Executio
 	if err := s.store.SaveAuthorization(ctx, auth); err != nil {
 		return fmt.Errorf("failed to save authorization: %w", err)
 	}
+	if s.auditStore != nil {
+		proposal, err := s.store.GetProposal(ctx, auth.ProposalID)
+		if err != nil {
+			return fmt.Errorf("read proposal for authorization audit: %w", err)
+		}
+		entry := audit.NewEntry(auth.ID+"_auth", audit.EventExecutionAuthorized).
+			WithProposal(auth.ProposalID).
+			WithActor(auth.ApprovedBy.ID, internalcgp.ActorKind(auth.ApprovedBy.Kind)).
+			WithTimestamp(auth.Timestamp).
+			WithDetail("version", auth.Version).
+			WithDetail("scope", auth.Scope).
+			WithDetail("validUntil", auth.ValidUntil).Build()
+		if err := audit.NewRecorder(s.auditStore, proposal.Scope.Repository).RecordIgnoringDuplicate(ctx, entry); err != nil {
+			return fmt.Errorf("record authorization audit event %s: %w", auth.ID, err)
+		}
+	}
 
 	s.logger.Info("CGP authorization recorded",
 		"proposal_id", auth.ProposalID,
@@ -178,12 +255,19 @@ func (s *Service) GetStatus(ctx context.Context, proposalID string) (*ProposalSt
 	if err == nil {
 		status.Decision = decision
 		status.State = "decided"
+	} else if !errors.Is(err, ErrRecordNotFound) {
+		return nil, fmt.Errorf("read decision for proposal %s: %w", proposalID, err)
 	}
 
 	auth, err := s.store.GetAuthorization(ctx, proposalID)
 	if err == nil {
 		status.Authorization = auth
 		status.State = "authorized"
+	} else if !errors.Is(err, ErrRecordNotFound) {
+		return nil, fmt.Errorf("read authorization for proposal %s: %w", proposalID, err)
+	}
+	if status.Authorization != nil && status.Decision == nil {
+		return nil, fmt.Errorf("proposal %s has an authorization without a decision", proposalID)
 	}
 
 	return status, nil
@@ -282,7 +366,7 @@ func (s *inMemoryStore) GetProposal(_ context.Context, id string) (*cgpsdk.Chang
 	s.init()
 	p, ok := s.proposals[id]
 	if !ok {
-		return nil, fmt.Errorf("proposal %s not found", id)
+		return nil, fmt.Errorf("%w: proposal %s not found", ErrRecordNotFound, id)
 	}
 	return p, nil
 }
@@ -297,7 +381,7 @@ func (s *inMemoryStore) GetDecision(_ context.Context, proposalID string) (*cgps
 	s.init()
 	d, ok := s.decisions[proposalID]
 	if !ok {
-		return nil, fmt.Errorf("no decision for proposal %s", proposalID)
+		return nil, fmt.Errorf("%w: no decision for proposal %s", ErrRecordNotFound, proposalID)
 	}
 	return d, nil
 }
@@ -312,7 +396,7 @@ func (s *inMemoryStore) GetAuthorization(_ context.Context, proposalID string) (
 	s.init()
 	a, ok := s.authorizations[proposalID]
 	if !ok {
-		return nil, fmt.Errorf("no authorization for proposal %s", proposalID)
+		return nil, fmt.Errorf("%w: no authorization for proposal %s", ErrRecordNotFound, proposalID)
 	}
 	return a, nil
 }

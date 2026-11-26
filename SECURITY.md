@@ -4,8 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.x.x   | :white_check_mark: |
-| 1.x.x   | :x:                |
+| 4.x.x   | :white_check_mark: |
+| 3.x.x and earlier | :x:    |
 
 ## Reporting a Vulnerability
 
@@ -39,8 +39,8 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 ### Supply Chain Security
 
-- **Signed Releases**: All release artifacts are signed
-- **Checksum Verification**: SHA256 checksums provided for all binaries
+- **Signed Checksums**: The release workflow signs the SHA256 checksum manifest with Sigstore/Cosign
+- **Build Provenance**: GitHub artifact attestations are generated for release archives and the checksum manifest
 - **Minimal Dependencies**: We minimize external dependencies to reduce attack surface
 - **Dependency Review**: All dependency changes are reviewed before merging
 

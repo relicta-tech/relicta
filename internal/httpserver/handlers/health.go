@@ -38,14 +38,21 @@ type CognitiveHealthResponse struct {
 	ChronosStatus string `json:"chronos"`
 }
 
-// CognitiveHealth handles GET /health/cognitive.
+// CognitiveHealth handles GET /api/v1/health/cognitive.
 // It reports the status of the Mnemos and Chronos cognitive backends.
 func CognitiveHealth(w http.ResponseWriter, r *http.Request) {
-	// Simplified: assume both are enabled (config default true).
-	// In a real implementation, we would ping the adapters or read status from the server.
+	ctx := GetContext()
 	resp := CognitiveHealthResponse{
-		MnemosStatus:  "enabled",
-		ChronosStatus: "enabled",
+		MnemosStatus:  "disabled",
+		ChronosStatus: "disabled",
+	}
+	if ctx != nil {
+		if ctx.MnemosEnabled {
+			resp.MnemosStatus = "enabled"
+		}
+		if ctx.ChronosEnabled {
+			resp.ChronosStatus = "enabled"
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

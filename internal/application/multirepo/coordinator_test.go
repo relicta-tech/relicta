@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/multirepo"
 )
 
 // mockGitAdapter implements GitAdapter for testing.

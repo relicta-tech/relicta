@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/relicta-tech/relicta/v4/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/manager"
 )
 
 var pluginCmd = &cobra.Command{

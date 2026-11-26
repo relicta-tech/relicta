@@ -9,9 +9,9 @@ import (
 
 	mcplib "go.klarlabs.de/mcp"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	pkgcgp "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // Governance-as-context MCP resources.
@@ -176,8 +176,8 @@ func (s *Server) handleResourceRecentIncidents(_ context.Context, uri string, _ 
 func (s *Server) handleResourceComplianceFrameworks(_ context.Context, uri string, _ map[string]string) (*mcplib.ResourceContent, error) {
 	frameworks := []map[string]any{
 		{"id": "soc2", "name": "SOC 2 Type II", "controls": []string{"CC6.1", "CC7.1", "CC7.4", "CC8.1"}, "evidence_types": []string{"change_management", "access_review", "risk_assessment"}},
-		{"id": "eu-ai-act-article-12", "name": "EU AI Act — Article 12 Record-Keeping", "retention": "6 months minimum (Art 26(6))", "evidence_types": []string{"audit_log"}},
-		{"id": "eu-ai-act-annex-iv", "name": "EU AI Act — Annex IV Technical Documentation", "retention": "10 years (Art 11)", "sections": 8, "evidence_types": []string{"technical_documentation"}},
+		{"id": "eu-ai-act-article-12", "name": "EU AI Act — Article 12 Supporting Evidence", "scope": "Release-governance records only; not automatically generated logs of each AI system use and not sufficient by itself to establish Article 12 logging duties are met", "retention": "Suggested report date is period end plus six months; Articles 19(1) and 26(6) set role-specific minimum periods for certain logs, subject to intended purpose and other law", "evidence_types": []string{"governance_decision_record"}},
+		{"id": "eu-ai-act-annex-iv", "name": "EU AI Act — Annex IV Release-Governance Evidence Draft", "scope": "Relicta release-governance history mapped to Annex IV sections; not complete target-system technical documentation, risk assessment, monitoring record, or conformity assessment", "retention": "Article 18(1): specified provider documentation for 10 years from placing on market or putting into service; Relicta does not calculate a deadline", "sections": 8, "evidence_types": []string{"release_governance_record"}},
 		{"id": "iso-27001", "name": "ISO/IEC 27001:2022", "controls": []string{"A.5.10", "A.8.32"}, "evidence_types": []string{"change_management"}},
 		{"id": "iso-42001", "name": "ISO/IEC 42001:2023 (AI Management)", "evidence_types": []string{"ai_governance"}},
 		{"id": "hipaa", "name": "HIPAA", "controls": []string{"164.312(b)"}, "evidence_types": []string{"audit_log"}},

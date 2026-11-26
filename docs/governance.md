@@ -171,6 +171,10 @@ Grouped contexts — note these are camelCase:
 | `scope.repository` / `.branch` / `.commitRange` | string | Where the release comes from |
 | `scope.files` | list | Paths of changed files — use with `contains` |
 | `scope.fileCount` | int | How many files changed |
+| `scope.areas` / `.areaCount` | list / int | Distinct first path segments (for example, `internal`, `web`, and the repository root) |
+| `scope.directories` / `.directoryCount` | list / int | Distinct parent directories of changed files |
+| `scope.packages` | list | Workspace packages owning changed files; only present when package ownership is detected |
+| `scope.packageCount` | int | Number of detected owning packages; only present when ownership is detected |
 | `blastRadius.score` / `.filesChanged` / `.linesChanged` | number | Blast radius metrics |
 | `intent.summary` / `.suggestedBump` | string | The proposer's stated intent |
 | `intent.hasBreaking` | bool | Intent declares breaking changes |
@@ -194,6 +198,13 @@ Grouped contexts — note these are camelCase:
 | `team.teamCount` / `.roleCount` | int | Size of the team configuration |
 | `team.canApprove` / `.canPublish` / `.isTeamLead` | bool | This actor's permissions |
 | `team.teams.<name>.*` / `team.roles.<name>.*` | — | Your configured teams and roles |
+
+Collection fields support `contains`, `is_empty`, and `size` conditions. For example,
+`scope.packages size > 2` can require additional review when a change crosses packages, while
+`actor.teams is_empty true` can route actors without team membership to a stricter policy.
+Area and directory counts come from changed paths; package counts are present only when
+workspace ownership was detected. Use `relicta policy fields` for the exact fields available
+to the evaluator in this build.
 
 #### Trust and reputation
 
@@ -222,6 +233,28 @@ default is `limited`, which is what a real invocation starts an actor at. Reputa
 rules take `--reputation 0.2 --reputation-samples 12 --reputation-trend declining`;
 omitting `--reputation` is the "no reputation computed" case, so both halves of a
 reputation rule can be tested.
+
+#### Identity capability grants
+
+An identity may include `capabilities` entries with an `action`, a bump `scope`
+(`patch`, `minor`, `major`, or `all`), and an optional `risk_score` condition.
+For example:
+
+```json
+{
+  "action": "approve",
+  "scope": "minor",
+  "condition": "risk_score < 0.3"
+}
+```
+
+During release evaluation, Relicta first calculates risk at the actor's current
+trust level. If the matched identity has capabilities configured, its trust-score
+grant raises the actor's trust only when an `approve` capability covers the
+proposed bump and computed risk. Relicta then reevaluates governance at that
+granted level. A denied or missing capability prevents the identity trust
+escalation; the normal governance evaluation still runs. Identities with no
+capabilities retain the legacy trust-score grant behavior.
 
 ### Comparison Operators
 
@@ -815,6 +848,18 @@ webhooks:
 
 Webhooks are signed with HMAC-SHA256. Verify with the `X-Relicta-Signature` header:
 
+Relicta stores configured webhook deliveries under `.relicta/webhooks` with owner-only file
+permissions. Delivery attempts continue in the background, retry after `retry_delay`, and resume
+after a process restart. Delivery is at least once: a crash after the receiver accepts a request
+but before Relicta records completion can cause a duplicate. Use `X-Relicta-Delivery-ID` for
+receiver-side deduplication. Exhausted deliveries remain in the local dead-letter queue and
+are not retried automatically. Inspect them with `relicta webhook queue` and retry a selected
+delivery with `relicta webhook replay <delivery-id>` after restoring its enabled webhook
+configuration. Only one local Relicta process owns delivery processing at a time; other
+processes can enqueue and inspect while that worker runs. The worker reservation is stored in
+`.relicta/webhooks/worker.lock`, so this coordination is intended for repositories on a local
+filesystem.
+
 ```go
 import "github.com/relicta-tech/relicta/internal/infrastructure/webhook"
 
@@ -881,9 +926,9 @@ relicta mcp serve
 ```
 
 Available tools:
-- `relicta.evaluate` - Evaluate release risk
-- `relicta.approve` - Approve a pending release
-- `relicta.publish` - Execute an approved release
+- `relicta_evaluate` - Evaluate release risk
+- `relicta_approve` - Approve a pending release
+- `relicta_publish` - Execute an approved release
 
 Available resources:
 - `relicta://risk-report` - Current risk assessment

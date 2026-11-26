@@ -5,21 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/blast"
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
-	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
+	"github.com/relicta-tech/relicta/v5/internal/application/blast"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/application/recommendation"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v5/internal/security"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 // Adapter bridges MCP server to application use cases.
@@ -46,7 +49,9 @@ type Adapter struct {
 	// baseline detection against "v" whatever the project had configured — the
 	// same defect as the CLI's, on a surface with no way for the caller to correct
 	// it. Empty means the default, "v".
-	tagPrefix string
+	tagPrefix              string
+	currentVersion         *version.SemanticVersion
+	currentVersionResolver func(context.Context, string) (*version.SemanticVersion, error)
 }
 
 // AdapterOption configures the Adapter.
@@ -74,6 +79,24 @@ func WithTagPrefix(prefix string) AdapterOption {
 	return func(a *Adapter) {
 		a.tagPrefix = prefix
 	}
+}
+
+// WithCurrentVersion supplies the configured manifest version to release analyses.
+func WithCurrentVersion(current *version.SemanticVersion) AdapterOption {
+	return func(a *Adapter) { a.currentVersion = current }
+}
+
+// WithCurrentVersionResolver resolves a configured manifest version for each analysis.
+// This keeps long-lived MCP sessions in sync after a bump or an external manifest edit.
+func WithCurrentVersionResolver(resolve func(context.Context, string) (*version.SemanticVersion, error)) AdapterOption {
+	return func(a *Adapter) { a.currentVersionResolver = resolve }
+}
+
+func (a *Adapter) currentVersionFor(ctx context.Context, repoPath string) (*version.SemanticVersion, error) {
+	if a.currentVersionResolver != nil {
+		return a.currentVersionResolver(ctx, repoPath)
+	}
+	return a.currentVersion, nil
 }
 
 // tagPrefixOrDefault returns the configured prefix, defaulting to the "v" that
@@ -161,11 +184,12 @@ func (a *Adapter) GetRepoRoot() string {
 
 // PlanInput represents input for the Plan operation.
 type PlanInput struct {
-	RepositoryPath string
-	FromRef        string
-	ToRef          string
-	Analyze        bool
-	DryRun         bool
+	RepositoryPath           string
+	FromRef                  string
+	ToRef                    string
+	Analyze                  bool
+	DryRun                   bool
+	AllowDivergedVersionLine bool
 }
 
 // CommitInfo represents a single commit's details.
@@ -179,21 +203,28 @@ type CommitInfo struct {
 
 // PlanOutput represents output from the Plan operation.
 type PlanOutput struct {
-	ReleaseID      string
-	CurrentVersion string
-	NextVersion    string
-	ReleaseType    string
-	CommitCount    int
-	HasBreaking    bool
-	HasFeatures    bool
-	HasFixes       bool
-	Commits        []CommitInfo // Populated when analyze=true
+	ReleaseID               string
+	CurrentVersion          string
+	NextVersion             string
+	ReleaseType             string
+	Warnings                []string `json:"warnings,omitempty"`
+	VersionLineAcknowledged bool     `json:"version_line_acknowledged"`
+	CommitCount             int
+	HasBreaking             bool
+	HasFeatures             bool
+	HasFixes                bool
+	Commits                 []CommitInfo // Populated when analyze=true
 
 	// Recommendation is the deterministic artifact (ADR-009): the facts an agent
 	// needs to write release notes itself, plus provenance. Populated always,
 	// because the point is that a calling agent should not need a second round
 	// trip — or a second model call inside Relicta — to get the material.
 	Recommendation *recommendation.Artifact
+	// RecommendationPersisted reports whether the artifact was saved beside the
+	// release run for later audit/API reads. The artifact is still returned when
+	// persistence is unavailable or fails.
+	RecommendationPersisted bool
+	RecommendationWarning   string
 }
 
 // Plan executes the plan release use case via MCP.
@@ -208,6 +239,10 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 	if repoPath == "" {
 		repoPath = a.GetRepoRoot()
 	}
+	currentVersion, err := a.currentVersionFor(ctx, repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve configured current version: %w", err)
+	}
 
 	// Step 1: Run analysis to get changeset and version info
 	analyzeInput := servicerelease.AnalyzeInput{
@@ -215,18 +250,25 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 		FromRef:        input.FromRef,
 		ToRef:          input.ToRef,
 		TagPrefix:      a.tagPrefixOrDefault(),
+		CurrentVersion: currentVersion,
 	}
 
 	output, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)
 	if err != nil {
 		return nil, fmt.Errorf("plan failed: %w", err)
 	}
+	if len(output.Warnings) > 0 && !input.DryRun && !input.AllowDivergedVersionLine {
+		return nil, fmt.Errorf("%s release plan not saved; inspect the branch and tag history, then rerun with allow_diverged_version_line=true only if this is an intentional release line", strings.Join(output.Warnings, " "))
+	}
+	output.VersionLineAcknowledged = len(output.Warnings) > 0 && input.AllowDivergedVersionLine && !input.DryRun
 
 	result := &PlanOutput{
-		CurrentVersion: output.CurrentVersion.String(),
-		NextVersion:    output.NextVersion.String(),
-		ReleaseType:    string(output.ReleaseType),
-		Recommendation: a.buildRecommendation(output),
+		CurrentVersion:          output.CurrentVersion.String(),
+		NextVersion:             output.NextVersion.String(),
+		ReleaseType:             string(output.ReleaseType),
+		Warnings:                output.Warnings,
+		VersionLineAcknowledged: output.VersionLineAcknowledged,
+		Recommendation:          a.buildRecommendation(output),
 	}
 
 	if output.ChangeSet != nil {
@@ -254,10 +296,17 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 	// This is the key fix for issues #30, #31, #32 - ensures state machine is properly used
 	if a.releaseServices != nil && a.releaseServices.PlanRelease != nil && !input.DryRun {
 		bumpKind := releaseTypeToBumpKind(output.ReleaseType)
+		baseRef := ""
+		if output.ChangeSet != nil {
+			baseRef = output.ChangeSet.FromRef()
+		}
 
 		planInput := releaseapp.PlanReleaseInput{
-			RepoRoot:       repoPath,
-			RepoID:         repoPath, // Use path as ID if no remote
+			RepoRoot: repoPath,
+			RepoID:   repoPath, // Use path as ID if no remote
+			// Persist the same reachable baseline used by analysis. A fresh
+			// auto-detection here can select an unreachable higher version tag.
+			BaseRef:        baseRef,
 			ChangeSet:      output.ChangeSet,
 			CurrentVersion: &output.CurrentVersion,
 			NextVersion:    &output.NextVersion,
@@ -266,8 +315,9 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 				Type: "agent",
 				ID:   "mcp-agent",
 			},
-			Force:     true, // Allow re-planning
-			TagPrefix: a.tagPrefixOrDefault(),
+			TransitionMetadata: mcpVersionLineAcknowledgmentMetadata(output),
+			Force:              true, // Allow re-planning
+			TagPrefix:          a.tagPrefixOrDefault(),
 		}
 
 		planOutput, err := a.releaseServices.PlanRelease.Execute(ctx, planInput)
@@ -277,9 +327,38 @@ func (a *Adapter) Plan(ctx context.Context, input PlanInput) (*PlanOutput, error
 
 		// Set the release ID from the persisted release
 		result.ReleaseID = string(planOutput.RunID)
+		if a.releaseServices.Repository != nil {
+			stored, persistErr := recommendation.Persist(
+				a.releaseServices.Repository,
+				repoPath,
+				releasedomain.RunID(result.ReleaseID),
+				result.Recommendation,
+			)
+			result.RecommendationPersisted = stored
+			if persistErr != nil {
+				result.RecommendationWarning = fmt.Sprintf("recommendation artifact was not stored: %v", persistErr)
+			} else if !stored {
+				result.RecommendationWarning = "repository does not support recommendation artifact storage; artifact is available only in this response"
+			}
+		} else {
+			result.RecommendationWarning = "release repository is unavailable; recommendation artifact is available only in this response"
+		}
+	}
+	if result.Recommendation != nil && !result.RecommendationPersisted && result.RecommendationWarning == "" {
+		result.RecommendationWarning = "release plan was not persisted; recommendation artifact is available only in this response"
 	}
 
 	return result, nil
+}
+
+func mcpVersionLineAcknowledgmentMetadata(output *servicerelease.AnalyzeOutput) map[string]string {
+	if output == nil || !output.VersionLineAcknowledged {
+		return nil
+	}
+	return map[string]string{
+		"release_line_acknowledged":       "true",
+		"unreachable_higher_version_tags": strings.Join(output.Warnings, " | "),
+	}
 }
 
 // releaseTypeToBumpKind converts changes.ReleaseType to domain.BumpKind.
@@ -298,16 +377,19 @@ func releaseTypeToBumpKind(rt changes.ReleaseType) releasedomain.BumpKind {
 
 // BumpInput represents input for the Bump operation.
 type BumpInput struct {
+	ReleaseID      string
 	RepositoryPath string
 	BumpType       string // major, minor, patch, auto
 	Version        string // explicit version (overrides bump type)
 	Prerelease     string
+	Build          string
 	CreateTag      bool
 	DryRun         bool
 }
 
 // BumpOutput represents output from the Bump operation.
 type BumpOutput struct {
+	ReleaseID      string
 	CurrentVersion string
 	NextVersion    string
 	BumpType       string
@@ -331,15 +413,99 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 	if repoPath == "" {
 		repoPath = "."
 	}
+	var plannedRun *releasedomain.ReleaseRun
+	if a.releaseServices.Repository != nil {
+		var err error
+		if input.ReleaseID != "" {
+			if fileRepo, ok := a.releaseServices.Repository.(interface {
+				LoadFromRepo(context.Context, string, releasedomain.RunID) (*releasedomain.ReleaseRun, error)
+			}); ok {
+				plannedRun, err = fileRepo.LoadFromRepo(ctx, repoPath, releasedomain.RunID(input.ReleaseID))
+			} else {
+				plannedRun, err = a.releaseServices.Repository.Load(ctx, releasedomain.RunID(input.ReleaseID))
+			}
+		} else {
+			plannedRun, err = a.releaseServices.Repository.LoadLatest(ctx, repoPath)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("load planned release before bumping: %w", err)
+		}
+	}
+
+	var overrideVersion *version.SemanticVersion
+	var overrideBumpKind *releasedomain.BumpKind
+	if err := security.ValidatePrerelease(input.Prerelease); err != nil {
+		return nil, fmt.Errorf("invalid prerelease: %w", err)
+	}
+	if err := security.ValidateBuildMetadata(input.Build); err != nil {
+		return nil, fmt.Errorf("invalid build metadata: %w", err)
+	}
+	if input.Version != "" {
+		parsed, err := version.Parse(input.Version)
+		if err != nil {
+			return nil, fmt.Errorf("invalid requested version %q: %w", input.Version, err)
+		}
+		overrideVersion = &parsed
+	} else if (input.BumpType != "" && input.BumpType != "auto") || input.Prerelease != "" || input.Build != "" {
+		if a.releaseServices.Repository == nil {
+			return nil, fmt.Errorf("release repository not configured")
+		}
+		if plannedRun == nil {
+			return nil, fmt.Errorf("planned release is unavailable")
+		}
+		current := plannedRun.VersionCurrent()
+		kind := plannedRun.BumpKind()
+		if input.BumpType != "" && input.BumpType != "auto" {
+			parsedKind, err := releasedomain.ParseBumpKind(input.BumpType)
+			if err != nil {
+				return nil, err
+			}
+			kind = parsedKind
+			if kind == releasedomain.BumpNone || kind == releasedomain.BumpPrerelease {
+				return nil, fmt.Errorf("unsupported bump level %q; use major, minor, patch, or auto", input.BumpType)
+			}
+			overrideBumpKind = &kind
+		}
+
+		calculated := plannedRun.VersionNext()
+		if input.BumpType != "" && input.BumpType != "auto" {
+			calculated = version.NewVersionBump(kind.ToBumpType()).Apply(current)
+		}
+		if input.Prerelease != "" {
+			if input.Prerelease == "alpha" || input.Prerelease == "beta" || input.Prerelease == "rc" || input.Prerelease == "canary" {
+				calculated = current.BumpPreRelease(version.Prerelease(input.Prerelease))
+			} else {
+				calculated = calculated.WithPrerelease(version.Prerelease(input.Prerelease))
+			}
+		}
+		overrideVersion = &calculated
+	}
+	if input.Version != "" && input.Prerelease != "" {
+		withPrerelease := overrideVersion.WithPrerelease(version.Prerelease(input.Prerelease))
+		overrideVersion = &withPrerelease
+	}
+	if overrideVersion != nil && input.Build != "" {
+		withMetadata := overrideVersion.WithMetadata(version.BuildMetadata(input.Build))
+		overrideVersion = &withMetadata
+	}
 
 	// Build the use case input
 	bumpInput := releaseapp.BumpVersionInput{
 		RepoRoot: repoPath,
+		RunID:    releasedomain.RunID(input.ReleaseID),
 		Actor: ports.ActorInfo{
 			Type: "agent",
 			ID:   "mcp-agent",
 		},
-		Force: true, // MCP operations are already validated upstream
+		Force:            false, // Refuse to bump a plan after repository HEAD has moved.
+		OverrideVersion:  overrideVersion,
+		OverrideBumpKind: overrideBumpKind,
+		OverrideTagName:  a.tagPrefixOrDefault(),
+	}
+	if overrideVersion != nil {
+		bumpInput.OverrideTagName += overrideVersion.String()
+	} else {
+		bumpInput.OverrideTagName = ""
 	}
 
 	// Execute the use case
@@ -347,12 +513,18 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 	if err != nil {
 		return nil, fmt.Errorf("bump version failed: %w", err)
 	}
+	currentVersion := ""
+	if plannedRun != nil {
+		currentVersion = plannedRun.VersionCurrent().String()
+	}
 
 	return &BumpOutput{
-		NextVersion:  output.VersionNext,
-		TagName:      output.TagName,
-		BumpType:     string(output.BumpKind),
-		AutoDetected: true, // DDD uses Plan's auto-detected bump
+		ReleaseID:      string(output.RunID),
+		CurrentVersion: currentVersion,
+		NextVersion:    output.VersionNext,
+		TagName:        output.TagName,
+		BumpType:       string(output.BumpKind),
+		AutoDetected:   input.Version == "" && (input.BumpType == "" || input.BumpType == "auto"),
 	}, nil
 }
 
@@ -360,15 +532,25 @@ func (a *Adapter) Bump(ctx context.Context, input BumpInput) (*BumpOutput, error
 type NotesInput struct {
 	ReleaseID        string
 	UseAI            bool
+	Draft            string
+	Audience         string
+	Tone             string
+	Language         string
+	IncludeEmoji     bool
 	IncludeChangelog bool
 	RepositoryURL    string
 }
 
 // NotesOutput represents output from the Notes operation.
 type NotesOutput struct {
-	Summary     string
-	Changelog   string
-	AIGenerated bool
+	ReleaseID     string
+	Version       string
+	Summary       string
+	Changelog     string
+	AIGenerated   bool
+	AgentAuthored bool
+	Source        string
+	Warning       string
 }
 
 // Notes executes the generate notes use case via MCP.
@@ -389,18 +571,29 @@ func (a *Adapter) Notes(ctx context.Context, input NotesInput) (*NotesOutput, er
 		repoPath = "."
 	}
 
+	// Normalize draft presence consistently with GenerateNotesUseCase. In
+	// particular, whitespace-only input means "no draft" and may use AI. Keep
+	// the original text intact so the persisted agent draft matches the caller's
+	// content exactly.
+	draftProvided := strings.TrimSpace(input.Draft) != ""
+
 	// Build the use case input
 	notesInput := releaseapp.GenerateNotesInput{
 		RepoRoot: repoPath,
 		Options: ports.NotesOptions{
-			UseAI:         input.UseAI,
-			RepositoryURL: input.RepositoryURL,
+			UseAI:          input.UseAI && !draftProvided,
+			AudiencePreset: input.Audience,
+			TonePreset:     input.Tone,
+			IncludeEmoji:   input.IncludeEmoji,
+			Language:       input.Language,
+			RepositoryURL:  input.RepositoryURL,
 		},
+		DraftText: input.Draft,
 		Actor: ports.ActorInfo{
 			Type: "agent",
 			ID:   "mcp-agent",
 		},
-		Force: true, // Allow notes regeneration via MCP
+		Force: false, // Keep notes tied to the HEAD analyzed by the release plan.
 	}
 
 	// Set run ID if provided
@@ -416,10 +609,19 @@ func (a *Adapter) Notes(ctx context.Context, input NotesInput) (*NotesOutput, er
 
 	// Build output from domain notes
 	result := &NotesOutput{
-		AIGenerated: input.UseAI,
+		ReleaseID:     string(output.RunID),
+		Version:       output.VersionNext,
+		AgentAuthored: draftProvided,
 	}
 
 	if output.Notes != nil {
+		result.Source = output.Notes.Provider
+		result.AIGenerated = output.Notes.Provider != "" && output.Notes.Provider != "basic" && output.Notes.Provider != "agent"
+		if output.Notes.Provider == "changelog-fallback" {
+			result.Warning = "AI release-note prose could not be generated; the saved text contains only the changelog. Rewrite it for customers before approval."
+		} else if input.UseAI && !draftProvided && output.Notes.Provider == "basic" {
+			result.Warning = "AI-generated release-note prose was not produced; deterministic changelog text was saved. Rewrite it for customers before approval."
+		}
 		result.Summary = output.Notes.Text
 		// Changelog is same as notes text for now
 		if input.IncludeChangelog {
@@ -537,10 +739,12 @@ func (a *Adapter) Evaluate(ctx context.Context, input EvaluateInput) (*EvaluateO
 
 // ApproveInput represents input for the Approve operation.
 type ApproveInput struct {
-	ReleaseID   string
-	ApprovedBy  string
-	AutoApprove bool
-	EditedNotes string
+	ReleaseID         string
+	ApprovedBy        string
+	AutoApprove       bool
+	HumanCosigned     bool
+	EditedNotes       string
+	ExpectedNotesHash string
 }
 
 // ApproveOutput represents output from the Approve operation.
@@ -573,15 +777,43 @@ func (a *Adapter) Approve(ctx context.Context, input ApproveInput) (*ApproveOutp
 		approver = "mcp-agent"
 	}
 
+	// An edited draft must be persisted through the notes use case before approval,
+	// so the approval covers the exact text the caller reviewed. Silently ignoring
+	// this field would approve a different version of the customer-facing notes.
+	if strings.TrimSpace(input.EditedNotes) != "" {
+		if a.releaseServices.GenerateNotes == nil {
+			return nil, fmt.Errorf("cannot apply edited notes: generate notes use case not configured")
+		}
+		notesInput := releaseapp.GenerateNotesInput{
+			RepoRoot:  repoPath,
+			RunID:     releasedomain.RunID(input.ReleaseID),
+			DraftText: input.EditedNotes,
+			Actor:     ports.ActorInfo{Type: "agent", ID: approver},
+			Force:     false,
+		}
+		if _, err := a.releaseServices.GenerateNotes.Execute(ctx, notesInput); err != nil {
+			return nil, fmt.Errorf("apply edited notes before approval: %w", err)
+		}
+	}
+
+	actorType := releasedomain.ActorAgent
+	if input.HumanCosigned {
+		actorType = releasedomain.ActorHuman
+		if approver == "mcp-agent" {
+			approver = "mcp-cosigner"
+		}
+	}
+
 	// Build the use case input
 	approveInput := releaseapp.ApproveReleaseInput{
 		RepoRoot: repoPath,
 		Actor: ports.ActorInfo{
-			Type: "agent",
+			Type: actorType,
 			ID:   approver,
 		},
-		AutoApprove: input.AutoApprove,
-		Force:       true, // MCP approvals skip HEAD validation by default
+		AutoApprove:       input.AutoApprove && !input.HumanCosigned,
+		Force:             false,
+		ExpectedNotesHash: input.ExpectedNotesHash,
 	}
 
 	// Set run ID if provided
@@ -614,6 +846,7 @@ type PublishInput struct {
 
 // PublishOutput represents output from the Publish operation.
 type PublishOutput struct {
+	ReleaseID     string
 	TagName       string
 	ReleaseURL    string
 	PluginResults []PluginResultInfo
@@ -652,7 +885,7 @@ func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutp
 			Type: "agent",
 			ID:   "mcp-agent",
 		},
-		Force:  true, // MCP publishes skip HEAD validation by default
+		Force:  false,
 		DryRun: input.DryRun,
 	}
 
@@ -668,7 +901,7 @@ func (a *Adapter) Publish(ctx context.Context, input PublishInput) (*PublishOutp
 	}
 
 	// Build result with plugin results
-	result := &PublishOutput{}
+	result := &PublishOutput{ReleaseID: string(output.RunID)}
 
 	// Get tag name from the release
 	if a.releaseRepo != nil && input.ReleaseID != "" {
@@ -729,12 +962,19 @@ func (a *Adapter) Cancel(ctx context.Context, input CancelInput) (*CancelOutput,
 		return nil, fmt.Errorf("failed to cancel release: %w", err)
 	}
 
-	if err := a.releaseRepo.Save(ctx, rel); err != nil {
+	if a.releaseServices != nil && a.releaseServices.Repository != nil {
+		err = a.releaseServices.Repository.Save(ctx, rel)
+	} else if a.releaseRepo != nil {
+		err = a.releaseRepo.Save(ctx, rel)
+	} else {
+		err = fmt.Errorf("release repository not configured")
+	}
+	if err != nil {
 		return nil, fmt.Errorf("failed to save release: %w", err)
 	}
 
 	return &CancelOutput{
-		ReleaseID:     input.ReleaseID,
+		ReleaseID:     string(rel.ID()),
 		PreviousState: previousState,
 		NewState:      rel.State().String(),
 	}, nil
@@ -754,12 +994,27 @@ type ResetOutput struct {
 
 // Reset deletes a release to allow starting fresh.
 func (a *Adapter) Reset(ctx context.Context, input ResetInput) (*ResetOutput, error) {
-	if a.releaseRepo == nil {
+	var (
+		rel *domainrelease.ReleaseRun
+		err error
+	)
+	if a.releaseServices != nil && a.releaseServices.Repository != nil {
+		if input.ReleaseID != "" {
+			if fileRepo, ok := a.releaseServices.Repository.(interface {
+				LoadFromRepo(context.Context, string, domainrelease.RunID) (*domainrelease.ReleaseRun, error)
+			}); ok {
+				rel, err = fileRepo.LoadFromRepo(ctx, a.GetRepoRoot(), domainrelease.RunID(input.ReleaseID))
+			} else {
+				rel, err = a.releaseServices.Repository.Load(ctx, domainrelease.RunID(input.ReleaseID))
+			}
+		} else {
+			rel, err = a.releaseServices.Repository.LoadLatest(ctx, a.GetRepoRoot())
+		}
+	} else if a.releaseRepo != nil {
+		rel, err = a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
+	} else {
 		return nil, fmt.Errorf("release repository not configured")
 	}
-
-	// Find the release to get its state before deletion
-	rel, err := a.releaseRepo.FindByID(ctx, domainrelease.RunID(input.ReleaseID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to find release: %w", err)
 	}
@@ -767,12 +1022,23 @@ func (a *Adapter) Reset(ctx context.Context, input ResetInput) (*ResetOutput, er
 	previousState := rel.State().String()
 
 	// Delete the release
-	if err := a.releaseRepo.Delete(ctx, domainrelease.RunID(input.ReleaseID)); err != nil {
+	if a.releaseServices != nil && a.releaseServices.Repository != nil {
+		if fileRepo, ok := a.releaseServices.Repository.(interface {
+			DeleteFromRepo(context.Context, string, domainrelease.RunID) error
+		}); ok {
+			err = fileRepo.DeleteFromRepo(ctx, a.GetRepoRoot(), rel.ID())
+		} else {
+			err = a.releaseServices.Repository.Delete(ctx, rel.ID())
+		}
+	} else {
+		err = a.releaseRepo.Delete(ctx, rel.ID())
+	}
+	if err != nil {
 		return nil, fmt.Errorf("failed to delete release: %w", err)
 	}
 
 	return &ResetOutput{
-		ReleaseID:     input.ReleaseID,
+		ReleaseID:     string(rel.ID()),
 		PreviousState: previousState,
 		Deleted:       true,
 	}, nil
@@ -780,23 +1046,27 @@ func (a *Adapter) Reset(ctx context.Context, input ResetInput) (*ResetOutput, er
 
 // GetStatusOutput represents output from the GetStatus operation.
 type GetStatusOutput struct {
-	ReleaseID   string
-	State       string
-	Version     string
-	CreatedAt   string
-	UpdatedAt   string
-	CanApprove  bool
-	ApprovalMsg string
-	NextAction  string  // Suggested next step in the workflow
-	Stale       bool    // True if release may be stale (old and not terminal)
-	Warning     string  // Warning message if any
-	RiskScore   float64 // CGP risk score 0.0–1.0; surfaced for autonomy budget enforcement
+	ReleaseID     string
+	State         string
+	Version       string
+	Notes         string
+	NotesSource   string
+	NotesWarning  string
+	CreatedAt     string
+	UpdatedAt     string
+	CanApprove    bool
+	ApprovalMsg   string
+	NextAction    string  // Suggested next step in the workflow
+	Stale         bool    // True if release may be stale (old and not terminal)
+	Warning       string  // Warning message if any
+	RiskScore     float64 // CGP risk score 0.0–1.0; surfaced for autonomy budget enforcement
+	HumanApproved bool    // True when a human manually approved the active release.
 }
 
 // GetStatus retrieves the current release status.
 // This properly uses the DDD GetStatusUseCase for consistent state management.
 // Fixes issue #30 where status showed inconsistent state.
-func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
+func (a *Adapter) GetStatus(ctx context.Context, releaseIDs ...string) (*GetStatusOutput, error) {
 	if a.releaseServices == nil {
 		return nil, fmt.Errorf("release services not configured")
 	}
@@ -815,6 +1085,9 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 	statusInput := releaseapp.GetStatusInput{
 		RepoRoot: repoPath,
 	}
+	if len(releaseIDs) > 0 && releaseIDs[0] != "" {
+		statusInput.RunID = releasedomain.RunID(releaseIDs[0])
+	}
 
 	// Execute the use case
 	output, err := a.releaseServices.GetStatus.Execute(ctx, statusInput)
@@ -824,15 +1097,24 @@ func (a *Adapter) GetStatus(ctx context.Context) (*GetStatusOutput, error) {
 
 	// Build result
 	result := &GetStatusOutput{
-		ReleaseID:  string(output.RunID),
-		State:      output.State.String(),
-		CreatedAt:  output.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:  output.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		NextAction: output.NextAction,
-		Stale:      output.Stale,
-		Warning:    output.Warning,
-		CanApprove: output.CanApprove,
-		RiskScore:  output.RiskScore,
+		ReleaseID:     string(output.RunID),
+		State:         output.State.String(),
+		CreatedAt:     output.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:     output.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		NextAction:    output.NextAction,
+		Stale:         output.Stale,
+		Warning:       output.Warning,
+		CanApprove:    output.CanApprove,
+		RiskScore:     output.RiskScore,
+		HumanApproved: output.HumanApproved,
+		Notes:         output.NotesText,
+		NotesSource:   output.NotesProvider,
+	}
+	switch output.NotesProvider {
+	case "agent":
+		result.NotesWarning = "These release notes were supplied by an agent and are not fact-checked by Relicta. Verify every claim against the reviewed changes before approval."
+	case "basic", "changelog-fallback":
+		result.NotesWarning = "Saved release notes use a technical changelog fallback. Review or replace them with customer-facing prose before approval."
 	}
 
 	// Set version
@@ -1068,9 +1350,15 @@ func (a *Adapter) InferVersion(ctx context.Context, input InferVersionInput) (*I
 		return nil, fmt.Errorf("release analyzer not configured")
 	}
 
+	currentVersion, err := a.currentVersionFor(ctx, a.GetRepoRoot())
+	if err != nil {
+		return nil, fmt.Errorf("resolve configured current version: %w", err)
+	}
 	analyzeInput := servicerelease.AnalyzeInput{
-		FromRef: input.FromRef,
-		ToRef:   input.ToRef,
+		FromRef:        input.FromRef,
+		ToRef:          input.ToRef,
+		TagPrefix:      a.tagPrefixOrDefault(),
+		CurrentVersion: currentVersion,
 	}
 
 	result, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)
@@ -1161,10 +1449,16 @@ func (a *Adapter) SummarizeDiff(ctx context.Context, input SummarizeDiffInput) (
 		return nil, fmt.Errorf("release analyzer not configured")
 	}
 
+	currentVersion, err := a.currentVersionFor(ctx, a.GetRepoRoot())
+	if err != nil {
+		return nil, fmt.Errorf("resolve configured current version: %w", err)
+	}
 	// Get change analysis
 	analyzeInput := servicerelease.AnalyzeInput{
-		FromRef: input.FromRef,
-		ToRef:   input.ToRef,
+		FromRef:        input.FromRef,
+		ToRef:          input.ToRef,
+		TagPrefix:      a.tagPrefixOrDefault(),
+		CurrentVersion: currentVersion,
 	}
 
 	result, err := a.releaseAnalyzer.Analyze(ctx, analyzeInput)

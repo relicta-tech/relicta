@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/handlers"
 )
 
 // tokenResponse mirrors handlers.tokenResponse for test decoding.
@@ -217,6 +217,30 @@ func TestIntegration_HealthUnauthenticated(t *testing.T) {
 	srv.router.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestIntegration_ObservabilityRoutesRequireAuthentication(t *testing.T) {
+	srv := newSessionServer(t)
+
+	routes := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "health", method: http.MethodGet, path: "/api/v1/observability/health"},
+		{name: "correlations", method: http.MethodGet, path: "/api/v1/observability/correlations?release_id=release-1"},
+		{name: "providers", method: http.MethodGet, path: "/api/v1/observability/providers"},
+		{name: "webhook", method: http.MethodPost, path: "/api/v1/observability/webhook/generic"},
+	}
+
+	for _, route := range routes {
+		t.Run(route.name, func(t *testing.T) {
+			req := httptest.NewRequest(route.method, route.path, nil)
+			rec := httptest.NewRecorder()
+			srv.router.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		})
+	}
 }
 
 func TestIntegration_AuthEndpointsUnauthenticated(t *testing.T) {

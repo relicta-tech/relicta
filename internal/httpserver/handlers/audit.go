@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/dto"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/dto"
 )
 
 // ListAuditEvents returns a paginated, filterable audit trail of release events.

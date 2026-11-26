@@ -8,13 +8,13 @@ Generate compliance evidence and push it to Drata as evidence artifacts.
 
 Examples:
 
-  # Push Article 12 log entries for Q1 2026
+  # Push release-governance records mapped to Article 12 concepts
   relicta integrations drata push --period 2026-Q1 --type article12 --repo acme/payments
 
   # Push SOC 2 aggregated evidence
   DRATA_API_TOKEN=secret relicta integrations drata push --period 2026-Q1 --type soc2 --repo acme/payments
 
-  # Dry-run: render JSON payloads without API calls
+  # Dry-run: render JSON payloads without API calls (not an Article 12 operational log)
   relicta integrations drata push --period 2026-Q1 --type article12 --repo acme/payments --dry-run
 
 ```
@@ -37,13 +37,13 @@ relicta integrations drata push [flags]
 ### Options inherited from parent commands
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output

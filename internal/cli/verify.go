@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/security/attestation"
+	"github.com/relicta-tech/relicta/v5/internal/security/attestation"
 )
 
 var (
@@ -20,6 +23,7 @@ var (
 	verifyMaxRisk     float64
 	verifyMinApproval int
 	verifyPublicKey   string
+	verifyTagName     string
 )
 
 var verifyCmd = &cobra.Command{
@@ -37,40 +41,46 @@ Examples:
   # Verify an attestation file directly
   relicta verify --file .relicta/releases/abc123/attestation.intoto.jsonl
 
-  # Verify allowing unsigned attestations
+  # Verify an unsigned attestation (signed attestations still require --public-key)
   relicta verify --run-id abc123 --allow-unsigned
 
   # Verify with governance constraints
-  relicta verify --file att.jsonl --max-risk-score 0.5 --min-approvals 2`,
+  relicta verify --file att.jsonl --max-risk-score 0.5 --min-approvals 2
+
+  # Verify both the attestation and a signed Git tag
+  relicta verify --run-id abc123 --tag v1.2.3`,
 	RunE: runVerify,
 }
 
 func init() {
 	verifyCmd.Flags().StringVar(&verifyRunID, "run-id", "", "release run ID to verify")
 	verifyCmd.Flags().StringVar(&verifyFile, "file", "", "path to attestation file")
-	verifyCmd.Flags().BoolVar(&verifyAllowUnsig, "allow-unsigned", false, "accept unsigned attestations")
+	verifyCmd.Flags().BoolVar(&verifyAllowUnsig, "allow-unsigned", false, "accept attestations with no signature (signed attestations still require --public-key)")
 	verifyCmd.Flags().Float64Var(&verifyMaxRisk, "max-risk-score", 0, "maximum allowed risk score (0 = no limit)")
 	verifyCmd.Flags().IntVar(&verifyMinApproval, "min-approvals", 0, "minimum required approvals (0 = no minimum)")
 	verifyCmd.Flags().StringVar(&verifyPublicKey, "public-key", "", "path to public key PEM file for signature verification")
+	verifyCmd.Flags().StringVar(&verifyTagName, "tag", "", "Git tag name to verify with git verify-tag")
 
 	rootCmd.AddCommand(verifyCmd)
 }
 
 // VerifyOutput represents the verify command output.
 type VerifyOutput struct {
-	Valid       bool    `json:"valid"`
-	Unsigned    bool    `json:"unsigned,omitempty"`
-	SignedBy    string  `json:"signed_by,omitempty"`
-	Version     string  `json:"version,omitempty"`
-	Decision    string  `json:"decision,omitempty"`
-	RiskScore   float64 `json:"risk_score,omitempty"`
-	Approvals   int     `json:"approvals,omitempty"`
-	Repository  string  `json:"repository,omitempty"`
-	CommitSHA   string  `json:"commit_sha,omitempty"`
-	File        string  `json:"file"`
-	Governance  string  `json:"governance,omitempty"`
-	GovError    string  `json:"governance_error,omitempty"`
-	ErrorDetail string  `json:"error,omitempty"`
+	Valid        bool                `json:"valid"`
+	OverallValid bool                `json:"overall_valid"`
+	Unsigned     bool                `json:"unsigned,omitempty"`
+	SignedBy     string              `json:"signed_by,omitempty"`
+	Version      string              `json:"version,omitempty"`
+	Decision     string              `json:"decision,omitempty"`
+	RiskScore    float64             `json:"risk_score,omitempty"`
+	Approvals    int                 `json:"approvals,omitempty"`
+	Repository   string              `json:"repository,omitempty"`
+	CommitSHA    string              `json:"commit_sha,omitempty"`
+	File         string              `json:"file"`
+	Governance   string              `json:"governance,omitempty"`
+	GovError     string              `json:"governance_error,omitempty"`
+	ErrorDetail  string              `json:"error,omitempty"`
+	TagSignature *TagSignatureOutput `json:"tag_signature,omitempty"`
 
 	// AuditChain is what the repository's governance audit chain says about this
 	// attestation: whether the chain itself holds up, and whether it still confirms
@@ -84,6 +94,17 @@ type VerifyOutput struct {
 	AuditChainAnchor   string `json:"audit_chain_anchor,omitempty"`
 	AuditChainAnchorAt int    `json:"audit_chain_anchored_at,omitempty"`
 	AuditChainError    string `json:"audit_chain_error,omitempty"`
+}
+
+// TagSignatureOutput reports Git's verification result for a release tag.
+type TagSignatureOutput struct {
+	Tag                string `json:"tag"`
+	Valid              bool   `json:"valid"`
+	TargetCommit       string `json:"target_commit,omitempty"`
+	BindingChecked     bool   `json:"binding_checked,omitempty"`
+	MatchesAttestation bool   `json:"matches_attestation"`
+	Output             string `json:"output,omitempty"`
+	Error              string `json:"error,omitempty"`
 }
 
 func runVerify(cmd *cobra.Command, _ []string) error {
@@ -121,12 +142,22 @@ func runVerify(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		output.Valid = false
 		output.ErrorDetail = err.Error()
+		if verifyTagName != "" {
+			output.TagSignature = verifyGitTag(cmd.Context(), verifyTagName, "")
+		}
 		return outputVerifyResult(output)
 	}
 
 	output.Valid = result.Valid
 	output.Unsigned = result.Unsigned
 	output.SignedBy = result.SignedBy
+	if verifyTagName != "" {
+		expectedCommit := ""
+		if result.Predicate != nil {
+			expectedCommit = result.Predicate.CommitSHA
+		}
+		output.TagSignature = verifyGitTag(cmd.Context(), verifyTagName, expectedCommit)
+	}
 
 	if result.Predicate != nil {
 		output.Version = result.Predicate.Version
@@ -225,20 +256,36 @@ func loadAttestation(path string) (*attestation.SignedAttestation, error) {
 
 func outputVerifyResult(output *VerifyOutput) error {
 	if outputJSON {
+		output.OverallValid = verifyOverallValid(output)
 		if err := outputVerifyJSON(output); err != nil {
 			return err
 		}
-		// The audit chain findings fail the command in JSON mode too.
-		//
-		// This mode otherwise always exits 0 — even for an invalid attestation — which
-		// is a pre-existing asymmetry left alone here. It is not extended to the chain:
-		// a tampered governance record that exits 0 in CI is a check that runs and
-		// cannot fail, which is the shape of the defect this whole change is about. The
-		// object is written first, so a machine reader still gets audit_chain and
-		// audit_chain_error alongside the non-zero status.
-		return auditChainFailure(output)
+		// Write the structured result before returning a failure so CI and other
+		// machine callers get both the details and a reliable non-zero status.
+		if output.ErrorDetail != "" {
+			return fmt.Errorf("attestation verification failed: %s", output.ErrorDetail)
+		}
+		if !output.Valid {
+			return fmt.Errorf("attestation verification failed: attestation is invalid")
+		}
+		if err := auditChainFailure(output); err != nil {
+			return err
+		}
+		if err := tagSignatureFailure(output); err != nil {
+			return err
+		}
+		if output.Governance == "failed" {
+			return fmt.Errorf("governance check failed: %s", output.GovError)
+		}
+		return nil
 	}
 	return outputVerifyText(output)
+}
+
+func verifyOverallValid(output *VerifyOutput) bool {
+	return output != nil && output.Valid && output.ErrorDetail == "" &&
+		auditChainFailure(output) == nil && tagSignatureFailure(output) == nil &&
+		output.Governance != "failed"
 }
 
 // auditChainFailure reports the two audit chain findings that mean the governance record
@@ -270,6 +317,20 @@ func outputVerifyText(output *VerifyOutput) error {
 	fmt.Printf("  File: %s\n", output.File)
 	fmt.Println()
 
+	if output.TagSignature != nil {
+		if output.TagSignature.Valid && (!output.TagSignature.BindingChecked || output.TagSignature.MatchesAttestation) {
+			printSuccess(fmt.Sprintf("Git tag %s signature is valid", output.TagSignature.Tag))
+			if output.TagSignature.BindingChecked {
+				printSuccess("Git tag target matches the attested release commit")
+			}
+			if output.TagSignature.Output != "" {
+				printInfo(output.TagSignature.Output)
+			}
+		} else {
+			printError(fmt.Sprintf("Git tag %s verification failed: %s", output.TagSignature.Tag, output.TagSignature.Error))
+			return tagSignatureFailure(output)
+		}
+	}
 	if output.ErrorDetail != "" {
 		printError(fmt.Sprintf("Verification failed: %s", output.ErrorDetail))
 		return fmt.Errorf("attestation verification failed")
@@ -279,6 +340,7 @@ func outputVerifyText(output *VerifyOutput) error {
 		printSuccess("Attestation is valid")
 	} else {
 		printError("Attestation is invalid")
+		return fmt.Errorf("attestation verification failed: attestation is invalid")
 	}
 
 	if output.Unsigned {
@@ -322,6 +384,59 @@ func outputVerifyText(output *VerifyOutput) error {
 		}
 	}
 
+	return nil
+}
+
+func verifyGitTag(parent context.Context, name, expectedCommit string) *TagSignatureOutput {
+	result := &TagSignatureOutput{Tag: name}
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
+	defer cancel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		result.Error = fmt.Sprintf("resolve repository directory: %v", err)
+		return result
+	}
+	cmd := exec.CommandContext(ctx, "git", "verify-tag", "--", name)
+	cmd.Dir = cwd
+	output, err := cmd.CombinedOutput()
+	result.Output = strings.TrimSpace(string(output))
+	if err != nil {
+		result.Error = err.Error()
+		if result.Output != "" {
+			result.Error += ": " + result.Output
+		}
+		return result
+	}
+	result.Valid = true
+	tagRef := strings.TrimPrefix(name, "refs/tags/")
+	targetCmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--end-of-options", "refs/tags/"+tagRef+"^{}")
+	targetCmd.Dir = cwd
+	target, err := targetCmd.Output()
+	if err != nil {
+		result.Valid = false
+		result.Error = fmt.Sprintf("could not resolve tag target: %v", err)
+		return result
+	}
+	result.TargetCommit = strings.TrimSpace(string(target))
+	if expectedCommit != "" {
+		result.BindingChecked = true
+		result.MatchesAttestation = strings.EqualFold(result.TargetCommit, expectedCommit)
+		if !result.MatchesAttestation {
+			result.Error = fmt.Sprintf("tag target %s does not match attested commit %s", result.TargetCommit, expectedCommit)
+		}
+	}
+	return result
+}
+
+func tagSignatureFailure(output *VerifyOutput) error {
+	if output.TagSignature != nil {
+		if !output.TagSignature.Valid {
+			return fmt.Errorf("git tag signature verification failed: %s", output.TagSignature.Error)
+		}
+		if output.TagSignature.BindingChecked && !output.TagSignature.MatchesAttestation {
+			return fmt.Errorf("git tag is not bound to the attested release commit: %s", output.TagSignature.Error)
+		}
+	}
 	return nil
 }
 

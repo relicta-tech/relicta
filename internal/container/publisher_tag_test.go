@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // `publish --skip-tag` reached the printed summary and the JSON output and nothing else.

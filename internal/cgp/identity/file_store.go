@@ -79,8 +79,8 @@ func (s *FileStore) Save(ctx context.Context, actor *ActorIdentity) error {
 	if actor == nil {
 		return fmt.Errorf("actor is required")
 	}
-	if actor.ID == "" {
-		return fmt.Errorf("actor ID is required")
+	if err := ValidateActorIdentity(actor); err != nil {
+		return fmt.Errorf("invalid actor identity: %w", err)
 	}
 
 	s.mu.Lock()
