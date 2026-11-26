@@ -958,6 +958,59 @@ func TestGenerateNotesUseCase_Execute(t *testing.T) {
 	}
 }
 
+func TestGenerateNotesUseCase_GeneratePreviewDoesNotPersist(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	run := domain.NewReleaseRun("repo", "/path/to/repo", "v1.0.0", domain.CommitSHA("abc123def456"), nil, "", "")
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewGenerateNotesUseCase(repo, inspector, &mockNotesGenerator{notes: "preview", provider: "mock"}, nil)
+
+	preview, err := uc.GeneratePreview(ctx, run, ports.NotesOptions{}, "")
+	if err != nil {
+		t.Fatalf("GeneratePreview() error = %v", err)
+	}
+	if preview.Text != "preview" {
+		t.Fatalf("preview text = %q, want preview", preview.Text)
+	}
+	if run.State() != domain.StateVersioned {
+		t.Fatalf("preview changed run state to %q", run.State())
+	}
+	if len(run.History()) != 2 {
+		t.Fatalf("preview changed run history: %d entries", len(run.History()))
+	}
+}
+
+func TestGenerateNotesUseCase_GeneratePreviewUsesAgentDraftWithoutPersisting(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	run := domain.NewReleaseRun("repo", "/path/to/repo", "v1.0.0", domain.CommitSHA("abc123def456"), nil, "", "")
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewGenerateNotesUseCase(repo, inspector, nil, nil)
+
+	preview, err := uc.GeneratePreview(ctx, run, ports.NotesOptions{}, "  reviewed draft  ")
+	if err != nil {
+		t.Fatalf("GeneratePreview() error = %v", err)
+	}
+	if preview.Text != "  reviewed draft  " || preview.Provider != "agent" {
+		t.Fatalf("preview = %#v, want unchanged agent draft", preview)
+	}
+	if run.State() != domain.StateVersioned || len(run.History()) != 2 || run.Notes() != nil {
+		t.Fatalf("preview changed run: state=%q history=%d notes=%#v", run.State(), len(run.History()), run.Notes())
+	}
+}
+
 func TestGenerateNotesUseCase_Execute_GeneratorError(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockRepository()

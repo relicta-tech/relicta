@@ -599,7 +599,8 @@ provider in .relicta.yaml. Audience, tone, and language options apply only to
 AI-generated content. With MCP, a calling agent can instead supply customer-facing
 notes using product context from its conversation. Use --draft-file to persist a
 reviewed draft from a version-controlled file, including in CI release workflows.
-Review all claims before approval.`,
+Use --dry-run to preview generated notes without changing the release record; configured
+AI providers may still be called. Review all claims before approval.`,
 	RunE: runNotes,
 }
 

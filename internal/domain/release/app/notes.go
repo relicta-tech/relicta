@@ -39,6 +39,30 @@ type GenerateNotesUseCase struct {
 	lockManager   ports.LockManager
 }
 
+// GeneratePreview creates notes for a run without changing release state.
+func (uc *GenerateNotesUseCase) GeneratePreview(ctx context.Context, run *domain.ReleaseRun, options ports.NotesOptions, draft string) (*domain.ReleaseNotes, error) {
+	if run == nil {
+		return nil, fmt.Errorf("release run is required for notes preview")
+	}
+	if run.State() != domain.StateVersioned && run.State() != domain.StateNotesReady {
+		return nil, domain.NewStateTransitionError(run.State(), "generate notes")
+	}
+	currentHead, err := uc.repoInspector.HeadSHA(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current HEAD: %w", err)
+	}
+	if err := run.ValidateHeadMatch(currentHead); err != nil {
+		return nil, fmt.Errorf("%w (use --force to override)", err)
+	}
+	if strings.TrimSpace(draft) != "" {
+		return &domain.ReleaseNotes{Text: draft, Provider: "agent"}, nil
+	}
+	if uc.notesGen == nil {
+		return nil, fmt.Errorf("notes generator is not configured and no agent draft was provided")
+	}
+	return uc.notesGen.Generate(ctx, run, options)
+}
+
 // NewGenerateNotesUseCase creates a new GenerateNotesUseCase.
 func NewGenerateNotesUseCase(
 	repo ports.ReleaseRunRepository,

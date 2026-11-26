@@ -502,7 +502,7 @@ ai:
 Verify your AI setup:
 
 ```bash
-# Test with dry-run
+# Generate a preview without saving it (the configured provider is still called)
 relicta notes --dry-run
 
 # Check repository and configuration health

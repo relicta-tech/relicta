@@ -145,25 +145,54 @@ func runNotesWithServices(ctx context.Context, app cliApp, repoPath string) erro
 		printSubtle(fmt.Sprintf("   Auto-selected '%s' based on priority order. Configure ai.provider to override.", cfg.AI.AutoSelected))
 	}
 
-	// Show spinner (unless JSON output)
-	var spinner *Spinner
-	if !outputJSON {
-		spinnerMsg := "Generating release notes..."
-		if input.Options.UseAI {
-			spinnerMsg = "Generating release notes with AI..."
+	var output *releaseapp.GenerateNotesOutput
+	var err error
+	var previewState string
+	if dryRun {
+		run, loadErr := services.Repository.LoadLatest(ctx, repoPath)
+		if loadErr != nil {
+			return fmt.Errorf("failed to load release for notes preview: %w", loadErr)
 		}
-		spinner = NewSpinner(spinnerMsg)
-		spinner.Start()
-	}
-
-	output, err := services.GenerateNotes.Execute(ctx, input)
-
-	if spinner != nil {
-		spinner.Stop()
+		previewState = string(run.State())
+		notes, genErr := services.GenerateNotes.GeneratePreview(ctx, run, input.Options, input.DraftText)
+		if genErr != nil {
+			return fmt.Errorf("failed to generate notes preview: %w", genErr)
+		}
+		output = &releaseapp.GenerateNotesOutput{RunID: run.ID(), VersionNext: run.VersionNext().String(), Notes: notes}
+	} else {
+		// Show spinner (unless JSON output). The dry-run path performs no persistence and
+		// returns its preview directly below.
+		var spinner *Spinner
+		if !outputJSON {
+			spinnerMsg := "Generating release notes..."
+			if input.Options.UseAI {
+				spinnerMsg = "Generating release notes with AI..."
+			}
+			spinner = NewSpinner(spinnerMsg)
+			spinner.Start()
+		}
+		output, err = services.GenerateNotes.Execute(ctx, input)
+		if spinner != nil {
+			spinner.Stop()
+		}
 	}
 
 	if err != nil {
 		return fmt.Errorf("failed to generate notes: %w", err)
+	}
+
+	if dryRun {
+		if outputJSON {
+			result := map[string]any{"release_id": string(output.RunID), "version": output.VersionNext,
+				"release_notes": output.Notes.Text, "provider": output.Notes.Provider, "dry_run": true,
+				"state": previewState, "persisted": false}
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(result)
+		}
+		fmt.Println("\nDry run: release state was not changed.")
+		fmt.Println(output.Notes.Text)
+		return nil
 	}
 
 	// Each package's run gets its own notes, from its own changeset. Approval reads them, so

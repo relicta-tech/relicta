@@ -673,7 +673,7 @@ relicta config validate
      -H "Authorization: Bearer $OPENAI_API_KEY"
    ```
 3. Check provider-specific docs: `docs/ai-providers.md`
-4. Try dry-run to test:
+4. Generate a preview without saving it (the configured provider is still called):
    ```bash
    relicta notes --dry-run
    ```
@@ -848,7 +848,7 @@ ai:
 
 ✅ **Test immediately:**
 ```bash
-# Dry-run to verify config
+# Generate a preview without saving it (the configured provider is still called)
 relicta notes --dry-run
 
 # Check what would happen
