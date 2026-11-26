@@ -5554,3 +5554,20 @@ its benchmark and comparison steps; no result is claimed for it yet. PR #423 rem
 no review decision. The active `main` ruleset requires ten named checks but zero approving reviews;
 the separate `release-approval` environment remains unconfigured and its workflow requires an
 independent reviewer. No merge, release, or deployment occurred.
+
+## VERIFIED LOCALLY: integration suite and agent-notes path pass (2026-11-26)
+
+The hosted `Integration Tests` job is intentionally skipped for pull requests and runs only on
+pushes to `main`. Ran `make test-integration` locally on the current `6ecb750` candidate; all
+integration tests passed, including the MCP end-to-end workflow and CGP governance scenarios.
+Focused `go test ./internal/mcp ./internal/domain/release/app ./internal/cli` also passed, and
+`go run ./cmd/relicta mcp --help` built and exposed the MCP server command. The agent-session
+notes handoff is already implemented in this candidate: agents draft from the deterministic plan,
+`relicta_notes` stores the supplied text with agent provenance, and approval remains separate.
+
+The latest hosted PR checks remain green for build, lint/test, docs, accessibility, security,
+container scans, SBOM, AI eval, policy, and three benchmark subchecks. The aggregate benchmark job is
+still executing its five-iteration benchmark step; no aggregate result is claimed. The PR remains
+draft. The protected `release-approval` environment and an independent reviewer are still absent,
+and no external customer interviews or willingness-to-pay evidence have been collected. No release
+or deployment occurred.
