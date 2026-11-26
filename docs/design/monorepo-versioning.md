@@ -1,6 +1,6 @@
 # Multi-Package/Monorepo Versioning Design
 
-## Status (2026-08-20)
+## Status (2026-11-26)
 
 This document describes the design in full. Part of it ships; the rest does not, and the
 difference matters more here than usual — the whole subsystem spent a long time implemented,
@@ -23,9 +23,18 @@ package measures from its own last release.
 own `CHANGELOG.md` from that package's commits, under the repository's `changelog.*` settings,
 and the release commit carries them.
 
-**Designed here but not wired:** a governance decision per package release, dependency-coordinated version propagation, and the `MonorepoRelease` aggregate's own
-lifecycle. `relicta plan` and `relicta approve` decide for the repository as a whole — one plan,
-one decision — and say so on every run in a monorepo.
+**Implemented and reachable:** a governance decision per package release. Each changed package
+has its own release run, policy evaluation, approval, and audit entry. `relicta approve --package
+<name>` decides one package; publishing creates tags and changelog entries only for approved
+packages. The repository release run still coordinates the overall workflow. See
+[ADR-015](../adr/015-per-package-versioning-is-independent-only.md) for the independent-versioning
+decision and implementation boundaries.
+
+**Not implemented:** dependency-coordinated version propagation and the `MonorepoRelease`
+aggregate's own lifecycle.
+
+This status supersedes the historical implementation plan and API sketches below. Package-level
+release runs and approvals are implemented; the older plan's steps should not be read as pending.
 
 ## Overview
 
@@ -95,7 +104,7 @@ monorepo:
     root_changelog: true
 ```
 
-## Implementation Plan
+## Historical Implementation Plan
 
 ### Phase 1: Configuration Extension
 
@@ -134,7 +143,7 @@ monorepo:
 2. Add `relicta.package_release` tool
 3. Add package filtering to existing tools
 
-## API Design
+## Historical API Sketches
 
 ### CLI Commands
 

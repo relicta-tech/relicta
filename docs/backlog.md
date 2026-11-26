@@ -4391,6 +4391,17 @@ the draft release notes claimed a separate governance decision for each package.
 calculates package versions, changelogs, and tags independently, but plans and approves at the
 repository level. Updated both internal and public 5.0.0 notes to state this boundary explicitly.
 
+## CORRECTION SUPERSEDED: package approvals are implemented (2026-11-26)
+
+Further review of the current CLI and monorepo release flow showed that the preceding correction
+was wrong: each changed package has its own release run, policy evaluation, approval, and audit
+entry, while the repository release separately coordinates the overall workflow. The per-package
+approval path is exposed through `relicta approve --package`. Updated the 5.0.0 notes and the
+monorepo design status to reflect both decision layers. For packages with their own release run,
+the package approval gate controls whether they are included; retain the no-run compatibility path
+when making claims about package tags. See `internal/cli/monorepo_scope.go`,
+`internal/cli/plan_monorepo.go`, and ADR-015.
+
 ## DOCUMENTED: safe GitHub-hosted snapshot release check (2026-11-26)
 
 The release workflow has a manual `workflow_dispatch` job that builds and validates snapshot
