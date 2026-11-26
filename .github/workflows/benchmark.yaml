@@ -214,13 +214,16 @@ jobs:
           script: |
             const size = '${{ steps.size-check.outputs.size_mb }}';
             const passed = '${{ steps.size-check.outputs.passed }}' === 'true';
-            const icon = passed ? '✅' : '❌';
+            const icon = passed ? '✅' : '⚠️';
+            const status = passed
+              ? 'within the 20MB optimization target'
+              : 'above the 20MB optimization target (advisory only; this job still passes)';
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## Binary Size Check\n\n${icon} Binary size: **${size}MB** (target: < 20MB)`
+              body: `## Binary Size Check\n\n${icon} Binary size: **${size}MB** — ${status}`
             });
 
   memory-benchmark:
