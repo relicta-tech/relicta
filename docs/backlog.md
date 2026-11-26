@@ -5593,3 +5593,21 @@ product Pro tier with MCP, hosted changelogs, analytics, and unlimited team memb
 tool. The willingness-to-pay hypothesis is the repository-level link among changes, policy,
 approval, and auditable release, or a demonstrated self-hosting need. No price, savings, or demand
 claim is supported yet; validate with actual workflow comparisons and budget conversations.
+
+## FIXED: notes dry-run previews without changing release state (2026-11-26)
+
+Live CLI dogfooding in Govee showed that `relicta notes --dry-run` still called the save use case
+and replaced the persisted customer-note draft. Added a generation-only preview path that checks
+the release state and pinned HEAD but does not transition or save the release; the CLI also skips
+monorepo package-note writes and reports `persisted: false` in JSON. Updated command and provider
+guidance to distinguish a non-persisting preview from a no-cost run: configured AI providers may
+still be called.
+
+Restored the Govee release record to the reviewed customer-facing wording, “This update refreshes
+project dependencies and improves automated security checks.” `status --json` reports v3.1.3,
+`notes_ready`, and `stale: false`. Running the rebuilt CLI with `--dry-run --json --draft-file`
+returned the supplied draft and `persisted: false`; SHA-256 checks of both release-state files
+matched before and after. The existing unrelated Govee working-tree edits were preserved.
+`go test ./internal/cli ./internal/domain/release/app` and `git diff --check` pass. Code is pushed
+to draft PR #423 at `369e162`; fresh hosted checks are still running. No approval, tag, publication,
+merge, or external market interview occurred.
