@@ -5476,3 +5476,13 @@ amd64 on macOS arm64 using a non-publishing snapshot. The release completed, and
 SBOMs, six checksum entries, and the custom Homebrew formula against the release checksums. This
 validates the local packaging path only; hosted release approval and publication remain blocked
 by the missing reviewer environment described above.
+
+## CURRENT READINESS CANDIDATE COMMITTED LOCALLY (2026-11-26)
+
+Committed the reviewed local candidate as `1d7e470` on `codex/production-readiness` (858 files,
+25,748 insertions, 7,067 deletions). The worktree is clean; `roady spec validate` and
+`roady drift detect` pass. The commit includes the prior local full-CI and release-snapshot
+evidence, but has not been pushed, so no hosted checks have run for this candidate. Open PR #405
+still points at `72d31c6`; its existing green checks are from October and do not validate this
+candidate. The separately corrected site remains local on `codex/site-production-readiness`, now
+including commit `4e988fc`; no site PR or deployment exists.
