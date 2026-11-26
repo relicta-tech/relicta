@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 func TestArticle12_GenerateBuilds(t *testing.T) {
@@ -52,15 +52,21 @@ func TestArticle12_GenerateBuilds(t *testing.T) {
 	if got := report.Article12.SystemIdentifier; got != "acme/payments" {
 		t.Errorf("systemIdentifier: got %q", got)
 	}
-	if !report.Article12.AuditChainIntegrityVerified {
-		t.Errorf("expected chain integrity verified by default")
+	if report.Article12.AuditChainIntegrityStatus != "not_checked" {
+		t.Errorf("expected chain integrity to be reported as not checked, got %q", report.Article12.AuditChainIntegrityStatus)
 	}
-	if !report.Article12.RetentionDeadline.After(cfg.Period.End) {
+	if !strings.Contains(report.Article12.EvidenceScope, "does not record each AI system use") {
+		t.Errorf("expected explicit limits on Article 12 evidence scope, got %q", report.Article12.EvidenceScope)
+	}
+	if !strings.Contains(report.Article12.EvidenceScope, "Approval-event identities and audit-chain hashes are not included") {
+		t.Errorf("expected approval and audit-chain limitations, got %q", report.Article12.EvidenceScope)
+	}
+	if !report.Article12.SuggestedRetentionDate.After(cfg.Period.End) {
 		t.Errorf("retention deadline must be after period end")
 	}
-	// Article 26(6): minimum six months retention. Calendar months vary 28-31 days,
-	// so accept anything in the [175, 190] day window.
-	if got := report.Article12.RetentionDeadline.Sub(cfg.Period.End).Hours() / 24; got < 175 || got > 190 {
+	// The suggested export date is six calendar months after the report period
+	// end. Calendar months vary 28-31 days, so accept the [175, 190] day window.
+	if got := report.Article12.SuggestedRetentionDate.Sub(cfg.Period.End).Hours() / 24; got < 175 || got > 190 {
 		t.Errorf("retention deadline should be ~6 months past end, got %.0f days", got)
 	}
 	if len(report.Article12.LogEntries) == 0 {
@@ -68,6 +74,9 @@ func TestArticle12_GenerateBuilds(t *testing.T) {
 	}
 
 	entry := report.Article12.LogEntries[0]
+	if entry.EvidenceScope != report.Article12.EvidenceScope {
+		t.Errorf("entry evidence scope should travel with each record")
+	}
 	if entry.Version != "1.4.0" {
 		t.Errorf("entry version: got %q", entry.Version)
 	}
@@ -80,8 +89,8 @@ func TestArticle12_GenerateBuilds(t *testing.T) {
 	if entry.InputData.FilesChanged != 12 {
 		t.Errorf("entry files changed: got %d", entry.InputData.FilesChanged)
 	}
-	if entry.StartedAt.Equal(entry.EndedAt) {
-		t.Errorf("expected started_at != ended_at when duration is known")
+	if entry.ReleaseProcessStartedAt.Equal(entry.ReleaseRecordedAt) {
+		t.Errorf("expected release process start and record times to differ when duration is known")
 	}
 }
 
@@ -227,6 +236,7 @@ func TestRenderCSV_HeaderAndRow(t *testing.T) {
 	r := &Article12Report{
 		LogEntries: []Article12LogEntry{
 			{
+				EvidenceScope:  article12EvidenceScope,
 				EntryID:        "x,y",
 				EventTimestamp: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
 				Actor:          cgp.Actor{Kind: cgp.ActorKindHuman, ID: "alice@example.com"},
@@ -240,8 +250,17 @@ func TestRenderCSV_HeaderAndRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(out, "entry_id,") {
+	if !strings.HasPrefix(out, "evidence_scope,") {
 		t.Errorf("expected csv header first; got %q", out[:60])
+	}
+	if !strings.Contains(out, "release_process_started_at,release_recorded_at") || strings.Contains(out, "started_at,ended_at") {
+		t.Errorf("expected release-specific timestamp columns, got %q", out[:strings.IndexByte(out, '\n')])
+	}
+	if strings.Contains(out, "audit_chain_hash") || strings.Contains(out, "verifiers,policy_id") {
+		t.Errorf("CSV must not advertise fields the report does not populate")
+	}
+	if !strings.Contains(out, "cannot by itself establish") {
+		t.Errorf("expected csv row to carry evidence-scope limitation")
 	}
 	if !strings.Contains(out, `"x,y"`) {
 		t.Errorf("expected commas in entry_id to be quoted")
@@ -278,9 +297,10 @@ func TestRenderMarkdown_Article12(t *testing.T) {
 		Period:      Period{Start: time.Now(), End: time.Now().Add(time.Hour), Label: "x"},
 		GeneratedAt: time.Now().UTC(),
 		Article12: &Article12Report{
-			SystemIdentifier:            "acme/payments",
-			AuditChainIntegrityVerified: true,
-			RetentionDeadline:           time.Now().AddDate(0, 6, 0),
+			SystemIdentifier:          "acme/payments",
+			EvidenceScope:             article12EvidenceScope,
+			AuditChainIntegrityStatus: "not_checked",
+			SuggestedRetentionDate:    time.Now().AddDate(0, 6, 0),
 			LogEntries: []Article12LogEntry{
 				{
 					EntryID:        "art12:1",
@@ -294,14 +314,17 @@ func TestRenderMarkdown_Article12(t *testing.T) {
 	}
 
 	out := RenderMarkdown(report)
-	if !strings.Contains(out, "EU AI Act — Article 12 Record-Keeping") {
+	if !strings.Contains(out, "EU AI Act — Article 12 Supporting Evidence") {
 		t.Errorf("missing Article 12 heading")
+	}
+	if !strings.Contains(out, "cannot by itself establish") {
+		t.Errorf("missing Article 12 evidence scope limitation")
 	}
 	if !strings.Contains(out, "claude-code-1") {
 		t.Errorf("missing actor in markdown")
 	}
-	if !strings.Contains(out, "Audit Chain Integrity:** ✓ verified") {
-		t.Errorf("missing chain integrity badge")
+	if !strings.Contains(out, "Audit Chain Integrity:** not checked") {
+		t.Errorf("missing accurate chain integrity status")
 	}
 	if !strings.Contains(out, "alice@example.com") {
 		t.Errorf("missing verifier in markdown")

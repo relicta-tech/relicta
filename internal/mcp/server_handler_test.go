@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // =============================================================================
@@ -177,7 +177,12 @@ var (
 // =============================================================================
 
 func createPlannedRelease(id string, repoRoot string) *releasedomain.ReleaseRun {
-	rel := domainrelease.NewReleaseRunForTest(domainrelease.RunID(id), "main", repoRoot)
+	// A planned release pins the repository HEAD. Keep that fact aligned with the
+	// inspector used by newTestSetup so notes tests exercise the normal path rather
+	// than failing on an impossible empty-HEAD fixture.
+	head := releasedomain.CommitSHA("abc123")
+	// Use the label as a fixture config hash so each test run keeps a distinct ID.
+	rel := releasedomain.NewReleaseRun(repoRoot, repoRoot, "main", head, []releasedomain.CommitSHA{head}, id, "")
 	v, _ := version.Parse("1.0.0")
 	nextV, _ := version.Parse("1.1.0")
 	plan := domainrelease.NewReleasePlan(v, nextV, changes.ReleaseTypeMinor, nil, false)
@@ -213,7 +218,8 @@ func newTestSetup(repoRoot string) *testSetup {
 	getStatus := releaseapp.NewGetStatusUseCase(repo, inspector)
 
 	services := &domainrelease.Services{
-		GetStatus: getStatus,
+		GetStatus:     getStatus,
+		GenerateNotes: releaseapp.NewGenerateNotesUseCase(repo, inspector, nil, nil),
 	}
 
 	adapter := NewAdapter(
@@ -232,6 +238,127 @@ func newTestSetup(repoRoot string) *testSetup {
 		repo:      repo,
 		inspector: inspector,
 	}
+}
+
+func TestHandleNotesStoresAgentDraftWithoutGenerator(t *testing.T) {
+	ctx := context.Background()
+	setup := newTestSetup("/test/repo")
+	run := createPlannedRelease("agent-notes-release", "/test/repo")
+	require.NoError(t, run.SetVersion(version.MustParse("1.1.0"), "v1.1.0"))
+	require.NoError(t, run.Bump("test-agent"))
+	require.Equal(t, releasedomain.StateVersioned, run.State())
+	require.NoError(t, setup.repo.Save(ctx, run))
+	require.NoError(t, setup.repo.SetLatest(ctx, "/test/repo", run.ID()))
+
+	draft := "## Govee Light Management 1.1.0\n\n- Control your lights more reliably."
+	result, err := setup.server.handleNotes(ctx, NotesToolInput{Draft: draft, Audience: "public"})
+	require.NoError(t, err)
+	out := parseJSONResult(t, result)
+	assert.Equal(t, true, out["agent_authored"])
+	assert.Equal(t, false, out["ai_generated"])
+	assert.Equal(t, draft, out["summary"])
+	assert.Equal(t, "Agent-authored notes were saved exactly as supplied and are not fact-checked by Relicta. Verify every claim against the release recommendation before approval.", out["warning"])
+	assert.NotContains(t, out, "changelog", "agent-authored customer copy is not a separate technical changelog")
+
+	saved := setup.repo.runs[run.ID()]
+	require.Equal(t, releasedomain.StateNotesReady, saved.State())
+	require.NotNil(t, saved.Notes())
+	assert.Equal(t, draft, saved.Notes().Text)
+	assert.Equal(t, "agent", saved.Notes().Provider)
+	assert.Equal(t, "public", saved.Notes().AudiencePreset)
+}
+
+func TestHandleNotesBindsHashToExactAgentDraft(t *testing.T) {
+	ctx := context.Background()
+	setup := newTestSetup("/test/repo")
+	run := createPlannedRelease("agent-notes-hash-release", "/test/repo")
+	require.NoError(t, run.SetVersion(version.MustParse("1.1.0"), "v1.1.0"))
+	require.NoError(t, run.Bump("test-agent"))
+	require.NoError(t, setup.repo.Save(ctx, run))
+	require.NoError(t, setup.repo.SetLatest(ctx, "/test/repo", run.ID()))
+
+	firstDraft := "Customers can schedule light scenes."
+	_, err := setup.server.handleNotes(ctx, NotesToolInput{Draft: firstDraft})
+	require.NoError(t, err)
+	saved := setup.repo.runs[run.ID()]
+	require.Equal(t, firstDraft, saved.Notes().Text)
+	firstHash := saved.NotesInputsHash()
+	require.NotEmpty(t, firstHash)
+
+	secondDraft := "Customers can schedule lighting scenes."
+	_, err = setup.server.handleNotes(ctx, NotesToolInput{ReleaseID: string(run.ID()), Draft: secondDraft})
+	require.NoError(t, err)
+	saved = setup.repo.runs[run.ID()]
+	assert.Equal(t, secondDraft, saved.Notes().Text)
+	assert.Equal(t, "agent", saved.Notes().Provider)
+	assert.NotEqual(t, firstHash, saved.NotesInputsHash(), "changing customer-facing prose must change the notes integrity hash")
+	assert.Equal(t, releasedomain.StateNotesReady, saved.State(), "updated notes remain pending approval")
+}
+
+func TestHandleNotesWhitespaceDraftUsesConfiguredGenerator(t *testing.T) {
+	ctx := context.Background()
+	setup := newTestSetup("/test/repo")
+	generator := &recordingNotesGenerator{}
+	setup.adapter.releaseServices.GenerateNotes = releaseapp.NewGenerateNotesUseCase(setup.repo, setup.inspector, generator, nil)
+
+	run := createPlannedRelease("whitespace-notes-release", "/test/repo")
+	require.NoError(t, run.SetVersion(version.MustParse("1.1.0"), "v1.1.0"))
+	require.NoError(t, run.Bump("test-agent"))
+	require.NoError(t, setup.repo.Save(ctx, run))
+	require.NoError(t, setup.repo.SetLatest(ctx, "/test/repo", run.ID()))
+
+	result, err := setup.server.handleNotes(ctx, NotesToolInput{AI: true, Draft: " \n\t"})
+	require.NoError(t, err)
+	out := parseJSONResult(t, result)
+	assert.Equal(t, false, out["agent_authored"])
+	assert.Equal(t, true, out["ai_generated"])
+	assert.Equal(t, "Generated notes", out["summary"])
+	assert.True(t, generator.options.UseAI)
+}
+
+type recordingNotesGenerator struct {
+	options ports.NotesOptions
+}
+
+func (g *recordingNotesGenerator) Generate(_ context.Context, _ *releasedomain.ReleaseRun, options ports.NotesOptions) (*releasedomain.ReleaseNotes, error) {
+	g.options = options
+	return &releasedomain.ReleaseNotes{
+		Text:           "Generated notes",
+		AudiencePreset: options.AudiencePreset,
+		TonePreset:     options.TonePreset,
+		Provider:       "test",
+	}, nil
+}
+
+func (*recordingNotesGenerator) ComputeInputsHash(_ *releasedomain.ReleaseRun, _ ports.NotesOptions) string {
+	return "test-hash"
+}
+
+func TestHandleNotesForwardsGenerationOptions(t *testing.T) {
+	ctx := context.Background()
+	setup := newTestSetup("/test/repo")
+	generator := &recordingNotesGenerator{}
+	setup.adapter.releaseServices.GenerateNotes = releaseapp.NewGenerateNotesUseCase(setup.repo, setup.inspector, generator, nil)
+
+	run := createPlannedRelease("notes-options-release", "/test/repo")
+	require.NoError(t, run.SetVersion(version.MustParse("1.1.0"), "v1.1.0"))
+	require.NoError(t, run.Bump("test-agent"))
+	require.NoError(t, setup.repo.Save(ctx, run))
+	require.NoError(t, setup.repo.SetLatest(ctx, "/test/repo", run.ID()))
+
+	_, err := setup.server.handleNotes(ctx, NotesToolInput{
+		AI:       true,
+		Audience: "public",
+		Tone:     "friendly",
+		Language: "Spanish",
+		Emoji:    true,
+	})
+	require.NoError(t, err)
+	assert.True(t, generator.options.UseAI)
+	assert.Equal(t, "public", generator.options.AudiencePreset)
+	assert.Equal(t, "friendly", generator.options.TonePreset)
+	assert.Equal(t, "Spanish", generator.options.Language)
+	assert.True(t, generator.options.IncludeEmoji)
 }
 
 // mockPortsRepoLegacyAdapter bridges mockPortsRepo to the legacy domainrelease.Repository interface.
@@ -712,12 +839,12 @@ func TestAdapterCancelSuccessPath(t *testing.T) {
 
 	ctx := context.Background()
 	output, err := adapter.Cancel(ctx, CancelInput{
-		ReleaseID: "cancel-success",
+		ReleaseID: string(rel.ID()),
 		Reason:    "test cancel",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, output)
-	assert.Equal(t, "cancel-success", output.ReleaseID)
+	assert.Equal(t, string(rel.ID()), output.ReleaseID)
 	assert.Equal(t, "planned", output.PreviousState)
 	assert.Equal(t, "canceled", output.NewState)
 }

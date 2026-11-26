@@ -18,9 +18,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	rperrors "github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // bufferPool is used to reuse buffers for template execution to reduce GC pressure.
@@ -608,6 +608,8 @@ type ChangelogData struct {
 type ReleaseNotesData struct {
 	// Version is the release version.
 	Version *version.SemanticVersion
+	// PreviousVersion is the previous release version, when known.
+	PreviousVersion *version.SemanticVersion
 	// Date is the release date.
 	Date time.Time
 	// Changelog is the generated changelog.

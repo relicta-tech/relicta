@@ -13,14 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	"github.com/relicta-tech/relicta/v4/internal/cli"
+	"github.com/relicta-tech/relicta/v5/internal/cli"
 )
 
 func main() {
 	outDir := "docs/cli"
-	if len(os.Args) > 1 {
-		outDir = os.Args[1]
-	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		log.Fatalf("create %s: %v", outDir, err)
 	}

@@ -41,43 +41,29 @@ relicta cancel -f 2>/dev/null || true
 relicta plan >/dev/null 2>&1
 relicta bump >/dev/null 2>&1
 
-# SUCCESS CASE 2: AI-powered notes
+# SUCCESS CASE 2: Write a copy to a file
 echo ""
-echo -e "${GREEN}━━━ Success: AI-powered notes ━━━${NC}"
+echo -e "${GREEN}━━━ Success: Write notes to a file ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta notes -a${NC}"
+echo -e "$ ${YELLOW}relicta notes --output /tmp/relicta-demo-notes.md${NC}"
 pause 0.5
-relicta notes -a
-pause 3
-
-# Reset for next demo
-relicta cancel -f 2>/dev/null || true
-relicta plan >/dev/null 2>&1
-relicta bump >/dev/null 2>&1
-
-# SUCCESS CASE 3: Save to changelog
-echo ""
-echo -e "${GREEN}━━━ Success: Save notes to changelog ━━━${NC}"
-echo ""
-echo -e "$ ${YELLOW}relicta notes -s${NC}"
-pause 0.5
-relicta notes -s
+relicta notes --output /tmp/relicta-demo-notes.md
 pause 2
 echo ""
-echo "Changelog updated:"
-head -20 CHANGELOG.md 2>/dev/null || echo "(No changelog file)"
+echo "Notes copy written:"
+head -20 /tmp/relicta-demo-notes.md 2>/dev/null || echo "(No output file)"
 pause 3
 
-# SUCCESS CASE 4: Dry run
+# SUCCESS CASE 3: Machine-readable output
 relicta cancel -f 2>/dev/null || true
 relicta plan >/dev/null 2>&1
 relicta bump >/dev/null 2>&1
 echo ""
-echo -e "${GREEN}━━━ Success: Dry run ━━━${NC}"
+echo -e "${GREEN}━━━ Success: JSON output ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta notes --dry-run${NC}"
+echo -e "$ ${YELLOW}relicta notes --json${NC}"
 pause 0.5
-relicta notes --dry-run
+relicta notes --json
 pause 3
 
 # ERROR CASE 1: No version set
@@ -91,30 +77,23 @@ pause 0.5
 relicta notes 2>&1 || true
 pause 3
 
-# ERROR CASE 2: AI without API key (simulated)
-echo ""
-echo -e "${RED}━━━ Error: AI requested but no API key ━━━${NC}"
-echo ""
-echo -e "$ ${YELLOW}OPENAI_API_KEY= relicta notes -a${NC}"
-pause 0.5
-echo "✗ AI provider not configured"
-echo "  Set OPENAI_API_KEY or configure ai.provider in .relicta.yaml"
-pause 3
-
 # Summary
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo "  Flags:"
-echo "    -a, --ai          Use AI to generate notes"
-echo "    -s, --save        Save to changelog file"
-echo "    --tone            AI tone: professional, casual, technical"
-echo "    --audience        Target: developers, users, stakeholders"
-echo "    --dry-run         Preview without changes"
-echo "    --json            Output as JSON"
+echo "    --output          Write a copy of the generated notes to a file"
+echo "    --audience        AI audience: developers, users, public, stakeholders"
+echo "    --tone            AI tone: technical, friendly, professional, marketing"
+echo "    --language        Language for configured AI-generated notes"
+echo "    --emoji           Include emojis in generated notes"
+echo "    --json            Output note data as JSON"
 echo ""
+echo "  AI prose requires ai.enabled and a working provider in .relicta.yaml."
+echo "  For product-context customer copy, use the MCP agent-session workflow."
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 pause 3
 
 # Cleanup
 relicta cancel -f 2>/dev/null || true
+rm -f /tmp/relicta-demo-notes.md

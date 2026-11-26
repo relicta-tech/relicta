@@ -13,8 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // Relicta recorded that a release was governed and published, and nothing about it

@@ -12,7 +12,7 @@ package memory
 import (
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
 )
 
 // appendAuditEntry returns entries with entry appended, or an error if it does not

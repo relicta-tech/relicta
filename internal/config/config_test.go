@@ -11,6 +11,10 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
+	if cfg.Dashboard.Address != "127.0.0.1:8080" || cfg.Dashboard.Auth.Mode != DashboardAuthNone {
+		t.Errorf("local dashboard defaults = %q / %q, want loopback with auth disabled",
+			cfg.Dashboard.Address, cfg.Dashboard.Auth.Mode)
+	}
 
 	// Test versioning defaults
 	if cfg.Versioning.Strategy != "conventional" {
@@ -50,8 +54,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.AI.Provider != "openai" {
 		t.Errorf("AI.Provider = %v, want openai", cfg.AI.Provider)
 	}
-	if cfg.AI.Model != "gpt-4" {
-		t.Errorf("AI.Model = %v, want gpt-4", cfg.AI.Model)
+	if cfg.AI.Model != "gpt-6.2-sol" {
+		t.Errorf("AI.Model = %v, want gpt-6.2-sol", cfg.AI.Model)
 	}
 	if cfg.AI.Temperature != 0.7 {
 		t.Errorf("AI.Temperature = %v, want 0.7", cfg.AI.Temperature)

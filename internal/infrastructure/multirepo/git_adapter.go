@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // GitAdapter answers the coordinator's questions about a repository it does not own.
@@ -54,21 +54,32 @@ func (a *GitAdapter) HasChanges(ctx context.Context, repoPath string) (bool, err
 // member that has not shipped yet, and refusing the whole plan for it would make the group
 // unusable until every member had a release.
 func (a *GitAdapter) GetCurrentVersion(ctx context.Context, repoPath string) (string, error) {
+	prefix, err := effectiveTagPrefix(repoPath, a.tagPrefix)
+	if err != nil {
+		return "", fmt.Errorf("loading version settings for %s: %w", repoPath, err)
+	}
 	svc, err := git.NewService(git.WithRepoPath(repoPath))
 	if err != nil {
 		return "", fmt.Errorf("opening repository %s: %w", repoPath, err)
 	}
 
-	tag, err := svc.GetLatestVersionTag(ctx, a.tagPrefix)
-	if err != nil || tag == nil {
+	tag, err := latestVersionTag(ctx, svc, prefix)
+	if err != nil {
+		return "", fmt.Errorf("reading latest version tag in %s: %w", repoPath, err)
+	}
+	if tag == nil {
 		return "0.0.0", nil
 	}
-	return strings.TrimPrefix(tag.Name, a.tagPrefix), nil
+	return strings.TrimPrefix(tag.Name, prefix), nil
 }
 
 // GetChangeCount returns the number of commits since the repository's last version tag, or
 // its whole history when it has no version tag.
 func (a *GitAdapter) GetChangeCount(ctx context.Context, repoPath string) (int, error) {
+	prefix, err := effectiveTagPrefix(repoPath, a.tagPrefix)
+	if err != nil {
+		return 0, fmt.Errorf("loading version settings for %s: %w", repoPath, err)
+	}
 	svc, err := git.NewService(git.WithRepoPath(repoPath))
 	if err != nil {
 		return 0, fmt.Errorf("opening repository %s: %w", repoPath, err)
@@ -76,7 +87,9 @@ func (a *GitAdapter) GetChangeCount(ctx context.Context, repoPath string) (int, 
 
 	// An empty ref means "everything", which is what an unreleased repository needs.
 	ref := ""
-	if tag, tagErr := svc.GetLatestVersionTag(ctx, a.tagPrefix); tagErr == nil && tag != nil {
+	if tag, tagErr := latestVersionTag(ctx, svc, prefix); tagErr != nil {
+		return 0, fmt.Errorf("reading latest version tag in %s: %w", repoPath, tagErr)
+	} else if tag != nil {
 		ref = tag.Name
 	}
 

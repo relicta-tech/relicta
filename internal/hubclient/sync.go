@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	pubcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	pubcgp "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // Pushing the local governance record to Hub.

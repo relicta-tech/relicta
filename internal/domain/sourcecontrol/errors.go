@@ -35,6 +35,10 @@ var (
 	// ErrNoTags indicates no tags were found.
 	ErrNoTags = errors.New("no tags found")
 
+	// ErrRefNotAncestor indicates a range's starting reference is not in the
+	// target reference's history.
+	ErrRefNotAncestor = errors.New("starting reference is not an ancestor of target")
+
 	// ErrPushFailed indicates a push operation failed.
 	ErrPushFailed = errors.New("push failed")
 

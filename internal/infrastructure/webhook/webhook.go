@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -16,8 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/webhook/queue"
 )
 
 // getTimeout returns the configured timeout or default.
@@ -63,14 +65,46 @@ type Publisher struct {
 	next     release.EventPublisher
 	logger   *slog.Logger
 
-	// inFlight tracks the delivery goroutines so Close can wait for them.
-	//
-	// Deliveries are sent concurrently because a slow endpoint must not hold up a
-	// release, but they were sent with a bare `go` and nothing ever waited: the CLI is
-	// one process per command and exits as soon as publish returns, so the goroutines
-	// were killed mid-request. Whether a webhook arrived depended on which won the race
-	// with process exit, and the loser left no trace — no error, no retry, no log.
-	inFlight sync.WaitGroup
+	// inFlight tracks the delivery operations so Close can wait for any operation
+	// already started by a concurrent Publish call.
+	inFlight      sync.WaitGroup
+	queue         *queue.FileQueue
+	workerCancel  context.CancelFunc
+	workerDone    chan struct{}
+	workerStarted bool
+}
+
+// NewPersistentPublisher creates a webhook publisher backed by a durable file queue.
+// Pending deliveries are retried in the background and survive process restarts.
+func NewPersistentPublisher(webhooks []config.WebhookConfig, next release.EventPublisher, q *queue.FileQueue) *Publisher {
+	p := NewPublisher(webhooks, next)
+	p.queue = q
+	return p
+}
+
+// Start resumes pending deliveries. It is safe to call more than once.
+func (p *Publisher) Start(parent context.Context) {
+	if p.queue != nil && p.workerCancel == nil {
+		owned, err := p.queue.TryAcquireWorker()
+		if err != nil {
+			p.logger.Error("failed to acquire webhook worker lock", "error", err)
+			return
+		}
+		if !owned {
+			p.logger.Info("webhook queue worker already active in another process")
+			return
+		}
+		if _, err := p.queue.RecoverInFlight(); err != nil {
+			p.logger.Error("failed to recover in-flight webhook deliveries", "error", err)
+			_ = p.queue.Close()
+			return
+		}
+		ctx, cancel := context.WithCancel(parent)
+		p.workerCancel = cancel
+		p.workerDone = make(chan struct{})
+		p.workerStarted = true
+		go p.runQueueWorker(ctx)
+	}
 }
 
 // NewPublisher creates a new webhook publisher.
@@ -84,9 +118,14 @@ func NewPublisher(webhooks []config.WebhookConfig, next release.EventPublisher) 
 	}
 }
 
-// Publish sends events to configured webhook endpoints.
+// Publish sends events to configured webhook endpoints and returns delivery failures.
 // Events are forwarded to the next publisher regardless of webhook success.
 func (p *Publisher) Publish(ctx context.Context, events ...release.DomainEvent) error {
+	if p.queue != nil {
+		return p.publishQueued(ctx, events...)
+	}
+	var deliveries sync.WaitGroup
+	deliveryErrors := make(chan error, len(events)*len(p.webhooks))
 	for _, event := range events {
 		for i := range p.webhooks {
 			wh := &p.webhooks[i]
@@ -99,18 +138,201 @@ func (p *Publisher) Publish(ctx context.Context, events ...release.DomainEvent) 
 
 			payload := p.buildPayload(event)
 			p.inFlight.Add(1)
+			deliveries.Add(1)
 			go func() {
+				defer deliveries.Done()
 				defer p.inFlight.Done()
-				p.sendWithRetry(ctx, wh, payload)
+				if err := p.sendWithRetry(ctx, wh, payload); err != nil {
+					deliveryErrors <- fmt.Errorf("webhook %q event %s release %s: %w",
+						wh.Name, payload.Event, payload.ReleaseID, err)
+				}
 			}()
 		}
 	}
-
-	// Forward to next publisher
-	if p.next != nil {
-		return p.next.Publish(ctx, events...)
+	deliveries.Wait()
+	close(deliveryErrors)
+	var errs []error
+	for err := range deliveryErrors {
+		errs = append(errs, err)
 	}
 
+	// Forward to the next publisher even when delivery failed, so one unavailable
+	// endpoint does not suppress local governance and analytics recording.
+	var nextErr error
+	if p.next != nil {
+		nextErr = p.next.Publish(ctx, events...)
+	}
+	return errors.Join(append(errs, nextErr)...)
+}
+
+func (p *Publisher) publishQueued(ctx context.Context, events ...release.DomainEvent) error {
+	var errs []error
+	for _, event := range events {
+		for i := range p.webhooks {
+			wh := &p.webhooks[i]
+			if !wh.IsWebhookEnabled() || !p.shouldSendEvent(wh, event.EventName()) {
+				continue
+			}
+			payload := p.buildPayload(event)
+			body, err := json.Marshal(payload)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("encode webhook %q event %s: %w", wh.Name, payload.Event, err))
+				continue
+			}
+			idHash := sha256.Sum256(append(append([]byte(wh.URL), 0), body...))
+			attempts := getRetryCount(wh) + 1
+			if attempts < 1 {
+				attempts = 1
+			}
+			d := &queue.Delivery{
+				ID: hex.EncodeToString(idHash[:]), EndpointURL: wh.URL, EndpointName: wh.Name,
+				Payload: body, MaxAttempts: attempts, Headers: cloneHeaders(wh.Headers),
+				Secret: wh.Secret, Event: payload.Event,
+				TimeoutMillis: getTimeout(wh).Milliseconds(), RetryDelayMillis: getRetryDelay(wh).Milliseconds(),
+			}
+			if err := p.queue.Enqueue(d); err != nil {
+				errs = append(errs, fmt.Errorf("enqueue webhook %q event %s release %s: %w", wh.Name, payload.Event, payload.ReleaseID, err))
+			}
+		}
+	}
+	var nextErr error
+	if p.next != nil {
+		nextErr = p.next.Publish(ctx, events...)
+	}
+	return errors.Join(append(errs, nextErr)...)
+}
+
+func cloneHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	clonedHeaders := make(map[string]string, len(headers))
+	for key, value := range headers {
+		clonedHeaders[key] = value
+	}
+	return clonedHeaders
+}
+
+func (p *Publisher) runQueueWorker(ctx context.Context) {
+	defer close(p.workerDone)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		if _, err := p.processQueue(ctx); err != nil && ctx.Err() == nil {
+			p.logger.Error("webhook queue processing failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (p *Publisher) processQueue(ctx context.Context) (int, error) {
+	endpoints, err := p.queue.Endpoints()
+	if err != nil {
+		return 0, err
+	}
+	var errs []error
+	processed := 0
+	for _, endpoint := range endpoints {
+		wh := p.webhookForURL(endpoint)
+		if wh == nil {
+			continue
+		}
+		items, err := p.queue.Dequeue(endpoint, p.queue.Concurrency())
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		processed += len(items)
+		for _, item := range items {
+			item.EndpointName = wh.Name
+			item.Headers = cloneHeaders(wh.Headers)
+			item.Secret = wh.Secret
+			item.TimeoutMillis = getTimeout(wh).Milliseconds()
+			item.RetryDelayMillis = getRetryDelay(wh).Milliseconds()
+			item.MaxAttempts = getRetryCount(wh) + 1
+			if item.MaxAttempts < 1 {
+				item.MaxAttempts = 1
+			}
+			start := time.Now()
+			statusCode := 0
+			deliveryErr := p.sendQueued(ctx, item, &statusCode)
+			item.LastResponseTime = time.Since(start).Milliseconds()
+			if deliveryErr == nil {
+				if err := p.queue.Complete(item); err != nil {
+					errs = append(errs, fmt.Errorf("complete webhook delivery %s: %w", item.ID, err))
+				}
+				continue
+			}
+			nextAttempt := time.Now().UTC().Add(time.Duration(item.RetryDelayMillis) * time.Millisecond)
+			if err := p.queue.Fail(item, statusCode, deliveryErr.Error(), nextAttempt); err != nil {
+				errs = append(errs, fmt.Errorf("record failed webhook delivery %s: %w", item.ID, err))
+				continue
+			}
+			if item.Attempts >= item.MaxAttempts {
+				p.logger.Error("webhook delivery moved to dead-letter queue",
+					"webhook", item.EndpointName, "event", item.Event,
+					"delivery_id", item.ID, "status_code", statusCode)
+			} else {
+				p.logger.Warn("webhook delivery failed; retry scheduled",
+					"webhook", item.EndpointName, "event", item.Event,
+					"delivery_id", item.ID, "status_code", statusCode,
+					"next_attempt_at", nextAttempt)
+			}
+		}
+	}
+	return processed, errors.Join(errs...)
+}
+
+func (p *Publisher) webhookForURL(endpoint string) *config.WebhookConfig {
+	for i := range p.webhooks {
+		wh := &p.webhooks[i]
+		if wh.URL == endpoint && wh.IsWebhookEnabled() {
+			return wh
+		}
+	}
+	return nil
+}
+
+func (p *Publisher) sendQueued(ctx context.Context, d *queue.Delivery, statusCode *int) error {
+	var payload WebhookPayload
+	if err := json.Unmarshal(d.Payload, &payload); err != nil {
+		return fmt.Errorf("decode queued webhook payload: %w", err)
+	}
+	timeout := time.Duration(d.TimeoutMillis) * time.Millisecond
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, d.EndpointURL, bytes.NewReader(d.Payload))
+	if err != nil {
+		return err
+	}
+	for key, value := range d.Headers {
+		request.Header.Set(key, value)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", "Relicta-Webhook/1.0")
+	request.Header.Set("X-Relicta-Event", payload.Event)
+	request.Header.Set("X-Relicta-Delivery", payload.ReleaseID)
+	request.Header.Set("X-Relicta-Delivery-ID", d.PayloadHash)
+	if d.Secret != "" {
+		request.Header.Set("X-Relicta-Signature", "sha256="+signPayload(d.Payload, d.Secret))
+	}
+	response, err := p.client.Do(request)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer response.Body.Close()
+	*statusCode = response.StatusCode
+	responseBody, _ := io.ReadAll(io.LimitReader(response.Body, 1024))
+	if response.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d: %s", response.StatusCode, string(responseBody))
+	}
 	return nil
 }
 
@@ -208,7 +430,7 @@ func (p *Publisher) buildPayload(event release.DomainEvent) *WebhookPayload {
 }
 
 // sendWithRetry sends a webhook request with retries.
-func (p *Publisher) sendWithRetry(ctx context.Context, wh *config.WebhookConfig, payload *WebhookPayload) {
+func (p *Publisher) sendWithRetry(ctx context.Context, wh *config.WebhookConfig, payload *WebhookPayload) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= getRetryCount(wh); attempt++ {
@@ -219,7 +441,7 @@ func (p *Publisher) sendWithRetry(ctx context.Context, wh *config.WebhookConfig,
 					"webhook", wh.Name,
 					"attempt", attempt,
 					"error", ctx.Err())
-				return
+				return ctx.Err()
 			case <-time.After(getRetryDelay(wh)):
 			}
 		}
@@ -230,7 +452,7 @@ func (p *Publisher) sendWithRetry(ctx context.Context, wh *config.WebhookConfig,
 				"webhook", wh.Name,
 				"event", payload.Event,
 				"release_id", payload.ReleaseID)
-			return
+			return nil
 		}
 
 		lastErr = err
@@ -246,6 +468,7 @@ func (p *Publisher) sendWithRetry(ctx context.Context, wh *config.WebhookConfig,
 		"event", payload.Event,
 		"release_id", payload.ReleaseID,
 		"error", lastErr)
+	return fmt.Errorf("delivery failed after %d attempts: %w", getRetryCount(wh)+1, lastErr)
 }
 
 // send performs a single webhook request.
@@ -254,6 +477,7 @@ func (p *Publisher) send(ctx context.Context, wh *config.WebhookConfig, payload 
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
+	deliveryHash := sha256.Sum256(body)
 
 	ctx, cancel := context.WithTimeout(ctx, getTimeout(wh))
 	defer cancel()
@@ -268,6 +492,9 @@ func (p *Publisher) send(ctx context.Context, wh *config.WebhookConfig, payload 
 	req.Header.Set("User-Agent", "Relicta-Webhook/1.0")
 	req.Header.Set("X-Relicta-Event", payload.Event)
 	req.Header.Set("X-Relicta-Delivery", payload.ReleaseID)
+	// Stable across retries and repeated publication of the same event, so receivers
+	// can deduplicate deliveries without changing the existing release-level header.
+	req.Header.Set("X-Relicta-Delivery-ID", hex.EncodeToString(deliveryHash[:]))
 
 	// Add custom headers
 	for key, value := range wh.Headers {
@@ -316,14 +543,48 @@ func VerifySignature(payload []byte, signature, secret string) bool {
 // Ensure Publisher implements release.EventPublisher.
 var _ release.EventPublisher = (*Publisher)(nil)
 
-// Close waits for in-flight webhook deliveries to finish.
-//
-// Registered as a closeable by the container so the CLI drains before the process exits.
-// Without it, delivery from a short-lived command was a race against process teardown:
-// the request was started and then abandoned, which looks identical to an endpoint that
-// was never configured. Retries have their own bounded budget per webhook, so this waits
-// for that budget rather than indefinitely.
+// Close stops the queue worker and makes a bounded best-effort drain. Pending items remain
+// durable if the shutdown deadline expires or an endpoint is unavailable.
 func (p *Publisher) Close() error {
+	var closeErr error
+	if p.workerCancel != nil {
+		p.workerCancel()
+		<-p.workerDone
+	}
 	p.inFlight.Wait()
-	return nil
+	if p.queue != nil && p.workerStarted && p.queue.OwnsWorker() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for ctx.Err() == nil {
+			processed, err := p.processQueue(ctx)
+			if err != nil {
+				closeErr = fmt.Errorf("drain webhook queue during shutdown: %w", err)
+				break
+			}
+			if processed == 0 {
+				endpoints, err := p.queue.Endpoints()
+				if err != nil {
+					return fmt.Errorf("inspect webhook queue during shutdown: %w", err)
+				}
+				eligible := false
+				for _, endpoint := range endpoints {
+					if p.webhookForURL(endpoint) != nil {
+						eligible = true
+						break
+					}
+				}
+				if !eligible {
+					break
+				}
+				select {
+				case <-ctx.Done():
+				case <-time.After(100 * time.Millisecond):
+				}
+			}
+		}
+	}
+	if p.queue != nil {
+		return errors.Join(closeErr, p.queue.Close())
+	}
+	return closeErr
 }

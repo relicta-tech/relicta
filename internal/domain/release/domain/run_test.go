@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 func TestRunID_String(t *testing.T) {
@@ -530,6 +530,65 @@ func TestReleaseRun_MarkPublished(t *testing.T) {
 
 	if run.PublishedAt() == nil {
 		t.Error("PublishedAt() = nil, expected non-nil")
+	}
+}
+
+func TestReleaseRun_MarkExternallyPublished(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{
+		{Name: "tag", Type: StepTypeTag},
+		{Name: "attestation", Type: StepTypeAttestation},
+	})
+	evidence := `{"outcome":"published","tag":"v1.1.0"}`
+
+	if err := run.MarkExternallyPublished("github-actions", evidence); err != nil {
+		t.Fatalf("MarkExternallyPublished() error = %v", err)
+	}
+	if run.State() != StatePublished {
+		t.Fatalf("State() = %s, want %s", run.State(), StatePublished)
+	}
+	if got := run.ExternalPublicationEvidence(); got != evidence {
+		t.Errorf("ExternalPublicationEvidence() = %q, want %q", got, evidence)
+	}
+	for _, step := range run.Steps() {
+		status := run.StepStatus(step.Name)
+		if status == nil || status.State != StepDone {
+			t.Errorf("step %q status = %+v, want done", step.Name, status)
+		}
+	}
+}
+
+func TestReleaseRun_ExternalPublicationRejectsUnexecutedPlan(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{
+		{Name: "tag", Type: StepTypeTag},
+		{Name: "notify", Type: StepTypeNotify},
+	})
+
+	if err := run.MarkExternallyPublished("github-actions", `{}`); err == nil {
+		t.Fatal("MarkExternallyPublished() accepted an unexecuted notification step")
+	}
+	if run.State() != StateApproved {
+		t.Errorf("State() = %s after rejected finalization, want %s", run.State(), StateApproved)
+	}
+}
+
+func TestReleaseRun_ExternalPublicationFailureCanBeRetried(t *testing.T) {
+	run := newApprovedRun()
+	run.SetExecutionPlan([]StepPlan{{Name: "tag", Type: StepTypeTag}})
+	evidence := `{"outcome":"failed","tag":"v1.1.0"}`
+
+	if err := run.RecordExternalPublicationFailure("github-actions", evidence, "container publisher failed"); err != nil {
+		t.Fatalf("RecordExternalPublicationFailure() error = %v", err)
+	}
+	if run.State() != StateFailed || run.ExternalPublicationEvidence() != evidence {
+		t.Fatalf("failed state/evidence not retained: state=%s evidence=%q", run.State(), run.ExternalPublicationEvidence())
+	}
+	if err := run.RetryPublish("release-manager"); err != nil {
+		t.Fatalf("RetryPublish() error = %v", err)
+	}
+	if run.ExternalPublicationEvidence() != "" {
+		t.Errorf("retry retained stale external evidence: %q", run.ExternalPublicationEvidence())
 	}
 }
 

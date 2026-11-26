@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 // Governance activity is recorded in two places, and correctly so: a CGP proposal is not a
@@ -192,9 +192,13 @@ type auditProposal struct {
 
 // auditProposals reads the protocol records and resolves each one's handshake.
 func auditProposals(ctx context.Context) ([]auditProposal, error) {
-	store, err := cgpStore(ctx)
+	app, store, closer, err := cgpStore(ctx)
 	if err != nil {
 		return nil, err
+	}
+	defer closeApp(app)
+	if closer != nil {
+		defer closer.Close()
 	}
 
 	ids, err := store.ListProposals(ctx)

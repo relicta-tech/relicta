@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
 )
 
 // enforceActorBudget gates a privileged CLI operation (publish/approve/
@@ -19,12 +20,14 @@ import (
 // restrictive). tool is the logical operation name ("publish", "approve",
 // "rollback"); riskScore is the CGP risk of the change being acted upon.
 func enforceActorBudget(tool string, riskScore float64) error {
+	return enforceActorBudgetForActor(tool, riskScore, createCGPActor())
+}
+
+func enforceActorBudgetForActor(tool string, riskScore float64, actor cgp.Actor) error {
 	set, err := loadActorBudgetSet()
 	if err != nil {
 		return err
 	}
-
-	actor := createCGPActor()
 	budget := policy.ResolveBudget(set, actor.Kind.String(), actor.ID)
 
 	decision := budget.Evaluate(policy.Operation{

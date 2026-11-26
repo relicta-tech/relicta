@@ -82,7 +82,7 @@ echo -e "  ${GREEN}✓${NC} BREAKING keyword → Major version bump"
 echo -e "  ${GREEN}✓${NC} 'fixed' keyword → Bug fix detected"
 echo -e "  ${GREEN}✓${NC} Unclear commits → Grouped appropriately"
 echo ""
-echo -e "  ${MAGENTA}Pro tip:${NC} Use ${YELLOW}relicta notes --ai${NC} for best results!"
+echo -e "  ${MAGENTA}Pro tip:${NC} Enable ${YELLOW}ai.enabled${NC} in .relicta.yaml to use configured AI notes."
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 pause 3

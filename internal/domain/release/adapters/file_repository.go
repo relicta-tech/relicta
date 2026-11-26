@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 const (
@@ -138,38 +138,78 @@ func ensureDir(repoRoot string) error {
 
 // ReleaseRunDTO is the data transfer object for serialization.
 type ReleaseRunDTO struct {
-	ID             string                   `json:"id"`
-	PlanHash       string                   `json:"plan_hash"`
-	RepoID         string                   `json:"repo_id"`
-	RepoRoot       string                   `json:"repo_root"`
-	BaseRef        string                   `json:"base_ref"`
-	HeadSHA        string                   `json:"head_sha"`
-	Commits        []string                 `json:"commits"`
-	ConfigHash     string                   `json:"config_hash"`
-	PluginPlanHash string                   `json:"plugin_plan_hash"`
-	VersionCurrent string                   `json:"version_current"`
-	VersionNext    string                   `json:"version_next"`
-	BumpKind       string                   `json:"bump_kind"`
-	Confidence     float64                  `json:"confidence"`
-	RiskScore      float64                  `json:"risk_score"`
-	Reasons        []string                 `json:"reasons"`
-	ActorType      string                   `json:"actor_type"`
-	ActorID        string                   `json:"actor_id"`
-	Thresholds     PolicyThresholdsDTO      `json:"thresholds"`
-	TagName        string                   `json:"tag_name,omitempty"`
-	Notes          *ReleaseNotesDTO         `json:"notes,omitempty"`
-	NotesInputHash string                   `json:"notes_inputs_hash,omitempty"`
-	Approval       *ApprovalDTO             `json:"approval,omitempty"`
-	Steps          []StepPlanDTO            `json:"steps"`
-	StepStatus     map[string]StepStatusDTO `json:"step_status"`
-	State          string                   `json:"state"`
-	History        []TransitionRecordDTO    `json:"history"`
-	LastError      string                   `json:"last_error,omitempty"`
-	ChangesetID    string                   `json:"changeset_id,omitempty"`
-	ChangeSet      *ChangeSetDTO            `json:"changeset,omitempty"`
-	CreatedAt      time.Time                `json:"created_at"`
-	UpdatedAt      time.Time                `json:"updated_at"`
-	PublishedAt    *time.Time               `json:"published_at,omitempty"`
+	ID                          string                   `json:"id"`
+	PlanHash                    string                   `json:"plan_hash"`
+	RepoID                      string                   `json:"repo_id"`
+	RepoRoot                    string                   `json:"repo_root"`
+	BaseRef                     string                   `json:"base_ref"`
+	HeadSHA                     string                   `json:"head_sha"`
+	Commits                     []string                 `json:"commits"`
+	ConfigHash                  string                   `json:"config_hash"`
+	PluginPlanHash              string                   `json:"plugin_plan_hash"`
+	VersionCurrent              string                   `json:"version_current"`
+	VersionNext                 string                   `json:"version_next"`
+	BumpKind                    string                   `json:"bump_kind"`
+	Confidence                  float64                  `json:"confidence"`
+	RiskScore                   float64                  `json:"risk_score"`
+	Reasons                     []string                 `json:"reasons"`
+	ActorType                   string                   `json:"actor_type"`
+	ActorID                     string                   `json:"actor_id"`
+	Thresholds                  PolicyThresholdsDTO      `json:"thresholds"`
+	TagName                     string                   `json:"tag_name,omitempty"`
+	Notes                       *ReleaseNotesDTO         `json:"notes,omitempty"`
+	NotesInputHash              string                   `json:"notes_inputs_hash,omitempty"`
+	Approval                    *ApprovalDTO             `json:"approval,omitempty"`
+	Steps                       []StepPlanDTO            `json:"steps"`
+	StepStatus                  map[string]StepStatusDTO `json:"step_status"`
+	State                       string                   `json:"state"`
+	History                     []TransitionRecordDTO    `json:"history"`
+	LastError                   string                   `json:"last_error,omitempty"`
+	ChangesetID                 string                   `json:"changeset_id,omitempty"`
+	ChangeSet                   *ChangeSetDTO            `json:"changeset,omitempty"`
+	CreatedAt                   time.Time                `json:"created_at"`
+	UpdatedAt                   time.Time                `json:"updated_at"`
+	PublishedAt                 *time.Time               `json:"published_at,omitempty"`
+	ExternalPublicationEvidence string                   `json:"external_publication_evidence,omitempty"`
+
+	// Legacy fields are read only. Before the release repositories were
+	// consolidated, file records stored their plan and changeset under `plan`
+	// and used `branch` / `repository_name` instead of the current fields.
+	// Keeping these fields optional lets the surviving reader migrate those
+	// records when they are next saved without maintaining a second repository.
+	Branch         string         `json:"branch,omitempty"`
+	RepositoryName string         `json:"repository_name,omitempty"`
+	Plan           *legacyPlanDTO `json:"plan,omitempty"`
+}
+
+type legacyPlanDTO struct {
+	CurrentVersion string              `json:"current_version"`
+	NextVersion    string              `json:"next_version"`
+	ReleaseType    string              `json:"release_type"`
+	ChangeSetID    string              `json:"changeset_id,omitempty"`
+	ChangeSet      *legacyChangeSetDTO `json:"changeset,omitempty"`
+}
+
+type legacyChangeSetDTO struct {
+	ID      string            `json:"id"`
+	FromRef string            `json:"from_ref"`
+	ToRef   string            `json:"to_ref"`
+	Commits []legacyCommitDTO `json:"commits"`
+}
+
+type legacyCommitDTO struct {
+	Hash        string `json:"hash"`
+	Type        string `json:"type"`
+	Scope       string `json:"scope,omitempty"`
+	Subject     string `json:"subject"`
+	Body        string `json:"body,omitempty"`
+	Footer      string `json:"footer,omitempty"`
+	Breaking    bool   `json:"breaking,omitempty"`
+	BreakingMsg string `json:"breaking_msg,omitempty"`
+	Author      string `json:"author,omitempty"`
+	AuthorEmail string `json:"author_email,omitempty"`
+	Date        string `json:"date,omitempty"`
+	RawMessage  string `json:"raw_message,omitempty"`
 }
 
 // PolicyThresholdsDTO is the DTO for policy thresholds.
@@ -774,18 +814,19 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 			RequireApprovalAbove:     run.Thresholds().RequireApprovalAbove,
 			BlockReleaseAbove:        run.Thresholds().BlockReleaseAbove,
 		},
-		TagName:        run.TagName(),
-		Steps:          steps,
-		StepStatus:     stepStatus,
-		State:          string(run.State()),
-		History:        history,
-		LastError:      run.LastError(),
-		ChangesetID:    run.ChangesetID(),
-		ChangeSet:      changesetToDTO(run),
-		NotesInputHash: run.NotesInputsHash(),
-		CreatedAt:      run.CreatedAt(),
-		UpdatedAt:      run.UpdatedAt(),
-		PublishedAt:    run.PublishedAt(),
+		TagName:                     run.TagName(),
+		Steps:                       steps,
+		StepStatus:                  stepStatus,
+		State:                       string(run.State()),
+		History:                     history,
+		LastError:                   run.LastError(),
+		ChangesetID:                 run.ChangesetID(),
+		ChangeSet:                   changesetToDTO(run),
+		NotesInputHash:              run.NotesInputsHash(),
+		CreatedAt:                   run.CreatedAt(),
+		UpdatedAt:                   run.UpdatedAt(),
+		PublishedAt:                 run.PublishedAt(),
+		ExternalPublicationEvidence: run.ExternalPublicationEvidence(),
 	}
 
 	if run.Notes() != nil {
@@ -816,6 +857,8 @@ func toDTO(run *domain.ReleaseRun) *ReleaseRunDTO {
 }
 
 func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
+	normalizeLegacyDTO(dto)
+
 	// Convert commits
 	commits := make([]domain.CommitSHA, len(dto.Commits))
 	for i, c := range dto.Commits {
@@ -905,37 +948,38 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 	// Create a new run and use ReconstructState to hydrate it
 	run := &domain.ReleaseRun{}
 	run.ReconstructState(domain.RunSnapshot{
-		ID:              domain.RunID(dto.ID),
-		PlanHash:        dto.PlanHash,
-		RepoID:          dto.RepoID,
-		RepoRoot:        dto.RepoRoot,
-		BaseRef:         dto.BaseRef,
-		HeadSHA:         domain.CommitSHA(dto.HeadSHA),
-		Commits:         commits,
-		ConfigHash:      dto.ConfigHash,
-		PluginPlanHash:  dto.PluginPlanHash,
-		VersionCurrent:  currentVer,
-		VersionNext:     nextVer,
-		BumpKind:        bumpKind,
-		Confidence:      dto.Confidence,
-		RiskScore:       dto.RiskScore,
-		Reasons:         dto.Reasons,
-		ActorType:       domain.ActorType(dto.ActorType),
-		ActorID:         dto.ActorID,
-		Thresholds:      thresholds,
-		TagName:         dto.TagName,
-		Notes:           notes,
-		NotesInputsHash: dto.NotesInputHash,
-		Approval:        approval,
-		Steps:           steps,
-		StepStatus:      stepStatus,
-		State:           domain.RunState(dto.State),
-		History:         history,
-		LastError:       dto.LastError,
-		ChangesetID:     dto.ChangesetID,
-		CreatedAt:       dto.CreatedAt,
-		UpdatedAt:       dto.UpdatedAt,
-		PublishedAt:     dto.PublishedAt,
+		ID:                          domain.RunID(dto.ID),
+		PlanHash:                    dto.PlanHash,
+		RepoID:                      dto.RepoID,
+		RepoRoot:                    dto.RepoRoot,
+		BaseRef:                     dto.BaseRef,
+		HeadSHA:                     domain.CommitSHA(dto.HeadSHA),
+		Commits:                     commits,
+		ConfigHash:                  dto.ConfigHash,
+		PluginPlanHash:              dto.PluginPlanHash,
+		VersionCurrent:              currentVer,
+		VersionNext:                 nextVer,
+		BumpKind:                    bumpKind,
+		Confidence:                  dto.Confidence,
+		RiskScore:                   dto.RiskScore,
+		Reasons:                     dto.Reasons,
+		ActorType:                   domain.ActorType(dto.ActorType),
+		ActorID:                     dto.ActorID,
+		Thresholds:                  thresholds,
+		TagName:                     dto.TagName,
+		Notes:                       notes,
+		NotesInputsHash:             dto.NotesInputHash,
+		Approval:                    approval,
+		Steps:                       steps,
+		StepStatus:                  stepStatus,
+		State:                       domain.RunState(dto.State),
+		History:                     history,
+		LastError:                   dto.LastError,
+		ChangesetID:                 dto.ChangesetID,
+		CreatedAt:                   dto.CreatedAt,
+		UpdatedAt:                   dto.UpdatedAt,
+		PublishedAt:                 dto.PublishedAt,
+		ExternalPublicationEvidence: dto.ExternalPublicationEvidence,
 	})
 
 	// Reconstruct changeset if persisted
@@ -945,6 +989,94 @@ func fromDTO(dto *ReleaseRunDTO) (*domain.ReleaseRun, error) {
 	}
 
 	return run, nil
+}
+
+// normalizeLegacyDTO maps the pre-consolidation file schema onto the single
+// release-run schema. The old format did not persist a separate HEAD SHA; when
+// its changeset target is a commit hash we can recover it, but symbolic targets
+// such as HEAD remain unknown rather than being presented as a verified SHA.
+func normalizeLegacyDTO(dto *ReleaseRunDTO) {
+	if dto.RepoID == "" {
+		dto.RepoID = dto.RepositoryName
+	}
+	if dto.Plan == nil {
+		if dto.BaseRef == "" {
+			dto.BaseRef = dto.Branch
+		}
+		return
+	}
+	if dto.VersionCurrent == "" {
+		dto.VersionCurrent = dto.Plan.CurrentVersion
+	}
+	if dto.VersionNext == "" {
+		dto.VersionNext = dto.Plan.NextVersion
+	}
+	if dto.BumpKind == "" {
+		if releaseType, err := changes.ParseReleaseType(dto.Plan.ReleaseType); err == nil {
+			dto.BumpKind = string(domain.BumpKindFromReleaseType(releaseType))
+		}
+	}
+	if dto.ChangesetID == "" {
+		dto.ChangesetID = dto.Plan.ChangeSetID
+	}
+	if dto.ChangeSet == nil && dto.Plan.ChangeSet != nil {
+		legacy := dto.Plan.ChangeSet
+		commits := make([]CommitDTO, len(legacy.Commits))
+		for i, commit := range legacy.Commits {
+			var date time.Time
+			if commit.Date != "" {
+				date, _ = time.Parse(time.RFC3339, commit.Date)
+			}
+			commits[i] = CommitDTO{
+				Hash:        commit.Hash,
+				Type:        commit.Type,
+				Scope:       commit.Scope,
+				Subject:     commit.Subject,
+				Body:        commit.Body,
+				Footer:      commit.Footer,
+				Breaking:    commit.Breaking,
+				BreakingMsg: commit.BreakingMsg,
+				Author:      commit.Author,
+				AuthorEmail: commit.AuthorEmail,
+				Date:        date,
+				RawMessage:  commit.RawMessage,
+			}
+		}
+		dto.ChangeSet = &ChangeSetDTO{
+			ID:      legacy.ID,
+			FromRef: legacy.FromRef,
+			ToRef:   legacy.ToRef,
+			Commits: commits,
+		}
+	}
+	if dto.BaseRef == "" {
+		if dto.ChangeSet != nil && dto.ChangeSet.FromRef != "" {
+			dto.BaseRef = dto.ChangeSet.FromRef
+		} else {
+			dto.BaseRef = dto.Branch
+		}
+	}
+	if len(dto.Commits) == 0 && dto.ChangeSet != nil {
+		dto.Commits = make([]string, len(dto.ChangeSet.Commits))
+		for i, commit := range dto.ChangeSet.Commits {
+			dto.Commits[i] = commit.Hash
+		}
+	}
+	if dto.HeadSHA == "" && dto.ChangeSet != nil && isCommitSHA(dto.ChangeSet.ToRef) {
+		dto.HeadSHA = dto.ChangeSet.ToRef
+	}
+}
+
+func isCommitSHA(ref string) bool {
+	if len(ref) < 7 || len(ref) > 64 {
+		return false
+	}
+	for _, char := range ref {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
+			return false
+		}
+	}
+	return true
 }
 
 func changesetToDTO(run *domain.ReleaseRun) *ChangeSetDTO {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // BlastRadius categorizes the operational scope an action affects.

@@ -12,26 +12,31 @@ func (s *Server) handlePromptReleaseSummary(ctx context.Context, args map[string
 		style = v
 	}
 
+	workflow := `Before drafting, call relicta_plan with dry_run=true to obtain the current release recommendation. Use its recommendation and verified commit facts as the only source for what changed in this release. Product context from this agent session may help explain the relevance of a verified change, but must not add release facts or unsupported customer benefits. If planning fails, reports no releasable changes, or provides no recommendation, explain that and do not invent release notes. If customer impact is unclear from the verified facts and available product context, omit the change or flag the uncertainty for human review. This prompt is read-only: do not call relicta_bump, relicta_notes, relicta_approve, or relicta_publish. Return only the requested release-note text.`
+
 	var content string
 	switch style {
 	case "detailed":
-		content = `You are a release manager. Provide a detailed summary of the upcoming release including:
-- All changes categorized by type (features, fixes, breaking changes)
-- Impact analysis
-- Risk assessment
-- Recommended actions before release`
+		content = `You are a customer-facing release writer. Use the product purpose, audience, vocabulary, and tone already established in this agent session to frame the notes. Ground every factual claim about this release in the supplied Relicta plan recommendation and verified release facts.
+- Explain the customer impact of verified user-visible changes in plain language and group related changes. Use session context to translate a verified change, not to assert a new capability or benefit.
+- Include compatibility, migration, security, or operational caveats only when the supplied facts support them.
+- Omit internal refactors, implementation names, risk scores, and changes with no clear customer impact.
+- Do not infer product behavior, benefits, dates, or upgrade steps that are not supported by the supplied facts. If product or audience context is unavailable, do not guess; omit unclear claims or flag them for human review.
+- Return only the release-note text, with no preamble.`
 	case "technical":
-		content = `You are a technical writer. Provide a technical summary of the release including:
-- API changes and their signatures
-- Configuration changes
-- Migration requirements
-- Performance implications`
+		content = `You are a technical release writer. Use the product and developer audience context already established in this agent session to frame the summary. Ground every factual claim about this release in the supplied Relicta plan recommendation and verified release facts.
+- Describe supported API, configuration, compatibility, and migration changes when present.
+- Separate user-visible changes from internal implementation details.
+- Do not invent signatures, performance implications, or migration steps that are not in the supplied facts. If product context is unavailable, do not guess.
+- Return only the release-note text, with no preamble.`
 	default:
-		content = `You are a release manager. Provide a brief summary of the upcoming release including:
-- Key highlights (1-3 bullet points)
-- Version number
-- Release readiness status`
+		content = `Write concise customer-facing release notes. Use the product purpose, audience, vocabulary, and tone already established in this agent session to frame the notes. Ground every factual claim about this release in the supplied Relicta plan recommendation and verified release facts.
+- Explain the customer impact of the most useful verified user-visible changes in plain language, in 1-3 bullets. Use session context to translate a verified change, not to assert a new capability or benefit.
+- Omit internal refactors and changes with no clear customer impact.
+- Do not infer product behavior or benefits beyond what the supplied facts support; preserve supported compatibility or security caveats. If impact is unclear or product context is unavailable, omit unclear claims or flag them for human review.
+- Return only the release-note text, with no preamble.`
 	}
+	content = workflow + "\n\n" + content
 
 	return &mcp.PromptResult{
 		Description: "Release summary prompt",

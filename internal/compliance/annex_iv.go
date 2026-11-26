@@ -6,13 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
-// AnnexIVReport is the EU AI Act Annex IV technical documentation bundle.
+// AnnexIVReport is a draft of release-governance evidence mapped to Annex IV.
+// It is not a complete provider technical documentation bundle.
 //
-// Annex IV (Regulation 2024/1689) requires high-risk AI systems to maintain
-// technical documentation across eight sections, retained for ten years.
+// Annex IV (Regulation 2024/1689) specifies high-risk AI system technical
+// documentation across eight sections. Article 18(1) requires providers to
+// keep specified documentation at authorities' disposal for ten years after
+// placing the system on the market or putting it into service.
 // Article 12 covers logs; Annex IV covers the *system documentation* about
 // what the AI system does, how it was built, how it is monitored, and how
 // risks are managed.
@@ -20,12 +23,15 @@ import (
 // Microsoft Agent Governance Toolkit (April 2026) covers Article 12 mapping
 // but does NOT generate Annex IV documentation. This is Relicta's wedge.
 //
-// The generator fills sections it can derive from CGP data; sections requiring
-// human signatures or external standards (Sec 7 conformity declaration) are
-// emitted as scaffolded placeholders for legal/compliance team completion.
+// The generator includes release-history evidence it can derive from CGP data.
+// Target-system documentation, standards applicability, and declarations must
+// be supplied and verified by the provider.
 type AnnexIVReport struct {
 	// SystemIdentifier names the AI system documented.
 	SystemIdentifier string `json:"systemIdentifier"`
+
+	// EvidenceScope describes what this report can substantiate.
+	EvidenceScope string `json:"evidenceScope"`
 
 	// SystemVersion is the latest version observed in the period.
 	SystemVersion string `json:"systemVersion,omitempty"`
@@ -54,9 +60,9 @@ type AnnexIVReport struct {
 	// PostMarketMonitoring is Annex IV §8.
 	PostMarketMonitoring PostMarketMonitoring `json:"postMarketMonitoring"`
 
-	// RetentionDeadline is the earliest permissible purge date (period.End +
-	// 10 years per Article 11).
-	RetentionDeadline time.Time `json:"retentionDeadline"`
+	// RetentionGuidance explains the relevant Article 18(1) period. Relicta
+	// does not collect the event date needed to calculate a statutory deadline.
+	RetentionGuidance string `json:"retentionGuidance"`
 
 	// GenerationNotes captures caveats from the documentation pass.
 	GenerationNotes []string `json:"generationNotes,omitempty"`
@@ -102,7 +108,8 @@ type RiskManagement struct {
 	ResidualRiskRationale  string              `json:"residualRiskRationale,omitempty"`
 }
 
-// IdentifiedRisk records a risk category recognized by the system.
+// IdentifiedRisk summarizes a category inferred from recorded release
+// governance rationales; it is not a target AI system risk assessment.
 type IdentifiedRisk struct {
 	Category        string  `json:"category"`
 	Description     string  `json:"description"`
@@ -176,9 +183,8 @@ type IncidentSummary8 struct {
 // buildAnnexIV constructs an AnnexIVReport from fetched data.
 //
 // The system identifier is taken from config.Repository when set, otherwise
-// "default". The retention deadline is ten years past the period's end per
-// Article 11. Sections that cannot be derived (e.g. provider legal name)
-// are emitted as scaffolds with TODO markers.
+// "default". Sections that cannot be derived are left blank and explained in
+// GenerationNotes; the Markdown renderer marks required blanks as TODO.
 func (g *Generator) buildAnnexIV(data *reportData, systemID string) *AnnexIVReport {
 	if systemID == "" {
 		systemID = "default"
@@ -186,23 +192,21 @@ func (g *Generator) buildAnnexIV(data *reportData, systemID string) *AnnexIVRepo
 
 	report := &AnnexIVReport{
 		SystemIdentifier:  systemID,
-		RetentionDeadline: data.period.End.AddDate(10, 0, 0),
+		EvidenceScope:     "Relicta release-governance records for the selected period; not a complete technical description, risk assessment, monitoring record, or conformity assessment of the target AI system.",
+		RetentionGuidance: "EU AI Act Article 18(1) requires providers to keep specified technical documentation at competent authorities' disposal for 10 years after the system is placed on the market or put into service. Relicta does not capture that event date and does not calculate a statutory deadline; confirm applicable duties and dates with the responsible owner.",
 	}
 
 	if v := latestVersion(data.releases); v != "" {
 		report.SystemVersion = v
 	}
 
-	report.GeneralDescription = buildGeneralDescription(systemID, report.SystemVersion)
+	report.GeneralDescription = buildGeneralDescription(report.SystemVersion)
 	report.DetailedDescription = buildDetailedDescription(data)
-	report.MonitoringControl = buildMonitoringControl()
+	report.MonitoringControl = MonitoringControl{}
 	report.RiskManagement = buildRiskManagement(data)
 	report.LifecycleChanges = buildLifecycleChanges(data.releases)
-	report.HarmonizedStandards = buildHarmonizedStandards()
 	report.ConformityDeclaration = ConformityScaffold{
-		SystemIdentifier:  systemID,
-		StandardsApplied:  []string{"ISO/IEC 42001:2023", "OWASP LLM Top 10", "NIST AI RMF"},
-		DateOfDeclaration: time.Now().UTC().Format("2006-01-02"),
+		SystemIdentifier: systemID,
 		// Other fields left blank — provider must complete + sign.
 	}
 	report.PostMarketMonitoring = buildPostMarketMonitoring(data)
@@ -212,8 +216,13 @@ func (g *Generator) buildAnnexIV(data *reportData, systemID string) *AnnexIVRepo
 			"no releases observed in period; Annex IV §5 (lifecycle changes) and §8 (post-market monitoring) are minimal")
 	}
 	report.GenerationNotes = append(report.GenerationNotes,
-		"§7 conformity declaration is a scaffold — provider legal name, address, signatory, and notified body must be completed before submission",
-		"§6 harmonized standards reflect frameworks Relicta enforces internally; cross-check against your AI Act notified body's required standards list")
+		"§1 intended purpose, provider, environments, deployment, interfaces, and languages are not configured or verified by Relicta; provider must complete them",
+		"§2 system design, development, data, resources, oversight, and change details are not collected by Relicta; provider must complete them; CGP protocol version is included only when observed in governance decisions",
+		"§3 target-system monitoring, control, and audit-trail details are not collected or verified by Relicta; provider must complete them",
+		"§4 release-governance rationales are summarized as observed evidence only; this is not a target-system risk evaluation or mitigation assessment",
+		"§6 standards and framework applicability are not configured or verified by Relicta; provider must identify applicable harmonized standards and document implementation status",
+		"§7 conformity declaration is a scaffold; provider must complete and legally review the applicable standards, declaration date, legal entity details, notified body, and signatory",
+		"§8 contains Relicta release-history metrics and incidents only; it is not a target-system post-market monitoring plan or complete incident-monitoring record")
 
 	return report
 }
@@ -230,20 +239,8 @@ func latestVersion(releases []*memory.ReleaseRecord) string {
 	return latest
 }
 
-func buildGeneralDescription(systemID, version string) GeneralDescription {
-	return GeneralDescription{
-		IntendedPurpose: fmt.Sprintf(
-			"%s is governed by the Relicta Change Governance Protocol (CGP). "+
-				"Its intended purpose is software release governance: classifying changes, "+
-				"scoring release risk, enforcing organizational policy, and producing "+
-				"cryptographically attested audit evidence for AI-attributed releases.",
-			systemID),
-		SystemVersion:        version,
-		HardwareEnvironments: []string{"Linux x86_64", "Linux arm64", "macOS arm64", "macOS x86_64"},
-		DeploymentForms:      []string{"single binary", "container image", "CI/CD action"},
-		UserInterfaces:       []string{"CLI (Cobra)", "MCP server (stdio + http)", "REST API (chi)", "Web dashboard (Vue 3)"},
-		Languages:            []string{"en"},
-	}
+func buildGeneralDescription(version string) GeneralDescription {
+	return GeneralDescription{SystemVersion: version}
 }
 
 func buildDetailedDescription(data *reportData) DetailedDescription {
@@ -254,65 +251,7 @@ func buildDetailedDescription(data *reportData) DetailedDescription {
 			break
 		}
 	}
-	if cgpVersion == "" {
-		cgpVersion = "0.1"
-	}
-
-	return DetailedDescription{
-		DevelopmentMethods: []string{
-			"Domain-Driven Design (hexagonal architecture)",
-			"Test-Driven Development (>=80% coverage gate via coverctl)",
-			"Conventional Commits + semantic versioning",
-			"Static analysis (golangci-lint, go vet)",
-			"Security scanning (nox SAST/SCA)",
-		},
-		DesignSpecifications: []string{
-			"Change Governance Protocol (CGP) wire format: pkg/cgp/",
-			"Hash-chained audit trail: internal/cgp/audit/",
-			"Hexagonal release aggregate: internal/domain/release/",
-		},
-		SystemArchitecture:     "Hexagonal architecture with bounded contexts: domain (release aggregate, CGP), application (use cases), infrastructure (git, AI providers, persistence, webhooks), CLI (Cobra), MCP (server + adapters), httpserver (chi + middleware).",
-		ComputationalResources: "Single-binary CLI; optional PostgreSQL persistence backend. AI provider calls outsourced to OpenAI / Anthropic / Gemini / Ollama (per .relicta.yaml).",
-		DataRequirements: []string{
-			"git repository commit history",
-			"release tag history",
-			"governance policy YAML (.relicta/*.policy)",
-			"actor budget YAML (.relicta/actor-budgets.yaml)",
-		},
-		HumanOversightMeasures: []string{
-			"RBAC roles (Admin/Approver/Viewer) enforced in middleware",
-			"Approval gate before publish (CGP DecisionApprovalRequired path)",
-			"Actor autonomy budgets cap agent autonomy with cosigner requirements",
-			"Hash-chained audit trail enables post-hoc human review",
-			"Risk score threshold triggers manual approval per policy",
-		},
-		PredeterminedChanges: []string{
-			"semantic version bumps (major / minor / patch)",
-			"pre-release channel promotion (alpha / beta / rc / stable)",
-			"plugin lifecycle hooks (PreVersion / PostNotes / PostPublish)",
-		},
-		CGPProtocolVersion: cgpVersion,
-		RiskModelVersion:   "calculator/v1+calibration",
-	}
-}
-
-func buildMonitoringControl() MonitoringControl {
-	return MonitoringControl{
-		MonitoringMechanisms: []string{
-			"Prometheus metrics endpoint (/metrics)",
-			"Inbound webhook receiver for Alertmanager / PagerDuty / Datadog",
-			"Release outcome tracking via memory store",
-			"Per-actor reputation scoring",
-		},
-		ControlInterfaces: []string{
-			"`relicta cancel` (in-progress release halt)",
-			"`relicta rollback` (revert to previous version)",
-			"`relicta approve --reject` (governance veto)",
-			"Policy DSL (`.relicta/*.policy` declarative rules)",
-		},
-		AuditTrailLocation:  ".relicta/memory/ (file backend) or PostgreSQL events table (DB backend)",
-		AuditChainAlgorithm: "SHA-256 hash chain over JSON-canonical CGP decisions; integrity verified at report-generation time",
-	}
+	return DetailedDescription{CGPProtocolVersion: cgpVersion}
 }
 
 func buildRiskManagement(data *reportData) RiskManagement {
@@ -349,18 +288,7 @@ func buildRiskManagement(data *reportData) RiskManagement {
 	}
 	sort.Slice(risks, func(i, j int) bool { return risks[i].OccurrenceCount > risks[j].OccurrenceCount })
 
-	return RiskManagement{
-		IdentifiedRisks:      risks,
-		RiskEvaluationMethod: "8-factor weighted risk calculator with outcome-based calibration loop. Factors: blast radius, breaking changes, security touch, file count, line count, dependency churn, actor trust, time pressure. Scores normalized to [0,1].",
-		RiskMitigationControls: []MitigationControl{
-			{Name: "Approval Gate", Description: "Risk score above policy threshold requires human approval before publish.", Type: "policy"},
-			{Name: "Actor Autonomy Budget", Description: "Per-actor caps on blast radius, risk, dollar cost, and required cosigners.", Type: "policy"},
-			{Name: "Plugin Sandbox", Description: "Plugins run as isolated subprocesses (gRPC) with resource advisory; signed plugins required for production.", Type: "technical"},
-			{Name: "Hash-Chained Audit", Description: "Every governance decision and approval is anchored in a tamper-evident hash chain.", Type: "technical"},
-			{Name: "Outcome Calibration", Description: "Risk model retrains against post-release incidents; predictions adjusted over time.", Type: "process"},
-		},
-		ResidualRiskRationale: "Plugin sandbox is best-effort on darwin (macOS RLIMIT_AS unenforced on Apple Silicon). AI-generated release notes prose has no factuality guarantee — content is advisory, not load-bearing for governance decisions.",
-	}
+	return RiskManagement{IdentifiedRisks: risks}
 }
 
 func buildLifecycleChanges(releases []*memory.ReleaseRecord) []LifecycleChange {
@@ -390,18 +318,6 @@ func classifyChangeType(r *memory.ReleaseRecord) string {
 		return "security"
 	default:
 		return "feature/fix"
-	}
-}
-
-func buildHarmonizedStandards() []HarmonizedStandard {
-	return []HarmonizedStandard{
-		{Framework: "ISO/IEC 42001", Version: "2023", Controls: []string{"AI management system requirements"}, Status: "applied"},
-		{Framework: "ISO/IEC 27001", Version: "2022", Controls: []string{"A.5", "A.8", "A.12"}, Status: "applied"},
-		{Framework: "SOC 2 Type II", Controls: []string{"CC6.1", "CC7.1", "CC7.4", "CC8.1"}, Status: "applied"},
-		{Framework: "OWASP LLM Top 10", Version: "2025", Controls: []string{"LLM06 Sensitive Information Disclosure"}, Status: "applied"},
-		{Framework: "OWASP Agentic Top 10", Version: "2026", Controls: []string{"AG04 Data Exfiltration"}, Status: "partial"},
-		{Framework: "NIST SP 800-53", Controls: []string{"AU-3 Content of Audit Records", "AU-12 Audit Generation"}, Status: "applied"},
-		{Framework: "NIST AI RMF", Version: "1.0", Controls: []string{"GOVERN", "MAP", "MEASURE", "MANAGE"}, Status: "partial"},
 	}
 }
 
@@ -446,10 +362,6 @@ func buildPostMarketMonitoring(data *reportData) PostMarketMonitoring {
 	}
 
 	return PostMarketMonitoring{
-		MonitoringPlan: "Continuous post-deployment outcome tracking via release memory store. " +
-			"Inbound webhooks from observability systems (Alertmanager, PagerDuty, Datadog) " +
-			"correlate incidents with releases. Risk model recalibration runs against " +
-			"observed outcomes monthly.",
 		IncidentRecords:      incidents,
 		TotalIncidents:       len(incidents),
 		AverageResolutionHrs: avgResolution,

@@ -95,6 +95,27 @@ func TestManager_NewManager(t *testing.T) {
 	}
 }
 
+func TestManager_SetTrustPolicy(t *testing.T) {
+	manager := &Manager{installer: NewInstaller(t.TempDir())}
+
+	if err := manager.SetTrustPolicy("not-a-policy", "key.pub"); err == nil {
+		t.Fatal("SetTrustPolicy should reject an unknown policy")
+	}
+
+	if err := manager.SetTrustPolicy("enterprise", "operator.pub"); err != nil {
+		t.Fatalf("SetTrustPolicy enterprise: %v", err)
+	}
+	if manager.installer.verifier == nil {
+		t.Fatal("SetTrustPolicy did not configure an artifact verifier")
+	}
+	if manager.installer.verifier.Policy != TrustEnterprise {
+		t.Errorf("verifier policy = %q, want %q", manager.installer.verifier.Policy, TrustEnterprise)
+	}
+	if manager.installer.verifier.KeyPath != "operator.pub" {
+		t.Errorf("verifier key path = %q, want operator.pub", manager.installer.verifier.KeyPath)
+	}
+}
+
 func TestManager_ListInstalled_MissingRegistryEntry(t *testing.T) {
 	pluginDir := t.TempDir()
 	configDir := t.TempDir()

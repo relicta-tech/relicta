@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // PlanReleaseInput contains the input for planning a release.
@@ -23,13 +23,14 @@ func (in PlanReleaseInput) tagPrefixOrDefault() string {
 }
 
 type PlanReleaseInput struct {
-	RepoRoot       string
-	RepoID         string
-	BaseRef        string // Base reference (tag or commit) - if empty, auto-detect
-	ConfigHash     string // Hash of the config snapshot
-	PluginPlanHash string // Hash of the plugin configuration
-	Actor          ports.ActorInfo
-	Force          bool // Force planning even if there's an active run
+	RepoRoot           string
+	RepoID             string
+	BaseRef            string // Base reference (tag or commit) - if empty, auto-detect
+	ConfigHash         string // Hash of the config snapshot
+	PluginPlanHash     string // Hash of the plugin configuration
+	Actor              ports.ActorInfo
+	TransitionMetadata map[string]string
+	Force              bool // Force planning even if there's an active run
 
 	// DiscardExisting allows re-planning to overwrite a run that already exists
 	// for these exact inputs, throwing away whatever state it had reached.
@@ -301,7 +302,7 @@ func (uc *PlanReleaseUseCase) Execute(ctx context.Context, input PlanReleaseInpu
 	}
 
 	// Transition to Planned state
-	if err := run.Plan(input.Actor.ID); err != nil {
+	if err := run.PlanWithMetadata(input.Actor.ID, input.TransitionMetadata); err != nil {
 		return nil, fmt.Errorf("failed to transition to planned state: %w", err)
 	}
 

@@ -1,17 +1,18 @@
 package governance
 
 import (
+	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/risk"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/attribution"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/risk"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // agentReleaseWith builds a release whose single commit is authored by the given
@@ -105,7 +106,7 @@ func TestBuildProposal_AttributionGovernsAgentAuthor(t *testing.T) {
 		Repository: "owner/repo",
 	}
 
-	proposal, _ := svc.buildProposalAndAnalysis(input)
+	proposal, _ := svc.buildProposalAndAnalysis(context.Background(), input)
 	if proposal.Actor.Kind != cgp.ActorKindAgent {
 		t.Fatalf("agent-authored release must be governed as agent; got %s", proposal.Actor.Kind)
 	}
@@ -123,7 +124,7 @@ func TestBuildProposal_AttributionDisabledKeepsInitiator(t *testing.T) {
 		Repository: "owner/repo",
 	}
 
-	proposal, _ := svc.buildProposalAndAnalysis(input)
+	proposal, _ := svc.buildProposalAndAnalysis(context.Background(), input)
 	if proposal.Actor.Kind != cgp.ActorKindHuman {
 		t.Fatalf("attribution disabled must keep human initiator; got %s", proposal.Actor.Kind)
 	}

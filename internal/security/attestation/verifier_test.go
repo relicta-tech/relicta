@@ -273,14 +273,15 @@ func TestVerifier_Verify_SignedNoKey_FailsClosed(t *testing.T) {
 	assert.Contains(t, err.Error(), "no public key")
 }
 
-// TestVerifier_Verify_SignedNoKey_AllowUnsigned lets the operator explicitly
-// accept unverifiable attestations.
-func TestVerifier_Verify_SignedNoKey_AllowUnsigned(t *testing.T) {
+// TestVerifier_Verify_SignedNoKey_AllowUnsignedStillFails ensures that
+// --allow-unsigned only permits an attestation with no signature; it cannot
+// turn a signed but unverifiable attestation into a valid one.
+func TestVerifier_Verify_SignedNoKey_AllowUnsignedStillFails(t *testing.T) {
 	pred := GovernancePredicate{Version: "1.0.0", Decision: "approved"}
 	att, _ := signedAttestationForTest(t, pred)
 
 	verifier := NewVerifier(WithAllowUnsigned(true))
-	result, err := verifier.Verify(context.Background(), att)
-	require.NoError(t, err)
-	assert.True(t, result.Valid)
+	_, err := verifier.Verify(context.Background(), att)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no public key")
 }

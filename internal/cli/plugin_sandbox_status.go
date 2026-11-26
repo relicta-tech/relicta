@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/plugin/sandbox"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/sandbox"
 )
 
 // pluginSandboxStatusCmd surfaces the sandbox security posture so operators
@@ -21,12 +21,14 @@ var pluginSandboxStatusCmd = &cobra.Command{
 	Short: "Show plugin sandbox enforcement posture",
 	Long: `Show the current plugin sandbox enforcement posture for this platform.
 
-Displays whether memory / CPU limits are reliably enforced, whether plugin
-signatures are verified before load, and any platform-specific caveats
-(e.g. Apple Silicon RLIMIT_AS limitations).
+Displays memory and CPU enforcement limits, plugin signature status, and
+platform-specific caveats (e.g. Apple Silicon RLIMIT_AS limitations). Plugin
+signatures are not currently verified on any platform.
 
 Use this before relying on plugin sandboxing as a security boundary.
-Plugin loading on best-effort platforms requires --allow-untrusted-plugins.`,
+Loading any enabled plugin requires --allow-untrusted-plugins. The flag records
+an operator trust decision; it does not verify the publisher or provide a
+complete security sandbox.`,
 	RunE: runPluginSandboxStatus,
 }
 

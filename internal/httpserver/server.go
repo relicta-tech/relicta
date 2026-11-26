@@ -14,12 +14,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
-	httpws "github.com/relicta-tech/relicta/v4/internal/httpserver/websocket"
-	"github.com/relicta-tech/relicta/v4/internal/security/oidc"
-	"github.com/relicta-tech/relicta/v4/internal/security/token"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/handlers"
+	httpws "github.com/relicta-tech/relicta/v5/internal/httpserver/websocket"
+	"github.com/relicta-tech/relicta/v5/internal/security/oidc"
+	"github.com/relicta-tech/relicta/v5/internal/security/token"
 )
 
 // Server is the HTTP server for the dashboard.
@@ -34,13 +34,17 @@ type Server struct {
 	oidcHandlers *oidc.Handlers
 	metrics      http.Handler
 	metricsPath  string
+	startupErr   error
 }
 
 // ServerDeps contains dependencies for creating a new server.
 type ServerDeps struct {
-	Config          config.DashboardConfig
-	Frontend        fs.FS             // Embedded frontend files (nil for API-only mode)
-	ReleaseServices *release.Services // Release domain services (optional)
+	Config           config.DashboardConfig
+	Frontend         fs.FS                 // Embedded frontend files (nil for API-only mode)
+	ReleaseServices  *release.Services     // Release domain services (optional)
+	MnemosEnabled    bool                  // Whether the Mnemos adapter was initialized.
+	ChronosEnabled   bool                  // Whether the Chronos adapter was initialized.
+	TokenRevocations token.RevocationStore // Durable session revocations (optional for embedders).
 	// Metrics, when telemetry.metrics.enabled is set, is served at MetricsPath.
 	//
 	// A separate `relicta metrics` process was the only way to expose them, which is a
@@ -75,44 +79,79 @@ func NewServer(deps ServerDeps) *Server {
 
 	s.metrics, s.metricsPath = deps.Metrics, deps.MetricsPath
 
-	// Create token service for session or OIDC authentication.
-	if (deps.Config.Auth.Mode == config.DashboardAuthSession || deps.Config.Auth.Mode == config.DashboardAuthOIDC) &&
-		deps.Config.Auth.SessionSecret != "" {
+	// Create token service for session or OIDC authentication. If authentication
+	// is configured but cannot be initialized, keep the server from starting in a
+	// state where login is unavailable or every protected request is rejected.
+	if deps.Config.Auth.Mode == config.DashboardAuthAPIKey {
+		hasUsableAPIKey := false
+		for _, key := range deps.Config.Auth.APIKeys {
+			if strings.TrimSpace(key.Key) != "" {
+				hasUsableAPIKey = true
+				break
+			}
+		}
+		if !hasUsableAPIKey {
+			s.startupErr = errors.New("dashboard auth mode api_key requires at least one non-empty dashboard.auth.api_keys[].key")
+		}
+	}
+
+	needsTokenService := deps.Config.Auth.Mode == config.DashboardAuthSession ||
+		deps.Config.Auth.Mode == config.DashboardAuthOIDC
+	if needsTokenService && deps.Config.Auth.SessionSecret == "" {
+		s.startupErr = errors.New("dashboard auth mode requires dashboard.auth.session_secret")
+	}
+	if needsTokenService && deps.Config.Auth.SessionSecret != "" {
 		ttl := deps.Config.Auth.SessionMaxAge
 		if ttl == 0 {
 			ttl = 24 * time.Hour
 		}
 		svc, err := token.NewService(token.Config{
-			Secret:     []byte(deps.Config.Auth.SessionSecret),
-			RefreshTTL: ttl,
+			Secret:      []byte(deps.Config.Auth.SessionSecret),
+			RefreshTTL:  ttl,
+			Revocations: deps.TokenRevocations,
 		})
 		if err == nil {
 			s.tokenService = svc
+		} else {
+			s.startupErr = fmt.Errorf("initialize dashboard session tokens: %w", err)
 		}
 	}
 
 	// Create OIDC service and handlers when OIDC auth mode is configured.
-	if deps.Config.Auth.Mode == config.DashboardAuthOIDC && deps.Config.Auth.OIDC != nil && s.tokenService != nil {
-		oidcCfg := *deps.Config.Auth.OIDC
-		oidcCfg.Defaults()
-		oidcSvc, err := oidc.NewService(context.Background(), oidcCfg)
-		if err != nil {
-			log.Printf("WARNING: OIDC provider discovery failed: %v", err)
+	if deps.Config.Auth.Mode == config.DashboardAuthOIDC {
+		if deps.Config.Auth.OIDC == nil {
+			s.startupErr = errors.New("dashboard auth mode oidc requires dashboard.auth.oidc configuration")
+		} else if s.tokenService == nil {
+			// Preserve the more specific token-service initialization error above.
+			if s.startupErr == nil {
+				s.startupErr = errors.New("OIDC authentication requires a valid dashboard session token service")
+			}
 		} else {
-			s.oidcHandlers = oidc.NewHandlers(oidcSvc, s.tokenService)
+			oidcCfg := *deps.Config.Auth.OIDC
+			oidcCfg.Defaults()
+			discoveryCtx, cancelDiscovery := context.WithTimeout(context.Background(), 10*time.Second)
+			oidcSvc, err := oidc.NewService(discoveryCtx, oidcCfg)
+			cancelDiscovery()
+			if err != nil {
+				s.startupErr = fmt.Errorf("initialize OIDC authentication: %w", err)
+				log.Printf("ERROR: OIDC provider discovery failed; dashboard will refuse to start: %v", err)
+			} else {
+				s.oidcHandlers = oidc.NewHandlers(oidcSvc, s.tokenService)
+			}
 		}
 	}
 
-	// Wire up WebSocket JWT authentication when a token service is available.
-	if s.tokenService != nil {
-		s.wsHub.SetTokenValidator(&tokenServiceAdapter{svc: s.tokenService})
-	}
+	// The ticket endpoint authenticates using the same middleware as the REST API;
+	// upgrades then consume its short-lived, single-use ticket.
+	s.wsHub.RequireTickets(true)
 
 	// Set handler context for dependency injection
 	handlers.SetContext(&handlers.Context{
 		ReleaseServices: deps.ReleaseServices,
 		TokenService:    s.tokenService,
 		AuthConfig:      deps.Config.Auth,
+		MnemosEnabled:   deps.MnemosEnabled,
+		ChronosEnabled:  deps.ChronosEnabled,
 	})
 
 	s.router = s.setupRouter()
@@ -130,6 +169,12 @@ func NewServer(deps ServerDeps) *Server {
 
 // Start starts the HTTP server.
 func (s *Server) Start(ctx context.Context) error {
+	if s.tokenService != nil {
+		defer s.tokenService.Close()
+	}
+	if s.startupErr != nil {
+		return fmt.Errorf("dashboard authentication is not ready: %w", s.startupErr)
+	}
 	// Refuse to expose an unauthenticated dashboard off-host. mode=none
 	// grants anonymous (read-only) access; binding it to a non-loopback
 	// address without an explicit opt-in would silently publish the
@@ -222,6 +267,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 	// Close SSE hub
 	s.sseHub.Close()
+	if s.tokenService != nil {
+		s.tokenService.Close()
+	}
 
 	// Shutdown HTTP server
 	return s.httpServer.Shutdown(shutdownCtx)
@@ -269,17 +317,4 @@ func (s *Server) getIdleTimeout() time.Duration {
 		return s.config.IdleTimeout
 	}
 	return 60 * time.Second
-}
-
-// tokenServiceAdapter adapts token.Service to the websocket.TokenValidator interface.
-type tokenServiceAdapter struct {
-	svc *token.Service
-}
-
-func (a *tokenServiceAdapter) Validate(tokenStr string) (string, []string, error) {
-	claims, err := a.svc.Validate(tokenStr)
-	if err != nil {
-		return "", nil, err
-	}
-	return claims.Name, claims.Roles, nil
 }

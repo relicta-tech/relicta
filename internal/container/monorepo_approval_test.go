@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // A decision per package only means something if a package that was not decided does not ship.

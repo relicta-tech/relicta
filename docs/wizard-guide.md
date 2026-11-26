@@ -353,17 +353,17 @@ Each template asks specific questions to customize the configuration:
 │    🤖 AI-Powered Features (Optional)        │
 │                                             │
 │    Enable AI for changelog generation?      │
-│    > Yes (Recommended)                      │
+│    > Yes (Optional)                         │
 │      No (Use templates only)                │
 │                                             │
 │    AI Provider:                             │
-│    > OpenAI (GPT-4o)                        │
+│    > OpenAI (GPT-6.2 Sol)                   │
 │      Anthropic (Claude)                     │
 │      Google (Gemini)                        │
 │      Ollama (Local)                         │
 │      Azure OpenAI                           │
 │                                             │
-│    Model: gpt-4o                            │
+│    Model: gpt-6.2-sol                       │
 │    API Key: [Set via OPENAI_API_KEY]        │
 │                                             │
 │    ↑↓ Navigate  Enter Continue  q Quit     │
@@ -372,17 +372,18 @@ Each template asks specific questions to customize the configuration:
 
 **AI Provider Selection:**
 
-| Provider | Best For | Setup Required |
-|----------|----------|----------------|
-| **OpenAI** | General use, best quality | API key from platform.openai.com |
-| **Gemini** | Cost-effective, large context | API key from aistudio.google.com |
-| **Anthropic** | Long changelogs, analysis | API key from console.anthropic.com |
-| **Ollama** | Privacy, offline, free | Local installation (ollama.com) |
-| **Azure OpenAI** | Enterprise, compliance | Azure subscription required |
+| Provider | Setup Required |
+|----------|----------------|
+| **OpenAI** | API key from platform.openai.com |
+| **Gemini** | API key from aistudio.google.com |
+| **Anthropic** | API key from console.anthropic.com |
+| **Ollama** | Locally operated inference (ollama.com) |
+| **Azure OpenAI** | Azure subscription and deployment |
 
 **Configuration:**
-- API keys are **never stored** in the config file
-- Set via environment variables: `OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.
+- The wizard does not ask you to paste API keys.
+- Set keys via environment variables such as `OPENAI_API_KEY` and reference them in config.
+- A literal key placed in `.relicta.yaml` is stored as plaintext; keep secrets out of the file.
 - Wizard shows instructions for each provider
 - AI can be disabled or changed later
 
@@ -408,7 +409,7 @@ Each template asks specific questions to customize the configuration:
 │    │ ai:                               │   │
 │    │   enabled: true                   │   │
 │    │   provider: openai                │   │
-│    │   model: gpt-4o                   │   │
+│    │   model: gpt-6.2-sol              │   │
 │    │                                   │   │
 │    │ plugins:                          │   │
 │    │   - name: github                  │   │
@@ -672,7 +673,7 @@ relicta config validate
      -H "Authorization: Bearer $OPENAI_API_KEY"
    ```
 3. Check provider-specific docs: `docs/ai-providers.md`
-4. Try dry-run to test:
+4. Generate a preview without saving it (the configured provider is still called):
    ```bash
    relicta notes --dry-run
    ```
@@ -847,7 +848,7 @@ ai:
 
 ✅ **Test immediately:**
 ```bash
-# Dry-run to verify config
+# Generate a preview without saving it (the configured provider is still called)
 relicta notes --dry-run
 
 # Check what would happen

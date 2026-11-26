@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
 )
 
 // Recording what the monitor measured.

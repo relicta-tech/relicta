@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // Calculator computes risk scores for changes.

@@ -32,7 +32,8 @@ permissions:
   actions: read
 
 env:
-  NOX_VERSION: '1.26.0'
+  NOX_VERSION: '1.70.0'
+  NOX_SHA256_LINUX_AMD64: '5ab377a72bbdf0da4ee4eeb068e3b516357e3e363db2491534e14aea72c8135e'
 
 jobs:
   nox-scan:
@@ -45,8 +46,16 @@ jobs:
 
       - name: Install nox
         run: |
-          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
+          archive="nox_${NOX_VERSION}_linux_amd64.tar.gz"
+          curl --fail --show-error --silent --location \
+            "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          echo "${NOX_SHA256_LINUX_AMD64}  /tmp/${archive}" | sha256sum --check --status
+          tar xz -C /usr/local/bin -f "/tmp/${archive}" nox
           nox version
+
+      - name: Install Cosign for Nox plugin verification
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Run nox scan
         env:
@@ -54,9 +63,9 @@ jobs:
           # survive code movement between scans.
           NOX_FINGERPRINT_VERSION: "2"
         run: |
-          nox scan . -format json,sarif
-          echo "## Nox Security Scan" >> $GITHUB_STEP_SUMMARY
-          echo "Scan passed against the reviewed baseline (.nox/baseline.json)." >> $GITHUB_STEP_SUMMARY
+          nox scan . --severity-threshold high --fail-on-degraded -format json,sarif
+          echo "## Nox Security Scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "No new HIGH or CRITICAL findings beyond the reviewed baseline (.nox/baseline.json)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload SARIF to GitHub code scanning
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4

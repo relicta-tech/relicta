@@ -3,9 +3,9 @@ package adapters_test
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports/conformance"
 )
 
 // The file adapter is the reference implementation: it is what every caller in the tree was

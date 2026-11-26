@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // workflow.pre_release_hook and workflow.post_release_hook were configured commands that never

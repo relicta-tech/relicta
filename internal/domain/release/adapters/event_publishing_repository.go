@@ -5,8 +5,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // EventPublishingConfig configures an EventPublishingRepository.
@@ -25,9 +25,10 @@ type EventPublishingConfig struct {
 
 // EventPublishingRepository wraps a repository and publishes domain events after save.
 type EventPublishingRepository struct {
-	repo      ports.ReleaseRunRepository
-	publisher ports.EventPublisher
-	logger    *slog.Logger
+	repo                   ports.ReleaseRunRepository
+	recommendationFallback ports.RecommendationStore
+	publisher              ports.EventPublisher
+	logger                 *slog.Logger
 }
 
 // NewEventPublishingRepository creates a new event-publishing repository wrapper.
@@ -37,14 +38,16 @@ func NewEventPublishingRepository(cfg EventPublishingConfig) *EventPublishingRep
 		logger = slog.Default()
 	}
 	return &EventPublishingRepository{
-		repo:      cfg.Repository,
-		publisher: cfg.Publisher,
-		logger:    logger,
+		repo:                   cfg.Repository,
+		recommendationFallback: NewFileReleaseRunRepository(),
+		publisher:              cfg.Publisher,
+		logger:                 logger,
 	}
 }
 
 // Ensure EventPublishingRepository implements the interface.
 var _ ports.ReleaseRunRepository = (*EventPublishingRepository)(nil)
+var _ ports.RecommendationStore = (*EventPublishingRepository)(nil)
 
 // Save persists a release run and publishes any pending domain events.
 //
@@ -63,18 +66,24 @@ func (r *EventPublishingRepository) Save(ctx context.Context, run *domain.Releas
 		return err
 	}
 
-	if len(events) > 0 {
-		if r.publisher != nil {
-			if err := r.publisher.Publish(ctx, events...); err != nil {
-				r.logger.Error("release saved but its events could not be published; "+
-					"governance history and webhook delivery for this release are incomplete",
-					"run_id", string(run.ID()), "event_count", len(events), "error", err)
-			}
-		}
+	if len(events) == 0 {
+		return nil
 	}
-
-	// Cleared only after the events are out, so a failure above cannot silently drop
-	// them from the aggregate as well.
+	if r.publisher == nil {
+		// There is no retry path when no publisher is configured. Preserve the events
+		// on the aggregate so a caller that attaches a publisher can still deliver them.
+		r.logger.Warn("release saved with unpublished domain events; no event publisher is configured",
+			"run_id", string(run.ID()), "event_count", len(events))
+		return nil
+	}
+	if err := r.publisher.Publish(ctx, events...); err != nil {
+		// Keep them on the aggregate for an explicit retry in this process. The saved
+		// run does not serialize pending events, so this is not crash recovery; the
+		// log makes that limit clear to operators.
+		r.logger.Error("release saved but event publication failed; events remain pending only in memory",
+			"run_id", string(run.ID()), "event_count", len(events), "error", err)
+		return nil
+	}
 	run.ClearDomainEvents()
 
 	return nil
@@ -123,6 +132,29 @@ func (r *EventPublishingRepository) FindActive(ctx context.Context, repoRoot str
 // FindByPlanHash finds a run by its plan hash for duplicate detection.
 func (r *EventPublishingRepository) FindByPlanHash(ctx context.Context, repoRoot string, planHash string) (*domain.ReleaseRun, error) {
 	return r.repo.FindByPlanHash(ctx, repoRoot, planHash)
+}
+
+// SaveRecommendation delegates to the release repository when it supports
+// recommendation storage. Database-backed release stores keep the ADR-009
+// artifact as the same file sidecar used by the file backend so consumers
+// receive the original bytes regardless of the selected run store.
+func (r *EventPublishingRepository) SaveRecommendation(repoRoot string, runID domain.RunID, artifact []byte) error {
+	store, ok := r.repo.(ports.RecommendationStore)
+	if ok {
+		return store.SaveRecommendation(repoRoot, runID, artifact)
+	}
+	return r.recommendationFallback.SaveRecommendation(repoRoot, runID, artifact)
+}
+
+// LoadRecommendation delegates optional recommendation reads to the wrapped
+// repository, keeping the HTTP recommendation endpoint available through the
+// normal event-publishing container wiring.
+func (r *EventPublishingRepository) LoadRecommendation(repoRoot string, runID domain.RunID) ([]byte, bool, error) {
+	store, ok := r.repo.(ports.RecommendationStore)
+	if ok {
+		return store.LoadRecommendation(repoRoot, runID)
+	}
+	return r.recommendationFallback.LoadRecommendation(repoRoot, runID)
 }
 
 // LoadFromRepo delegates to the underlying repository if it supports this method.

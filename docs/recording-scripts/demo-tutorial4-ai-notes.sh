@@ -1,8 +1,13 @@
 #!/bin/bash
-# Demo: Tutorial 4 - AI-Powered Release Notes
-# Shows real CLI output for AI note generation
+# Demo: Tutorial 4 - Configured AI Release Notes
+# Requires a working OpenAI API key and demonstrates real provider output.
 
 set -e
+
+if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+    echo "Set OPENAI_API_KEY to run this provider-backed AI notes demo." >&2
+    exit 1
+fi
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -85,9 +90,14 @@ pause 2
 echo ""
 echo -e "${MAGENTA}━━━ Step 3: Generate AI-Powered Notes ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta notes --ai${NC}"
+echo -e "$ ${YELLOW}relicta notes${NC}  # ai.enabled: true in .relicta.yaml"
 pause 1
-relicta notes --ai
+NOTES_OUTPUT="$(relicta notes)"
+printf '%s\n' "$NOTES_OUTPUT"
+if ! grep -q 'Source: AI-generated (openai)' <<< "$NOTES_OUTPUT"; then
+    echo "Relicta did not confirm OpenAI-generated notes; stopping to avoid showing a fallback as AI output." >&2
+    exit 1
+fi
 pause 4
 
 # Show changelog
@@ -104,6 +114,6 @@ echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "  ${GREEN}✓${NC} AI analyzes commit context"
 echo -e "  ${GREEN}✓${NC} Generates user-friendly summaries"
-echo -e "  ${GREEN}✓${NC} Adds migration guidance for breaking changes"
+echo -e "  ${GREEN}✓${NC} Labels the configured provider in generated output"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 pause 3

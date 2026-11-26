@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Factory builds a repository for one test, along with the repository root it serves.

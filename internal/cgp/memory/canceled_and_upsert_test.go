@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	release "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	release "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Three defects, all of which appeared the moment release domain events actually reached

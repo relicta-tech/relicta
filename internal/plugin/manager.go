@@ -4,6 +4,7 @@ package plugin
 import (
 	"context"
 	"crypto/sha256"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,12 +20,12 @@ import (
 	"golang.org/x/sync/semaphore"
 	"gopkg.in/yaml.v3"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/plugin/audit"
-	pmgr "github.com/relicta-tech/relicta/v4/internal/plugin/manager"
-	"github.com/relicta-tech/relicta/v4/internal/plugin/sandbox"
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/audit"
+	pmgr "github.com/relicta-tech/relicta/v5/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/sandbox"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 // MaxConcurrentPluginExecutions limits the number of plugins that can execute simultaneously.
@@ -48,14 +49,21 @@ type Manager struct {
 
 	// Lazy loading support
 	pendingPlugins map[string]*config.PluginConfig // Registered but not yet loaded
-	loadOnce       map[string]*sync.Once           // Ensures each plugin loads only once
-	loadErrors     map[string]error                // Stores load errors for lazy-loaded plugins
+	loadStates     map[string]*pluginLoadState     // Coordinates lazy loads and caches permanent failures
 
 	// allowUntrustedPlugins is the explicit operator opt-in to load plugins
 	// when the runtime cannot offer strict sandbox enforcement (best-effort
 	// platform OR signature verification not implemented). Set via
 	// `Manager.AllowUntrustedPlugins(true)` from CLI flag handling.
 	allowUntrustedPlugins bool
+}
+
+// pluginLoadState keeps the Once and its result together so waiters observe
+// the outcome of the exact load attempt they joined, even if a later caller
+// retries after a transient cancellation.
+type pluginLoadState struct {
+	once sync.Once
+	err  error
 }
 
 // loadedPlugin represents a loaded and running plugin.
@@ -89,8 +97,7 @@ func NewManager(cfg *config.Config) *Manager {
 		cfg:              cfg,
 		executionLimiter: semaphore.NewWeighted(MaxConcurrentPluginExecutions),
 		pendingPlugins:   make(map[string]*config.PluginConfig, pluginCount),
-		loadOnce:         make(map[string]*sync.Once, pluginCount),
-		loadErrors:       make(map[string]error, pluginCount),
+		loadStates:       make(map[string]*pluginLoadState, pluginCount),
 	}
 }
 
@@ -108,8 +115,8 @@ func (m *Manager) hasEnabledPlugins() bool {
 // AllowUntrustedPlugins toggles the operator opt-in that bypasses the
 // sandbox-honesty gate. CLI wires this from the `--allow-untrusted-plugins`
 // flag. Default false means the runtime refuses to load plugins on
-// best-effort sandbox platforms (e.g. macOS) until either signing ships or
-// the operator explicitly accepts the risk.
+// best-effort sandbox platforms (currently Linux and macOS) until signing
+// ships or the operator explicitly accepts the risk.
 func (m *Manager) AllowUntrustedPlugins(allow bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -192,67 +199,62 @@ func (m *Manager) RegisterPlugins() {
 
 		m.logger.Debug("registering plugin for lazy loading", "name", pluginCfg.Name)
 		m.pendingPlugins[pluginCfg.Name] = pluginCfg
-		m.loadOnce[pluginCfg.Name] = &sync.Once{}
+		m.loadStates[pluginCfg.Name] = &pluginLoadState{}
 	}
 }
 
 // ensurePluginLoaded ensures a plugin is loaded, loading it lazily if needed.
 // This is thread-safe and ensures each plugin is loaded only once.
 func (m *Manager) ensurePluginLoaded(ctx context.Context, name string) (*loadedPlugin, error) {
-	// Fast path: check if already loaded
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	m.mu.RLock()
 	if lp, ok := m.plugins[name]; ok {
 		m.mu.RUnlock()
 		return lp, nil
 	}
-
-	// Check if there was a previous load error
-	if err, ok := m.loadErrors[name]; ok {
-		m.mu.RUnlock()
-		return nil, err
-	}
-
-	// Get config and once for this plugin
 	cfg, hasCfg := m.pendingPlugins[name]
-	once, hasOnce := m.loadOnce[name]
+	state, hasState := m.loadStates[name]
 	m.mu.RUnlock()
 
-	if !hasCfg || !hasOnce {
+	if !hasCfg || !hasState {
 		return nil, fmt.Errorf("plugin not registered: %s", name)
 	}
 
-	// Trust gate: refuse to load on best-effort sandbox platforms unless the
-	// operator explicitly opted in. Cached as a load error so subsequent calls
-	// fail fast instead of re-evaluating.
-	if err := m.trustGateBlocks(); err != nil {
-		m.mu.Lock()
-		m.loadErrors[name] = err
-		m.mu.Unlock()
-		return nil, err
-	}
-
-	// Load the plugin (sync.Once ensures this happens only once)
-	var loadErr error
-	once.Do(func() {
-		m.logger.Debug("lazy loading plugin", "name", name)
-		loadErr = m.loadPlugin(ctx, cfg)
-		if loadErr != nil {
-			// Store the error for future calls
-			m.mu.Lock()
-			m.loadErrors[name] = loadErr
-			m.mu.Unlock()
+	// Trust gate failures are policy failures, not transient startup
+	// failures. Cache them in the load state so every waiter sees the same
+	// result.
+	state.once.Do(func() {
+		if err := m.trustGateBlocks(); err != nil {
+			state.err = err
+			return
 		}
+		m.logger.Debug("lazy loading plugin", "name", name)
+		state.err = m.loadPlugin(ctx, cfg)
 	})
 
-	if loadErr != nil {
-		return nil, loadErr
+	if state.err != nil {
+		if stderrors.Is(state.err, context.Canceled) || stderrors.Is(state.err, context.DeadlineExceeded) {
+			// A canceled request must not permanently disable a plugin. Replace
+			// only the attempt that failed; callers already waiting on it retain
+			// its result through their state pointer.
+			m.mu.Lock()
+			if m.loadStates[name] == state {
+				m.loadStates[name] = &pluginLoadState{}
+			}
+			m.mu.Unlock()
+		}
+		return nil, state.err
 	}
 
-	// Get the loaded plugin
 	m.mu.RLock()
 	lp := m.plugins[name]
 	m.mu.RUnlock()
-
+	if lp == nil {
+		return nil, fmt.Errorf("plugin %q finished loading without a plugin or error", name)
+	}
 	return lp, nil
 }
 
@@ -281,10 +283,11 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 	// Create the command for the plugin
 	cmd := exec.Command(pluginPath) // #nosec G204 -- pluginPath is validated and checksum-verified
 
-	// Apply sandbox restrictions to the command
+	// Apply sandbox restrictions before starting the process. Requested
+	// restrictions must not be silently dropped on unsupported platforms.
 	if err := sb.PrepareCommand(ctx, cmd); err != nil {
-		m.logger.Warn("failed to apply sandbox restrictions", "plugin", cfg.Name, "error", err)
-		// Continue without sandboxing - this is best-effort
+		_ = audit.LogLoad(ctx, cfg.Name, false, "sandbox setup failed: "+err.Error())
+		return errors.PluginWrap(err, "plugin.Load", "refusing to start plugin without its configured restrictions")
 	}
 
 	// Create plugin client with sandboxed command
@@ -305,15 +308,13 @@ func (m *Manager) loadPlugin(ctx context.Context, cfg *config.PluginConfig) erro
 		return errors.PluginWrap(err, op, "failed to connect to plugin")
 	}
 
-	// Apply resource limits to the running plugin process (Linux only)
+	// Apply resource limits to the running plugin process (Linux only).
 	// This uses prlimit to set memory, file descriptor, and CPU limits
 	if reattach := client.ReattachConfig(); reattach != nil && reattach.Pid > 0 {
 		if err := sb.ApplyResourceLimits(reattach.Pid); err != nil {
-			// Log warning but don't fail - resource limits are best-effort
-			m.logger.Warn("failed to apply resource limits to plugin",
-				"plugin", cfg.Name,
-				"pid", reattach.Pid,
-				"error", err)
+			client.Kill()
+			_ = audit.LogLoad(ctx, cfg.Name, false, "resource limit setup failed: "+err.Error())
+			return errors.PluginWrap(err, op, "refusing to continue plugin startup without configured resource limits")
 		}
 	}
 
@@ -567,7 +568,10 @@ type pluginResult struct {
 // A global timeout is applied to prevent runaway execution.
 func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx plugin.ReleaseContext) ([]plugin.ExecuteResponse, error) {
 	// Collect plugins to execute while holding the lock briefly
-	toExecute := m.collectPluginsForHook(hook)
+	toExecute, err := m.collectPluginsForHook(ctx, hook)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(toExecute) == 0 {
 		return nil, nil
@@ -717,7 +721,7 @@ func (m *Manager) ExecuteHook(ctx context.Context, hook plugin.Hook, releaseCtx 
 
 // collectPluginsForHook collects plugins that support the given hook.
 // Supports both eagerly-loaded plugins and lazy-loaded plugins.
-func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
+func (m *Manager) collectPluginsForHook(ctx context.Context, hook plugin.Hook) ([]pluginExecInfo, error) {
 	m.mu.RLock()
 
 	// Pre-allocate with reasonable capacity
@@ -739,7 +743,11 @@ func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
 	}
 
 	// Identify pending plugins that might support this hook
-	pendingToLoad := make([]string, 0)
+	type pendingPlugin struct {
+		name   string
+		config *config.PluginConfig
+	}
+	pendingToLoad := make([]pendingPlugin, 0)
 	for name, cfg := range m.pendingPlugins {
 		// Skip if already loaded
 		if _, loaded := m.plugins[name]; loaded {
@@ -755,16 +763,21 @@ func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
 		}
 		// If no hooks specified in config, we need to load to find out
 
-		pendingToLoad = append(pendingToLoad, name)
+		pendingToLoad = append(pendingToLoad, pendingPlugin{name: name, config: cfg})
 	}
 	m.mu.RUnlock()
 
 	// Lazily load pending plugins that might support this hook
-	ctx := context.Background()
-	for _, name := range pendingToLoad {
-		lp, err := m.ensurePluginLoaded(ctx, name)
+	for _, pending := range pendingToLoad {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("load plugins for hook %q: %w", hook, err)
+		}
+		lp, err := m.ensurePluginLoaded(ctx, pending.name)
 		if err != nil {
-			m.logger.Warn("failed to lazy load plugin", "name", name, "error", err)
+			if ctx.Err() != nil || !pending.config.ContinueOnError {
+				return nil, fmt.Errorf("failed to load plugin %q for hook %q: %w", pending.name, hook, err)
+			}
+			m.logger.Warn("failed to lazy load plugin", "name", pending.name, "error", err)
 			continue
 		}
 
@@ -781,7 +794,7 @@ func (m *Manager) collectPluginsForHook(hook plugin.Hook) []pluginExecInfo {
 		})
 	}
 
-	return toExecute
+	return toExecute, nil
 }
 
 // configHasHook checks if the plugin config specifies support for a hook.

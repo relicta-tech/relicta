@@ -1,0 +1,45 @@
+description = "Relicta release governance for risky and compatibility-breaking changes"
+
+rule "major-release-approval" {
+  priority = 110
+  description = "Major releases require a release manager"
+
+  when {
+    bump_type == "major"
+  }
+
+  then {
+    require_approval(role: "release-manager")
+  }
+}
+
+rule "breaking-change-approval" {
+  priority = 100
+  description = "Breaking changes require a release manager"
+
+  when {
+    change.breaking > 0
+  }
+
+  then {
+    require_approval(role: "release-manager")
+  }
+}
+
+rule "high-risk-approval" {
+  priority = 90
+  description = "High-risk changes require a release manager"
+
+  when {
+    risk.score > 0.5
+  }
+
+  then {
+    require_approval(role: "release-manager")
+  }
+}
+
+defaults {
+  decision = "approve"
+  required_approvers = 0
+}

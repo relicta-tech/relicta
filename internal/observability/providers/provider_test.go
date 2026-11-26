@@ -258,6 +258,28 @@ func TestPrometheusProvider_QueryMetrics(t *testing.T) {
 	}
 }
 
+func TestPrometheusProvider_QueryMetrics_UsesExpression(t *testing.T) {
+	expression := `sum(rate(http_requests_total[5m]))`
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("query"); got != expression {
+			t.Errorf("query = %q, want configured expression %q", got, expression)
+		}
+		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`))
+	}))
+	defer ts.Close()
+
+	provider := NewPrometheusProvider(ts.URL)
+	_, err := provider.QueryMetrics(context.Background(), MetricQuery{
+		Expression: expression,
+		Start:      time.Now().Add(-time.Minute),
+		End:        time.Now(),
+		Step:       15 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("QueryMetrics() error = %v", err)
+	}
+}
+
 func TestPrometheusProvider_QueryMetrics_InvalidQuery(t *testing.T) {
 	p := NewPrometheusProvider("http://localhost:9090")
 	_, err := p.QueryMetrics(context.Background(), MetricQuery{})

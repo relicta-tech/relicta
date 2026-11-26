@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/security/attestation"
+	"github.com/spf13/cobra"
+
+	"github.com/relicta-tech/relicta/v5/internal/security/attestation"
 )
 
 // TestResolveAttestationPath_FromFile returns the file directly when --file is set.
@@ -179,6 +182,34 @@ func TestLoadAttestation_ValidJSON(t *testing.T) {
 	}
 	if result.PayloadType != "application/vnd.in-toto+json" {
 		t.Errorf("PayloadType = %v, want application/vnd.in-toto+json", result.PayloadType)
+	}
+}
+
+func TestRunVerify_PublicKeyUnreadable(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "attestation.intoto.jsonl")
+	att := attestation.SignedAttestation{
+		PayloadType: "application/vnd.in-toto+json",
+		Payload:     []byte(`{"_type":"test"}`),
+	}
+	data, err := json.Marshal(att)
+	if err != nil {
+		t.Fatalf("marshal attestation: %v", err)
+	}
+	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
+		t.Fatalf("write attestation: %v", err)
+	}
+
+	origFile, origRunID, origPublicKey := verifyFile, verifyRunID, verifyPublicKey
+	defer func() {
+		verifyFile, verifyRunID, verifyPublicKey = origFile, origRunID, origPublicKey
+	}()
+	verifyFile = tmpFile
+	verifyRunID = ""
+	verifyPublicKey = filepath.Join(t.TempDir(), "missing-public-key.pem")
+
+	err = runVerify(&cobra.Command{}, nil)
+	if err == nil || !strings.Contains(err.Error(), "failed to read public key file") {
+		t.Fatalf("runVerify() error = %v, want unreadable public key error", err)
 	}
 }
 

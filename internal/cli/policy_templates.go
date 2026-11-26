@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/library"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/library"
 )
 
 // The built-in policy templates.

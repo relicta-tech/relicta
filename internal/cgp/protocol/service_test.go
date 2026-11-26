@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 func validProposal() *cgpsdk.ChangeProposal {
@@ -25,6 +27,62 @@ func validProposal() *cgpsdk.ChangeProposal {
 			Confidence: 0.85,
 			Categories: []string{"feature"},
 		},
+	}
+}
+
+func TestProtocolGovernanceActionsAreRecordedInSharedAuditChain(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewInMemoryStore()
+	svc := NewService(evaluator.New(), WithAuditStore(store))
+	proposal := validProposal()
+	_, err := svc.EvaluateProposal(ctx, proposal)
+	if err != nil {
+		t.Fatalf("EvaluateProposal: %v", err)
+	}
+	proposal.Intent.Summary = "Update login reliability and session handling"
+	decision, err := svc.EvaluateProposal(ctx, proposal)
+	if err != nil {
+		t.Fatalf("EvaluateProposal with revised content: %v", err)
+	}
+	if decision.Decision != "denied" {
+		now := time.Now().UTC()
+		err = svc.RecordAuthorization(ctx, &cgpsdk.ExecutionAuthorization{
+			CGPVersion: cgpsdk.ProtocolVersion, Type: cgpsdk.TypeExecutionAuthorization,
+			ID: "auth_audit_test", ProposalID: proposal.ID, DecisionID: decision.ID,
+			Timestamp: now, ApprovedBy: cgpsdk.Actor{Kind: "human", ID: "human:alice"},
+			Version: "1.2.3", ValidUntil: now.Add(time.Hour), Scope: []string{"publish"},
+		})
+		if err != nil {
+			t.Fatalf("RecordAuthorization: %v", err)
+		}
+	}
+	entries, err := store.AuditChain(ctx, proposal.Scope.Repository)
+	if err != nil {
+		t.Fatalf("AuditChain: %v", err)
+	}
+	want := 4
+	if decision.Decision != "denied" {
+		want++
+	}
+	if len(entries) != want {
+		t.Fatalf("audit entries = %d, want %d", len(entries), want)
+	}
+	chain, err := audit.Restore(entries)
+	if err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+	if err := chain.Verify(); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if entries[0].EventType != audit.EventProposalReceived || entries[1].EventType != audit.EventDecisionMade ||
+		entries[2].EventType != audit.EventProposalReceived || entries[3].EventType != audit.EventDecisionMade {
+		t.Fatalf("unexpected protocol audit event sequence: %q, %q, %q, %q", entries[0].EventType, entries[1].EventType, entries[2].EventType, entries[3].EventType)
+	}
+	if got := entries[2].Details["summary"]; got != proposal.Intent.Summary {
+		t.Fatalf("revised proposal summary in audit = %v, want %q", got, proposal.Intent.Summary)
+	}
+	if _, ok := entries[3].Details["riskFactors"]; !ok {
+		t.Fatal("decision audit event is missing evaluator risk factors")
 	}
 }
 

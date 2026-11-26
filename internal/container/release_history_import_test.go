@@ -27,16 +27,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/releasehistory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/application/releasehistory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // TestAFileHistoryRoundTripsThroughTheImporterIntoSQLite is the deliverable.

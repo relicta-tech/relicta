@@ -10,7 +10,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 func TestDefaultServiceConfig(t *testing.T) {
@@ -610,14 +610,16 @@ func TestChangelogData_Fields(t *testing.T) {
 
 func TestReleaseNotesData_Fields(t *testing.T) {
 	v := version.NewSemanticVersion(2, 0, 0)
+	prev := version.NewSemanticVersion(1, 9, 0)
 	data := ReleaseNotesData{
-		Version:       &v,
-		Date:          time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
-		Changelog:     "## Changelog content",
-		Summary:       "Major release",
-		Highlights:    []string{"Feature 1", "Feature 2"},
-		Contributors:  []string{"john", "jane"},
-		RepositoryURL: "https://github.com/user/repo",
+		Version:         &v,
+		PreviousVersion: &prev,
+		Date:            time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+		Changelog:       "## Changelog content",
+		Summary:         "Major release",
+		Highlights:      []string{"Feature 1", "Feature 2"},
+		Contributors:    []string{"john", "jane"},
+		RepositoryURL:   "https://github.com/user/repo",
 	}
 
 	if data.Version.String() != "2.0.0" {
@@ -626,11 +628,36 @@ func TestReleaseNotesData_Fields(t *testing.T) {
 	if data.Summary != "Major release" {
 		t.Errorf("Summary = %v, want Major release", data.Summary)
 	}
+	if data.PreviousVersion.String() != "1.9.0" {
+		t.Errorf("PreviousVersion = %v, want 1.9.0", data.PreviousVersion.String())
+	}
 	if len(data.Highlights) != 2 {
 		t.Errorf("Highlights length = %v, want 2", len(data.Highlights))
 	}
 	if len(data.Contributors) != 2 {
 		t.Errorf("Contributors length = %v, want 2", len(data.Contributors))
+	}
+}
+
+func TestReleaseNotesRenderIncludesPreviousVersionInCompareLink(t *testing.T) {
+	svc, err := NewService()
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	current := version.MustParse("2.0.0")
+	previous := version.MustParse("1.9.0")
+
+	out, err := svc.Render("release-notes", &ReleaseNotesData{
+		Version:         &current,
+		PreviousVersion: &previous,
+		RepositoryURL:   "https://github.com/acme/widget",
+	})
+	if err != nil {
+		t.Fatalf("Render release notes: %v", err)
+	}
+	want := "https://github.com/acme/widget/compare/v1.9.0...v2.0.0"
+	if !strings.Contains(out, want) {
+		t.Errorf("release notes compare link = %q, want URL containing %q", out, want)
 	}
 }
 

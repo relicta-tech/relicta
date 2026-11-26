@@ -10,10 +10,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gofrs/flock"
 )
 
 // DeliveryStatus represents the current state of a delivery.
@@ -62,6 +65,10 @@ type Delivery struct {
 	LastError string `json:"last_error,omitempty"`
 	// LastResponseTime is the duration of the last request in milliseconds.
 	LastResponseTime int64 `json:"last_response_time_ms,omitempty"`
+	// TimeoutMillis is the HTTP request timeout captured when enqueued.
+	TimeoutMillis int64 `json:"timeout_ms,omitempty"`
+	// RetryDelayMillis is the delay before retrying a failed delivery.
+	RetryDelayMillis int64 `json:"retry_delay_ms,omitempty"`
 	// Headers are custom headers to include in the request.
 	Headers map[string]string `json:"headers,omitempty"`
 	// Secret is the HMAC signing secret for this endpoint.
@@ -72,8 +79,12 @@ type Delivery struct {
 
 // HashPayload computes and sets the PayloadHash from the current Payload.
 func (d *Delivery) HashPayload() {
-	h := sha256.Sum256(d.Payload)
-	d.PayloadHash = hex.EncodeToString(h[:])
+	d.PayloadHash = payloadHash(d.Payload)
+}
+
+func payloadHash(payload []byte) string {
+	h := sha256.Sum256(payload)
+	return hex.EncodeToString(h[:])
 }
 
 // FileQueue is a file-based persistent delivery queue.
@@ -86,10 +97,37 @@ type FileQueue struct {
 	baseDir     string
 	mu          sync.RWMutex
 	concurrency int
+	workerLock  *flock.Flock
+	workerOwned bool
 }
 
 // QueueOption configures a FileQueue.
 type QueueOption func(*FileQueue)
+
+// WithRecovery is retained for source compatibility. In-flight recovery now
+// happens only after Publisher.Start acquires the exclusive worker lock.
+//
+// Deprecated: recovery is managed by the persistent publisher lifecycle.
+func WithRecovery() QueueOption {
+	return func(*FileQueue) {}
+}
+
+// WithoutRecovery is retained for source compatibility. Opening a queue never
+// recovers in-flight deliveries; only the locked publisher worker does.
+//
+// Deprecated: recovery is managed by the persistent publisher lifecycle.
+func WithoutRecovery() QueueOption {
+	return func(*FileQueue) {}
+}
+
+var deliveryIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+func validateDeliveryID(id string) error {
+	if !deliveryIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid delivery ID %q: use 1-128 letters, digits, dots, underscores, or hyphens, starting with a letter or digit", id)
+	}
+	return nil
+}
 
 // WithConcurrency sets the maximum number of concurrent deliveries per endpoint.
 func WithConcurrency(n int) QueueOption {
@@ -114,12 +152,54 @@ func NewFileQueue(baseDir string, opts ...QueueOption) (*FileQueue, error) {
 	// Create subdirectories for each status
 	for _, sub := range []string{"pending", "in_flight", "delivered", "dead_letter"} {
 		dir := filepath.Join(baseDir, sub)
-		if err := os.MkdirAll(dir, 0o750); err != nil {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("failed to create queue directory %s: %w", dir, err)
 		}
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return nil, fmt.Errorf("failed to secure queue directory %s: %w", dir, err)
+		}
 	}
-
 	return q, nil
+}
+
+// TryAcquireWorker reserves processing and recovery for this process. Other
+// queue users may still enqueue and inspect while one worker owns the lock.
+func (q *FileQueue) TryAcquireWorker() (bool, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.workerOwned {
+		return true, nil
+	}
+	lock := flock.New(filepath.Join(q.baseDir, "worker.lock"), flock.SetPermissions(0o600))
+	owned, err := lock.TryLock()
+	if err != nil || !owned {
+		return false, err
+	}
+	q.workerLock = lock
+	q.workerOwned = true
+	return true, nil
+}
+
+// OwnsWorker reports whether this queue instance owns delivery processing.
+func (q *FileQueue) OwnsWorker() bool {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+	return q.workerOwned
+}
+
+// Close releases the worker reservation, if this queue owns it.
+func (q *FileQueue) Close() error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if !q.workerOwned || q.workerLock == nil {
+		return nil
+	}
+	if err := q.workerLock.Unlock(); err != nil {
+		return err
+	}
+	q.workerLock = nil
+	q.workerOwned = false
+	return nil
 }
 
 // Concurrency returns the configured concurrency level.
@@ -132,8 +212,21 @@ func (q *FileQueue) Enqueue(d *Delivery) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	if d.ID == "" {
-		return fmt.Errorf("delivery ID must not be empty")
+	if err := validateDeliveryID(d.ID); err != nil {
+		return err
+	}
+	for _, status := range []string{"pending", "in_flight", "delivered", "dead_letter"} {
+		path := filepath.Join(q.baseDir, status, d.ID+".json")
+		existing, err := q.readDeliveryFile(path)
+		if err == nil {
+			if existing.PayloadHash != "" && existing.PayloadHash != payloadHash(d.Payload) {
+				return fmt.Errorf("delivery ID %s already exists with a different payload", d.ID)
+			}
+			return nil
+		}
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("check existing delivery %s: %w", d.ID, err)
+		}
 	}
 	if d.Status == "" {
 		d.Status = StatusPending
@@ -169,7 +262,7 @@ func (q *FileQueue) Dequeue(endpointURL string, n int) ([]*Delivery, error) {
 		}
 		d, err := q.readDeliveryFile(filepath.Join(pendingDir, entry.Name()))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to read pending delivery %s: %w", entry.Name(), err)
 		}
 		if d.EndpointURL != endpointURL {
 			continue
@@ -248,8 +341,16 @@ func (q *FileQueue) ListDelivered(endpointURL string) ([]*Delivery, error) {
 	return q.listByStatus("delivered", endpointURL)
 }
 
+// ListInFlight returns all deliveries currently marked in-flight.
+func (q *FileQueue) ListInFlight(endpointURL string) ([]*Delivery, error) {
+	return q.listByStatus("in_flight", endpointURL)
+}
+
 // Get retrieves a delivery by ID, searching all status directories.
 func (q *FileQueue) Get(id string) (*Delivery, error) {
+	if err := validateDeliveryID(id); err != nil {
+		return nil, err
+	}
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 
@@ -266,6 +367,9 @@ func (q *FileQueue) Get(id string) (*Delivery, error) {
 // Requeue moves a delivery back to pending for re-delivery.
 // This works for dead-lettered or delivered items.
 func (q *FileQueue) Requeue(id string) (*Delivery, error) {
+	if err := validateDeliveryID(id); err != nil {
+		return nil, err
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -273,7 +377,10 @@ func (q *FileQueue) Requeue(id string) (*Delivery, error) {
 		path := filepath.Join(q.baseDir, fromStatus, id+".json")
 		d, err := q.readDeliveryFile(path)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to read delivery %s: %w", id, err)
 		}
 		d.Status = StatusPending
 		d.Attempts = 0
@@ -313,12 +420,12 @@ func (q *FileQueue) RecoverInFlight() (int, error) {
 		path := filepath.Join(inFlightDir, entry.Name())
 		d, err := q.readDeliveryFile(path)
 		if err != nil {
-			continue
+			return recovered, fmt.Errorf("failed to read in-flight delivery %s: %w", entry.Name(), err)
 		}
 		d.Status = StatusPending
 		d.UpdatedAt = time.Now().UTC()
 		if err := q.moveDelivery(d, "in_flight", "pending"); err != nil {
-			continue
+			return recovered, fmt.Errorf("failed to recover in-flight delivery %s: %w", d.ID, err)
 		}
 		recovered++
 	}
@@ -348,7 +455,7 @@ func (q *FileQueue) Endpoints() ([]string, error) {
 		}
 		d, err := q.readDeliveryFile(filepath.Join(pendingDir, entry.Name()))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to read pending delivery %s: %w", entry.Name(), err)
 		}
 		if _, ok := seen[d.EndpointURL]; !ok {
 			seen[d.EndpointURL] = struct{}{}
@@ -379,7 +486,7 @@ func (q *FileQueue) listByStatus(status, endpointURL string) ([]*Delivery, error
 		}
 		d, err := q.readDeliveryFile(filepath.Join(dir, entry.Name()))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to read %s delivery %s: %w", status, entry.Name(), err)
 		}
 		if endpointURL != "" && d.EndpointURL != endpointURL {
 			continue
@@ -401,9 +508,40 @@ func (q *FileQueue) writeDelivery(d *Delivery, status string) error {
 		return fmt.Errorf("failed to marshal delivery: %w", err)
 	}
 
-	path := filepath.Join(q.baseDir, status, d.ID+".json")
-	if err := os.WriteFile(path, data, 0o640); err != nil {
+	dir := filepath.Join(q.baseDir, status)
+	path := filepath.Join(dir, d.ID+".json")
+	tmp, err := os.CreateTemp(dir, ".delivery-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary delivery file for %s: %w", path, err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to set permissions on delivery file %s: %w", path, err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
 		return fmt.Errorf("failed to write delivery file %s: %w", path, err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("failed to sync delivery file %s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to close delivery file %s: %w", path, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("failed to persist delivery file %s: %w", path, err)
+	}
+	if dirHandle, err := os.Open(dir); err == nil {
+		if syncErr := dirHandle.Sync(); syncErr != nil {
+			_ = dirHandle.Close()
+			return fmt.Errorf("failed to sync delivery directory %s: %w", dir, syncErr)
+		}
+		if closeErr := dirHandle.Close(); closeErr != nil {
+			return fmt.Errorf("failed to close delivery directory %s: %w", dir, closeErr)
+		}
 	}
 	return nil
 }
@@ -433,6 +571,12 @@ func (q *FileQueue) readDeliveryFile(path string) (*Delivery, error) {
 	var d Delivery
 	if err := json.Unmarshal(data, &d); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal delivery from %s: %w", path, err)
+	}
+	if err := validateDeliveryID(d.ID); err != nil {
+		return nil, fmt.Errorf("invalid delivery stored in %s: %w", path, err)
+	}
+	if filepath.Base(path) != d.ID+".json" {
+		return nil, fmt.Errorf("delivery ID %q does not match file name %q", d.ID, filepath.Base(path))
 	}
 	return &d, nil
 }

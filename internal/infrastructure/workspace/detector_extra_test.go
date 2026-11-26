@@ -3,7 +3,7 @@ package workspace
 import (
 	"testing"
 
-	ws "github.com/relicta-tech/relicta/v4/internal/domain/workspace"
+	ws "github.com/relicta-tech/relicta/v5/internal/domain/workspace"
 )
 
 func TestParseCargoToml(t *testing.T) {

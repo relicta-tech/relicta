@@ -18,12 +18,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports/conformance"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // unreachablePostgres names a port nothing listens on, so connecting fails immediately with

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // Pushing a tag is the one action in a release that cannot be undone: in any

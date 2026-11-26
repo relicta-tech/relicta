@@ -3,7 +3,9 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -101,6 +103,16 @@ func TestComponentHealth_WithoutDetails(t *testing.T) {
 
 	if component.Details != nil {
 		t.Errorf("Details should be nil when not set, got %v", component.Details)
+	}
+}
+
+func TestComponentHealth_LatencyJSONUsesMilliseconds(t *testing.T) {
+	encoded, err := json.Marshal(ComponentHealth{Name: "git", Latency: 5})
+	if err != nil {
+		t.Fatalf("marshal ComponentHealth: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"latency_ms":5`) {
+		t.Fatalf("latency JSON = %s, want latency_ms in milliseconds", encoded)
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
 )
 
 func TestOutputNarrativesJSON(t *testing.T) {

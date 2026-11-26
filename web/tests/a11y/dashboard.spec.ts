@@ -10,6 +10,7 @@ import AxeBuilder from '@axe-core/playwright'
 test.describe('Dashboard a11y', () => {
   test('dashboard root view passes WCAG 2 AA', async ({ page }) => {
     await page.goto('/')
+    await expect(page.getByText('Total Releases')).toBeVisible()
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -19,7 +20,8 @@ test.describe('Dashboard a11y', () => {
   })
 
   test('governance analytics page passes WCAG 2 AA', async ({ page }) => {
-    await page.goto('/governance/analytics')
+    await page.goto('/governance')
+    await expect(page.getByRole('heading', { name: 'Risk Trends' })).toBeVisible()
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])
@@ -56,6 +58,7 @@ test.describe('Dashboard a11y', () => {
     )
 
     await page.goto('/releases/rel-stub')
+    await expect(page.getByRole('heading', { name: '1.4.1' })).toBeVisible()
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa'])

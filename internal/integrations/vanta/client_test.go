@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
 )
 
 func TestNewClient_RequiresAPIToken(t *testing.T) {
@@ -194,6 +195,7 @@ func TestMapArticle12LogEntries(t *testing.T) {
 		SystemIdentifier: "acme/payments",
 		LogEntries: []compliance.Article12LogEntry{
 			{
+				EvidenceScope:    "Release-governance evidence only; this export does not record each AI system use or automatically generated operational logs.",
 				EntryID:          "art12:1",
 				EventTimestamp:   now,
 				SystemIdentifier: "acme/payments",
@@ -204,6 +206,7 @@ func TestMapArticle12LogEntries(t *testing.T) {
 				AuditChainHash:   "abc123",
 			},
 			{
+				EvidenceScope:    "Release-governance evidence only; this export does not record each AI system use or automatically generated operational logs.",
 				EntryID:          "art12:2",
 				EventTimestamp:   now,
 				SystemIdentifier: "acme/payments",
@@ -222,6 +225,12 @@ func TestMapArticle12LogEntries(t *testing.T) {
 	}
 
 	for i, ev := range out {
+		if !strings.Contains(ev.Description, "not an operational AI-use log") {
+			t.Errorf("ev[%d] description omits evidence-scope limitation", i)
+		}
+		if !strings.Contains(fmt.Sprint(ev.Data["evidenceScope"]), "does not record each AI system use") {
+			t.Errorf("ev[%d] data omits evidence scope", i)
+		}
 		if ev.Type != EvidenceTypeAuditLog {
 			t.Errorf("ev[%d] type: got %q", i, ev.Type)
 		}
@@ -317,8 +326,8 @@ func TestDescribeEntry_Verifiers(t *testing.T) {
 	none := describeEntry(compliance.Article12LogEntry{
 		Actor: cgp.Actor{Kind: cgp.ActorKindAgent, ID: "y"}, OutputDecision: "denied",
 	})
-	if !strings.Contains(none, "no verifiers") {
-		t.Errorf("expected 'no verifiers' phrasing, got %q", none)
+	if !strings.Contains(none, "approver evidence not included") {
+		t.Errorf("expected explicit missing approver evidence, got %q", none)
 	}
 
 	many := describeEntry(compliance.Article12LogEntry{

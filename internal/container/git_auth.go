@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // Reading git.auth.

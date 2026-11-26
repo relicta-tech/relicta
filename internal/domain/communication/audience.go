@@ -182,6 +182,8 @@ func DefaultAudiences() map[AudienceType]Audience {
 			Sections: []Section{
 				SectionFeatures,
 				SectionFixes,
+				SectionPerformance,
+				SectionSecurity,
 				SectionBreakingChanges,
 				SectionUpgradeGuide,
 			},

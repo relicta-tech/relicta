@@ -3,7 +3,7 @@ package container
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // The whole blast_radius section was unread — BlastRadiusConfig was not even a field on Config,

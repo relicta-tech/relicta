@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/security/token"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/security/token"
 )
 
 // testHandler is a simple handler for testing middleware
@@ -200,11 +200,11 @@ func TestAuth_APIKey(t *testing.T) {
 			expectCode: http.StatusOK,
 		},
 		{
-			name:       "valid query parameter (websocket upgrade)",
+			name:       "query parameter rejected for websocket upgrade",
 			queryKey:   validKey,
 			headerKey:  "Upgrade",
 			headerVal:  "websocket",
-			expectCode: http.StatusOK,
+			expectCode: http.StatusUnauthorized,
 		},
 		{
 			name:       "invalid API key",

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // The governance gate is the product. These tests exist because it did not hold.

@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 // ObservabilityService defines the interface required by observability handlers.
@@ -19,7 +19,7 @@ type ObservabilityService interface {
 	// GetCorrelations returns incident correlations for a release.
 	GetCorrelations(releaseID string) []correlation.ReleaseCorrelation
 	// GetProviderStatuses returns the status of all configured providers.
-	GetProviderStatuses() []providers.ProviderStatus
+	GetProviderStatuses(ctx context.Context) []providers.ProviderStatus
 	// HandleWebhook returns an HTTP handler for the given provider.
 	HandleWebhook(provider string) http.HandlerFunc
 }
@@ -32,15 +32,9 @@ func SetObservabilityService(svc ObservabilityService) {
 	observabilitySvc = svc
 }
 
-// notConfigured reports that the observability subsystem is not wired, alongside the empty
-// collection callers already expect.
-//
-// These routes returned a bare empty array with 200, so a caller could not tell "no providers
-// are configured" from "everything is healthy" — and the second is what an empty health list
-// reads as. Nothing constructs an ObservabilityService today: no implementation of the
-// interface exists, ObservabilityProviderConfig is consumed nowhere, and NewHealthMonitor has
-// no caller, so this is the answer every one of these routes gives. Saying so is the
-// difference between an unconfigured feature and a false all-clear.
+// notConfigured reports that observability is disabled or has no configured providers,
+// alongside the empty collection callers already expect. This distinguishes an unconfigured
+// feature from a healthy provider that returned no active health or correlation records.
 //
 // The empty collection stays in the payload so existing consumers keep parsing; the status
 // field is additive.
@@ -103,7 +97,7 @@ func GetObservabilityProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	statuses := observabilitySvc.GetProviderStatuses()
+	statuses := observabilitySvc.GetProviderStatuses(r.Context())
 	if statuses == nil {
 		statuses = []providers.ProviderStatus{}
 	}
@@ -161,11 +155,11 @@ func (s *DefaultObservabilityService) GetCorrelations(releaseID string) []correl
 }
 
 // GetProviderStatuses returns provider health statuses.
-func (s *DefaultObservabilityService) GetProviderStatuses() []providers.ProviderStatus {
+func (s *DefaultObservabilityService) GetProviderStatuses(ctx context.Context) []providers.ProviderStatus {
 	if s.Registry == nil {
 		return nil
 	}
-	return s.Registry.HealthCheckAll(context.TODO())
+	return s.Registry.HealthCheckAll(ctx)
 }
 
 // HandleWebhook returns a webhook handler for the provider.

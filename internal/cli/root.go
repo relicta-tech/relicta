@@ -18,9 +18,9 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/term"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/logging"
-	"github.com/relicta-tech/relicta/v4/internal/security"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/logging"
+	"github.com/relicta-tech/relicta/v5/internal/security"
 )
 
 var (
@@ -116,11 +116,11 @@ The Change Governance Protocol (CGP):
   • Risk assessment — Analyze blast radius and impact of every change
   • Audit trails — Complete history of approvals and decisions
   • Approval workflows — Gate releases with configurable policies
-  • AI-powered insights — Intelligent release notes and risk analysis
+  • Agent-session release notes — Draft customer copy with your coding agent's product context, grounded in Relicta's change recommendation
 
-Today, it's a production-ready CLI for semantic versioning, changelogs,
-and release automation. Tomorrow, it's the decision layer for risk-aware
-releases in an AI-driven world.
+Today, use Relicta to plan releases, draft customer-facing notes with your
+coding agent, apply release policy, and keep the approval record with the
+release. Optional provider-generated notes are available when configured.
 
 Get started with 'relicta init' to set up your project.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -217,10 +217,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&logLevelAlias, "log", "", "alias for --log-level")
-	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)")
+	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "CI/CD mode: auto-approve, JSON output, non-interactive")
 	rootCmd.PersistentFlags().BoolVar(&redactSecrets, "redact", false, "redact secrets and API keys from output (auto-enabled in CI mode)")
-	rootCmd.PersistentFlags().BoolVar(&allowUntrustedPlugins, "allow-untrusted-plugins", false, "load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first")
+	rootCmd.PersistentFlags().BoolVar(&allowUntrustedPlugins, "allow-untrusted-plugins", false, "load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)")
 	versionCmd.Flags().BoolVar(&versionProbeCognitive, "cognitive", false, "probe Mnemos and Chronos health status")
 
 	// Bind flags to viper (errors are non-fatal for flag binding)
@@ -299,6 +299,7 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(dbCmd)
 	rootCmd.AddCommand(hubCmd)
+	rootCmd.AddCommand(webhookCmd)
 	hubCmd.GroupID = "integrations"
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(planCmd)
@@ -331,6 +332,13 @@ func loadAndValidateConfig() error {
 	cfg, err = loader.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+	// The plan command's explicit --no-ai option must take effect before
+	// configuration validation. Otherwise an AI-enabled project without a
+	// local API key cannot request the deterministic, offline plan that the
+	// flag promises.
+	if planDisableAI {
+		cfg.AI.Enabled = false
 	}
 
 	if err := config.Validate(cfg); err != nil {
@@ -585,8 +593,14 @@ var notesCmd = &cobra.Command{
 	Short: "Generate changelog and release notes",
 	Long: `Generate changelog entries and release notes for the current release.
 
-This command creates human-readable release documentation from your
-commit history, optionally using AI to enhance the content.`,
+By default, this command creates deterministic release documentation from your
+commit history. To use AI-generated prose, enable ai.enabled and configure a
+provider in .relicta.yaml. Audience, tone, and language options apply only to
+AI-generated content. With MCP, a calling agent can instead supply customer-facing
+notes using product context from its conversation. Use --draft-file to persist a
+reviewed draft from a version-controlled file, including in CI release workflows.
+Use --dry-run to preview generated notes without changing the release record; configured
+AI providers may still be called. Review all claims before approval.`,
 	RunE: runNotes,
 }
 
@@ -826,7 +840,7 @@ func IsJSONOutput() bool {
 
 // parseModelFlag parses the --model flag in the format provider/model.
 // Supported formats:
-//   - "provider/model" (e.g., "ollama/llama3.2", "openai/gpt-4")
+//   - "provider/model" (e.g., "ollama/llama3.2", "openai/gpt-6.2-sol")
 //   - "local/model" (alias for "ollama/model")
 //   - "model" (uses default provider from config)
 //

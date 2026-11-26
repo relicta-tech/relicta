@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // The whole telemetry block was read by nothing. A repository that configured a metrics port

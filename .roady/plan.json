@@ -9,18 +9,22 @@
       "priority": "high",
       "estimate": "3d",
       "depends_on": [],
-      "feature_id": "session-authentication"
+      "feature_id": "session-authentication",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-session-auth-middleware",
       "title": "Wire session auth into middleware (Session Authentication)",
-      "description": "Replace the TODO stub in auth.go session mode with real JWT\nvalidation. Extract claims, map to roles (Admin, Approver,\nViewer), and populate request context.\n",
+      "description": "Session middleware validates JWTs, extracts claims, maps roles,\nand populates request context. This requirement is implemented.\n",
       "priority": "high",
       "estimate": "2d",
       "depends_on": [
         "task-jwt-token-service"
       ],
-      "feature_id": "session-authentication"
+      "feature_id": "session-authentication",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-login-logout-endpoints",
@@ -31,7 +35,9 @@
       "depends_on": [
         "task-jwt-token-service"
       ],
-      "feature_id": "session-authentication"
+      "feature_id": "session-authentication",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-session-auth-tests",
@@ -43,7 +49,9 @@
         "task-session-auth-middleware",
         "task-login-logout-endpoints"
       ],
-      "feature_id": "session-authentication"
+      "feature_id": "session-authentication",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-oidc-provider-config",
@@ -52,7 +60,9 @@
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
-      "feature_id": "oidc-sso-integration"
+      "feature_id": "oidc-sso-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-oidc-auth-flow",
@@ -64,7 +74,9 @@
         "task-oidc-provider-config",
         "task-session-auth-middleware"
       ],
-      "feature_id": "oidc-sso-integration"
+      "feature_id": "oidc-sso-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-oidc-claim-role-mapping",
@@ -75,7 +87,9 @@
       "depends_on": [
         "task-oidc-auth-flow"
       ],
-      "feature_id": "oidc-sso-integration"
+      "feature_id": "oidc-sso-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-oidc-tests-and-docs",
@@ -86,7 +100,9 @@
       "depends_on": [
         "task-oidc-claim-role-mapping"
       ],
-      "feature_id": "oidc-sso-integration"
+      "feature_id": "oidc-sso-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-persistence-port-interface",
@@ -95,7 +111,9 @@
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
-      "feature_id": "database-persistence"
+      "feature_id": "database-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-postgres-adapter",
@@ -106,7 +124,9 @@
       "depends_on": [
         "task-persistence-port-interface"
       ],
-      "feature_id": "database-persistence"
+      "feature_id": "database-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-schema-migrations",
@@ -117,7 +137,9 @@
       "depends_on": [
         "task-postgres-adapter"
       ],
-      "feature_id": "database-persistence"
+      "feature_id": "database-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-persistence-config",
@@ -128,7 +150,9 @@
       "depends_on": [
         "task-postgres-adapter"
       ],
-      "feature_id": "database-persistence"
+      "feature_id": "database-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-persistence-tests",
@@ -140,7 +164,9 @@
         "task-schema-migrations",
         "task-persistence-config"
       ],
-      "feature_id": "database-persistence"
+      "feature_id": "database-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-analytics-event-capture",
@@ -151,7 +177,9 @@
       "depends_on": [
         "task-persistence-port-interface"
       ],
-      "feature_id": "analytics-persistence"
+      "feature_id": "analytics-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-analytics-query-api",
@@ -162,7 +190,9 @@
       "depends_on": [
         "task-analytics-event-capture"
       ],
-      "feature_id": "analytics-persistence"
+      "feature_id": "analytics-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-analytics-aggregation",
@@ -173,7 +203,9 @@
       "depends_on": [
         "task-analytics-query-api"
       ],
-      "feature_id": "analytics-persistence"
+      "feature_id": "analytics-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-analytics-tests",
@@ -184,7 +216,9 @@
       "depends_on": [
         "task-analytics-aggregation"
       ],
-      "feature_id": "analytics-persistence"
+      "feature_id": "analytics-persistence",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-api-versioning",
@@ -193,7 +227,9 @@
       "priority": "high",
       "estimate": "2d",
       "depends_on": [],
-      "feature_id": "api-hardening"
+      "feature_id": "api-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-pagination-filtering",
@@ -204,7 +240,9 @@
       "depends_on": [
         "task-api-versioning"
       ],
-      "feature_id": "api-hardening"
+      "feature_id": "api-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-openapi-spec",
@@ -216,7 +254,9 @@
         "task-api-versioning",
         "task-pagination-filtering"
       ],
-      "feature_id": "api-hardening"
+      "feature_id": "api-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-structured-errors",
@@ -227,7 +267,9 @@
       "depends_on": [
         "task-api-versioning"
       ],
-      "feature_id": "api-hardening"
+      "feature_id": "api-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-api-tests",
@@ -239,7 +281,9 @@
         "task-openapi-spec",
         "task-structured-errors"
       ],
-      "feature_id": "api-hardening"
+      "feature_id": "api-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-webhook-delivery-queue",
@@ -248,7 +292,9 @@
       "priority": "medium",
       "estimate": "3d",
       "depends_on": [],
-      "feature_id": "webhook-hardening"
+      "feature_id": "webhook-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-webhook-retry-backoff",
@@ -259,7 +305,9 @@
       "depends_on": [
         "task-webhook-delivery-queue"
       ],
-      "feature_id": "webhook-hardening"
+      "feature_id": "webhook-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-webhook-delivery-log",
@@ -270,7 +318,9 @@
       "depends_on": [
         "task-webhook-retry-backoff"
       ],
-      "feature_id": "webhook-hardening"
+      "feature_id": "webhook-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-webhook-tests",
@@ -281,7 +331,9 @@
       "depends_on": [
         "task-webhook-delivery-log"
       ],
-      "feature_id": "webhook-hardening"
+      "feature_id": "webhook-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-monorepo-workspace-orchestration",
@@ -290,25 +342,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "monorepo-workspace-orchestration"
-    },
-    {
-      "id": "task-cgp-protocol-wire-format",
-      "title": "Implement CGP Protocol Wire Format",
-      "description": "Implement the feature: CGP Protocol Wire Format. Formalize the Change Governance Protocol (CGP) wire format as described in PRD Section 17. Implement CGP message types (change.proposal, change.decision, change.execution_authorized) as structured JSON with versioning. Add CGP endpoints to the MCP server so AI agents can propose changes via the protocol. Create a CGP SDK package that other tools can import to become CGP-compliant. This positions Relicta as the reference implementation of an open governance standard.",
-      "priority": "medium",
-      "estimate": "",
-      "depends_on": [],
-      "feature_id": "cgp-protocol-wire-format"
-    },
-    {
-      "id": "task-audience-aware-release-communication",
-      "title": "Implement Audience-Aware Release Communication",
-      "description": "Implement the feature: Audience-Aware Release Communication. Implement the stakeholder communication layer from PRD Section 11. Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation. This moves Relicta from \"output\" (changelogs) to \"outcomes\" (stakeholder communication).",
-      "priority": "medium",
-      "estimate": "",
-      "depends_on": [],
-      "feature_id": "audience-aware-release-communication"
+      "feature_id": "monorepo-workspace-orchestration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-release-memory-and-learning",
@@ -317,7 +353,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "release-memory-and-learning"
+      "feature_id": "release-memory-and-learning",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-dashboard-frontend-separation",
@@ -326,7 +364,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "dashboard-frontend-separation"
+      "feature_id": "dashboard-frontend-separation",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-pre-release-and-release-channel-support",
@@ -335,7 +375,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "pre-release-and-release-channel-support"
+      "feature_id": "pre-release-and-release-channel-support",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-multi-repository-governance",
@@ -344,7 +386,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "multi-repository-governance"
+      "feature_id": "multi-repository-governance",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-runtime-observability-integration",
@@ -353,7 +397,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "runtime-observability-integration"
+      "feature_id": "runtime-observability-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-eu-ai-act-article-12-evidence-pack",
@@ -362,7 +408,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "eu-ai-act-article-12-evidence-pack"
+      "feature_id": "eu-ai-act-article-12-evidence-pack",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-eu-ai-act-annex-iv-technical-documentation-generator",
@@ -371,7 +419,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "eu-ai-act-annex-iv-technical-documentation-generator"
+      "feature_id": "eu-ai-act-annex-iv-technical-documentation-generator",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-agent-autonomy-profiles-(per-actor-governance-budgets)",
@@ -380,7 +430,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "agent-autonomy-profiles-(per-actor-governance-budgets)"
+      "feature_id": "agent-autonomy-profiles-(per-actor-governance-budgets)",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-security-gate-hardening",
@@ -389,7 +441,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "security-gate-hardening"
+      "feature_id": "security-gate-hardening",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-claude.md-reality-sync",
@@ -398,7 +452,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "claude.md-reality-sync"
+      "feature_id": "claude.md-reality-sync",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-vanta-api-integration-(evidence-push)",
@@ -407,7 +463,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "vanta-api-integration-(evidence-push)"
+      "feature_id": "vanta-api-integration-(evidence-push)",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-plugin-registry-cull",
@@ -416,7 +474,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "plugin-registry-cull"
+      "feature_id": "plugin-registry-cull",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-reposition-readme-and-tagline",
@@ -425,7 +485,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "reposition-readme-and-tagline"
+      "feature_id": "reposition-readme-and-tagline",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-ai-2026-model-migration",
@@ -434,7 +496,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "ai-2026-model-migration"
+      "feature_id": "ai-2026-model-migration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-anthropic-prompt-caching",
@@ -443,7 +507,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "anthropic-prompt-caching"
+      "feature_id": "anthropic-prompt-caching",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-structured-outputs-and-json-schema-mode",
@@ -452,7 +518,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "structured-outputs-and-json-schema-mode"
+      "feature_id": "structured-outputs-and-json-schema-mode",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-ai-eval-harness-v0",
@@ -461,7 +529,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "ai-eval-harness-v0"
+      "feature_id": "ai-eval-harness-v0",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-postgres-adapter-test-coverage-0%-to-70%",
@@ -470,7 +540,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "postgres-adapter-test-coverage-0%-to-70%"
+      "feature_id": "postgres-adapter-test-coverage-0%-to-70%",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-reverse-mcp-resources-(governance-as-context)",
@@ -479,7 +551,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "reverse-mcp-resources-(governance-as-context)"
+      "feature_id": "reverse-mcp-resources-(governance-as-context)",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-drata-api-integration-(evidence-push)",
@@ -488,7 +562,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "drata-api-integration-(evidence-push)"
+      "feature_id": "drata-api-integration-(evidence-push)",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-cobra-command-groups",
@@ -497,7 +573,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "cobra-command-groups"
+      "feature_id": "cobra-command-groups",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-approval-card-shared-schema",
@@ -506,7 +584,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "approval-card-shared-schema"
+      "feature_id": "approval-card-shared-schema",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-risk-display-lipgloss-visualization",
@@ -515,7 +595,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "risk-display-lipgloss-visualization"
+      "feature_id": "risk-display-lipgloss-visualization",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-init-quick-mode",
@@ -524,7 +606,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "init-quick-mode"
+      "feature_id": "init-quick-mode",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-policy.go-god-file-split",
@@ -533,7 +617,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "policy.go-god-file-split"
+      "feature_id": "policy.go-god-file-split",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-architecture-fitness-functions",
@@ -542,7 +628,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "architecture-fitness-functions"
+      "feature_id": "architecture-fitness-functions",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-web-dashboard-accessibility-ci-gate",
@@ -551,7 +639,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "web-dashboard-accessibility-ci-gate"
+      "feature_id": "web-dashboard-accessibility-ci-gate",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-plugin-sandbox-honesty",
@@ -560,7 +650,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "plugin-sandbox-honesty"
+      "feature_id": "plugin-sandbox-honesty",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-cgp-protocol-wire-format",
@@ -569,7 +661,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "cgp-protocol-wire-format"
+      "feature_id": "cgp-protocol-wire-format",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-audience-aware-release-communication",
@@ -578,7 +672,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "audience-aware-release-communication"
+      "feature_id": "audience-aware-release-communication",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-release-memory-with-mnemos-integration",
@@ -587,7 +683,9 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "release-memory-with-mnemos-integration"
+      "feature_id": "release-memory-with-mnemos-integration",
+      "origin": "heuristic",
+      "source": {}
     },
     {
       "id": "task-learning-with-chronos-pattern-detection",
@@ -596,10 +694,162 @@
       "priority": "medium",
       "estimate": "",
       "depends_on": [],
-      "feature_id": "learning-with-chronos-pattern-detection"
+      "feature_id": "learning-with-chronos-pattern-detection",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-consolidate-the-two-file-based-release-repositories",
+      "title": "Implement Consolidate the two file-based release repositories",
+      "description": "Implement the feature: Consolidate the two file-based release repositories. There are two independent file-based implementations of the ReleaseRun aggregate, with incompatible on-disk schemas, and commands disagree about which to use.\n\nWHAT THEY ARE\n\n1. internal/domain/release/adapters/FileReleaseRunRepository — wired by internal/domain/release/factory.go:60 and used by the release services (plan, bump, notes, approve, publish) and by `relicta status`. Writes the changeset at the top level of the run JSON and restores it on load.\n\n2. internal/infrastructure/persistence/FileReleaseRepository — wired at internal/container/container.go:169, returned by app.ReleaseRepository(), and used by the governance paths. Expects the changeset nested under plan.changeset, and reconstructs runs lossily.\n\nTHE CONSEQUENCE, OBSERVED\n\n`relicta evaluate` failed on every release, in every repository, with:\n\n  governance evaluation failed: failed to evaluate proposal: invalid proposal:\n  invalid scope: either commitRange or commits is required\n\n`plan` wrote the run with (1); `evaluate` read it with (2); (2) found no changeset because it looks in a different place, so governance had no commit range and refused the proposal. A core command — the one that computes the risk score and policy verdict the product is built around — could not succeed at all.\n\nWHAT (2) LOSES ON LOAD (internal/infrastructure/persistence/release_repository.go:739-741)\n\n  BaseRef  \u003c- dto.Branch      (the branch, not the base ref)\n  HeadSHA  \u003c- \"\"              (empty)\n  Commits  \u003c- nil             (dropped)\n  ChangeSet                   (not found: different schema location)\n\nSo a run loaded through (2) cannot support anything that needs commits, HEAD, or the base ref — which is most of governance.\n\nIMMEDIATE MITIGATION ALREADY LANDED\n\ngetLatestReleaseForEvaluate now loads through the release services' repository, the same one status reads and plan wrote. That makes evaluate work without touching the duplication. It is a redirect, not a fix: app.ReleaseRepository() still returns the lossy implementation and other callers still use it.\n\nWHY THIS IS NOT A SMALL CHANGE\n\n- app.ReleaseRepository() has other callers that would need auditing for the same class of bug\n- the two schemas differ, so consolidating means deciding whether to migrate existing .relicta/releases/*.json or read both shapes during a transition\n- domainrelease.Repository and ports.ReleaseRunRepository are different interfaces over the same concept, so consolidation is an interface decision as well as an implementation one\n- publish and approve both take governance paths that would change behaviour\n\nSUGGESTED APPROACH\n\n1. Inventory every caller of app.ReleaseRepository() and record which are affected by the lossy load\n2. Decide the single owning implementation — (1) is the better candidate: it is the writer, it round-trips the changeset, and the release services already depend on it\n3. Give the surviving type the union of the two interfaces, or narrow callers to the interface they actually need\n4. Handle existing on-disk runs: either read both schema shapes for a release or two, or migrate on load\n5. Delete the loser, and add a test that a run written by the release services round-trips with commits, HEAD SHA, base ref and changeset intact — the absence of that test is why this survived\n\nACCEPTANCE\n\nOne implementation. A round-trip test proving commits, head_sha, base_ref and changeset all survive save/load. evaluate, approve and publish all read runs through it.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "consolidate-the-two-file-based-release-repositories",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-configured-tag-prefixes-work-end-to-end",
+      "title": "Recognize configured version tag prefixes end to end (Make versioning.tag_prefix work for non-\"v\" prefixes)",
+      "description": "Verify prefix-aware tag parsing and latest-tag lookup, release planning and stale-plan detection for non-v prefixes without crossing component prefixes.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": [],
+      "feature_id": "make-versioning-tag-prefix-work-for-non-v-prefixes",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "run": "go test ./internal/domain/sourcecontrol ./internal/domain/release/adapters ./internal/infrastructure/git ./internal/application/monorepo ./internal/cli -run 'Test(.*Prefix|.*TagPrefix|DetectRunStaleness_NonVTagPrefixesAreDetected|DetectRunStaleness_IgnoresOtherPrefixes|Plan.*Version|.*LatestVersionTag)'"
+      }
+    },
+    {
+      "id": "task-init-config-guidance-includes-actionable-yaml",
+      "title": "Keep init concise and give actionable config guidance (Decide what relicta init should write, and make error messages match)",
+      "description": "Ensure omitted configuration sections are accompanied by complete, correctly nested YAML hints, and protect the behavior with tests against the actual generated config.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": [],
+      "feature_id": "decide-what-relicta-init-should-write-and-make-error-messages",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "run": "go test ./internal/cli ./internal/config -run 'Test(EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey|WriteDefaultConfig|.*ConfigHint|GovernanceDisabled)'"
+      }
+    },
+    {
+      "id": "task-cgp-tools-use-configured-governance-and-durable-storage",
+      "title": "Wire CGP MCP tools to configured governance and persistence (Wire or withdraw the cgp_* MCP tools)",
+      "description": "Verify the CLI wires the governance evaluator and durable store, that reload refreshes both, and protocol proposals persist across service instances.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": [],
+      "feature_id": "wire-or-withdraw-the-cgp-mcp-tools",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "run": "go test ./internal/mcp ./internal/cli -run 'Test(CGP|TheMCP|MCPServerWires|Reload|EvaluatorCarries)'"
+      }
+    },
+    {
+      "id": "task-policy-field-context-and-operators",
+      "title": "Expose policy data and operators that the evaluator can actually resolve (Policy conditions for data the evaluator does not yet carry)",
+      "description": "Ensure trust, reputation, change breadth and collection operators are represented in evaluation context, discoverable through policy fields, documented, and covered by regression tests.",
+      "priority": "high",
+      "estimate": "2d",
+      "depends_on": [],
+      "feature_id": "policy-conditions-for-data-the-evaluator-does-not-yet-carry",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "run": "go test ./internal/cgp/policy ./internal/cli -run 'Test(ActorTrust|IsEmpty|Size|ChangeBreadth|Breadth|PolicyFields|EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey)'"
+      }
+    },
+    {
+      "id": "task-defer-policy-holidays-and-seniority",
+      "title": "Keep holiday calendar and seniority fields deferred pending validated demand (Policy conditions for data the evaluator does not yet carry)",
+      "description": "Confirm shipped policies use freeze periods for holiday windows and configured roles for team-defined levels; do not add independent fields until a customer source of truth is established.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "policy-conditions-for-data-the-evaluator-does-not-yet-carry",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "manual": "Review shipped policy examples and customer discovery evidence before implementing a holiday calendar or first-class seniority field."
+      }
+    },
+    {
+      "id": "task-cgp-protocol-handshake-survives-restart",
+      "title": "Persist CGP protocol handshakes across server restarts (CGP protocol proposals do not survive the session)",
+      "description": "Verify proposals, decisions, and authorizations round-trip through separate store instances and that the CLI opens the configured durable backend.",
+      "priority": "high",
+      "estimate": "1d",
+      "depends_on": [],
+      "feature_id": "cgp-protocol-proposals-do-not-survive-the-session",
+      "origin": "heuristic",
+      "source": {},
+      "check": {
+        "run": "go test ./internal/cgp/protocol ./internal/infrastructure/persistence ./internal/infrastructure/persistence/sqlite ./internal/infrastructure/persistence/postgres ./internal/mcp -run 'Test(RecordsSurviveANewStoreInstance|DecisionAndAuthorizationRoundTrip|.*CGP.*Store|CGPServiceGetsADurableStore|CGPTools)'"
+      }
+    },
+    {
+      "id": "task-make-versioning-tag-prefix-work-for-non-v-prefixes",
+      "title": "Implement Make versioning.tag_prefix work for non-\"v\" prefixes",
+      "description": "Implement the feature: Make versioning.tag_prefix work for non-\"v\" prefixes. Tracked on GitHub as relicta-tech/relicta#231; logged here so it stays in the backlog.\n\nversioning.tag_prefix is configurable, TagList.FilterByPrefix exists, and monorepo docs describe app-v1.2.3 style tags. But a tag with any prefix other than \"v\" is never recognised as a version tag, so the setting has no effect beyond its default.\n\nCAUSE\n\nsourcecontrol.NewTag (internal/domain/sourcecontrol/tag.go:23) decides version-ness by parsing the whole tag name, and version.Parse accepts only bare semver or a leading \"v\":\n\n  Parse(\"1.5.0\")         -\u003e 1.5.0\n  Parse(\"v1.5.0\")        -\u003e 1.5.0\n  Parse(\"release-1.5.0\") -\u003e invalid semantic version\n  Parse(\"rel/1.5.0\")     -\u003e invalid semantic version\n  Parse(\"app-v1.5.0\")    -\u003e invalid semantic version\n\nSuch tags are dropped by TagList.VersionTags() BEFORE FilterByPrefix can be applied — the usual call order is FilterByPrefix(prefix).VersionTags(), and the second step discards what the first selected.\n\nCONSEQUENCES for any project not using \"v\"\n\n- plan cannot find the previous version tag, so it computes a baseline of \"no previous release\" and a changeset spanning the whole history\n- status cannot detect that a release happened since a run was planned\n- monorepo-style prefixes do not work at all, though app-v1.2.3 is the documented pattern for blast and workspace versioning\n\nThe failure is silent: nothing reports that the prefix was ignored, so the project simply appears to have no releases.\n\nRELATED\n\ninternal/domain/release/app/plan.go:131 separately hardcodes the prefix:\n\n  tag, err := uc.repoInspector.GetLatestVersionTag(ctx, \"v\")\n\neven though cfg.Versioning.TagPrefix is threaded into the CLI's AnalyzeInput elsewhere. Both need fixing; that line alone would still hit the parse limitation.\n\nWHY IT NEEDS A DECISION FIRST\n\nThe right shape depends on what a monorepo tag is meant to be: \"prefix app-v plus semver\", or a component-qualified tag with its own type carrying component and version separately. blast and workspace versioning both depend on the answer, so deciding that comes before implementing.\n\nSUGGESTED APPROACH\n\n1. Decide the monorepo tag model (plain prefix vs component-qualified type)\n2. Teach the tag domain to strip a configured prefix before parsing, or add a prefix-aware constructor\n3. Pass cfg.Versioning.TagPrefix in plan.go instead of \"v\"\n4. Revisit detectRunStaleness in internal/cli/status.go, which currently cannot see non-\"v\" releases\n\nEXISTING TEST\n\nTestDetectRunStaleness_NonVTagPrefixesAreNotDetected (internal/cli/status_staleness_test.go) pins the current behavior and FAILS once this is fixed, as a prompt to revisit the staleness detector at the same time.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "make-versioning-tag-prefix-work-for-non-v-prefixes",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-wire-or-withdraw-the-cgp-mcp-tools",
+      "title": "Implement Wire or withdraw the cgp_* MCP tools",
+      "description": "Implement the feature: Wire or withdraw the cgp_* MCP tools. The three CGP protocol tools are advertised in tools/list and cannot work. An agent enumerates them, calls one, and gets a failure on every attempt.\n\n  cgp_propose\n  cgp_authorize\n  cgp_status\n\nCAUSE\n\nhandleCGP* calls ensureCGPService (internal/mcp/server.go:708), which needs either s.cgpService or s.evaluator. `relicta mcp serve` wires neither: WithCGPService and WithEvaluator are both defined and called only from tests. So ensureCGPService always takes its error path.\n\nFound by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.\n\nMITIGATION ALREADY LANDED\n\nThe failure now returns a ToolInputError explaining that no evaluator is configured and pointing at relicta_evaluate, instead of the redacted \"internal error\" an agent used to receive. The tools still do not work.\n\nTHE DECISION THIS NEEDS\n\nSupplying `evaluator.New()` in createMCPServer would make the tools respond, and that is what the tests do. But a bare evaluator is not the same as the CLI's governance service: the container builds that from cfg.Governance — thresholds, policies, freeze periods, trusted actors, reputation. An agent evaluating a proposal through cgp_* would get a different verdict than a human running `relicta evaluate` on the same change, which for a governance tool is worse than the tool being absent.\n\nThree options:\n\n1. Expose the container's configured evaluator (or the governance service's) and wire that. Correct, and makes agent and CLI agree. Needs an accessor the container does not currently have, and a decision about whether the CGP protocol path should share governance's configuration or have its own.\n\n2. Withdraw the three tools from tools/list until they can be wired. Honest, and stops agents wasting calls. Loses the CGP protocol surface, which pkg/cgp exists to expose.\n\n3. Keep them advertised but make the unconfigured response a documented, structured \"not available here\" that an agent can branch on. Cheapest; currently implemented as an isError, which is close.\n\nOption 1 is the real answer if the CGP protocol surface is meant to be part of the product. Option 2 is right if it is not.\n\nACCEPTANCE\n\nEither the three tools return real results computed with the same configuration the CLI uses, or they are not advertised. A test should assert whichever is chosen, since the current state — advertised and non-functional — is what nothing was checking.\n\nRELATED\n\nOther Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "wire-or-withdraw-the-cgp-mcp-tools",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-policy-conditions-for-data-the-evaluator-does-not-yet-carry",
+      "title": "Implement Policy conditions for data the evaluator does not yet carry",
+      "description": "Implement the feature: Policy conditions for data the evaluator does not yet carry. Five conditions written in the shipped example policies had no field behind them and were removed rather than left looking active (PR #249). Each is a real governance need, and each needs the evaluator to carry data it does not have today.\n\nCAUSE: buildEvalContext exposes risk, change counts, blast radius, scope, intent, actor identity, team configuration and a clock. It carries nothing about holidays, actor seniority, how many domains a change touches, or an actor's earned trust. `relicta policy fields` now prints exactly what exists, so the gaps are visible instead of guessed at.\n\nCONSEQUENCE: rules a team would reasonably want cannot be expressed. Specifically:\n\n1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.\n2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains \"junior\"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.\n3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.\n4. `actor.trusted` — the reputation and calibration machinery exists in internal/cgp (earned trust, identity registry) and is not surfaced to policy conditions. This is probably the cheapest of the four and the most useful: it is the field that lets a policy say \"auto-approve low-risk changes from actors who have earned it\".\n5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for \"this list is empty\". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.\n\nOPTIONS: (4) first, since the data exists and only needs exposing in buildEvalContext plus a KnownFieldPaths entry. Then (5), which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.\n\nWhatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "policy-conditions-for-data-the-evaluator-does-not-yet-carry",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-decide-what-relicta-init-should-write-and-make-error-messages",
+      "title": "Implement Decide what relicta init should write, and make error messages match",
+      "description": "Implement the feature: Decide what relicta init should write, and make error messages match. `relicta init` writes 6 of the schema's 21 top-level config sections, so error messages that tell a user to edit a setting frequently name a key the generated file does not contain.\n\nWRITTEN: versioning, changelog, ai, plugins, workflow, output\n\nMISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks\n\nMESSAGES THAT POINT AT ABSENT KEYS\n\n  internal/cli/evaluate.go   \"enable governance in .relicta.yaml\"        (governance absent)\n  internal/cli/multirepo.go  \"defined in .relicta.yaml under 'repository_groups'\"  (absent)\n  internal/cli/serve.go      \"configure api_keys in .relicta.yaml\"       (dashboard absent)\n\nA user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.\n\nMITIGATION ALREADY LANDED\n\nThe governance case now returns errGovernanceDisabled (internal/cli/governance_disabled.go), which prints the YAML to add rather than naming a key:\n\n  Add this to .relicta.yaml:\n\n    governance:\n      enabled: true\n\nVerified end to end: adding exactly that makes `relicta evaluate` work. The multirepo and dashboard messages have not been given the same treatment.\n\nTHE DECISION THIS NEEDS\n\nWriting all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:\n\n1. Keep a curated subset, and require every \"configure X in .relicta.yaml\" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.\n2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.\n3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.\n\nWhichever is chosen, the invariant worth enforcing with a test is: no user-facing message names a config key unless that key (or a commented example of it) appears in what init writes.\n\nSUGGESTED APPROACH\n\n1. Pick 1, 2 or 3\n2. If 1: audit every message mentioning .relicta.yaml and give it a snippet, following errGovernanceDisabled\n3. Add a test that scans CLI strings for \".relicta.yaml\" references and checks the named section appears in WriteDefaultConfig output\n4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "decide-what-relicta-init-should-write-and-make-error-messages",
+      "origin": "heuristic",
+      "source": {}
+    },
+    {
+      "id": "task-cgp-protocol-proposals-do-not-survive-the-session",
+      "title": "Implement CGP protocol proposals do not survive the session",
+      "description": "Implement the feature: CGP protocol proposals do not survive the session. The cgp_* MCP tools now work (PR #260), which exposes the next limitation: nothing they record persists.\n\nCAUSE: internal/cgp/protocol/service.go defaults to `\u0026inMemoryStore{}` — three maps keyed by proposal and decision ID, created per Service. NewService takes a ServiceOption for the store, but no caller supplies one, so every server process gets a fresh empty store.\n\nCONSEQUENCE: the three tools form a protocol handshake — propose returns a decision, authorize records an ExecutionAuthorization against that decision, status reports which state a proposal reached — and the chain only holds inside one process. Over stdio that is one MCP session. Specifically:\n\n- `cgp_status` on a proposal from an earlier session returns \"proposal \u003cid\u003e not found\", which is indistinguishable from an ID that never existed\n- `cgp_authorize` cannot authorize a decision made before the server restarted, so a long-running agent workflow that spans a restart cannot complete the handshake\n- nothing recorded through the protocol surface reaches the audit trail that `relicta approve` writes, so a governance decision made via CGP leaves no durable evidence — which is the opposite of the property ADR-009 and the audit trail exist for\n\nThe last point is the significant one. Relicta's claim is verifiable governance; a decision path that forgets its own decisions cannot support that claim, and the tools now being reachable means agents can actually take that path.\n\nOPTIONS:\n1. Back the protocol store with the same file-based store the release runs use (.relicta/), so proposals and authorizations persist alongside the runs they concern. Cheapest, and consistent with how everything else in the CLI persists. Needs a decision on where under .relicta/ and whether proposals are pruned.\n2. Route the protocol tools through the release aggregate instead of a parallel store, so a CGP proposal becomes a release run and inherits the existing audit trail, state machine and persistence. Most correct — one governance record rather than two — but the wire-format types and the aggregate do not currently line up, so it is a mapping exercise.\n3. Leave it in memory and say so in the tool descriptions, so an agent knows the handshake is session-scoped rather than discovering it through a \"not found\".\n\nOption 2 is where this should end up, because two parallel records of the same decision is the shape of defect this project keeps finding — the release store was consolidated for exactly that reason (PR #247). Option 3 is worth doing immediately regardless of which is chosen, since it costs a sentence and removes a misleading error.",
+      "priority": "medium",
+      "estimate": "",
+      "depends_on": [],
+      "feature_id": "cgp-protocol-proposals-do-not-survive-the-session",
+      "origin": "heuristic",
+      "source": {}
     }
   ],
   "approval_status": "approved",
   "created_at": "0001-01-01T00:00:00Z",
-  "updated_at": "2026-05-04T13:56:50.784256+02:00"
+  "updated_at": "2026-11-26T08:21:15.9428+01:00"
 }

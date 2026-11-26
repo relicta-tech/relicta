@@ -6,14 +6,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/analytics"
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	servicerelease "github.com/relicta-tech/relicta/v4/internal/service/release"
+	"github.com/relicta-tech/relicta/v5/internal/analytics"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 func TestCancelCommand_FlagsExist(t *testing.T) {

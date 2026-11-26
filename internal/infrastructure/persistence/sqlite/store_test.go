@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/sqlite"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite"
 )
 
 // Everything here is a claim the conformance suite does not make, because it is a claim

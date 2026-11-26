@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
 )
 
 // EvidenceType categorizes the artifact kind for Vanta's evidence taxonomy.
@@ -19,7 +19,8 @@ const (
 	// EvidenceTypeAccessReview covers approval / cosigner evidence.
 	EvidenceTypeAccessReview EvidenceType = "access_review"
 
-	// EvidenceTypeAuditLog covers Article 12 / hash-chained audit entries.
+	// EvidenceTypeAuditLog categorizes release-governance records submitted as
+	// supporting evidence; the mapped Article 12 export has no chain hash.
 	EvidenceTypeAuditLog EvidenceType = "audit_log"
 
 	// EvidenceTypeRiskAssessment covers risk evaluation artifacts.
@@ -35,7 +36,7 @@ type FrameworkMapping struct {
 // Evidence is the Vanta custom-evidence payload.
 //
 // The shape is intentionally generic so it can carry any Relicta artifact
-// (Article 12 log entry, governance decision, approval record, full SOC 2
+// (release-governance evidence, approval record, full SOC 2
 // report). Vanta's custom-evidence API accepts arbitrary JSON in `data`.
 type Evidence struct {
 	// Title is the human-readable evidence name shown in Vanta UI.
@@ -84,9 +85,9 @@ func (e *Evidence) Validate() error {
 	return nil
 }
 
-// MapArticle12LogEntries converts an Article 12 report into a slice of
-// Vanta Evidence records — one per log entry. Each entry is mapped to
-// EvidenceTypeAuditLog with framework hints (SOC 2, ISO 27001, EU AI Act).
+// MapArticle12LogEntries converts a scoped release-governance evidence report
+// into Vanta Evidence records. The Article 12 mapping is supporting evidence,
+// not an operational AI-use log or a representation of full compliance.
 func MapArticle12LogEntries(report *compliance.Article12Report) []Evidence {
 	if report == nil || len(report.LogEntries) == 0 {
 		return nil
@@ -106,18 +107,18 @@ func MapArticle12LogEntries(report *compliance.Article12Report) []Evidence {
 			Frameworks:       frameworks,
 			IntegrityHash:    entry.AuditChainHash,
 			Data: map[string]any{
-				"entryId":         entry.EntryID,
-				"releaseId":       entry.ReleaseID,
-				"version":         entry.Version,
-				"startedAt":       entry.StartedAt,
-				"endedAt":         entry.EndedAt,
-				"actor":           entry.Actor,
-				"verifiers":       entry.Verifiers,
-				"outputDecision":  entry.OutputDecision,
-				"outputRationale": entry.OutputRationale,
-				"riskScore":       entry.RiskScore,
-				"referenceData":   entry.ReferenceData,
-				"inputData":       entry.InputData,
+				"evidenceScope":           entry.EvidenceScope,
+				"entryId":                 entry.EntryID,
+				"releaseId":               entry.ReleaseID,
+				"version":                 entry.Version,
+				"releaseProcessStartedAt": entry.ReleaseProcessStartedAt,
+				"releaseRecordedAt":       entry.ReleaseRecordedAt,
+				"actor":                   entry.Actor,
+				"outputDecision":          entry.OutputDecision,
+				"outputRationale":         entry.OutputRationale,
+				"riskScore":               entry.RiskScore,
+				"referenceData":           entry.ReferenceData,
+				"inputData":               entry.InputData,
 			},
 		}
 		out = append(out, ev)
@@ -128,7 +129,7 @@ func MapArticle12LogEntries(report *compliance.Article12Report) []Evidence {
 
 // MapSOC2 converts a SOC 2 compliance report into a small set of Vanta
 // Evidence records grouped by control area. This produces fewer, denser
-// records suitable for SOC 2 walkthroughs (vs the per-event Article 12 stream).
+// records suitable for SOC 2 walkthroughs (vs. per-decision records).
 func MapSOC2(report *compliance.Report) []Evidence {
 	if report == nil || report.SOC2 == nil {
 		return nil
@@ -188,11 +189,11 @@ func MapSOC2(report *compliance.Report) []Evidence {
 	return out
 }
 
-// describeEntry produces a short human-readable description for an Article 12
+// describeEntry produces a short human-readable description for a governance
 // log entry suitable for display in Vanta's evidence detail view.
 func describeEntry(entry compliance.Article12LogEntry) string {
 	verifierCount := len(entry.Verifiers)
-	verifierText := "no verifiers (autonomous decision)"
+	verifierText := "approver evidence not included in this export"
 	switch verifierCount {
 	case 1:
 		verifierText = "1 verifier"
@@ -202,7 +203,7 @@ func describeEntry(entry compliance.Article12LogEntry) string {
 		}
 	}
 	return fmt.Sprintf(
-		"Article 12 governance log entry. Actor: %s:%s. Decision: %s. Risk: %.2f. %s.",
+		"Release-governance evidence mapped to Article 12 concepts; not an operational AI-use log and not sufficient by itself to establish Article 12 logging duties. Actor: %s:%s. Decision: %s. Risk: %.2f. %s.",
 		entry.Actor.Kind, entry.Actor.ID,
 		entry.OutputDecision, entry.RiskScore,
 		verifierText,
@@ -213,7 +214,7 @@ func describeEntry(entry compliance.Article12LogEntry) string {
 // Article 12 log entry. Callers can override per-tenant if needed.
 func defaultArticle12Frameworks() []FrameworkMapping {
 	return []FrameworkMapping{
-		{Framework: "EU-AI-Act", Controls: []string{"Article 12", "Article 26(6)"}},
+		{Framework: "EU-AI-Act", Controls: []string{"Article 12 supporting evidence (limited scope)"}},
 		{Framework: "SOC2", Controls: []string{"CC7.1", "CC8.1"}},
 		{Framework: "ISO-27001", Controls: []string{"A.5.10", "A.8.32"}},
 	}

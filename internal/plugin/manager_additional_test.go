@@ -9,14 +9,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	pmgr "github.com/relicta-tech/relicta/v4/internal/plugin/manager"
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	pmgr "github.com/relicta-tech/relicta/v5/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 func TestManager_RegisterPlugins_TracksEnabled(t *testing.T) {
@@ -36,8 +35,8 @@ func TestManager_RegisterPlugins_TracksEnabled(t *testing.T) {
 	if _, ok := m.pendingPlugins["disabled"]; ok {
 		t.Fatal("disabled plugin should not be registered")
 	}
-	if _, ok := m.loadOnce["enabled"]; !ok {
-		t.Fatal("loadOnce not set for enabled plugin")
+	if _, ok := m.loadStates["enabled"]; !ok {
+		t.Fatal("load state not set for enabled plugin")
 	}
 }
 
@@ -49,7 +48,9 @@ func TestManager_EnsurePluginLoaded_Errors(t *testing.T) {
 		t.Fatal("expected error for unregistered plugin")
 	}
 
-	m.loadErrors["broken"] = fmt.Errorf("failed to load")
+	brokenState := &pluginLoadState{}
+	brokenState.once.Do(func() { brokenState.err = fmt.Errorf("failed to load") })
+	m.loadStates["broken"] = brokenState
 	if _, err := m.ensurePluginLoaded(context.Background(), "broken"); err == nil {
 		t.Fatal("expected stored error for broken plugin")
 	}
@@ -194,10 +195,11 @@ func TestManager_EnsurePluginLoaded_UsesLoadOnce(t *testing.T) {
 	}
 	m := NewManager(cfg)
 	m.pendingPlugins["alpha"] = &cfg.Plugins[0]
-	m.loadOnce["alpha"] = &sync.Once{}
+	alphaState := &pluginLoadState{}
+	alphaState.once.Do(func() { alphaState.err = fmt.Errorf("load failed") })
+	m.loadStates["alpha"] = alphaState
 
 	// Inject a load error to avoid executing real plugins.
-	m.loadErrors["alpha"] = fmt.Errorf("load failed")
 	if _, err := m.ensurePluginLoaded(context.Background(), "alpha"); err == nil {
 		t.Fatal("expected load error for alpha")
 	}
@@ -209,13 +211,13 @@ func TestManager_EnsurePluginLoaded_LoadOnceErrorStored(t *testing.T) {
 
 	badCfg := &config.PluginConfig{Name: "bad/name", Enabled: boolPtr(true)}
 	m.pendingPlugins["bad"] = badCfg
-	m.loadOnce["bad"] = &sync.Once{}
+	m.loadStates["bad"] = &pluginLoadState{}
 
 	if _, err := m.ensurePluginLoaded(context.Background(), "bad"); err == nil {
 		t.Fatal("expected error for bad plugin")
 	}
-	if _, ok := m.loadErrors["bad"]; !ok {
-		t.Fatal("expected loadErrors to store error")
+	if m.loadStates["bad"].err == nil {
+		t.Fatal("expected load state to store error")
 	}
 }
 
@@ -305,7 +307,7 @@ func TestManager_CollectPluginsForHook(t *testing.T) {
 		Plugins: []config.PluginConfig{
 			{Name: "loaded", Enabled: boolPtr(true)},
 			{Name: "skip", Enabled: boolPtr(true), Hooks: []string{"pre-plan"}},
-			{Name: "lazy", Enabled: boolPtr(true)},
+			{Name: "lazy", Enabled: boolPtr(true), ContinueOnError: true},
 		},
 	}
 
@@ -322,10 +324,14 @@ func TestManager_CollectPluginsForHook(t *testing.T) {
 
 	m.pendingPlugins["skip"] = &cfg.Plugins[1]
 	m.pendingPlugins["lazy"] = &cfg.Plugins[2]
-	m.loadOnce["lazy"] = &sync.Once{}
-	m.loadErrors["lazy"] = fmt.Errorf("load failed")
+	lazyState := &pluginLoadState{}
+	lazyState.once.Do(func() { lazyState.err = fmt.Errorf("load failed") })
+	m.loadStates["lazy"] = lazyState
 
-	execList := m.collectPluginsForHook(plugin.HookPostPublish)
+	execList, err := m.collectPluginsForHook(context.Background(), plugin.HookPostPublish)
+	if err != nil {
+		t.Fatalf("collectPluginsForHook: %v", err)
+	}
 	if len(execList) != 1 {
 		t.Fatalf("execList len = %d, want 1", len(execList))
 	}

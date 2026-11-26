@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
 )
 
 func TestNewClient_RequiresAPIToken(t *testing.T) {
@@ -129,6 +129,7 @@ func TestMapArticle12LogEntries(t *testing.T) {
 	report := &compliance.Article12Report{
 		LogEntries: []compliance.Article12LogEntry{
 			{
+				EvidenceScope:    "Release-governance evidence only; this export does not record each AI system use or automatically generated operational logs.",
 				EntryID:          "art12:1",
 				EventTimestamp:   time.Now(),
 				SystemIdentifier: "acme/x",
@@ -146,6 +147,12 @@ func TestMapArticle12LogEntries(t *testing.T) {
 	}
 	if out[0].Type != EvidenceTypeAuditLog {
 		t.Errorf("type: %q", out[0].Type)
+	}
+	if !strings.Contains(out[0].Description, "not an operational AI-use log") {
+		t.Errorf("description omits evidence-scope limitation: %q", out[0].Description)
+	}
+	if !strings.Contains(out[0].Data["evidenceScope"].(string), "does not record each AI system use") {
+		t.Errorf("data omits evidence scope")
 	}
 	if out[0].IntegrityHash != "h1" {
 		t.Errorf("expected integrity hash through-flow")
@@ -189,7 +196,7 @@ func TestDescribeEntry_VerifierCount(t *testing.T) {
 		v    int
 		want string
 	}{
-		{0, "no verifiers"},
+		{0, "approver evidence not included"},
 		{1, "1 verifier"},
 		{3, "3 verifiers"},
 	}

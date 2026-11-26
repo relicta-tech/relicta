@@ -25,7 +25,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
 )
 
 // uniqueViolation is PostgreSQL's SQLSTATE for a broken unique constraint.

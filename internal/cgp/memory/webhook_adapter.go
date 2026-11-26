@@ -3,10 +3,11 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 // WebhookCorrelatorAdapter adapts the IncidentCorrelator to the webhook
@@ -48,7 +49,7 @@ func NewWebhookCorrelatorAdapter(correlator *IncidentCorrelator, opts ...Webhook
 // Each incoming webhook incident is converted to a memory IncidentRecord and
 // correlated with recent releases.
 func (a *WebhookCorrelatorAdapter) Handle() receiver.IncidentHandler {
-	return func(incident receiver.Incident) {
+	return func(ctx context.Context, incident receiver.Incident) error {
 		repository := ""
 		if incident.ServiceName != "" && a.repoResolver != nil {
 			repository = a.repoResolver(incident.ServiceName)
@@ -61,7 +62,7 @@ func (a *WebhookCorrelatorAdapter) Handle() receiver.IncidentHandler {
 			a.logger.Warn("cannot correlate incident without repository or service name",
 				"incident_id", incident.ID,
 				"source", incident.Source)
-			return
+			return fmt.Errorf("cannot correlate incident %q without repository or service name", incident.ID)
 		}
 
 		severity := mapSeverity(incident.Severity)
@@ -76,12 +77,12 @@ func (a *WebhookCorrelatorAdapter) Handle() receiver.IncidentHandler {
 			DetectedAt:  incident.StartedAt,
 		}
 
-		releaseID, err := a.correlator.Correlate(context.Background(), record)
+		releaseID, err := a.correlator.Correlate(ctx, record)
 		if err != nil {
 			a.logger.Error("incident correlation failed",
 				"incident_id", incident.ID,
 				"error", err)
-			return
+			return fmt.Errorf("correlate incident %q: %w", incident.ID, err)
 		}
 
 		if releaseID != "" {
@@ -90,6 +91,7 @@ func (a *WebhookCorrelatorAdapter) Handle() receiver.IncidentHandler {
 				"release_id", releaseID,
 				"source", incident.Source)
 		}
+		return nil
 	}
 }
 

@@ -48,26 +48,25 @@ echo ""
 cat << 'EOF'
 name: Release
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+on: workflow_dispatch
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Release
-        uses: relicta-tech/relicta-action@v1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          go-version: '1.26'
+      - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+      - run: relicta plan --dry-run --json
 EOF
 pause 4
 
@@ -75,26 +74,25 @@ pause 4
 cat > .github/workflows/release.yml << 'EOF'
 name: Release
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+on: workflow_dispatch
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Release
-        uses: relicta-tech/relicta-action@v1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          go-version: '1.26'
+      - run: go install github.com/relicta-tech/relicta/v4/cmd/relicta@v4.2.0
+      - run: relicta plan --dry-run --json
 EOF
 
 # Step 3: Explain key parts
@@ -102,8 +100,8 @@ echo ""
 echo -e "${MAGENTA}━━━ Key Configuration Points ━━━${NC}"
 echo ""
 echo -e "  ${YELLOW}fetch-depth: 0${NC}     Fetch full history for commit analysis"
-echo -e "  ${YELLOW}contents: write${NC}    Permission to create releases"
-echo -e "  ${YELLOW}GITHUB_TOKEN${NC}       Built-in token for GitHub API"
+echo -e "  ${YELLOW}contents: read${NC}     Minimum permission for a release plan"
+echo -e "  ${YELLOW}Go module install${NC}  Installs a pinned Relicta version"
 pause 3
 
 # Step 4: Advanced options
@@ -112,22 +110,16 @@ echo -e "${MAGENTA}━━━ Advanced Options ━━━${NC}"
 echo ""
 cat << 'EOF'
       - name: Release
-        uses: relicta-tech/relicta-action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          command: full        # or: plan, bump, notes, publish
-          version: latest      # or: v1.2.3
-          auto-approve: true
-          dry-run: false
+        run: relicta plan --dry-run --json
 EOF
 pause 4
 
 # Summary
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ${GREEN}✓${NC} Automated releases on push to main"
-echo -e "  ${GREEN}✓${NC} Uses official relicta-action"
-echo -e "  ${GREEN}✓${NC} Creates GitHub releases automatically"
+echo -e "  ${GREEN}✓${NC} Runs a read-only release plan on demand"
+echo -e "  ${GREEN}✓${NC} Uses a pinned Relicta module version"
+echo -e "  ${GREEN}✓${NC} Requires no publishing credentials"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 pause 3
 

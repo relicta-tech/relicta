@@ -52,6 +52,10 @@ type ProposalScope struct {
 
 	// Files is an optional list of changed file paths.
 	Files []string `json:"files,omitempty"`
+
+	// Packages is an optional list of workspace packages owning changed files.
+	// It is omitted when package ownership could not be established.
+	Packages []string `json:"packages,omitempty"`
 }
 
 // BumpType represents a semantic version bump type.

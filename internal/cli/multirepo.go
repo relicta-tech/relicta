@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/multirepo"
 )
 
 var (
@@ -53,7 +53,9 @@ var groupPlanCmd = &cobra.Command{
 	Long: `Analyze all repositories in a group and show which ones
 have unreleased changes and what versions they would receive.
 
-For coordinated groups, the plan shows dependency-ordered release sequence.`,
+For coordinated groups, the plan shows dependency-ordered release sequence. With --repo,
+coordinated groups include every transitive dependency of the selected repositories; independent
+groups include only the selected repositories. Unknown repository names are errors.`,
 	RunE: runGroupPlan,
 }
 
@@ -61,19 +63,25 @@ For coordinated groups, the plan shows dependency-ordered release sequence.`,
 var groupReleaseCmd = &cobra.Command{
 	Use:   "release",
 	Short: "Coordinated release across repository group",
-	Long: `Execute releases across all repositories in a group.
+	Long: `Publish already-approved release runs across repositories in a group.
+
+First prepare and approve a release in each member repository with 'relicta plan',
+'relicta bump', 'relicta notes', and 'relicta approve'. 'relicta group plan' is
+an estimate only; 'relicta group release' does not create or approve member runs.
 
 For coordinated strategy, repositories are released in dependency order.
 If a repository fails, coordinated releases stop to prevent inconsistency.
-For independent strategy, failures in one repo do not affect others.`,
+For independent strategy, failures in one repo do not affect others. With --repo, coordinated
+groups include every transitive dependency of the selected repositories; independent groups
+include only the selected repositories. Unknown repository names are errors.`,
 	RunE: runGroupRelease,
 }
 
 // groupStatusCmd shows the release state of all repos in a group.
 var groupStatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show release state of all repositories in group",
-	Long:  `Display the current release state, version, and change status for each repository in the group.`,
+	Short: "Show release state of repositories in group",
+	Long:  `Display the current release state, version, and change status for each selected repository in the group.`,
 	RunE:  runGroupStatus,
 }
 
@@ -102,11 +110,19 @@ func runGroupPlan(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("planning failed: %w", err)
 	}
 
+	planningFailures := countGroupResults(plan, func(result *appmultirepo.RepoResult) bool {
+		return result.State == appmultirepo.StateFailed
+	})
 	if outputJSON {
-		return json.NewEncoder(os.Stdout).Encode(plan)
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+	} else {
+		printGroupPlan(plan)
 	}
-
-	printGroupPlan(plan)
+	if planningFailures > 0 {
+		return fmt.Errorf("could not plan %d repositories", planningFailures)
+	}
 	return nil
 }
 
@@ -122,15 +138,50 @@ func runGroupRelease(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("planning failed: %w", err)
 	}
+	planningFailures := countGroupResults(plan, func(result *appmultirepo.RepoResult) bool {
+		return result.State == appmultirepo.StateFailed
+	})
+	if planningFailures > 0 && group.Strategy == multirepo.StrategyCoordinated {
+		if outputJSON {
+			if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+				return err
+			}
+		} else {
+			printGroupPlan(plan)
+		}
+		return fmt.Errorf("could not plan %d repositories; coordinated release was not started", planningFailures)
+	}
 
 	if plan.ReposWithChanges == 0 {
+		if planningFailures > 0 {
+			if outputJSON {
+				if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+					return err
+				}
+			} else {
+				printGroupPlan(plan)
+			}
+			return fmt.Errorf("could not determine release changes for %d repositories", planningFailures)
+		}
+		if outputJSON {
+			return json.NewEncoder(os.Stdout).Encode(plan)
+		}
 		fmt.Println(styles.Info.Render("No repositories have unreleased changes."))
 		return nil
 	}
 
 	if dryRun {
-		fmt.Println(styles.Warning.Render("Dry run - no changes will be made."))
-		printGroupPlan(plan)
+		if outputJSON {
+			if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+				return err
+			}
+		} else {
+			fmt.Println(styles.Warning.Render("Dry run - no changes will be made."))
+			printGroupPlan(plan)
+		}
+		if planningFailures > 0 {
+			return fmt.Errorf("could not plan %d repositories", planningFailures)
+		}
 		return nil
 	}
 
@@ -142,7 +193,7 @@ func runGroupRelease(cmd *cobra.Command, _ []string) error {
 	//
 	// Checked before anything runs, because a coordinated release that publishes two of
 	// four repositories and then stops leaves the group in a state nobody chose.
-	if err := reportGroupReadiness(cmd.Context(), group); err != nil {
+	if err := reportGroupReadiness(cmd.Context(), group, plan); err != nil {
 		return err
 	}
 
@@ -153,11 +204,33 @@ func runGroupRelease(cmd *cobra.Command, _ []string) error {
 	}
 
 	if outputJSON {
-		return json.NewEncoder(os.Stdout).Encode(plan)
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+	} else {
+		printGroupReleaseResults(plan)
 	}
 
-	printGroupReleaseResults(plan)
+	failed := countGroupResults(plan, func(result *appmultirepo.RepoResult) bool {
+		return result.State == appmultirepo.StateFailed
+	})
+	skipped := countGroupResults(plan, func(result *appmultirepo.RepoResult) bool {
+		return result.State == appmultirepo.StateSkipped && result.Error != ""
+	})
+	if failed > 0 || skipped > 0 {
+		return fmt.Errorf("group release finished with %d failed and %d skipped repositories", failed, skipped)
+	}
 	return nil
+}
+
+func countGroupResults(plan *appmultirepo.MultiRepoPlan, match func(*appmultirepo.RepoResult) bool) int {
+	count := 0
+	for _, result := range plan.Results {
+		if result != nil && match(result) {
+			count++
+		}
+	}
+	return count
 }
 
 // runGroupStatus implements the group status command.
@@ -167,16 +240,24 @@ func runGroupStatus(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	plan, err := coordinator.Plan(cmd.Context(), group)
+	plan, err := coordinator.Plan(cmd.Context(), group, targetRepos...)
 	if err != nil {
 		return fmt.Errorf("status check failed: %w", err)
 	}
 
+	planningFailures := countGroupResults(plan, func(result *appmultirepo.RepoResult) bool {
+		return result.State == appmultirepo.StateFailed
+	})
 	if outputJSON {
-		return json.NewEncoder(os.Stdout).Encode(plan)
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+	} else {
+		printGroupStatus(group, plan, groupTargetSelection(group, targetRepos))
 	}
-
-	printGroupStatus(group, plan)
+	if planningFailures > 0 {
+		return fmt.Errorf("could not inspect %d repositories", planningFailures)
+	}
 	return nil
 }
 
@@ -268,15 +349,22 @@ func printGroupReleaseResults(plan *appmultirepo.MultiRepoPlan) {
 }
 
 // printGroupStatus renders group status to stdout.
-func printGroupStatus(group *multirepo.RepositoryGroup, plan *appmultirepo.MultiRepoPlan) {
+func printGroupStatus(group *multirepo.RepositoryGroup, plan *appmultirepo.MultiRepoPlan, selected map[string]bool) {
 	fmt.Println(styles.Title.Render(fmt.Sprintf("Group Status: %s", group.Name)))
 	fmt.Printf("Strategy: %s\n", group.Strategy)
-	fmt.Printf("Repositories: %d\n\n", len(group.Repositories))
+	repositoryCount := len(group.Repositories)
+	if selected != nil {
+		repositoryCount = len(selected)
+	}
+	fmt.Printf("Repositories: %d\n\n", repositoryCount)
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "REPOSITORY\tVERSION\tCHANGES\tDEPENDENCIES")
 
 	for _, repo := range group.Repositories {
+		if selected != nil && !selected[repo.Name] {
+			continue
+		}
 		result := plan.Results[repo.Name]
 		version := "-"
 		changes := "0"
@@ -293,6 +381,37 @@ func printGroupStatus(group *multirepo.RepositoryGroup, plan *appmultirepo.Multi
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", repo.Name, version, changes, deps)
 	}
 	w.Flush()
+}
+
+// groupTargetSelection resolves the same dependency closure used by the group planner so
+// status output matches --repo behavior in plan and release commands.
+func groupTargetSelection(group *multirepo.RepositoryGroup, targetRepos []string) map[string]bool {
+	if len(targetRepos) == 0 {
+		return nil
+	}
+	selected := make(map[string]bool, len(targetRepos))
+	for _, name := range targetRepos {
+		selected[name] = true
+	}
+	if group.Strategy != multirepo.StrategyCoordinated {
+		return selected
+	}
+	graph, err := multirepo.NewDependencyGraph(group)
+	if err != nil {
+		return selected
+	}
+	queue := append([]string(nil), targetRepos...)
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		for _, dep := range graph.DirectDependencies(name) {
+			if !selected[dep] {
+				selected[dep] = true
+				queue = append(queue, dep)
+			}
+		}
+	}
+	return selected
 }
 
 // stateIcon returns a display string for a repo release state.
@@ -313,15 +432,18 @@ func stateIcon(state appmultirepo.RepoReleaseState) string {
 	}
 }
 
-// reportGroupReadiness prints each member's readiness and refuses the group unless every
-// member could be released.
+// reportGroupReadiness checks only members that the plan will release. Coordinated groups
+// remain all-or-nothing; independent groups skip blocked members and continue with ready ones.
 //
-// It never approves on behalf of a member. Whether a group release may do that for a
-// repository whose policy requires a human is undecided (docs/backlog.md), and until it is,
-// naming the member that needs approval is the honest answer.
-func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup) error {
+// It never approves on behalf of a member: group membership must not bypass that repository's
+// own policy. Naming the member that needs approval tells the operator how to unblock it.
+func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup, plan *appmultirepo.MultiRepoPlan) error {
 	members := make([]appmultirepo.Member, 0, len(group.Repositories))
 	for _, repo := range group.Repositories {
+		result := plan.Results[repo.Name]
+		if result == nil || result.State == appmultirepo.StateSkipped || !result.HasChanges {
+			continue
+		}
 		members = append(members, appmultirepo.Member{Name: repo.Name, Path: repo.Path})
 	}
 
@@ -329,6 +451,32 @@ func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup)
 	ready, blocked := appmultirepo.AllReady(states)
 	if ready {
 		return nil
+	}
+
+	if group.Strategy == multirepo.StrategyIndependent {
+		for _, state := range blocked {
+			if result := plan.Results[state.Name]; result != nil {
+				result.State = appmultirepo.StateSkipped
+				result.Error = state.Blocker
+			}
+		}
+		if len(blocked) < len(states) {
+			if !outputJSON {
+				fmt.Printf("%d independent repositories will be skipped because they are not ready:\n", len(blocked))
+				printGroupReadiness(blocked)
+			}
+			return nil
+		}
+		if outputJSON {
+			if encErr := json.NewEncoder(os.Stdout).Encode(map[string]any{
+				"released": false,
+				"reason":   "no independent repository is ready to release",
+				"plan":     plan,
+			}); encErr != nil {
+				return encErr
+			}
+		}
+		return fmt.Errorf("none of the %d independent repositories with changes are ready to release", len(states))
 	}
 
 	if outputJSON {
@@ -345,10 +493,17 @@ func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup)
 	}
 
 	fmt.Println(styles.Warning.Render("This group is not ready to release."))
+	printGroupReadiness(states)
 	fmt.Println()
+	fmt.Println("Nothing was released. A coordinated release that publishes some members and")
+	fmt.Println("stops leaves the group in a state nobody chose, so it is refused as a whole.")
 
+	return fmt.Errorf("%d of %d repositories are not ready to release", len(blocked), len(states))
+}
+
+func printGroupReadiness(states []appmultirepo.MemberState) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "  REPOSITORY	STATE	VERSION	WHAT IS NEEDED")
+	fmt.Fprintln(w, "  REPOSITORY\tSTATE\tVERSION\tWHAT IS NEEDED")
 	for _, s := range states {
 		state, version, needed := s.State, s.Version, s.Blocker
 		if state == "" {
@@ -360,12 +515,7 @@ func reportGroupReadiness(ctx context.Context, group *multirepo.RepositoryGroup)
 		if s.Ready {
 			needed = "ready"
 		}
-		fmt.Fprintf(w, "  %s	%s	%s	%s\n", s.Name, state, version, needed)
+		fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", s.Name, state, version, needed)
 	}
 	_ = w.Flush()
-	fmt.Println()
-	fmt.Println("Nothing was released. A coordinated release that publishes some members and")
-	fmt.Println("stops leaves the group in a state nobody chose, so it is refused as a whole.")
-
-	return fmt.Errorf("%d of %d repositories are not ready to release", len(blocked), len(states))
 }

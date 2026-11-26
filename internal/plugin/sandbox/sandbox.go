@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // ViolationType represents the type of capability violation.
@@ -76,8 +76,6 @@ func (s *Sandbox) PrepareCommand(ctx context.Context, cmd *exec.Cmd) error {
 
 	// Apply OS-specific process limits (ulimit, cgroups, etc.)
 	if err := s.applyProcessLimits(cmd); err != nil {
-		// Log warning but don't fail - sandboxing is best-effort on some platforms
-		// The error is returned for the caller to decide how to handle
 		return fmt.Errorf("failed to apply process limits: %w", err)
 	}
 

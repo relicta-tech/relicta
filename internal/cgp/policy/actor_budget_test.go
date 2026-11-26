@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 func TestBlastRadius_Comparison(t *testing.T) {

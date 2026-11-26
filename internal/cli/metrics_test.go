@@ -69,7 +69,7 @@ func TestMetricsCommand_DefaultValues(t *testing.T) {
 		wantDefault string
 	}{
 		{"port default", "port", "9090"},
-		{"host default", "host", "0.0.0.0"},
+		{"host default", "host", "127.0.0.1"},
 	}
 
 	for _, tt := range tests {

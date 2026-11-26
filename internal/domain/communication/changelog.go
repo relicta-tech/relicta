@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // ChangelogFormat represents the format of a changelog.
@@ -18,12 +18,14 @@ const (
 	FormatConventional ChangelogFormat = "conventional"
 	// FormatSimple uses a simple markdown format.
 	FormatSimple ChangelogFormat = "simple"
+	// FormatCustom renders with the template configured by the caller.
+	FormatCustom ChangelogFormat = "custom"
 )
 
 // IsValid returns true if the format is valid.
 func (f ChangelogFormat) IsValid() bool {
 	switch f {
-	case FormatKeepAChangelog, FormatConventional, FormatSimple:
+	case FormatKeepAChangelog, FormatConventional, FormatSimple, FormatCustom:
 		return true
 	default:
 		return false
@@ -203,13 +205,30 @@ func RenderVersionHeading(entry ChangelogEntry) string {
 // RenderSections renders an entry's sections without its version heading.
 func RenderSections(entry ChangelogEntry, opts RenderOptions) string {
 	var sb strings.Builder
-
+	sections := make([]ChangelogSection, 0, len(entry.Sections))
+	sectionByTitle := make(map[string]int, len(entry.Sections))
 	for _, section := range entry.Sections {
+		if idx, ok := sectionByTitle[section.Title]; ok {
+			sections[idx].Items = append(sections[idx].Items, section.Items...)
+			continue
+		}
+		sectionByTitle[section.Title] = len(sections)
+		sections = append(sections, ChangelogSection{Title: section.Title, Items: append([]ChangelogItem(nil), section.Items...)})
+	}
+
+	for _, section := range sections {
+		title := section.Title
+		switch opts.Format {
+		case FormatKeepAChangelog:
+			title = keepAChangelogTitle(title)
+		case FormatSimple:
+			title = ""
+		}
 		// An untitled section is the flat list group_by: none asks for. Writing "### "
 		// with nothing after it would leave an empty heading in the markdown.
-		if section.Title != "" {
+		if title != "" {
 			sb.WriteString("### ")
-			sb.WriteString(section.Title)
+			sb.WriteString(title)
 			sb.WriteString("\n\n")
 		}
 
@@ -228,6 +247,19 @@ func RenderSections(entry ChangelogEntry, opts RenderOptions) string {
 	}
 
 	return sb.String()
+}
+
+func keepAChangelogTitle(title string) string {
+	switch title {
+	case "Features":
+		return "Added"
+	case "Bug Fixes", "Reverts":
+		return "Fixed"
+	case "Performance Improvements", "Code Refactoring", "Build System":
+		return "Changed"
+	default:
+		return title
+	}
 }
 
 // renderItemSuffix renders the trailing "(hash, author, #123)" an item carries, linking the

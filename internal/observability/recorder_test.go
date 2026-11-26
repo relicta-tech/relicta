@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
 )
 
 // auto_record turns an observation into part of the release record, and that record is what

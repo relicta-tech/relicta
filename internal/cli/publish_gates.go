@@ -7,7 +7,7 @@ import (
 	"path"
 	"strings"
 
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // Two commands in this CLI create a tag: `relicta publish` and `relicta release`. Everything a

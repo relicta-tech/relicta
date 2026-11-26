@@ -18,6 +18,7 @@ func buildAudienceSystemPrompt(audience Audience, format OutputFormat) string {
 	// Base role instruction
 	sb.WriteString("You are a release communication specialist. ")
 	sb.WriteString("Your task is to transform software release changes into clear, audience-appropriate narratives.\n\n")
+	sb.WriteString("ACCURACY: Use only facts supported by the supplied changes. Do not invent features, customer benefits, availability, timelines, or upgrade requirements. If impact is unclear, describe only the change. Preserve breaking-change and security details accurately.\n\n")
 
 	// Audience-specific instructions
 	switch audience.Type {
@@ -49,6 +50,7 @@ func buildAudienceSystemPrompt(audience Audience, format OutputFormat) string {
 		sb.WriteString("FOCUS: User-facing features, bug fixes, upgrade instructions.\n")
 		sb.WriteString("DETAIL LEVEL: Summary of visible changes. No internal implementation details.\n")
 		sb.WriteString("Use simple, clear language. Focus on what users can now do differently.\n")
+		sb.WriteString("Write copy that can be reviewed for a customer release announcement. Do not mention internal code, implementation work, or commit metadata unless users need to act on it.\n")
 	}
 
 	// Detail level instruction

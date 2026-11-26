@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // `ai.include_emoji` and `relicta notes --emoji` were both dead. The prompt templates have

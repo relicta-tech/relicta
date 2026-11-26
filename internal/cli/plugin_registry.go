@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/manager"
 )
 
 var pluginRegistryCmd = &cobra.Command{

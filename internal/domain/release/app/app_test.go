@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Mock implementations
@@ -958,6 +958,59 @@ func TestGenerateNotesUseCase_Execute(t *testing.T) {
 	}
 }
 
+func TestGenerateNotesUseCase_GeneratePreviewDoesNotPersist(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	run := domain.NewReleaseRun("repo", "/path/to/repo", "v1.0.0", domain.CommitSHA("abc123def456"), nil, "", "")
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewGenerateNotesUseCase(repo, inspector, &mockNotesGenerator{notes: "preview", provider: "mock"}, nil)
+
+	preview, err := uc.GeneratePreview(ctx, run, ports.NotesOptions{}, "")
+	if err != nil {
+		t.Fatalf("GeneratePreview() error = %v", err)
+	}
+	if preview.Text != "preview" {
+		t.Fatalf("preview text = %q, want preview", preview.Text)
+	}
+	if run.State() != domain.StateVersioned {
+		t.Fatalf("preview changed run state to %q", run.State())
+	}
+	if len(run.History()) != 2 {
+		t.Fatalf("preview changed run history: %d entries", len(run.History()))
+	}
+}
+
+func TestGenerateNotesUseCase_GeneratePreviewUsesAgentDraftWithoutPersisting(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	inspector := newMockRepoInspector()
+	run := domain.NewReleaseRun("repo", "/path/to/repo", "v1.0.0", domain.CommitSHA("abc123def456"), nil, "", "")
+	_ = run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.95)
+	_ = run.Plan("test")
+	_ = run.SetVersion(version.MustParse("1.1.0"), "v1.1.0")
+	_ = run.Bump("test")
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewGenerateNotesUseCase(repo, inspector, nil, nil)
+
+	preview, err := uc.GeneratePreview(ctx, run, ports.NotesOptions{}, "  reviewed draft  ")
+	if err != nil {
+		t.Fatalf("GeneratePreview() error = %v", err)
+	}
+	if preview.Text != "  reviewed draft  " || preview.Provider != "agent" {
+		t.Fatalf("preview = %#v, want unchanged agent draft", preview)
+	}
+	if run.State() != domain.StateVersioned || len(run.History()) != 2 || run.Notes() != nil {
+		t.Fatalf("preview changed run: state=%q history=%d notes=%#v", run.State(), len(run.History()), run.Notes())
+	}
+}
+
 func TestGenerateNotesUseCase_Execute_GeneratorError(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockRepository()
@@ -1253,6 +1306,160 @@ func TestPublishReleaseUseCase_Execute_AlreadyPublished(t *testing.T) {
 
 	if !output.Published {
 		t.Error("Execute() Published = false for already published run, want true")
+	}
+}
+
+func TestExternalReleaseEvidence_Validate(t *testing.T) {
+	valid := ExternalReleaseEvidence{
+		Outcome:  "published",
+		Provider: "github-actions",
+		RunURL:   "https://github.com/acme/widget/actions/runs/123",
+		Tag:      "v1.1.0",
+		Commit:   "abc123def456",
+		Publishers: map[string]ExternalPublisherResult{
+			"github_release": {Status: "published", URL: "https://github.com/acme/widget/releases/tag/v1.1.0"},
+			"container":      {Status: "published", URL: "https://ghcr.io/acme/widget", Digest: "sha256:" + strings.Repeat("a", 64)},
+			"homebrew":       {Status: "published", URL: "https://github.com/acme/homebrew-tap"},
+		},
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid evidence rejected: %v", err)
+	}
+
+	missingPublisher := valid
+	missingPublisher.Publishers = map[string]ExternalPublisherResult{
+		"github_release": valid.Publishers["github_release"],
+		"container":      valid.Publishers["container"],
+	}
+	if err := missingPublisher.Validate(); err == nil {
+		t.Fatal("evidence without Homebrew result was accepted")
+	}
+
+	missingURL := valid
+	missingURL.Publishers = map[string]ExternalPublisherResult{}
+	for name, publisher := range valid.Publishers {
+		missingURL.Publishers[name] = publisher
+	}
+	githubResult := missingURL.Publishers["github_release"]
+	githubResult.URL = ""
+	missingURL.Publishers["github_release"] = githubResult
+	if err := missingURL.Validate(); err == nil {
+		t.Fatal("published evidence without a GitHub Release URL was accepted")
+	}
+
+	skippedContainer := valid
+	skippedContainer.Publishers = map[string]ExternalPublisherResult{}
+	for name, publisher := range valid.Publishers {
+		skippedContainer.Publishers[name] = publisher
+	}
+	containerResult := skippedContainer.Publishers["container"]
+	containerResult.Status = "skipped"
+	skippedContainer.Publishers["container"] = containerResult
+	if err := skippedContainer.Validate(); err == nil {
+		t.Fatal("published evidence with a skipped required container publisher was accepted")
+	}
+
+	badDigest := valid
+	badDigest.Publishers = map[string]ExternalPublisherResult{}
+	for name, publisher := range valid.Publishers {
+		badDigest.Publishers[name] = publisher
+	}
+	containerResult = badDigest.Publishers["container"]
+	containerResult.Digest = "sha256:short"
+	badDigest.Publishers["container"] = containerResult
+	if err := badDigest.Validate(); err == nil {
+		t.Fatal("evidence with an invalid container digest was accepted")
+	}
+}
+
+func TestPublishReleaseUseCase_RecordExternalOutcome(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	run := createNotesReadyRun()
+	if err := run.Approve("reviewer", false); err != nil {
+		t.Fatal(err)
+	}
+	run.SetExecutionPlan([]domain.StepPlan{
+		{Name: "tag", Type: domain.StepTypeTag},
+		{Name: "attestation", Type: domain.StepTypeAttestation},
+	})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewPublishReleaseUseCase(repo, newMockRepoInspector(), nil, nil, nil)
+	evidence := ExternalReleaseEvidence{
+		Outcome:  "published",
+		Provider: "github-actions",
+		RunURL:   "https://github.com/acme/widget/actions/runs/123",
+		Tag:      run.TagName(),
+		Commit:   string(run.HeadSHA()),
+		Publishers: map[string]ExternalPublisherResult{
+			"github_release": {Status: "published", URL: "https://github.com/acme/widget/releases/tag/v1.1.0"},
+			"container":      {Status: "published", URL: "https://ghcr.io/acme/widget", Digest: "sha256:" + strings.Repeat("b", 64)},
+			"homebrew":       {Status: "published", URL: "https://github.com/acme/homebrew-tap"},
+		},
+	}
+
+	output, err := uc.RecordExternalOutcome(ctx, PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor:    ports.ActorInfo{Type: domain.ActorCI, ID: evidence.Provider},
+	}, evidence)
+	if err != nil {
+		t.Fatalf("RecordExternalOutcome() error = %v", err)
+	}
+	if !output.Published || repo.runs[run.ID()].State() != domain.StatePublished {
+		t.Fatalf("external success not finalized: output=%+v state=%s", output, repo.runs[run.ID()].State())
+	}
+	if !strings.Contains(repo.runs[run.ID()].ExternalPublicationEvidence(), `"github_release"`) {
+		t.Errorf("publisher evidence was not retained: %s", repo.runs[run.ID()].ExternalPublicationEvidence())
+	}
+
+	// The same workflow report can be replayed safely when artifact upload is
+	// retried after Relicta has already saved the successful outcome.
+	output, err = uc.RecordExternalOutcome(ctx, PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor:    ports.ActorInfo{Type: domain.ActorCI, ID: evidence.Provider},
+	}, evidence)
+	if err != nil || !output.Published {
+		t.Fatalf("idempotent external outcome returned output=%+v err=%v", output, err)
+	}
+}
+
+func TestPublishReleaseUseCase_RecordExternalOutcomeCannotSkipStableHomebrew(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	run := createNotesReadyRun()
+	if err := run.Approve("reviewer", false); err != nil {
+		t.Fatal(err)
+	}
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	repo.runs[run.ID()] = run
+	repo.latestRuns["/path/to/repo"] = run.ID()
+	uc := NewPublishReleaseUseCase(repo, newMockRepoInspector(), nil, nil, nil)
+	evidence := ExternalReleaseEvidence{
+		Outcome:  "published",
+		Provider: "github-actions",
+		RunURL:   "https://github.com/acme/widget/actions/runs/123",
+		Tag:      run.TagName(),
+		Commit:   string(run.HeadSHA()),
+		Publishers: map[string]ExternalPublisherResult{
+			"github_release": {Status: "published", URL: "https://github.com/acme/widget/releases/tag/v1.1.0"},
+			"container":      {Status: "published", URL: "https://ghcr.io/acme/widget", Digest: "sha256:" + strings.Repeat("c", 64)},
+			"homebrew":       {Status: "skipped"},
+		},
+	}
+
+	_, err := uc.RecordExternalOutcome(ctx, PublishReleaseInput{
+		RepoRoot: "/path/to/repo",
+		RunID:    run.ID(),
+		Actor:    ports.ActorInfo{Type: domain.ActorCI, ID: evidence.Provider},
+	}, evidence)
+	if err == nil || !strings.Contains(err.Error(), "homebrew may only be skipped for a prerelease") {
+		t.Fatalf("stable release accepted skipped Homebrew: %v", err)
+	}
+	if repo.runs[run.ID()].State() != domain.StateApproved {
+		t.Fatalf("rejected outcome mutated run state to %s", repo.runs[run.ID()].State())
 	}
 }
 

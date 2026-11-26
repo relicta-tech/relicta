@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
 )
 
 // A database migrated for release runs and not for governance memory is a state an operator

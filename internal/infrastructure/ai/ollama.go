@@ -12,8 +12,8 @@ import (
 
 	"github.com/sashabaranov/go-openai"
 
-	"github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 func init() {

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // The whole changelog.* configuration block — format, exclude, categories, include_commit_hash,

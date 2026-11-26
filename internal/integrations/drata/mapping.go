@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
 )
 
 // EvidenceType categorizes the artifact kind for Drata's evidence taxonomy.
@@ -55,9 +55,9 @@ func (e *Evidence) Validate() error {
 	return nil
 }
 
-// MapArticle12LogEntries converts an Article 12 report into Drata Evidence
-// records. One entry per log entry to preserve the per-decision granularity
-// auditors expect for Article 12 walkthroughs.
+// MapArticle12LogEntries converts scoped release-governance evidence into
+// Drata records. The Article 12 mapping is supporting evidence, not an
+// operational AI-use log or a representation of full compliance.
 func MapArticle12LogEntries(report *compliance.Article12Report) []Evidence {
 	if report == nil || len(report.LogEntries) == 0 {
 		return nil
@@ -75,18 +75,18 @@ func MapArticle12LogEntries(report *compliance.Article12Report) []Evidence {
 			Frameworks:       frameworks,
 			IntegrityHash:    entry.AuditChainHash,
 			Data: map[string]any{
-				"entryId":         entry.EntryID,
-				"releaseId":       entry.ReleaseID,
-				"version":         entry.Version,
-				"startedAt":       entry.StartedAt,
-				"endedAt":         entry.EndedAt,
-				"actor":           entry.Actor,
-				"verifiers":       entry.Verifiers,
-				"outputDecision":  entry.OutputDecision,
-				"outputRationale": entry.OutputRationale,
-				"riskScore":       entry.RiskScore,
-				"referenceData":   entry.ReferenceData,
-				"inputData":       entry.InputData,
+				"evidenceScope":           entry.EvidenceScope,
+				"entryId":                 entry.EntryID,
+				"releaseId":               entry.ReleaseID,
+				"version":                 entry.Version,
+				"releaseProcessStartedAt": entry.ReleaseProcessStartedAt,
+				"releaseRecordedAt":       entry.ReleaseRecordedAt,
+				"actor":                   entry.Actor,
+				"outputDecision":          entry.OutputDecision,
+				"outputRationale":         entry.OutputRationale,
+				"riskScore":               entry.RiskScore,
+				"referenceData":           entry.ReferenceData,
+				"inputData":               entry.InputData,
 			},
 		}
 		out = append(out, ev)
@@ -153,11 +153,11 @@ func MapSOC2(report *compliance.Report) []Evidence {
 	}
 }
 
-// describeEntry produces a short human-readable description for an Article 12
+// describeEntry produces a short human-readable description for a governance
 // log entry suitable for display in Drata's evidence detail view.
 func describeEntry(entry compliance.Article12LogEntry) string {
 	verifierCount := len(entry.Verifiers)
-	verifierText := "no verifiers (autonomous decision)"
+	verifierText := "approver evidence not included in this export"
 	switch verifierCount {
 	case 1:
 		verifierText = "1 verifier"
@@ -167,7 +167,7 @@ func describeEntry(entry compliance.Article12LogEntry) string {
 		}
 	}
 	return fmt.Sprintf(
-		"Article 12 governance log entry. Actor: %s:%s. Decision: %s. Risk: %.2f. %s.",
+		"Release-governance evidence mapped to Article 12 concepts; not an operational AI-use log and not sufficient by itself to establish Article 12 logging duties. Actor: %s:%s. Decision: %s. Risk: %.2f. %s.",
 		entry.Actor.Kind, entry.Actor.ID,
 		entry.OutputDecision, entry.RiskScore,
 		verifierText,
@@ -178,7 +178,7 @@ func describeEntry(entry compliance.Article12LogEntry) string {
 // Article 12 log entry.
 func defaultArticle12Frameworks() []FrameworkMapping {
 	return []FrameworkMapping{
-		{Framework: "EU-AI-Act", Controls: []string{"Article 12", "Article 26(6)"}},
+		{Framework: "EU-AI-Act", Controls: []string{"Article 12 supporting evidence (limited scope)"}},
 		{Framework: "SOC2", Controls: []string{"CC7.1", "CC8.1"}},
 		{Framework: "ISO-27001", Controls: []string{"A.5.10", "A.8.32"}},
 	}

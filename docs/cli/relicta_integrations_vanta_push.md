@@ -8,13 +8,13 @@ Generate compliance evidence and push it to Vanta as custom evidence.
 
 Examples:
 
-  # Push Article 12 log entries for Q1 2026 (one evidence record per entry)
+  # Push release-governance records mapped to Article 12 concepts
   relicta integrations vanta push --period 2026-Q1 --type article12
 
   # Push SOC 2 aggregated evidence (3 records: change log, approvals, risks)
   VANTA_API_TOKEN=secret relicta integrations vanta push --period 2026-Q1 --type soc2
 
-  # Dry-run: render JSON payloads without API calls
+  # Dry-run: render JSON payloads without API calls (not an Article 12 operational log)
   relicta integrations vanta push --period 2026-Q1 --type article12 --dry-run
 
 ```
@@ -36,13 +36,13 @@ relicta integrations vanta push [flags]
 ### Options inherited from parent commands
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
 )
 
 // `relicta mcp serve` never called WithReleaseRepository or WithActorBudgets, so two

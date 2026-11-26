@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 func TestNewServer(t *testing.T) {
@@ -36,6 +37,51 @@ func TestNewServer(t *testing.T) {
 	}
 	if server.router == nil {
 		t.Error("Router should be initialized")
+	}
+}
+
+func TestStartRefusesOIDCWhenProviderDiscoveryFails(t *testing.T) {
+	server := NewServer(ServerDeps{
+		Config: config.DashboardConfig{
+			Address: ":0",
+			Auth: config.DashboardAuthConfig{
+				Mode:          config.DashboardAuthOIDC,
+				SessionSecret: strings.Repeat("s", 32),
+				OIDC: &config.OIDCConfig{
+					IssuerURL:    "http://127.0.0.1:1",
+					ClientID:     "test-client",
+					ClientSecret: "test-secret",
+					RedirectURL:  "http://localhost/callback",
+				},
+			},
+		},
+	})
+
+	err := server.Start(context.Background())
+	if err == nil {
+		t.Fatal("dashboard started without OIDC provider metadata; protected users would have no login or callback")
+	}
+	if !strings.Contains(err.Error(), "OIDC") {
+		t.Fatalf("startup error = %q, want OIDC configuration context", err)
+	}
+}
+
+func TestStartRefusesSessionAuthenticationWithoutTokenSecret(t *testing.T) {
+	server := NewServer(ServerDeps{
+		Config: config.DashboardConfig{
+			Address: ":0",
+			Auth: config.DashboardAuthConfig{
+				Mode: config.DashboardAuthSession,
+			},
+		},
+	})
+
+	err := server.Start(context.Background())
+	if err == nil {
+		t.Fatal("dashboard started with session authentication but no signing secret")
+	}
+	if !strings.Contains(err.Error(), "session_secret") {
+		t.Fatalf("startup error = %q, want the missing secret named", err)
 	}
 }
 

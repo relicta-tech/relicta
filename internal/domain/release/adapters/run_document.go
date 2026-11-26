@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // MarshalRun encodes a run as the same JSON document the file adapter writes to

@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // ADR-012: deployment evidence is reported by whatever performed the deployment,

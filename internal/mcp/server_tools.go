@@ -2,16 +2,20 @@ package mcp
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.klarlabs.de/mcp"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // Tool handlers
@@ -112,6 +116,10 @@ func (s *Server) handleInit(ctx context.Context, input InitToolInput) (string, e
 				// and keep deciding by the old rules.
 				s.cgpService = nil
 			}
+			if reloaded.ProposalStore != nil {
+				s.proposalStore = reloaded.ProposalStore
+				s.cgpService = nil
+			}
 			s.mu.Unlock()
 			if s.cache != nil {
 				s.cache.InvalidateAll()
@@ -163,7 +171,7 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (any, erro
 
 	// Use adapter if available (GetStatus uses releaseServices, not releaseRepo)
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
-		status, err := s.adapter.GetStatus(ctx)
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return toJSONString(map[string]any{
 				"status":  "no_active_release",
@@ -172,13 +180,16 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (any, erro
 		}
 
 		out := StatusToolOutput{
-			ReleaseID:  status.ReleaseID,
-			State:      status.State,
-			Version:    status.Version,
-			Created:    status.CreatedAt,
-			Updated:    status.UpdatedAt,
-			CanApprove: status.CanApprove,
-			NextAction: status.NextAction,
+			ReleaseID:    status.ReleaseID,
+			State:        status.State,
+			Version:      status.Version,
+			Created:      status.CreatedAt,
+			Updated:      status.UpdatedAt,
+			CanApprove:   status.CanApprove,
+			NextAction:   status.NextAction,
+			Notes:        status.Notes,
+			NotesSource:  status.NotesSource,
+			NotesWarning: status.NotesWarning,
 		}
 
 		if status.ApprovalMsg != "" {
@@ -201,24 +212,39 @@ func (s *Server) handleStatus(ctx context.Context, input StatusInput) (any, erro
 		}), nil
 	}
 
-	releases, err := s.releaseRepo.FindActive(ctx)
-	if err != nil || len(releases) == 0 {
+	var (
+		rel *releasedomain.ReleaseRun
+		err error
+	)
+	if input.ReleaseID != "" {
+		rel, err = s.releaseRepo.FindByID(ctx, releasedomain.RunID(input.ReleaseID))
+	} else {
+		var releases []*releasedomain.ReleaseRun
+		releases, err = s.releaseRepo.FindActive(ctx)
+		if err == nil && len(releases) > 0 {
+			rel = releases[0]
+		}
+	}
+	if err != nil || rel == nil {
 		return toJSONString(map[string]any{
 			"status":  "no_active_release",
-			"message": "No active release found. Run 'relicta plan' to start a new release.",
+			"message": "No matching release found. Run 'relicta plan' to start a new release.",
 		}), nil
 	}
 
-	rel := releases[0]
 	result := map[string]any{
-		"state":   rel.State().String(),
-		"version": "",
-		"created": rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-		"updated": rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		"release_id": string(rel.ID()),
+		"state":      rel.State().String(),
+		"version":    "",
+		"created":    rel.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		"updated":    rel.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	if !rel.VersionNext().IsZero() {
 		result["version"] = rel.VersionNext().String()
+	}
+	if notes := rel.Notes(); notes != nil {
+		result["notes"] = notes.Text
 	}
 
 	return toJSONString(result), nil
@@ -236,9 +262,11 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (any, erro
 		}
 
 		planInput := PlanInput{
-			RepositoryPath: repoPath,
-			FromRef:        fromRef,
-			Analyze:        input.Analyze,
+			RepositoryPath:           repoPath,
+			FromRef:                  fromRef,
+			Analyze:                  input.Analyze,
+			DryRun:                   input.DryRun,
+			AllowDivergedVersionLine: input.AllowDivergedVersionLine,
 		}
 
 		// Report progress
@@ -258,15 +286,19 @@ func (s *Server) handlePlan(ctx context.Context, input PlanToolInput) (any, erro
 		}
 
 		out := PlanToolOutput{
-			ReleaseID:      output.ReleaseID,
-			CurrentVersion: output.CurrentVersion,
-			NextVersion:    output.NextVersion,
-			ReleaseType:    output.ReleaseType,
-			CommitCount:    output.CommitCount,
-			HasBreaking:    output.HasBreaking,
-			HasFeatures:    output.HasFeatures,
-			HasFixes:       output.HasFixes,
-			Recommendation: output.Recommendation,
+			ReleaseID:               output.ReleaseID,
+			CurrentVersion:          output.CurrentVersion,
+			NextVersion:             output.NextVersion,
+			ReleaseType:             output.ReleaseType,
+			Warnings:                output.Warnings,
+			VersionLineAcknowledged: output.VersionLineAcknowledged,
+			CommitCount:             output.CommitCount,
+			HasBreaking:             output.HasBreaking,
+			HasFeatures:             output.HasFeatures,
+			HasFixes:                output.HasFixes,
+			Recommendation:          output.Recommendation,
+			RecommendationPersisted: output.RecommendationPersisted,
+			RecommendationWarning:   output.RecommendationWarning,
 		}
 
 		// Include commit details when analyze=true
@@ -310,9 +342,12 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (string, e
 	// Use adapter if available
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
 		bumpInput := BumpInput{
+			ReleaseID:      input.ReleaseID,
 			RepositoryPath: repoPath,
 			BumpType:       bumpType,
 			Version:        input.Version,
+			Prerelease:     input.Prerelease,
+			Build:          input.Build,
 		}
 
 		output, err := s.adapter.Bump(ctx, bumpInput)
@@ -321,6 +356,7 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (string, e
 		}
 
 		result := map[string]any{
+			"release_id":      output.ReleaseID,
 			"current_version": output.CurrentVersion,
 			"next_version":    output.NextVersion,
 			"bump_type":       output.BumpType,
@@ -339,20 +375,23 @@ func (s *Server) handleBump(ctx context.Context, input BumpToolInput) (string, e
 	return "", errNotConfigured("relicta_bump")
 }
 
-func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string, error) {
+func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (any, error) {
+	// Preserve caller-authored prose exactly; trim only when deciding whether a
+	// draft was supplied so whitespace-only input can still select AI generation.
+	draftProvided := strings.TrimSpace(input.Draft) != ""
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
 	// Use adapter if available (GetStatus and Notes both use releaseServices)
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
-		status, err := s.adapter.GetStatus(ctx)
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return "", userError(errors.New("no active release to generate notes for — run relicta_plan first"))
 		}
 
 		// Report progress
 		totalSteps := 3.0
-		if input.AI {
+		if input.AI && !draftProvided {
 			totalSteps = 5.0
 		}
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -360,9 +399,17 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string,
 		}
 
 		notesInput := NotesInput{
-			ReleaseID:        status.ReleaseID,
-			UseAI:            input.AI,
-			IncludeChangelog: true,
+			ReleaseID:    status.ReleaseID,
+			UseAI:        input.AI && !draftProvided,
+			Draft:        input.Draft,
+			Audience:     input.Audience,
+			Tone:         input.Tone,
+			Language:     input.Language,
+			IncludeEmoji: input.Emoji,
+			// An agent draft is the customer-facing notes artifact, not a
+			// separately generated technical changelog. Avoid returning the same
+			// prose a second time under the changelog field.
+			IncludeChangelog: !draftProvided,
 		}
 
 		if progress := mcp.ProgressFromContext(ctx); progress != nil {
@@ -378,20 +425,30 @@ func (s *Server) handleNotes(ctx context.Context, input NotesToolInput) (string,
 			_ = progress.Report(totalSteps, &totalSteps)
 		}
 
-		result := map[string]any{
-			"summary":      output.Summary,
-			"ai_generated": output.AIGenerated,
+		result := NotesToolOutput{
+			ReleaseID:     output.ReleaseID,
+			Version:       output.Version,
+			State:         "notes_ready",
+			Notes:         output.Summary,
+			Summary:       output.Summary,
+			AIGenerated:   output.AIGenerated,
+			AgentAuthored: output.AgentAuthored,
+			Source:        output.Source,
+			Warning:       output.Warning,
+		}
+		if output.AgentAuthored {
+			result.Warning = "Agent-authored notes were saved exactly as supplied and are not fact-checked by Relicta. Verify every claim against the release recommendation before approval."
 		}
 
 		if output.Changelog != "" {
-			result["changelog"] = output.Changelog
+			result.Changelog = output.Changelog
 		}
 
 		s.invalidateCache()
-		return toJSONString(result), nil
+		return result, nil
 	}
 
-	return "", errNotConfigured("relicta_notes")
+	return nil, errNotConfigured("relicta_notes")
 }
 
 func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (string, error) {
@@ -404,7 +461,7 @@ func (s *Server) handleEvaluate(ctx context.Context, input EvaluateToolInput) (s
 
 	// Use adapter for full governance evaluation if available (GetStatus uses releaseServices)
 	if s.adapter != nil && s.adapter.HasGovernanceService() && s.adapter.HasReleaseServices() {
-		status, err := s.adapter.GetStatus(ctx)
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return "", userError(errors.New("no active release to evaluate — run relicta_plan first"))
 		}
@@ -487,29 +544,32 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 
 	// Use adapter if available (GetStatus and Approve both use releaseServices)
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
-		status, err := s.adapter.GetStatus(ctx)
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return "", userError(errors.New("no active release to approve — run relicta_plan first"))
 		}
 
-		// Enforce actor autonomy budget before privileged operation.
-		if err := s.checkBudget(ctx, policy.Operation{
-			Tool:        "relicta_approve",
-			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
-			RiskScore:   status.RiskScore,
-		}); err != nil {
-			return "", err
+		// Elicitation: ask the operator to confirm the release and the exact notes
+		// that will be approved.
+		humanCosigned := false
+		notesForApproval := status.Notes
+		if strings.TrimSpace(input.Notes) != "" {
+			notesForApproval = input.Notes
 		}
-
-		// Elicitation: for major version releases or releases with breaking changes,
-		// ask the agent for explicit confirmation before proceeding. This leverages
-		// MCP elicitation to ensure the human operator acknowledges the release.
 		if elicitor := mcp.ElicitFromContext(ctx); elicitor != nil {
+			approvalMessage := fmt.Sprintf(
+				"Approve release %s (version %s, risk %.2f) for publishing?\n\nRelease notes:\n%s",
+				status.ReleaseID, status.Version, status.RiskScore, notesForApproval,
+			)
+			notesWarning := status.NotesWarning
+			if strings.TrimSpace(input.Notes) != "" {
+				notesWarning = "These replacement release notes were supplied by an agent and are not fact-checked by Relicta. Verify every claim against the reviewed changes before approval."
+			}
+			if notesWarning != "" {
+				approvalMessage += "\n\nNote quality warning: " + notesWarning
+			}
 			result, elicitErr := elicitor.Elicit(ctx, &mcp.ElicitRequest{
-				Message: fmt.Sprintf(
-					"Approve release %s (version %s) for publishing?",
-					status.ReleaseID, status.Version,
-				),
+				Message: approvalMessage,
 			})
 			if elicitErr != nil {
 				s.logger.Debug("elicitation unavailable, proceeding with approval", "error", elicitErr)
@@ -518,14 +578,38 @@ func (s *Server) handleApprove(ctx context.Context, input ApproveToolInput) (str
 					"approved": false,
 					"reason":   "release approval declined",
 				}), nil
+			} else {
+				humanCosigned = true
 			}
 		}
 
+		// A successful human elicitation satisfies a policy cosigner requirement;
+		// without it, the configured actor budget decides whether agent approval is allowed.
+		if err := s.checkBudget(ctx, policy.Operation{
+			Tool:        "relicta_approve",
+			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
+			RiskScore:   status.RiskScore,
+			HasCosigner: humanCosigned,
+		}); err != nil {
+			return "", userError(err)
+		}
+
+		editedNotes := input.Notes
+		expectedNotesHash := ""
+		if humanCosigned {
+			// Persist the exact draft shown during elicitation, so a concurrent draft
+			// update cannot silently change the notes between review and approval.
+			editedNotes = notesForApproval
+			hash := sha256.Sum256([]byte(notesForApproval))
+			expectedNotesHash = hex.EncodeToString(hash[:])
+		}
 		approveInput := ApproveInput{
-			ReleaseID:   status.ReleaseID,
-			ApprovedBy:  "mcp-agent",
-			AutoApprove: true,
-			EditedNotes: input.Notes,
+			ReleaseID:         status.ReleaseID,
+			ApprovedBy:        "mcp-agent",
+			AutoApprove:       true,
+			HumanCosigned:     humanCosigned,
+			EditedNotes:       editedNotes,
+			ExpectedNotesHash: expectedNotesHash,
 		}
 
 		output, err := s.adapter.Approve(ctx, approveInput)
@@ -550,7 +634,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 
 	// Use adapter if available (GetStatus and Publish both use releaseServices)
 	if s.adapter != nil && s.adapter.HasReleaseServices() {
-		status, err := s.adapter.GetStatus(ctx)
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return "", userError(errors.New("no active release to publish — run relicta_plan first"))
 		}
@@ -560,8 +644,9 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 			Tool:        "relicta_publish",
 			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
 			RiskScore:   status.RiskScore,
+			HasCosigner: status.HumanApproved || input.DryRun,
 		}); err != nil {
-			return "", err
+			return "", userError(err)
 		}
 
 		// Report progress
@@ -593,6 +678,7 @@ func (s *Server) handlePublish(ctx context.Context, input PublishToolInput) (str
 		}
 
 		result := map[string]any{
+			"release_id":  output.ReleaseID,
 			"tag_name":    output.TagName,
 			"release_url": output.ReleaseURL,
 			"dry_run":     input.DryRun,
@@ -627,9 +713,9 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (strin
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available (GetStatus uses releaseServices, Cancel uses releaseRepo)
-	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
-		status, err := s.adapter.GetStatus(ctx)
+	// Use the selected release from the application repository.
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return "", fmt.Errorf("no active release to cancel: %w", err)
 		}
@@ -655,7 +741,7 @@ func (s *Server) handleCancel(ctx context.Context, input CancelToolInput) (strin
 			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
 			RiskScore:   status.RiskScore,
 		}); err != nil {
-			return "", err
+			return "", userError(err)
 		}
 
 		reason := input.Reason
@@ -691,9 +777,9 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string,
 	// Ensure consistent repository path (fixes issue #35)
 	s.ensureRepoPath(ctx)
 
-	// Use adapter if available (GetStatus uses releaseServices, Reset uses releaseRepo)
-	if s.adapter != nil && s.adapter.HasReleaseServices() && s.adapter.HasReleaseRepository() {
-		status, err := s.adapter.GetStatus(ctx)
+	// Use the selected release from the application repository.
+	if s.adapter != nil && s.adapter.HasReleaseServices() {
+		status, err := s.adapter.GetStatus(ctx, input.ReleaseID)
 		if err != nil {
 			return toJSONString(map[string]any{
 				"message": "no active release found - nothing to reset",
@@ -723,7 +809,7 @@ func (s *Server) handleReset(ctx context.Context, input ResetToolInput) (string,
 			BlastRadius: blastRadiusForRiskScore(status.RiskScore),
 			RiskScore:   status.RiskScore,
 		}); err != nil {
-			return "", err
+			return "", userError(err)
 		}
 
 		// Reset (delete) the release

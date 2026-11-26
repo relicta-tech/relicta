@@ -1,8 +1,8 @@
 package container
 
 import (
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	inframultirepo "github.com/relicta-tech/relicta/v4/internal/infrastructure/multirepo"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	inframultirepo "github.com/relicta-tech/relicta/v5/internal/infrastructure/multirepo"
 )
 
 // NewMultirepoCoordinator builds the coordinator for group commands, with a git adapter that

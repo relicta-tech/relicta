@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 // Incidents heard through the webhook, and what becomes of them.
@@ -37,9 +37,9 @@ const confidenceTag = "correlation-confidence="
 const sourceTag = "source="
 
 // recordIncident attributes an incident to a release and stores it.
-func (s *Service) recordIncident(ctx context.Context, incident receiver.Incident) {
+func (s *Service) recordIncident(ctx context.Context, incident receiver.Incident) error {
 	if s.store == nil {
-		return
+		return nil
 	}
 
 	record := &memory.IncidentRecord{
@@ -72,7 +72,9 @@ func (s *Service) recordIncident(ctx context.Context, incident receiver.Incident
 
 	if err := s.store.RecordIncident(ctx, record); err != nil {
 		s.logger().Warn("incident not recorded", "incident_id", incident.ID, "error", err)
+		return fmt.Errorf("record incident %q: %w", record.ID, err)
 	}
+	return nil
 }
 
 // incidentID is what the incident is filed under.

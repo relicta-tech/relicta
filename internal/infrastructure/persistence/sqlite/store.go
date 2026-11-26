@@ -29,9 +29,9 @@ import (
 	// Registers the "sqlite" driver name used by Open. Pure Go, so CGO_ENABLED=0 holds.
 	_ "modernc.org/sqlite"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 const (

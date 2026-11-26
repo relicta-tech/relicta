@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // TestNewDBCommands verifies construction.

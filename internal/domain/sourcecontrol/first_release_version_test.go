@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // Two constants describe a repository that has never released, and they mean

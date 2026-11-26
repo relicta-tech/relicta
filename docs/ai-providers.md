@@ -4,13 +4,22 @@ Relicta supports multiple AI providers for generating changelogs, release notes,
 
 ## Supported Providers (2026)
 
-| Provider | Default Model | High-Stakes | Fast / Low-Cost | Best For |
-|----------|---------------|-------------|-----------------|----------|
-| **OpenAI** | `gpt-5` | `gpt-5` | `gpt-5-mini` | General purpose, balanced quality |
-| **Azure OpenAI** | `gpt-5` | `gpt-5` | `gpt-5-mini` | Enterprise procurement, private cloud |
-| **Anthropic Claude** | `claude-sonnet-4-6` | `claude-opus-4-7` | `claude-haiku-4-5` | Governance prose, long context, **prompt caching enabled** |
-| **Google Gemini** | `gemini-2.5-flash` | `gemini-2.5-pro` | `gemini-2.5-flash` | Cost-effective, long context |
-| **Ollama** | configurable | — | — | Local, privacy, offline (air-gapped enterprise) |
+| Provider | Default Model | Higher-Capability Option | Lower-Cost Option | Notes |
+|----------|---------------|--------------------------|-------------------|-------|
+| **OpenAI** | `gpt-6.2-sol` | `gpt-6.2-astra` | `gpt-6-luna` | Model roles follow the current OpenAI catalog |
+| **Azure OpenAI** | Your deployment | Your deployment | Your deployment | Configure the deployment name from your Azure resource |
+| **Anthropic Claude** | `claude-sonnet-4-6` | `claude-opus-4-8` | `claude-haiku-4-5` | Anthropic prompt caching is enabled by the adapter |
+| **Google Gemini** | `gemini-3.5-flash-lite` | `gemini-3.8-flash` | `gemini-3.5-flash-lite` | Check current account and model limits |
+| **Ollama** | configurable | — | — | Relicta connects to the configured Ollama endpoint |
+
+Model IDs were checked against the provider catalogs on 2026-11-25. Recheck them before
+upgrading defaults: [Anthropic model deprecations](https://docs.anthropic.com/en/docs/about-claude/model-deprecations),
+[Gemini API models](https://ai.google.dev/gemini-api/docs/models) and
+[deprecations](https://ai.google.dev/gemini-api/docs/deprecations),
+[OpenAI API models](https://developers.openai.com/api/docs/models), and
+[Azure deployment naming](https://learn.microsoft.com/en-us/azure/developer/ai/how-to/switching-endpoints).
+The OpenAI entry is the general configuration default; automatic OpenAI detection selects
+`gpt-6-luna` for cost-sensitive, high-volume requests.
 
 ### Per-use-case overrides
 
@@ -21,17 +30,17 @@ ai:
   provider: anthropic
   model: claude-sonnet-4-6              # default
   model_overrides:
-    risk_narrative: claude-opus-4-7     # governance-sensitive prose
+    risk_narrative: claude-opus-4-8     # governance-sensitive prose
     summarize_diff: claude-haiku-4-5    # fast/cheap for diff summaries
-    communicate:    claude-opus-4-7     # audience-aware narratives
+    communicate:    claude-opus-4-8     # audience-aware narratives
     release_notes:  claude-sonnet-4-6   # default is fine
 ```
 
 ### Anthropic Prompt Caching
 
-Relicta's Anthropic adapter automatically sends system prompts via `MultiSystem` with `cache_control: ephemeral`. On repeated calls with the same governance/changelog/release-notes system prompt, Anthropic's 5-minute prompt cache returns cached tokens, typically reducing per-call cost by 5-10x and improving TTFT for batched workloads.
-
-Caching applies only to system prompts above Anthropic's minimum cacheable token threshold; below that threshold the hint is a no-op (no cost penalty).
+Relicta's Anthropic adapter marks system prompts for ephemeral prompt caching. Whether a prompt
+is cacheable and the resulting latency or billing depend on Anthropic's current model, account,
+and cache rules; check the provider's documentation when estimating cost.
 
 ## Quick Start
 
@@ -52,7 +61,7 @@ ai:
   enabled: true
   provider: openai
   api_key: ${OPENAI_API_KEY}
-  model: gpt-4o  # or gpt-4, gpt-3.5-turbo
+  model: gpt-6.2-sol
   max_tokens: 4096
   temperature: 0.7
 ```
@@ -63,9 +72,9 @@ export OPENAI_API_KEY="sk-proj-..."
 ```
 
 **Models:**
-- `gpt-4o` - Latest, fastest GPT-4 (recommended)
-- `gpt-4` - High quality, slower
-- `gpt-3.5-turbo` - Fast, cost-effective
+- `gpt-6.2-sol` - Balanced model and default
+- `gpt-6.2-astra` - Higher capability for complex tasks
+- `gpt-6-luna` - Cost-sensitive workloads
 
 ---
 
@@ -74,7 +83,7 @@ export OPENAI_API_KEY="sk-proj-..."
 **1. Create Azure OpenAI Resource:**
 - Log in to Azure Portal
 - Create "Azure OpenAI" resource
-- Note: Resource name, deployment name, API version
+- Note: Resource endpoint and deployment name
 
 **2. Get API Key:**
 - Navigate to your Azure OpenAI resource
@@ -88,9 +97,8 @@ ai:
   enabled: true
   provider: azure-openai
   api_key: ${AZURE_OPENAI_KEY}
-  base_url: https://<resource-name>.openai.azure.com/openai/deployments/<deployment-name>
-  api_version: "2024-02-15-preview"
-  model: gpt-4  # Your deployment name
+  base_url: https://<resource-name>.openai.azure.com/openai/v1
+  model: your-deployment-name
   max_tokens: 4096
   temperature: 0.7
 ```
@@ -98,17 +106,24 @@ ai:
 **4. Set Environment Variable:**
 ```bash
 export AZURE_OPENAI_KEY="abc123..."
+export AZURE_OPENAI_ENDPOINT="https://<resource-name>.openai.azure.com"
+export RELICTA_AI_MODEL="your-deployment-name"
 ```
 
+With these variables and no Relicta config file, auto-detection uses the Azure `/openai/v1`
+endpoint. It appends that route to a resource-root endpoint; set `RELICTA_AI_MODEL` to your
+deployed model's name.
+
 **Key Differences from OpenAI:**
-- Requires `base_url` with your Azure resource and deployment
-- Requires `api_version` (latest: `2024-02-15-preview`)
+- The Azure v1 endpoint is `/openai/v1`; the model field is your Azure deployment name.
+- The v1 endpoint does not require a dated `api_version`.
 - API key format: 32 hex characters
-- Model name matches your deployment name
+- If using the legacy dated endpoint, configure the resource root as `base_url` and set an
+  API version supported by that resource. The adapter fallback is `2024-02-15-preview`.
 
 **Example Base URLs:**
-- Single model: `https://myresource.openai.azure.com/openai/deployments/gpt-4`
-- With version: `https://myresource.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview`
+- Current v1: `https://myresource.openai.azure.com/openai/v1`
+- Legacy dated API resource root: `https://myresource.openai.azure.com`
 
 ---
 
@@ -127,7 +142,7 @@ ai:
   enabled: true
   provider: anthropic
   api_key: ${ANTHROPIC_API_KEY}
-  model: claude-3-5-sonnet-20241022  # or claude-3-opus-20240229
+  model: claude-sonnet-4-6
   max_tokens: 8192
   temperature: 0.7
 ```
@@ -138,14 +153,13 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 **Models:**
-- `claude-3-5-sonnet-20241022` - Latest Sonnet (recommended)
-- `claude-3-opus-20240229` - Highest quality, slowest
-- `claude-3-haiku-20240307` - Fast, cost-effective
+- `claude-sonnet-4-6` - Balanced model and default
+- `claude-opus-4-8` - Highest capability
+- `claude-haiku-4-5` - Fast, cost-effective
 
-**Strengths:**
-- 200K token context window (excellent for large changelogs)
-- Strong at analysis and summarization
-- Constitutional AI for safer outputs
+**Notes:**
+- Review the current model catalog for context limits and API availability.
+- Evaluate generated notes against your own release examples before selecting a model.
 
 ---
 
@@ -164,7 +178,7 @@ ai:
   enabled: true
   provider: gemini
   api_key: ${GEMINI_API_KEY}
-  model: gemini-2.0-flash-exp  # or gemini-1.5-pro, gemini-1.5-flash
+  model: gemini-3.5-flash-lite
   max_tokens: 8192
   temperature: 0.7
 ```
@@ -175,14 +189,12 @@ export GEMINI_API_KEY="AIza..."
 ```
 
 **Models:**
-- `gemini-2.0-flash-exp` - Latest experimental (recommended, fastest)
-- `gemini-1.5-pro` - High quality, large context
-- `gemini-1.5-flash` - Fast, cost-effective
+- `gemini-3.8-flash` - Higher capability for complex tasks
+- `gemini-3.5-flash-lite` - Fast, cost-effective default
 
-**Strengths:**
-- Very cost-effective ($0.0001-$0.007/1K tokens)
-- Up to 2M token context window
-- Multimodal capabilities (future use)
+**Notes:**
+- Check current model limits, pricing, and API availability in Google's model catalog.
+- Evaluate generated notes against your own release examples before selecting a model.
 
 ---
 
@@ -223,22 +235,11 @@ ai:
 
 **No API key required** - Ollama runs locally
 
-**Popular Models:**
-- `llama3.2` - Meta's latest (recommended)
-- `mistral` - Fast, high quality
-- `codellama` - Code-focused
-- `phi` - Microsoft's small model
+**Example model IDs:** `llama3.2`, `mistral`, `codellama`, and `phi`. Confirm the model is
+available on your Ollama server before configuring Relicta.
 
-**Strengths:**
-- 100% private - data never leaves your machine
-- No API costs
-- Works offline
-- Full control over model selection
-
-**Requirements:**
-- 8GB+ RAM (16GB recommended)
-- 4-8GB disk space per model
-- CPU or GPU (GPU much faster)
+Ollama can run without a hosted model API key. Cost, network exposure, privacy, and hardware
+requirements depend on where the Ollama server runs and which model you install.
 
 ---
 
@@ -253,7 +254,7 @@ ai:
   enabled: true              # Enable AI features
   provider: openai           # Provider: openai, azure-openai, anthropic, gemini, ollama
   api_key: ${API_KEY}       # API key from env var (not needed for Ollama)
-  model: gpt-4o             # Model name/ID
+  model: gpt-6.2-sol        # Model name/ID
   max_tokens: 4096          # Maximum response length
   temperature: 0.7          # Creativity (0.0-1.0)
   tone: professional        # Tone: professional, casual, technical
@@ -273,8 +274,8 @@ ai:
 ```yaml
 ai:
   provider: azure-openai
-  base_url: https://resource.openai.azure.com/openai/deployments/deployment  # Required
-  api_version: "2024-02-15-preview"                                           # Required
+  base_url: https://resource.openai.azure.com/openai/v1  # Azure v1
+  model: your-deployment-name
 ```
 
 #### Anthropic
@@ -301,106 +302,33 @@ ai:
 
 ---
 
-## Provider Comparison
-
-### Quality & Performance
-
-| Provider | Quality | Speed | Context Length | Best Use Case |
-|----------|---------|-------|----------------|---------------|
-| **OpenAI GPT-4o** | ★★★★★ | ★★★★★ | 128K tokens | General purpose, balanced |
-| **OpenAI GPT-4** | ★★★★★ | ★★★☆☆ | 128K tokens | Highest quality |
-| **Azure OpenAI** | ★★★★★ | ★★★★☆ | 128K tokens | Enterprise compliance |
-| **Claude 3.5 Sonnet** | ★★★★★ | ★★★★☆ | 200K tokens | Large projects, analysis |
-| **Claude 3 Opus** | ★★★★★ | ★★★☆☆ | 200K tokens | Complex analysis |
-| **Gemini 2.0 Flash** | ★★★★☆ | ★★★★★ | 2M tokens | Cost-effective, fast |
-| **Gemini 1.5 Pro** | ★★★★☆ | ★★★★☆ | 2M tokens | Large context |
-| **Ollama (Llama 3.2)** | ★★★★☆ | ★★★☆☆ | 128K tokens | Privacy, offline |
-
-### Cost Comparison
-
-**Input Pricing** (per 1M tokens):
-
-| Provider | Entry Model | Mid Model | Premium Model |
-|----------|-------------|-----------|---------------|
-| **OpenAI** | $0.50 (3.5-turbo) | $10 (GPT-4o) | $30 (GPT-4) |
-| **Azure OpenAI** | Enterprise pricing | Enterprise pricing | Enterprise pricing |
-| **Anthropic** | $3 (Haiku) | $15 (Sonnet) | $75 (Opus) |
-| **Gemini** | $0.075 (Flash) | $1.25 (Pro) | $7 (Pro 1.5) |
-| **Ollama** | Free | Free | Free |
-
-**Output Pricing** is typically 2-3x input pricing.
-
-**Estimated Monthly Cost** (1000 releases/month, avg 2K tokens):
-
-| Provider | Estimated Cost |
-|----------|---------------|
-| **OpenAI GPT-4o** | ~$20-40 |
-| **Anthropic Sonnet** | ~$30-60 |
-| **Gemini Flash** | ~$0.15-0.30 |
-| **Ollama** | $0 (hardware costs only) |
-
-### Feature Support
-
-| Feature | OpenAI | Azure | Claude | Gemini | Ollama |
-|---------|--------|-------|--------|--------|--------|
-| Changelog Generation | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Release Notes | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Commit Categorization | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Breaking Change Detection | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Custom Prompts | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Streaming Responses | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Function Calling | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Long Context (>100K) | ✅ | ✅ | ✅ | ✅ | ✅* |
-
-*Depends on model
-
----
-
 ## Choosing a Provider
 
-### Decision Matrix
+Start with the default model for the provider you already operate, then compare providers
+using representative repositories and release-note drafts. Quality, latency, context limits,
+availability, and price vary by model, account, region, and endpoint; they are not fixed
+provider-wide properties. Check each provider's current catalog and pricing before budgeting.
 
-**Choose OpenAI if you want:**
-- ✅ Best overall quality-to-speed ratio
-- ✅ Most popular, well-documented
-- ✅ Latest features and capabilities
-- ✅ Reliable, stable API
+| Need | Configuration to consider |
+|------|---------------------------|
+| Balanced OpenAI output | `gpt-6.2-sol` |
+| More capable OpenAI output | `gpt-6.2-astra` |
+| Lower-cost OpenAI requests | `gpt-6-luna` |
+| Anthropic | Start with `claude-sonnet-4-6`; compare Opus or Haiku for your workload |
+| Google Gemini | Start with `gemini-3.5-flash-lite`; compare `gemini-3.8-flash` for complex tasks |
+| Azure OpenAI | Use the deployment name configured in your Azure resource |
+| Local inference | Use Ollama with a model installed on your host |
 
-**Choose Azure OpenAI if you need:**
-- ✅ Enterprise compliance (GDPR, HIPAA, SOC 2)
-- ✅ Private deployment in your Azure tenant
-- ✅ Data residency requirements
-- ✅ Microsoft enterprise support
+For local inference, model execution stays on the configured Ollama host; Relicta still sends
+requests to that host. A remote Ollama host therefore has its own network and data-handling
+considerations. For hosted providers, review the provider agreement, region, retention settings,
+and organizational requirements before sending repository content. Relicta's provider choice
+does not itself establish a compliance certification, data residency guarantee, or privacy
+commitment.
 
-**Choose Anthropic Claude if you need:**
-- ✅ Very long context windows (200K tokens)
-- ✅ Strong analysis and summarization
-- ✅ Constitutional AI safety
-- ✅ Alternative to OpenAI
-
-**Choose Google Gemini if you want:**
-- ✅ Most cost-effective option
-- ✅ Massive context windows (2M tokens)
-- ✅ Fast inference speeds
-- ✅ Future multimodal capabilities
-
-**Choose Ollama if you need:**
-- ✅ 100% privacy - no data leaves your machine
-- ✅ Offline operation
-- ✅ No API costs
-- ✅ Full control over infrastructure
-
-### Recommendations by Use Case
-
-| Use Case | Recommended Provider | Why |
-|----------|---------------------|-----|
-| **Startup/Individual** | Gemini Flash | Best cost-performance ratio |
-| **Small Team** | OpenAI GPT-4o | Balanced quality and speed |
-| **Enterprise** | Azure OpenAI | Compliance, security, support |
-| **Large Projects** | Claude 3.5 Sonnet | Large context, great analysis |
-| **Privacy-Critical** | Ollama | Local, no data sharing |
-| **High Volume** | Gemini 1.5 Pro | Cost-effective at scale |
-| **Offline/Air-Gapped** | Ollama | Works without internet |
+To compare quality and cost, use the same representative commit range, audience, and output
+requirements for each provider. Review factual accuracy, omitted changes, tone, latency, and
+token usage before choosing a default for your team.
 
 ---
 
@@ -415,14 +343,14 @@ You can configure different providers for different release types:
 ai:
   enabled: true
   provider: openai
-  model: gpt-4o
+  model: gpt-6.2-sol
   temperature: 0.7
 
 # staging.config.yaml - Use cost-effective for staging
 ai:
   enabled: true
   provider: gemini
-  model: gemini-2.0-flash-exp
+  model: gemini-3.5-flash-lite
   temperature: 0.7
 ```
 
@@ -434,7 +362,7 @@ Customize AI behavior with tone settings:
 ai:
   enabled: true
   provider: openai
-  model: gpt-4o
+  model: gpt-6.2-sol
   tone: technical        # Options: professional, casual, technical
   temperature: 0.5       # Lower = more focused, higher = more creative
 ```
@@ -447,7 +375,7 @@ Configure resilience settings:
 ai:
   enabled: true
   provider: openai
-  model: gpt-4o
+  model: gpt-6.2-sol
   timeout: 30s           # Request timeout (default: 30s)
   max_retries: 3         # Retry count (default: 3)
 ```
@@ -483,7 +411,7 @@ ai:
 **Solutions:**
 1. Reduce frequency of releases
 2. Upgrade to higher tier plan
-3. Switch to provider with higher limits (Gemini, Ollama)
+3. Check your provider account's current quota and configured model limits
 4. Implement backoff in CI/CD pipeline
 
 #### Context Length Exceeded
@@ -491,10 +419,7 @@ ai:
 **Error:** `context length exceeded` or `maximum context length is X tokens`
 
 **Solutions:**
-1. Switch to model with larger context:
-   - OpenAI: GPT-4 (128K)
-   - Claude: Sonnet/Opus (200K)
-   - Gemini: Pro (2M)
+1. Check the selected model's current context limit in its provider catalog.
 
 2. Reduce changelog size by filtering commits:
    ```yaml
@@ -514,12 +439,13 @@ ai:
 **Solutions:**
 1. Verify `base_url` format:
    ```
-   https://<resource>.openai.azure.com/openai/deployments/<deployment>
+   https://<resource>.openai.azure.com/openai/v1
    ```
 
-2. Check `api_version` is current (use `2024-02-15-preview`)
+2. Verify `model` matches the deployment name in Azure
 
-3. Ensure deployment name matches `model` field
+3. For a legacy dated endpoint, set the resource root in `base_url` and configure an API version
+   supported by the resource
 
 4. Verify resource region supports the model
 
@@ -552,10 +478,10 @@ ai:
 **Symptoms:** Releases taking >30 seconds
 
 **Solutions:**
-1. Switch to faster model:
-   - OpenAI: GPT-4o (not GPT-4)
-   - Gemini: Flash (not Pro)
-   - Claude: Haiku (not Opus)
+1. Compare lower-cost options with a representative release:
+   - OpenAI: `gpt-6-luna`
+   - Gemini: `gemini-3.5-flash-lite`
+   - Anthropic: `claude-haiku-4-5`
 
 2. Reduce `max_tokens`:
    ```yaml
@@ -576,11 +502,14 @@ ai:
 Verify your AI setup:
 
 ```bash
-# Test with dry-run
+# Generate a preview without saving it (the configured provider is still called)
 relicta notes --dry-run
 
-# Check AI provider connectivity
-relicta health  # (if implemented)
+# Check repository and configuration health
+relicta health
+
+# Exercise the configured provider with a draft release note
+relicta notes --dry-run
 
 # View AI-generated content
 relicta notes --verbose
@@ -595,9 +524,9 @@ relicta notes --verbose
 **DO:**
 - ✅ Store API keys in environment variables
 - ✅ Use separate keys for dev/staging/prod
-- ✅ Rotate keys regularly (every 90 days)
+- ✅ Rotate keys according to your organization's credential policy
 - ✅ Use CI/CD secret management (GitHub Secrets, etc.)
-- ✅ Restrict key permissions (read-only where possible)
+- ✅ Apply the provider's available key and account controls
 
 **DON'T:**
 - ❌ Commit API keys to version control
@@ -605,6 +534,10 @@ relicta notes --verbose
 - ❌ Use production keys in development
 - ❌ Log API keys in error messages
 - ❌ Include keys in error reports
+
+The wizard does not ask you to paste API keys. Set keys via environment variables and reference
+them in config. A literal key placed in `.relicta.yaml` is stored as plaintext; keep secrets out
+of the file.
 
 ### Environment Variable Examples
 
@@ -620,27 +553,16 @@ export AZURE_OPENAI_KEY="abc123..."
 ${{ secrets.OPENAI_API_KEY }}
 ```
 
-### Network Security
+### Data handling and network security
 
-**For cloud providers (OpenAI, Claude, Gemini):**
-- All communication uses TLS 1.2+
-- API keys sent via HTTP headers, not URLs
-- No PII or sensitive data in prompts
-
-**For Ollama (local):**
-- No external network access required
-- Data stays on your machine
-- Consider firewall rules if exposing to network
-
-### Compliance Considerations
-
-| Provider | GDPR | HIPAA | SOC 2 | Data Residency |
-|----------|------|-------|-------|----------------|
-| **OpenAI** | ✅ | ❌ | ✅ | US |
-| **Azure OpenAI** | ✅ | ✅ | ✅ | Configurable |
-| **Anthropic** | ✅ | ❌ | ✅ | US |
-| **Gemini** | ✅ | ❌ | ✅ | US/EU |
-| **Ollama** | ✅ | ✅ | N/A | Local |
+- Review the hosted provider's data handling terms and configure an endpoint and region approved
+  by your organization.
+- Treat repository content sent for generation as data disclosed to that provider. Commit
+  messages and diffs can contain names, issue details, or other sensitive information.
+- Keep API keys in environment variables or a secrets manager and avoid printing them in logs.
+- Relicta sends Ollama requests to the configured endpoint. For a remote server, use network
+  controls appropriate to your environment; local inference alone does not establish compliance
+  or guarantee that no other process can access the data.
 
 ---
 
@@ -658,13 +580,13 @@ To switch from one provider to another:
    ai:
      provider: openai
      api_key: ${OPENAI_API_KEY}
-     model: gpt-4o
+     model: gpt-6.2-sol
 
    # After
    ai:
      provider: gemini
      api_key: ${GEMINI_API_KEY}
-     model: gemini-2.0-flash-exp
+     model: gemini-3.5-flash-lite
    ```
 
 3. **Set new environment variable:**
@@ -679,15 +601,9 @@ To switch from one provider to another:
 
 5. **Verify output quality** matches expectations
 
-### Model Equivalents
-
-When migrating, use these equivalent models:
-
-| OpenAI | Azure | Claude | Gemini | Ollama |
-|--------|-------|--------|--------|--------|
-| GPT-4o | GPT-4o | Sonnet 3.5 | Flash 2.0 | Llama 3.2 |
-| GPT-4 | GPT-4 | Opus 3 | Pro 1.5 | Mistral |
-| GPT-3.5 | GPT-3.5 | Haiku 3 | Flash 1.5 | Phi |
+There is no guaranteed one-to-one model equivalent across providers. Compare candidates on
+representative release data and review factual accuracy, omitted changes, tone, latency, and
+token usage before switching a production workflow.
 
 ---
 
@@ -716,7 +632,7 @@ Reduce costs by optimizing token usage:
 3. **Use smaller models for simple releases:**
    ```yaml
    ai:
-     model: gemini-1.5-flash  # Instead of gemini-1.5-pro
+     model: gemini-3.5-flash-lite
    ```
 
 ### Caching Strategies
@@ -732,14 +648,6 @@ ai:
 
 Cached responses are stored in `.relicta/cache/` (gitignored).
 
-### Batch Processing
-
-For large projects with many releases, consider:
-
-1. **Batch releases weekly** instead of per-commit
-2. **Use Gemini for cost savings** at scale
-3. **Enable changelog caching** to reuse AI outputs
-4. **Optimize prompts** to reduce token usage
 
 ---
 
@@ -747,61 +655,48 @@ For large projects with many releases, consider:
 
 ### Can I use multiple providers?
 
-Not simultaneously, but you can switch providers per release by changing the config or using different config files:
+Not simultaneously, but you can switch providers per release by changing the config or using
+different config files:
 
 ```bash
-# Use OpenAI for production
 relicta publish -c production.config.yaml
-
-# Use Gemini for development
 relicta publish -c development.config.yaml
 ```
 
-### Which provider is most cost-effective?
+### How do I compare cost and privacy?
 
-**Gemini Flash** is the most cost-effective at $0.075/1M input tokens - 10-100x cheaper than alternatives while maintaining good quality.
-
-### Which provider is most private?
-
-**Ollama** is the only provider that keeps data 100% local. No API calls, no data sharing, fully offline capable.
+Check current provider pricing and your organization's data-handling requirements. Cost depends
+on the selected model, input and output volume, caching, account tier, and region. With Ollama,
+Relicta sends requests to the configured server; verify where that server runs and who can access
+it.
 
 ### Can I use custom models?
 
-- **OpenAI**: Only official models supported
-- **Azure**: Any Azure-deployed model
-- **Claude**: Only official models
-- **Gemini**: Only official models
-- **Ollama**: Any Ollama-compatible model (dozens available)
+- **Azure OpenAI:** use the deployment name configured in Azure.
+- **Ollama:** use a model installed and supported by the configured Ollama server.
+- **Other hosted providers:** use a model ID supported by the provider API and Relicta adapter.
 
 ### How do I improve output quality?
 
-1. Use higher-quality models (GPT-4, Opus, Pro)
-2. Adjust temperature (lower = more focused)
-3. Set appropriate tone (professional, technical, casual)
-4. Provide good commit messages (garbage in, garbage out)
-5. Use conventional commits for better categorization
+1. Compare models using representative release changes.
+2. Adjust temperature where the provider and model support it.
+3. Set an appropriate tone and audience.
+4. Provide clear commit messages and review the generated output before publishing.
 
 ### What happens if AI is disabled?
 
-Relicta falls back to template-based changelog generation without AI enhancement. Basic functionality continues to work.
+Relicta falls back to template-based changelog generation without AI enhancement. Basic
+functionality continues to work.
 
 ### Can I run Ollama on a server?
 
-Yes! Ollama can run on any Linux/macOS server:
-
-```bash
-# On server
-ollama serve --host 0.0.0.0:11434
-
-# In config
-ai:
-  provider: ollama
-  base_url: http://your-server:11434
-```
+Yes. Configure `base_url` to the server address and protect that endpoint with controls suitable
+for your network and data.
 
 ### Which provider has the longest context?
 
-**Gemini** has the longest context at 2M tokens, followed by **Claude** at 200K tokens.
+Context limits vary by model and can change. Check the provider's current catalog for the exact
+model you plan to use, then keep the release input within that limit.
 
 ---
 
@@ -840,14 +735,6 @@ ai:
 
 ## Summary
 
-Relicta supports 5 AI providers, each with unique strengths:
-
-- **OpenAI** - Best overall, industry standard
-- **Azure OpenAI** - Enterprise compliance and security
-- **Anthropic Claude** - Long context, strong analysis
-- **Google Gemini** - Most cost-effective, massive context
-- **Ollama** - 100% private, free, offline
-
-Choose based on your priorities: quality, cost, privacy, or compliance. All providers deliver excellent results for changelog and release note generation.
-
-For most users, we recommend starting with **Gemini Flash** for cost-effectiveness or **OpenAI GPT-4o** for balanced performance.
+Relicta integrates with OpenAI, Azure OpenAI, Anthropic, Google Gemini, and Ollama. Choose a
+provider and model based on your organization's endpoint, data-handling, availability, and cost
+requirements. Review generated notes before publishing them to customers.

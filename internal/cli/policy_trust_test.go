@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
 )
 
 // A field a policy author cannot exercise is barely better than one that does not

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
 )
 
 // Store provides access to release memory for historical analysis.

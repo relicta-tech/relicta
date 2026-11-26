@@ -44,38 +44,29 @@ pause 3
 # Reset state (delete tag, reset)
 git tag -d v2.0.0 2>/dev/null || true
 
-# SUCCESS CASE 3: With AI notes
+# SUCCESS CASE 3: Force a specific version
 echo ""
-echo -e "${GREEN}━━━ Success: With AI-powered notes ━━━${NC}"
+echo -e "${GREEN}━━━ Success: Force a specific version ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta release -y -a${NC}"
+echo -e "$ ${YELLOW}relicta release -y --force v5.0.0${NC}"
 pause 0.5
-relicta release -y -a
-pause 3
-
-# Reset state
-git tag -d v2.0.0 2>/dev/null || true
-
-# SUCCESS CASE 4: Force specific version
-echo ""
-echo -e "${GREEN}━━━ Success: Force specific version ━━━${NC}"
-echo ""
-echo -e "$ ${YELLOW}relicta release -y -F v5.0.0${NC}"
-pause 0.5
-relicta release -y -F v5.0.0
+relicta release -y --force v5.0.0
 pause 3
 
 # Reset state
 git tag -d v5.0.0 2>/dev/null || true
 
-# SUCCESS CASE 5: Skip push (local only)
+# SUCCESS CASE 4: Skip push (local only)
 echo ""
-echo -e "${GREEN}━━━ Success: Skip push to remote ━━━${NC}"
+echo -e "${GREEN}━━━ Success: Skip push (local only) ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta release -y -P${NC}"
+echo -e "$ ${YELLOW}relicta release -y --skip-push${NC}"
 pause 0.5
-relicta release -y -P
+relicta release -y --skip-push
 pause 3
+
+# Reset state
+git tag -d v5.0.0 2>/dev/null || true
 
 # ERROR CASE 1: No commits to release
 git tag -d v2.0.0 2>/dev/null || true
@@ -109,10 +100,9 @@ echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "  Flags:"
 echo "    -y, --yes         Auto-approve (skip confirmation)"
-echo "    -a, --ai          Use AI for release notes"
-echo "    -F, --force       Force specific version"
-echo "    -P, --skip-push   Skip pushing to remote"
-echo "    -T, --skip-tag    Skip git tag creation"
+echo "    -f, --force       Force specific version"
+echo "    --skip-push       Skip pushing to remote"
+echo "    -x, --clean       Clear active release state before starting"
 echo "    --dry-run         Preview entire workflow"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

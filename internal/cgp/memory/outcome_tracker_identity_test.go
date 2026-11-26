@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	release "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	release "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // The outcome tracker is wired as an event-publisher decorator (container.go), so it

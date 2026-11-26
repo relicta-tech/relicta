@@ -26,7 +26,7 @@ This document proposes a comprehensive redesign of Relicta's plugin system to ad
 | Principle | Rationale |
 |-----------|-----------|
 | **Plugin SDK First** | Plugin authors should have a clear, documented SDK to build against |
-| **Secure by Default** | All plugins verified via checksums; isolated execution via go-plugin |
+| **Secure by Default (target)** | Proposed goal only; this is not a claim about the current runtime |
 | **Backward Compatibility** | Versioned protocol allows host-plugin compatibility checking |
 | **Developer Experience** | Simple local development with `relicta plugin dev` support |
 | **Distribution Neutral** | Support multiple distribution channels (registry, local, git) |
@@ -603,7 +603,13 @@ Relicta CLI (Host)
   Plugin Process (Separate Binary)
 ```
 
-**Current:** ✅ Secure isolation via go-plugin
+**Current:** Plugins run in a separate process and communicate over gRPC through
+HashiCorp go-plugin. Process separation is not, by itself, a security sandbox or
+proof of untrusted-code isolation. The runtime applies platform-specific resource
+controls, requires explicit trust opt-in on best-effort platforms, and reports
+its posture with `relicta plugin sandbox-status`. Plugin signatures are not
+verified. See the current runtime and `README.md` for the supported guarantees;
+this historical design proposal does not define them.
 
 ### 6.2 Data Flow
 
@@ -740,7 +746,7 @@ func verifySignature(pluginPath, signature, publicKeyPath string) error {
 ### 7.3 Security Checklist
 
 - [x] Path traversal prevention
-- [x] Process isolation (go-plugin)
+- [x] Separate plugin process (go-plugin; not equivalent to a security sandbox)
 - [x] Plugin binary validation
 - [ ] Checksum verification on install
 - [ ] Signature verification (optional)

@@ -15,10 +15,16 @@ Examples:
   relicta clean --keep 5            # Keep last 5 runs
   relicta clean --older-than 30d    # Remove runs older than 30 days
   relicta clean --all               # Remove all except the latest
+  relicta clean --run run-af793f82  # Remove one specific run
   relicta clean --dry-run           # Show what would be deleted
 
 The command will never delete an active (in-progress) release run.
 Use 'relicta cancel' to cancel an active release first.
+
+--run is the escape hatch for a stale run in a terminal state ('published'
+or 'canceled'). Such a run is skipped by --all when it is also the latest,
+and 'reset' and 'cancel' both decline it because there is nothing in flight
+to return to a clean state.
 
 ```
 relicta clean [flags]
@@ -32,18 +38,19 @@ relicta clean [flags]
   -h, --help                help for clean
   -k, --keep int            keep the last N release runs (default: 10) (default 10)
   -o, --older-than string   remove runs older than duration (e.g., 7d, 30d)
+      --run string          remove one specific run by ID, whatever its state or age
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output

@@ -15,14 +15,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/ui"
-	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/ui"
+	pkgcgp "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // emitApprovalCardJSON writes the canonical ApprovalCard JSON to stdout.
@@ -65,6 +65,8 @@ var (
 	approveYes            bool
 	approveOverride       bool
 	approveOverrideReason string
+	approveActorID        string
+	approveActorType      string
 	approveEdit           bool
 	approveEditor         string
 	approveInteractive    bool
@@ -77,7 +79,11 @@ func init() {
 	approveCmd.Flags().BoolVar(&approveOverride, "override-governance", false,
 		"approve despite governance requiring human review; requires --reason and is recorded as an override")
 	approveCmd.Flags().StringVar(&approveOverrideReason, "reason", "",
-		"why governance is being overridden (required with --override-governance)")
+		"why governance is overridden, or the source for a trusted external approval")
+	approveCmd.Flags().StringVar(&approveActorID, "actor-id", "",
+		"identity reported by a trusted external approval system (requires --ci, --actor-type, and --reason)")
+	approveCmd.Flags().StringVar(&approveActorType, "actor-type", "",
+		"actor type reported by a trusted external approval system (human, ci, agent; requires --ci and --actor-id)")
 	approveCmd.Flags().BoolVarP(&approveEdit, "edit", "e", false, "edit release notes before approving")
 	approveCmd.Flags().StringVarP(&approveEditor, "editor", "E", "", "editor to use (default: $EDITOR or vim)")
 	approveCmd.Flags().BoolVarP(&approveInteractive, "interactive", "i", false, "use interactive TUI for approval")
@@ -229,6 +235,9 @@ func promptForApproval() (bool, error) {
 
 // getApproverName returns the name of the approver from environment.
 func getApproverName() string {
+	if strings.TrimSpace(approveActorID) != "" {
+		return strings.TrimSpace(approveActorID)
+	}
 	approvedBy := os.Getenv("USER")
 	if approvedBy == "" {
 		return "unknown"
@@ -266,7 +275,7 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 
 	// Enforce the per-actor autonomy budget before recording approval — the
 	// CLI previously skipped this gate that the MCP surface applies.
-	if err := enforceActorBudget("approve", rel.RiskScore()); err != nil {
+	if err := enforceActorBudgetForActor("approve", rel.RiskScore(), createApprovalCGPActor()); err != nil {
 		return nil, err
 	}
 
@@ -289,7 +298,7 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 			Type: approverActorType(),
 			ID:   getApproverName(),
 		},
-		AutoApprove: approveYes,
+		AutoApprove: approveYes && approverActorType() != domain.ActorHuman,
 		Force:       true, // Force since we've already validated state
 
 		// An override's reason is the audit trail's only record of why a
@@ -306,6 +315,18 @@ func executeApprovalWithServices(ctx context.Context, app cliApp, repoPath strin
 	return out, nil
 }
 
+// createApprovalCGPActor prefers a verified actor supplied by a protected external
+// approval system; the ambient runner environment still determines the actor for
+// ordinary local and unattended approvals.
+func createApprovalCGPActor() cgp.Actor {
+	if strings.TrimSpace(approveActorID) == "" || strings.TrimSpace(approveActorType) == "" {
+		return createCGPActor()
+	}
+	kind := cgp.ActorKind(strings.TrimSpace(approveActorType))
+	identity := strings.TrimSpace(approveActorID)
+	return cgp.Actor{Kind: kind, ID: cgp.QualifiedActorID(kind, identity)}
+}
+
 // printApproveNextSteps prints the next steps after approval.
 func printApproveNextSteps() {
 	printSuccess("Release approved")
@@ -320,6 +341,24 @@ func printApproveNextSteps() {
 // runApprove implements the approve command.
 func runApprove(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	actorIDProvided := strings.TrimSpace(approveActorID) != ""
+	actorTypeProvided := strings.TrimSpace(approveActorType) != ""
+	if actorIDProvided != actorTypeProvided {
+		return errors.New("--actor-id and --actor-type must be provided together")
+	}
+	if actorIDProvided {
+		if !ciMode {
+			return errors.New("--actor-id and --actor-type are only accepted with --ci")
+		}
+		if strings.TrimSpace(approveOverrideReason) == "" {
+			return errors.New("external CI actor identity requires --reason describing the approval source")
+		}
+		switch domain.ActorType(strings.TrimSpace(approveActorType)) {
+		case domain.ActorHuman, domain.ActorCI, domain.ActorAgent:
+		default:
+			return fmt.Errorf("invalid --actor-type %q (expected human, ci, or agent)", approveActorType)
+		}
+	}
 
 	// An override with no reason is worthless in an audit trail: six months later
 	// the record would say a governance gate was bypassed and not why. Refuse it
@@ -328,7 +367,7 @@ func runApprove(cmd *cobra.Command, args []string) error {
 		return errors.New("--override-governance requires --reason explaining why " +
 			"the governance gate is being bypassed; it is recorded in the audit trail")
 	}
-	if !approveOverride && strings.TrimSpace(approveOverrideReason) != "" {
+	if !approveOverride && !actorIDProvided && strings.TrimSpace(approveOverrideReason) != "" {
 		return errors.New("--reason only applies with --override-governance")
 	}
 
@@ -1210,6 +1249,9 @@ func approvalJustification() string {
 	if approveOverride && strings.TrimSpace(approveOverrideReason) != "" {
 		return "governance override: " + strings.TrimSpace(approveOverrideReason)
 	}
+	if strings.TrimSpace(approveActorID) != "" && strings.TrimSpace(approveOverrideReason) != "" {
+		return "external approval source: " + strings.TrimSpace(approveOverrideReason)
+	}
 	return ""
 }
 
@@ -1220,6 +1262,9 @@ func approvalJustification() string {
 // tool whose product is the audit trail that is a falsehood in the record: asked
 // later who approved a release, it would name a person who was not involved.
 func approverActorType() domain.ActorType {
+	if strings.TrimSpace(approveActorType) != "" {
+		return domain.ActorType(strings.TrimSpace(approveActorType))
+	}
 	if ciMode {
 		return domain.ActorCI
 	}

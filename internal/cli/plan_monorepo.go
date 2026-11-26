@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"path/filepath"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/monorepo"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/monorepo"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
 )
 
 // One release run per package.

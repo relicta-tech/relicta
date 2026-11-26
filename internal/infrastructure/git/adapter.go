@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
 )
 
 // Default timeouts for git operations to prevent hangs on slow/unreachable remotes.
@@ -274,6 +274,22 @@ func (a *Adapter) CreateTag(ctx context.Context, name string, hash sourcecontrol
 	}
 
 	// Retrieve the created tag
+	return a.GetTag(ctx, name)
+}
+
+// CreateSignedTag creates an annotated tag signed by Git's configured signing
+// backend and identity (GPG or SSH, as configured in Git).
+func (a *Adapter) CreateSignedTag(ctx context.Context, name string, hash sourcecontrol.CommitHash, message string) (*sourcecontrol.Tag, error) {
+	ctx, cancel := withLocalTimeout(ctx)
+	defer cancel()
+	opts := TagOptions{
+		Annotated: true,
+		Sign:      true,
+		Ref:       string(hash),
+	}
+	if err := a.svc.CreateTag(ctx, name, message, opts); err != nil {
+		return nil, err
+	}
 	return a.GetTag(ctx, name)
 }
 

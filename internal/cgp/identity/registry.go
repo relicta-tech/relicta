@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 // ActorIdentity represents an org-level actor with earned trust.
@@ -116,7 +116,13 @@ func NewRegistry(ctx context.Context, store RegistryStore, opts ...RegistryOptio
 	}
 
 	for _, a := range actors {
-		r.actors[a.ID] = a
+		if err := ValidateActorIdentity(a); err != nil {
+			return nil, fmt.Errorf("invalid identity loaded from store: %w", err)
+		}
+		if _, exists := r.actors[a.ID]; exists {
+			return nil, fmt.Errorf("duplicate actor identity %q in store", a.ID)
+		}
+		r.actors[a.ID] = cloneActorIdentity(a)
 	}
 
 	r.logger.Info("identity registry initialized", "actor_count", len(r.actors))
@@ -128,7 +134,7 @@ func (r *Registry) Register(ctx context.Context, identity *ActorIdentity) error 
 	if identity == nil {
 		return fmt.Errorf("identity is required")
 	}
-	if err := validateIdentity(identity); err != nil {
+	if err := ValidateActorIdentity(identity); err != nil {
 		return fmt.Errorf("invalid identity: %w", err)
 	}
 
@@ -137,25 +143,26 @@ func (r *Registry) Register(ctx context.Context, identity *ActorIdentity) error 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existing, exists := r.actors[identity.ID]
+	next := cloneActorIdentity(identity)
+	existing, exists := r.actors[next.ID]
 	if exists {
 		// Preserve creation timestamp on update.
-		identity.CreatedAt = existing.CreatedAt
+		next.CreatedAt = existing.CreatedAt
 	} else {
-		identity.CreatedAt = now
+		next.CreatedAt = now
 	}
-	identity.UpdatedAt = now
+	next.UpdatedAt = now
 
-	if err := r.store.Save(ctx, identity); err != nil {
+	if err := r.store.Save(ctx, next); err != nil {
 		return fmt.Errorf("saving identity: %w", err)
 	}
 
-	r.actors[identity.ID] = identity
+	r.actors[next.ID] = next
 
 	r.logger.Info("actor registered",
-		"id", identity.ID,
-		"kind", identity.Kind,
-		"team", identity.Team,
+		"id", next.ID,
+		"kind", next.Kind,
+		"team", next.Team,
 		"updated", exists,
 	)
 
@@ -172,18 +179,7 @@ func (r *Registry) Get(ctx context.Context, id string) (*ActorIdentity, error) {
 		return nil, fmt.Errorf("actor not found: %s", id)
 	}
 
-	// Return a copy to prevent mutation.
-	clone := *actor
-	clone.Capabilities = make([]Capability, len(actor.Capabilities))
-	copy(clone.Capabilities, actor.Capabilities)
-	if actor.Metadata != nil {
-		clone.Metadata = make(map[string]string, len(actor.Metadata))
-		for k, v := range actor.Metadata {
-			clone.Metadata[k] = v
-		}
-	}
-
-	return &clone, nil
+	return cloneActorIdentity(actor), nil
 }
 
 // GetByTeam returns all actor identities belonging to a team.
@@ -194,8 +190,7 @@ func (r *Registry) GetByTeam(ctx context.Context, team string) ([]*ActorIdentity
 	var result []*ActorIdentity
 	for _, actor := range r.actors {
 		if actor.Team == team {
-			clone := *actor
-			result = append(result, &clone)
+			result = append(result, cloneActorIdentity(actor))
 		}
 	}
 
@@ -214,16 +209,18 @@ func (r *Registry) UpdateTrust(ctx context.Context, id string, metrics memory.Ac
 		return fmt.Errorf("actor not found: %s", id)
 	}
 
-	actor.TrustScore = calculateTrustFromMetrics(&metrics)
-	actor.UpdatedAt = time.Now()
+	next := cloneActorIdentity(actor)
+	next.TrustScore = calculateTrustFromMetrics(&metrics)
+	next.UpdatedAt = time.Now()
 
-	if err := r.store.Save(ctx, actor); err != nil {
+	if err := r.store.Save(ctx, next); err != nil {
 		return fmt.Errorf("saving updated trust: %w", err)
 	}
+	r.actors[id] = next
 
 	r.logger.Info("trust updated",
 		"id", id,
-		"trust_score", actor.TrustScore,
+		"trust_score", next.TrustScore,
 		"total_releases", metrics.TotalReleases,
 	)
 
@@ -234,6 +231,18 @@ func (r *Registry) UpdateTrust(ctx context.Context, id string, metrics memory.Ac
 // at the given scope, considering the current risk score. It returns whether the
 // action is allowed and a human-readable reason.
 func (r *Registry) CheckCapability(ctx context.Context, id, action, scope string, riskScore float64) (bool, string) {
+	if err := ctx.Err(); err != nil {
+		return false, fmt.Sprintf("capability check canceled: %v", err)
+	}
+	if strings.TrimSpace(action) == "" || strings.TrimSpace(scope) == "" {
+		return false, "capability action and scope are required"
+	}
+	// Conditions are an authorization boundary: NaN makes `!=` true, and
+	// out-of-range scores could otherwise satisfy a permissive condition.
+	if math.IsNaN(riskScore) || math.IsInf(riskScore, 0) || riskScore < 0 || riskScore > 1 {
+		return false, fmt.Sprintf("risk score must be finite and between 0.0 and 1.0, got %v", riskScore)
+	}
+
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -246,26 +255,26 @@ func (r *Registry) CheckCapability(ctx context.Context, id, action, scope string
 		return false, fmt.Sprintf("actor %s has no capabilities defined", id)
 	}
 
-	for _, cap := range actor.Capabilities {
-		if !matchAction(cap.Action, action) {
+	for _, capability := range actor.Capabilities {
+		if !matchAction(capability.Action, action) {
 			continue
 		}
 
-		if !matchScope(cap.Scope, scope) {
+		if !matchScope(capability.Scope, scope) {
 			continue
 		}
 
-		if cap.Condition != "" {
-			allowed, err := evaluateCondition(cap.Condition, riskScore)
+		if capability.Condition != "" {
+			allowed, err := evaluateCondition(capability.Condition, riskScore)
 			if err != nil {
 				return false, fmt.Sprintf("condition evaluation error: %v", err)
 			}
 			if !allowed {
-				return false, fmt.Sprintf("condition not met: %s (risk_score=%.2f)", cap.Condition, riskScore)
+				return false, fmt.Sprintf("condition not met: %s (risk_score=%.2f)", capability.Condition, riskScore)
 			}
 		}
 
-		return true, fmt.Sprintf("capability granted: %s:%s", cap.Action, cap.Scope)
+		return true, fmt.Sprintf("capability granted: %s:%s", capability.Action, capability.Scope)
 	}
 
 	return false, fmt.Sprintf("no matching capability for action=%s scope=%s", action, scope)
@@ -278,11 +287,25 @@ func (r *Registry) List(ctx context.Context) ([]*ActorIdentity, error) {
 
 	result := make([]*ActorIdentity, 0, len(r.actors))
 	for _, actor := range r.actors {
-		clone := *actor
-		result = append(result, &clone)
+		result = append(result, cloneActorIdentity(actor))
 	}
 
 	return result, nil
+}
+
+func cloneActorIdentity(actor *ActorIdentity) *ActorIdentity {
+	if actor == nil {
+		return nil
+	}
+	clone := *actor
+	clone.Capabilities = append([]Capability(nil), actor.Capabilities...)
+	if actor.Metadata != nil {
+		clone.Metadata = make(map[string]string, len(actor.Metadata))
+		for key, value := range actor.Metadata {
+			clone.Metadata[key] = value
+		}
+	}
+	return &clone
 }
 
 // calculateTrustFromMetrics computes a trust score from actor metrics.
@@ -397,7 +420,12 @@ func evaluateCondition(condition string, riskScore float64) (bool, error) {
 }
 
 // validateIdentity checks that an ActorIdentity has all required fields.
-func validateIdentity(identity *ActorIdentity) error {
+// ValidateActorIdentity checks the invariants required before an identity can
+// grant trust or capabilities.
+func ValidateActorIdentity(identity *ActorIdentity) error {
+	if identity == nil {
+		return fmt.Errorf("identity is required")
+	}
 	if identity.ID == "" {
 		return fmt.Errorf("identity ID is required")
 	}
@@ -407,8 +435,23 @@ func validateIdentity(identity *ActorIdentity) error {
 	if identity.Organization == "" {
 		return fmt.Errorf("organization is required")
 	}
-	if identity.TrustScore < 0.0 || identity.TrustScore > 1.0 {
+	if math.IsNaN(identity.TrustScore) || math.IsInf(identity.TrustScore, 0) || identity.TrustScore < 0.0 || identity.TrustScore > 1.0 {
 		return fmt.Errorf("trust score must be between 0.0 and 1.0, got %.2f", identity.TrustScore)
+	}
+	for i, capability := range identity.Capabilities {
+		if strings.TrimSpace(capability.Action) == "" {
+			return fmt.Errorf("capability %d: action is required", i)
+		}
+		switch strings.ToLower(strings.TrimSpace(capability.Scope)) {
+		case "all", "patch", "minor", "major":
+		default:
+			return fmt.Errorf("capability %d: invalid scope %q (expected all, patch, minor, or major)", i, capability.Scope)
+		}
+		if capability.Condition != "" {
+			if _, err := evaluateCondition(capability.Condition, 0.5); err != nil {
+				return fmt.Errorf("capability %d: invalid condition: %w", i, err)
+			}
+		}
 	}
 	return nil
 }

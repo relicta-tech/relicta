@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"time"
@@ -9,9 +10,10 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/handlers"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/middleware"
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/openapi"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/handlers"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/middleware"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/openapi"
+	httpws "github.com/relicta-tech/relicta/v5/internal/httpserver/websocket"
 )
 
 // setupRouter configures the Chi router with all routes and middleware.
@@ -39,7 +41,6 @@ func (s *Server) setupRouter() chi.Router {
 	// Kubernetes-style probes (unauthenticated)
 	r.Get("/healthz", handlers.Healthz)
 	r.Get("/readyz", handlers.Readyz)
-	r.Get("/health/cognitive", handlers.CognitiveHealth)
 
 	// All /api/v1 routes share API version negotiation
 	r.Route("/api/v1", func(r chi.Router) {
@@ -63,6 +64,7 @@ func (s *Server) setupRouter() chi.Router {
 				Burst:    5,
 				Interval: time.Minute,
 			}))
+			r.Get("/mode", handlers.AuthMode)
 			r.Post("/login", handlers.Login)
 			r.Post("/refresh", handlers.Refresh)
 			r.Post("/logout", handlers.Logout)
@@ -71,15 +73,28 @@ func (s *Server) setupRouter() chi.Router {
 			if s.oidcHandlers != nil {
 				r.Get("/oidc/login", s.oidcHandlers.LoginRedirect)
 				r.Get("/oidc/callback", s.oidcHandlers.Callback)
+				r.Post("/oidc/exchange", s.oidcHandlers.ExchangeTicket)
 			}
 		})
+
+		// Ticket exchange is authenticated; the ticket itself is single-use and
+		// short-lived so the WebSocket URL never contains a durable API key/session.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(s.config.Auth, s.tokenService))
+			r.With(middleware.RateLimit(&middleware.RateLimiterConfig{
+				Rate: 10, Burst: 5, Interval: time.Minute,
+			})).Post("/ws/ticket", s.handleWebSocketTicket)
+		})
+
+		// The upgrade authenticates only with a ticket minted above.
+		r.Get("/ws", s.handleWebSocket)
 
 		// Authenticated API routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(s.config.Auth, s.tokenService))
-
-			// WebSocket endpoint
-			r.Get("/ws", s.handleWebSocket)
+			// Cognitive backend configuration is operational detail. Keep it on
+			// the authenticated API surface rather than the public liveness routes.
+			r.Get("/health/cognitive", handlers.CognitiveHealth)
 
 			// Server-Sent Events endpoint (WebSocket fallback)
 			r.Get("/events/stream", handlers.SSEStreamHandler(s.sseHub))
@@ -211,6 +226,25 @@ func (s *Server) corsMiddleware() func(http.Handler) http.Handler {
 // handleWebSocket handles WebSocket upgrade requests.
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	s.wsHub.HandleConnection(w, r)
+}
+
+func (s *Server) handleWebSocketTicket(w http.ResponseWriter, r *http.Request) {
+	if middleware.GetUser(r) == nil {
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+	ticket, err := s.wsHub.IssueTicket()
+	if err != nil {
+		http.Error(w, "could not issue WebSocket ticket", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(struct {
+		Ticket    string `json:"ticket"`
+		ExpiresIn int    `json:"expires_in"`
+	}{Ticket: ticket, ExpiresIn: int(httpws.TicketTTL.Seconds())})
 }
 
 // serveFrontend sets up static file serving for the embedded frontend.

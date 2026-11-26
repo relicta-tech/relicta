@@ -1,8 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { getAuthMode } from '@/api/client'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/Login.vue'),
+      meta: { title: 'Sign in' },
+    },
     {
       path: '/',
       name: 'dashboard',
@@ -79,10 +87,31 @@ const router = createRouter({
 })
 
 // Update document title on navigation
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to) => {
   const title = to.meta.title as string
   document.title = title ? `${title} | Relicta` : 'Relicta'
-  next()
+  if (to.name === 'login') return true
+
+  try {
+    const mode = await getAuthMode()
+    if (mode === 'none' || mode === '') return true
+  } catch {
+    // Keep the local, unauthenticated dashboard usable if its optional mode
+    // discovery request is unavailable; protected API requests still enforce auth.
+    return true
+  }
+
+  const hasApiKey = !!localStorage.getItem('relicta_api_key')
+  const hasSession = !!sessionStorage.getItem('relicta_access_token')
+  if (hasApiKey || hasSession) return true
+  return { name: 'login', query: { redirect: to.fullPath } }
+})
+
+window.addEventListener('relicta:unauthorized', () => {
+  useAuthStore().logout()
+  if (router.currentRoute.value.name !== 'login') {
+    void router.replace({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } })
+  }
 })
 
 export default router

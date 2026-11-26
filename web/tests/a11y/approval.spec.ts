@@ -15,6 +15,7 @@ import AxeBuilder from '@axe-core/playwright'
 test.describe('ApprovalWorkflow a11y', () => {
   test('zero violations on empty pending list', async ({ page }) => {
     await page.goto('/approvals')
+    await expect(page.getByRole('heading', { name: 'Pending Approvals' })).toBeVisible()
 
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'best-practice'])

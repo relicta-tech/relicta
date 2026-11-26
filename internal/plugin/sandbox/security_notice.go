@@ -29,8 +29,8 @@ func seatbeltAvailable() bool {
 type EnforcementLevel string
 
 const (
-	// EnforcementStrict means the kernel can reliably enforce all configured
-	// limits (memory, CPU, syscalls). Linux + cgroups falls here.
+	// EnforcementStrict means the runtime applies the configured limits through
+	// a kernel mechanism with no known startup race or unsupported controls.
 	EnforcementStrict EnforcementLevel = "strict"
 
 	// EnforcementBestEffort means limits are advisory — they may be silently
@@ -74,8 +74,10 @@ type SecurityPosture struct {
 
 // CurrentPosture returns the SecurityPosture for the running binary.
 //
-// Linux: cgroups make rlimits real → strict. macOS: rlimits are advisory on
-// Apple Silicon, no sandbox-exec profile → best_effort. Other: none.
+// Linux applies rlimits after plugin startup, leaving a window before they take
+// effect, and does not implement the configured CPU percentage. macOS resource
+// limits are advisory on Apple Silicon. Both are best_effort; other platforms
+// currently have no resource enforcement.
 func CurrentPosture() SecurityPosture {
 	p := SecurityPosture{
 		Platform:              runtime.GOOS,
@@ -85,12 +87,14 @@ func CurrentPosture() SecurityPosture {
 
 	switch runtime.GOOS {
 	case "linux":
-		p.Level = EnforcementStrict
-		p.MemoryEnforced = true
-		p.CPUEnforced = true
+		p.Level = EnforcementBestEffort
+		p.MemoryEnforced = false     // prlimit is applied after process start; early allocations can race it
+		p.CPUEnforced = false        // MaxCPUPercent is not applied; RLIMIT_CPU only caps total CPU time when configured
 		p.FilesystemIsolated = false // we don't currently chroot
 		p.Caveats = []string{
 			"Plugin signature verification is not yet implemented; only run trusted plugins.",
+			"Resource limits use prlimit after process start; the plugin can allocate resources before limits take effect.",
+			"max_cpu_percent is not enforced; max_cpu_seconds, when configured, limits total CPU time rather than CPU rate.",
 			"Filesystem isolation requires explicit chroot or namespace setup; not auto-applied.",
 		}
 
@@ -143,12 +147,12 @@ func SecurityNotice() string {
 	if p.MemoryEnforced {
 		b.WriteString("  Memory limits: enforced\n")
 	} else {
-		b.WriteString("  Memory limits: best-effort (kernel may ignore)\n")
+		b.WriteString("  Memory limits: best-effort (not guaranteed from process start)\n")
 	}
 	if p.CPUEnforced {
 		b.WriteString("  CPU limits: enforced\n")
 	} else {
-		b.WriteString("  CPU limits: NOT enforced (use timeouts as primary protection)\n")
+		b.WriteString("  CPU limits: NOT reliably enforced (use timeouts as primary protection)\n")
 	}
 	if p.SignatureVerification {
 		b.WriteString("  Plugin signatures: verified before load\n")

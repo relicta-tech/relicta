@@ -10,20 +10,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
-	monorepotags "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	"github.com/relicta-tech/relicta/v4/internal/domain/integration"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
-	"github.com/relicta-tech/relicta/v4/internal/security/attestation"
+	monorepotags "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	appversioning "github.com/relicta-tech/relicta/v5/internal/application/versioning"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/integration"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/security/attestation"
 )
 
 // NotesGeneratorAdapter adapts the AI service to the ports.NotesGenerator interface.
@@ -55,7 +57,7 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 	// UseAI=false must mean zero AI calls: a release pipeline must never be
 	// blocked by a provider's billing or rate-limit state the user never
 	// opted into (issue #127).
-	if !options.UseAI || a.aiService == nil || !a.aiService.IsAvailable() {
+	if a.changelog.Format == communication.FormatCustom || !options.UseAI || a.aiService == nil || !a.aiService.IsAvailable() {
 		// Fallback to basic changelog without AI enhancement
 		return a.generateBasicNotes(ctx, run, options)
 	}
@@ -76,6 +78,7 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 		Tone:         a.mapTone(options.TonePreset),
 		Audience:     a.mapAudience(options.AudiencePreset),
 		IncludeEmoji: options.IncludeEmoji,
+		Language:     options.Language,
 	}
 
 	// Generate changelog using AI
@@ -86,7 +89,7 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 
 	// Generate release notes. Prefer provider-native structured output when
 	// supported (OpenAI / Anthropic / Gemini); fall back to free-form prose.
-	releaseNotes, structuredUsed := a.generateReleaseNotesStructuredOrFreeForm(ctx, changelog, genOpts)
+	releaseNotes, structuredUsed, narrativeGenerated := a.generateReleaseNotesStructuredOrFreeForm(ctx, changelog, genOpts)
 
 	// Combine changelog and release notes into Text field
 	combinedText := changelog
@@ -95,7 +98,12 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 	}
 
 	provider := options.Provider
-	if structuredUsed {
+	if !narrativeGenerated {
+		// The changelog was generated, but customer-facing prose was not. Mark
+		// the persisted source distinctly so callers do not present this as a
+		// completed AI release-note draft.
+		provider = "changelog-fallback"
+	} else if structuredUsed {
 		// Tag the provider so downstream callers / audit logs can tell which
 		// path produced the notes. Useful for eval harness regression checks.
 		provider = provider + "+structured"
@@ -114,15 +122,16 @@ func (a *NotesGeneratorAdapter) Generate(ctx context.Context, run *domain.Releas
 // generateReleaseNotesStructuredOrFreeForm produces release-notes prose,
 // preferring the structured path when the AI service supports it.
 //
-// Returns (notes, structuredUsed). On structured-path failure (parse error,
-// API error, missing fields) it transparently falls back to the free-form
-// GenerateReleaseNotes call so callers always get something — release notes
-// are cosmetic prose, not load-bearing for governance decisions.
+// Returns (notes, structuredUsed, narrativeGenerated). On structured-path
+// failure (parse error, API error, missing fields) it tries the free-form
+// GenerateReleaseNotes call. If that also fails, the changelog remains usable
+// as source material, but the caller must be told that customer-facing prose
+// was not produced.
 func (a *NotesGeneratorAdapter) generateReleaseNotesStructuredOrFreeForm(
 	ctx context.Context,
 	changelog string,
 	genOpts ai.GenerateOptions,
-) (string, bool) {
+) (string, bool, bool) {
 	if structured, ok := a.aiService.(ai.StructuredOutputService); ok {
 		systemPrompt := "You generate categorized release notes for a software release. " +
 			"Return a structured ReleaseNotes payload with summary, sections by category, " +
@@ -132,16 +141,16 @@ func (a *NotesGeneratorAdapter) generateReleaseNotesStructuredOrFreeForm(
 		bytes, err := structured.CompleteStructured(ctx, systemPrompt, userPrompt, releaseNotesSchemaShim{})
 		if err == nil && len(bytes) > 0 {
 			if rendered, parseErr := renderStructuredReleaseNotes(bytes); parseErr == nil && rendered != "" {
-				return rendered, true
+				return rendered, true, true
 			}
 		}
 	}
 
 	notes, err := a.aiService.GenerateReleaseNotes(ctx, changelog, genOpts)
 	if err != nil || notes == "" {
-		return changelog, false
+		return changelog, false, false
 	}
-	return notes, false
+	return notes, false, true
 }
 
 // releaseNotesSchemaShim mirrors the public ReleaseNotesSchema shape without
@@ -289,7 +298,10 @@ func (a *NotesGeneratorAdapter) generateBasicNotes(ctx context.Context, run *dom
 	// nothing, and while a renderer producing exactly that output already existed in
 	// internal/domain/communication with no caller.
 	entry := communication.BuildEntry(run.VersionNext(), changeSet, a.changelog)
-	changelog := communication.RenderSections(entry, a.changelog)
+	changelog, err := RenderChangelogSections(entry, a.changelog)
+	if err != nil {
+		return nil, fmt.Errorf("render changelog: %w", err)
+	}
 
 	return &domain.ReleaseNotes{
 		Text:           changelog,
@@ -299,6 +311,31 @@ func (a *NotesGeneratorAdapter) generateBasicNotes(ctx context.Context, run *dom
 		Model:          "",
 		GeneratedAt:    time.Now(),
 	}, nil
+}
+
+// RenderChangelogSections applies the selected changelog format. Custom templates
+// receive communication.ChangelogEntry, keeping the public template data contract
+// identical to the data used by the built-in renderer.
+func RenderChangelogSections(entry communication.ChangelogEntry, opts communication.RenderOptions) (string, error) {
+	if opts.Format != communication.FormatCustom {
+		return communication.RenderSections(entry, opts), nil
+	}
+	if strings.TrimSpace(opts.TemplatePath) == "" {
+		return "", fmt.Errorf("changelog.format is custom but changelog.template is empty")
+	}
+	tmpl, err := template.New(filepath.Base(opts.TemplatePath)).Funcs(template.FuncMap{
+		"join":  strings.Join,
+		"upper": strings.ToUpper,
+		"lower": strings.ToLower,
+	}).ParseFiles(opts.TemplatePath)
+	if err != nil {
+		return "", fmt.Errorf("parse template %s: %w", opts.TemplatePath, err)
+	}
+	var output strings.Builder
+	if err := tmpl.ExecuteTemplate(&output, filepath.Base(opts.TemplatePath), entry); err != nil {
+		return "", fmt.Errorf("execute template %s: %w", opts.TemplatePath, err)
+	}
+	return output.String(), nil
 }
 
 // convertToCategorizedChanges converts a ChangeSet to git.CategorizedChanges.
@@ -381,7 +418,7 @@ func (a *NotesGeneratorAdapter) mapAudience(preset string) ai.Audience {
 		return ai.AudienceDevelopers
 	case "user", "users":
 		return ai.AudienceUsers
-	case "public", "all":
+	case "public", "all", "stakeholders":
 		return ai.AudiencePublic
 	case "marketing":
 		return ai.AudienceMarketing
@@ -605,7 +642,9 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 		}, nil
 	}
 
-	// Check if tag already exists (idempotency)
+	// Check whether the tag already exists. Existing tags are left untouched, but
+	// the rest of this step still runs: a prior attempt may have created the local
+	// tag and then failed to push it or finish the package tags.
 	exists, err := a.tagCreator.TagExists(ctx, tagName)
 	if err != nil {
 		return &ports.StepResult{
@@ -613,39 +652,45 @@ func (a *PublisherAdapter) executeTagStep(ctx context.Context, run *domain.Relea
 			Error:   fmt.Errorf("failed to check tag existence: %w", err),
 		}, err
 	}
+	var output string
+	createdTag := !exists
 	if exists {
-		return &ports.StepResult{
-			Success: true,
-			Output:  fmt.Sprintf("Tag %s already exists (idempotent)", tagName),
-		}, nil
-	}
+		if err := a.validateExistingTag(ctx, tagName); err != nil {
+			return &ports.StepResult{Success: false, Error: err}, err
+		}
+		output = fmt.Sprintf("Tag %s already exists (idempotent)", tagName)
+	} else {
+		// Create the annotated tag.
+		message := fmt.Sprintf("Release %s", run.VersionNext().String())
+		if run.Notes() != nil && run.Notes().Text != "" {
+			// Include a summary in the tag message.
+			message = fmt.Sprintf("Release %s\n\n%s", run.VersionNext().String(), run.Notes().Text)
+		}
 
-	// Create the annotated tag
-	message := fmt.Sprintf("Release %s", run.VersionNext().String())
-	if run.Notes() != nil && run.Notes().Text != "" {
-		// Include a summary in the tag message
-		message = fmt.Sprintf("Release %s\n\n%s", run.VersionNext().String(), run.Notes().Text)
+		if err := a.tagCreator.CreateTag(ctx, tagName, message); err != nil {
+			return &ports.StepResult{
+				Success: false,
+				Error:   err,
+			}, err
+		}
+		output = fmt.Sprintf("Created tag %s", tagName)
 	}
-
-	if err := a.tagCreator.CreateTag(ctx, tagName, message); err != nil {
-		return &ports.StepResult{
-			Success: false,
-			Error:   err,
-		}, err
-	}
-
-	output := fmt.Sprintf("Created tag %s", tagName)
 
 	// Push only when explicitly enabled.
 	if a.pushTags {
-		if err := a.tagCreator.PushTag(ctx, tagName, a.pushRemote()); err != nil {
+		if pushErr := a.tagCreator.PushTag(ctx, tagName, a.pushRemote()); pushErr != nil {
+			err := fmt.Errorf("tag %s exists locally but push failed: %w", tagName, pushErr)
 			return &ports.StepResult{
 				Success: false,
 				Output:  output,
-				Error:   fmt.Errorf("tag created but push failed: %w", err),
+				Error:   err,
 			}, err
 		}
-		output = fmt.Sprintf("Created and pushed tag %s", tagName)
+		if createdTag {
+			output = fmt.Sprintf("Created and pushed tag %s", tagName)
+		} else {
+			output = fmt.Sprintf("Existing tag %s pushed", tagName)
+		}
 	}
 
 	if perPackage, err := a.createPackageTags(ctx, run); err != nil {
@@ -683,36 +728,72 @@ func (a *PublisherAdapter) createPackageTags(ctx context.Context, run *domain.Re
 	}
 
 	created := make([]string, 0, len(tags))
+	existing := 0
 	for _, pkg := range tags {
 		exists, existsErr := a.tagCreator.TagExists(ctx, pkg.Tag)
 		if existsErr != nil {
 			return "", fmt.Errorf("failed to check tag %s: %w", pkg.Tag, existsErr)
 		}
 		if exists {
-			continue
+			if err := a.validateExistingTag(ctx, pkg.Tag); err != nil {
+				return "", err
+			}
+			existing++
+		} else {
+			message := fmt.Sprintf("Release %s %s", pkg.Name, pkg.Version.String())
+			if createErr := a.tagCreator.CreateTag(ctx, pkg.Tag, message); createErr != nil {
+				return "", fmt.Errorf("failed to tag %s: %w", pkg.Name, createErr)
+			}
+			created = append(created, pkg.Tag)
 		}
-
-		message := fmt.Sprintf("Release %s %s", pkg.Name, pkg.Version.String())
-		if createErr := a.tagCreator.CreateTag(ctx, pkg.Tag, message); createErr != nil {
-			return "", fmt.Errorf("failed to tag %s: %w", pkg.Name, createErr)
-		}
-		created = append(created, pkg.Tag)
 
 		if a.pushTags {
 			if pushErr := a.tagCreator.PushTag(ctx, pkg.Tag, a.pushRemote()); pushErr != nil {
-				return "", fmt.Errorf("tagged %s but push failed: %w", pkg.Name, pushErr)
+				return "", fmt.Errorf("tag %s exists locally but push failed: %w", pkg.Tag, pushErr)
 			}
 		}
 	}
 
 	if len(created) == 0 {
-		return fmt.Sprintf("%d package tags already existed", len(tags)), nil
+		if a.pushTags {
+			return fmt.Sprintf("%d existing package tags pushed", existing), nil
+		}
+		return fmt.Sprintf("%d package tags already existed", existing), nil
 	}
 	verb := "created"
 	if a.pushTags {
-		verb = "created and pushed"
+		verb = "created and synchronized"
+	}
+	if existing > 0 {
+		return fmt.Sprintf("%s package tags %s; %d existing tags synchronized", verb, strings.Join(created, ", "), existing), nil
 	}
 	return fmt.Sprintf("%s package tags %s", verb, strings.Join(created, ", ")), nil
+}
+
+// validateExistingTag ensures a retry never accepts a stale tag that names a
+// different commit from the release currently being published.
+func (a *PublisherAdapter) validateExistingTag(ctx context.Context, name string) error {
+	if a.gitAdapter == nil {
+		return nil
+	}
+	tag, err := a.gitAdapter.GetTag(ctx, name)
+	if err != nil {
+		return fmt.Errorf("failed to inspect existing tag %s: %w", name, err)
+	}
+	if tag == nil {
+		return fmt.Errorf("tag %s was reported as existing but could not be loaded", name)
+	}
+	head, err := a.gitAdapter.GetLatestCommit(ctx, "HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to resolve release commit for tag %s: %w", name, err)
+	}
+	if head == nil || string(head.Hash()) == "" {
+		return fmt.Errorf("failed to resolve release commit for tag %s: HEAD is unavailable", name)
+	}
+	if tag.Hash() != head.Hash() {
+		return fmt.Errorf("tag %s points to %s, expected release commit %s; refusing to publish", name, tag.Hash(), head.Hash())
+	}
+	return nil
 }
 
 // executeAttestationStep generates a signed governance attestation for the release.
@@ -757,9 +838,19 @@ func (a *PublisherAdapter) executeAttestationStep(ctx context.Context, run *doma
 	// Build the attestation generator
 	repoID := run.RepoRoot()
 	gen := attestation.NewGenerator(repoID, chain)
+	if a.gitAdapter == nil {
+		return attestationFailure("release commit lookup", fmt.Errorf("git adapter not configured"))
+	}
+	releaseCommit, err := a.gitAdapter.GetLatestCommit(ctx, "HEAD")
+	if err != nil {
+		return attestationFailure("release commit lookup", err)
+	}
+	if releaseCommit == nil || releaseCommit.Hash() == "" {
+		return attestationFailure("release commit lookup", fmt.Errorf("HEAD has no commit"))
+	}
 
 	// Generate the attestation statement
-	stmt, err := gen.Generate(ctx, run)
+	stmt, err := gen.GenerateForCommit(run, string(releaseCommit.Hash()))
 	if err != nil {
 		return attestationFailure("generation", err)
 	}
@@ -824,21 +915,10 @@ func (a *PublisherAdapter) CheckIdempotency(ctx context.Context, run *domain.Rel
 	// Check specific step types for idempotency
 	switch step.Type {
 	case domain.StepTypeTag:
-		// Check if tag already exists
-		if a.gitAdapter != nil {
-			tagName := run.TagName()
-			if tagName == "" {
-				tagName = "v" + run.VersionNext().String()
-			}
-			// GetTag returns nil and error if tag doesn't exist
-			tag, err := a.gitAdapter.GetTag(ctx, tagName)
-			if err != nil {
-				// Tag not found is expected, not an error
-				return false, nil
-			}
-			// Tag exists if we got a non-nil tag
-			return tag != nil, nil
-		}
+		// Tag creation, remote push and package tags form one recoverable step.
+		// An existing local tag alone cannot prove that all of those effects ran;
+		// executeTagStep checks for the tag, leaves it in place, and resumes the rest.
+		return false, nil
 	case domain.StepTypeAttestation:
 		// Check if attestation file already exists
 		attPath := filepath.Join(run.RepoRoot(), ".relicta", "releases", string(run.ID()), "attestation.intoto.jsonl")
@@ -899,13 +979,19 @@ func (a *PublisherAdapter) mapStepTypeToHook(stepType domain.StepType) integrati
 type VersionWriterAdapter struct {
 	gitAdapter *git.Adapter
 	repoRoot   string
+	targets    []config.VersionTarget
 }
 
 // NewVersionWriterAdapter creates a new VersionWriterAdapter.
-func NewVersionWriterAdapter(gitAdapter *git.Adapter, repoRoot string) *VersionWriterAdapter {
+func NewVersionWriterAdapter(gitAdapter *git.Adapter, repoRoot string, targets ...[]config.VersionTarget) *VersionWriterAdapter {
+	var configured []config.VersionTarget
+	if len(targets) > 0 {
+		configured = targets[0]
+	}
 	return &VersionWriterAdapter{
 		gitAdapter: gitAdapter,
 		repoRoot:   repoRoot,
+		targets:    configured,
 	}
 }
 
@@ -915,9 +1001,9 @@ func (a *VersionWriterAdapter) WriteVersion(ctx context.Context, ver version.Sem
 		return fmt.Errorf("git adapter not configured")
 	}
 
-	// Write version to VERSION file if it exists
-	// The actual file writing is typically handled by the version service
-	// This adapter just ensures the git adapter can be used for commits if needed
+	if _, err := appversioning.NewVersionFileWriter(a.repoRoot).Apply(a.targets, ver); err != nil {
+		return fmt.Errorf("apply configured version files: %w", err)
+	}
 	return nil
 }
 
@@ -942,16 +1028,6 @@ type TagCreatorAdapter struct {
 }
 
 // NewTagCreatorAdapter creates the adapter that tags a release.
-//
-// requireSigning comes from versioning.git_sign. It refuses rather than signs, because
-// signing is not implemented: TagOptions.Sign is declared and never read by CreateTag,
-// ServiceConfig.GPGSign is written only by an option nothing calls, and versioning.git_sign
-// itself was read by no code at all. So `git_sign: true` produced an ordinary unsigned tag
-// and said nothing — a false integrity claim, and the one setting where being quietly wrong
-// is worst, since the signature is the evidence.
-//
-// Refusing only affects someone who deliberately set it: the default is false and the wizard
-// writes false. That is exactly the set of people who were being misled.
 func NewTagCreatorAdapter(gitAdapter *git.Adapter, requireSigning bool) *TagCreatorAdapter {
 	return &TagCreatorAdapter{
 		gitAdapter:     gitAdapter,
@@ -961,13 +1037,6 @@ func NewTagCreatorAdapter(gitAdapter *git.Adapter, requireSigning bool) *TagCrea
 
 // CreateTag creates an annotated git tag with the given name and message.
 func (a *TagCreatorAdapter) CreateTag(ctx context.Context, name, message string) error {
-	if a.requireSigning {
-		return fmt.Errorf(
-			"versioning.git_sign is set but signing tags is not implemented: relicta would "+
-				"create %s as an unsigned tag, which for a signed-release policy is worse "+
-				"than failing. Unset versioning.git_sign to tag without a signature",
-			name)
-	}
 	if a.gitAdapter == nil {
 		return fmt.Errorf("git adapter not configured")
 	}
@@ -979,7 +1048,11 @@ func (a *TagCreatorAdapter) CreateTag(ctx context.Context, name, message string)
 	}
 
 	// Create the tag at HEAD
-	_, err = a.gitAdapter.CreateTag(ctx, name, headCommit.Hash(), message)
+	if a.requireSigning {
+		_, err = a.gitAdapter.CreateSignedTag(ctx, name, headCommit.Hash(), message)
+	} else {
+		_, err = a.gitAdapter.CreateTag(ctx, name, headCommit.Hash(), message)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to create tag %s: %w", name, err)
 	}

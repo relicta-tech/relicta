@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 func TestNew(t *testing.T) {
@@ -209,7 +209,12 @@ func TestSandbox_PrepareCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sb := New("test", nil)
+			// These tests exercise command preparation, not platform-specific
+			// isolation. Requesting unrestricted access keeps them portable.
+			sb := New("test", &config.PluginCapabilities{
+				AllowNetwork:    true,
+				AllowFilesystem: true,
+			})
 			err := sb.PrepareCommand(context.Background(), tt.cmd)
 
 			if (err != nil) != tt.wantErr {
@@ -232,8 +237,10 @@ func TestSandbox_PrepareCommand_EnvFiltering(t *testing.T) {
 	t.Setenv("PATH", "/usr/bin") // Ensure PATH is set
 
 	sb := New("test", &config.PluginCapabilities{
-		AllowEnvRead:   true,
-		AllowedEnvVars: []string{"ALLOWED_VAR"},
+		AllowEnvRead:    true,
+		AllowedEnvVars:  []string{"ALLOWED_VAR"},
+		AllowNetwork:    true,
+		AllowFilesystem: true,
 	})
 
 	cmd := exec.Command("echo", "test")

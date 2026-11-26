@@ -18,12 +18,17 @@ package container
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/releasehistory"
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
+	"github.com/relicta-tech/relicta/v5/internal/analytics"
+	"github.com/relicta-tech/relicta/v5/internal/application/releasehistory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	cgpprotocol "github.com/relicta-tech/relicta/v5/internal/cgp/protocol"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // ImportedInto names the stores the records were written to, for the lines that tell an
@@ -36,30 +41,36 @@ type ImportedInto struct {
 	// because the two are the same file under sqlite and the same database under postgres,
 	// and an operator reading one line for each should be able to see that.
 	GovernanceLocation string
+	CGPLocation        string
+	IdentityLocation   string
+	AnalyticsLocation  string
 }
 
 // ImportResult is everything one `relicta db import` moved.
 //
-// Two reports rather than one total, because the two halves fail independently and an
+// Separate reports rather than one total, because these record families fail independently and an
 // operator has to be able to tell which one they are looking at: a run store that migrated
 // and a governance store that did not is a history with no risk scores, decisions or actor
 // metrics attached to it.
 type ImportResult struct {
 	Runs       releasehistory.Report
 	Governance releasehistory.GovernanceReport
+	CGP        releasehistory.CGPProtocolReport
+	Identities releasehistory.IdentityRegistryReport
+	Analytics  releasehistory.AnalyticsReport
 	Into       ImportedInto
 }
 
 // ImportHistory reads the file-based `.relicta/` history under repoRoot into the stores
-// persistence.backend selects — the release runs and the governance record both.
+// persistence.backend selects — release runs, governance memory, and CGP protocol records.
 //
-// It covers both because ADR-013 names both as the system of record, and because covering
+// It covers all three because ADR-013 names them as the system of record, and because covering
 // only the runs is a trap. Governance memory became selectable in the same change that added
 // this: an operator who switched to sqlite and ran an importer that moved runs alone would
 // get a clean bill of health and an empty `relicta history`, empty DORA and SOC 2 reports,
 // and a deployment gate authorizing against a record with no releases in it. Nothing would
 // fail. That is the shape of defect ADR-013 exists to remove, so the importer moves the
-// governance record too, and reports separately on what it could not move.
+// governance record and CGP handshakes too, and reports separately on what it could not move.
 //
 // The source is always the file store, and not the configured one: this command exists to
 // move a `.relicta/` tree that was written before the operator changed the setting.
@@ -100,6 +111,23 @@ func ImportHistory(
 	}
 
 	result := ImportResult{}
+	analyticsPath := filepath.Join(repoRoot, ".relicta", "governance", "analytics")
+	analyticsSource, err := analytics.OpenFileStore(analyticsPath)
+	if err != nil {
+		return result, fmt.Errorf("opening analytics source %s: %w", analyticsPath, err)
+	}
+	analyticsDestination, err := persistence.OpenAnalyticsStore(ctx, persistenceCfg, repoRoot, analyticsPath)
+	if err != nil {
+		return result, err
+	}
+	if analyticsDestination.Closer != nil {
+		defer func() { _ = analyticsDestination.Closer.Close() }()
+	}
+	result.Into.AnalyticsLocation = analyticsDestination.Location
+	result.Analytics, err = releasehistory.ImportAnalytics(ctx, analyticsSource, analyticsDestination.Store, opts)
+	if err != nil {
+		return result, err
+	}
 
 	runStore, err := persistence.OpenReleaseRunStore(ctx, persistenceCfg, repoRoot)
 	if err != nil {
@@ -143,7 +171,54 @@ func ImportHistory(
 	}
 
 	result.Governance, err = releasehistory.ImportGovernance(ctx, source, governanceStore.Store, opts)
-	return result, err
+	if err != nil {
+		return result, err
+	}
+
+	cgpStore, err := persistence.OpenCGPProtocolStore(ctx, persistenceCfg, repoRoot)
+	if err != nil {
+		return result, err
+	}
+	if cgpStore.Closer != nil {
+		defer func() { _ = cgpStore.Closer.Close() }()
+	}
+	result.Into.CGPLocation = cgpStore.Location
+	cgpSource := cgpprotocol.NewFileProposalStore(repoRoot)
+	result.CGP, err = releasehistory.ImportCGPProtocol(ctx, cgpSource, cgpStore.Store, opts)
+	if err != nil {
+		return result, err
+	}
+
+	identityPath := ""
+	if cfg != nil {
+		identityPath = cfg.Governance.IdentityRegistryPath
+	}
+	if identityPath != "" {
+		if !filepath.IsAbs(identityPath) && repoRoot != "" {
+			identityPath = filepath.Join(repoRoot, identityPath)
+		}
+		if _, statErr := os.Stat(identityPath); statErr == nil {
+			source, sourceErr := identity.NewFileStore(identityPath)
+			if sourceErr != nil {
+				return result, fmt.Errorf("opening identity registry source %s: %w", identityPath, sourceErr)
+			}
+			destination, destErr := persistence.OpenIdentityRegistryStore(ctx, persistenceCfg, repoRoot, identityPath)
+			if destErr != nil {
+				return result, destErr
+			}
+			if destination.Closer != nil {
+				defer func() { _ = destination.Closer.Close() }()
+			}
+			result.Into.IdentityLocation = destination.Location
+			result.Identities, err = releasehistory.ImportIdentityRegistry(ctx, source, destination.Store, opts)
+			if err != nil {
+				return result, err
+			}
+		} else if !os.IsNotExist(statErr) {
+			return result, fmt.Errorf("checking identity registry source %s: %w", identityPath, statErr)
+		}
+	}
+	return result, nil
 }
 
 // backendForMessage renders an unset backend as the default it means, so the error names the

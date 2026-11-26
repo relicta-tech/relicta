@@ -1,6 +1,6 @@
 # Multi-Package/Monorepo Versioning Design
 
-## Status (2026-08-20)
+## Status (2026-11-26)
 
 This document describes the design in full. Part of it ships; the rest does not, and the
 difference matters more here than usual — the whole subsystem spent a long time implemented,
@@ -8,8 +8,8 @@ tested and reachable from nothing. See ADR-015.
 
 **Implemented and reachable:** `strategy: independent`. `relicta bump` discovers packages from
 `monorepo.package_paths`, maps commits to the packages they touch, computes each package's bump
-from its own commits, and writes its own manifest (npm, Cargo, Python, Go, Maven, Gradle,
-Composer, Gem, NuGet, plain `VERSION`).
+from its own commits, and writes its version file (for example `package.json`, `Cargo.toml`,
+`pyproject.toml`, a Go `version.go` constant, a Maven or Gradle file, or a plain `VERSION`).
 
 **Refused at config load, because nothing implements them:** `lockstep`, `hybrid`,
 `release_groups`.
@@ -23,16 +23,24 @@ package measures from its own last release.
 own `CHANGELOG.md` from that package's commits, under the repository's `changelog.*` settings,
 and the release commit carries them.
 
-**Designed here but not wired:** a governance decision per package release, dependency-coordinated version propagation, and the `MonorepoRelease` aggregate's own
-lifecycle. `relicta plan` and `relicta approve` decide for the repository as a whole — one plan,
-one decision — and say so on every run in a monorepo.
+**Implemented and reachable:** a governance decision per package release. Each changed package
+has its own release run, policy evaluation, approval, and audit entry. `relicta approve --package
+<name>` decides one package; publishing creates tags and changelog entries only for approved
+packages. The repository release run still coordinates the overall workflow. See
+[ADR-015](../adr/015-per-package-versioning-is-independent-only.md) for the independent-versioning
+decision and implementation boundaries.
+
+**Not implemented:** dependency-coordinated version propagation and the `MonorepoRelease`
+aggregate's own lifecycle.
+
+This status supersedes the historical implementation plan and API sketches below. Package-level
+release runs and approvals are implemented; the older plan's steps should not be read as pending.
 
 ## Overview
 
 Independent versioning for packages within a monorepo, enabling:
 - Per-package semantic versioning
-- Coordinated multi-package releases
-- Automatic version file updates (package.json, go.mod, Cargo.toml, etc.)
+- Automatic version file updates (including package manifests and supported project version files)
 - Package-specific changelogs
 
 ## Architecture
@@ -69,66 +77,34 @@ PackageReleaseState:
   Pending → Included → Excluded → Released → Skipped
 ```
 
-### Configuration
+### Current configuration
+
+This example uses configuration currently accepted by Relicta. `lockstep`, `hybrid`,
+`release_groups`, custom `version_files`, and `package_overrides.version_file` or
+`version_field` are not supported and are rejected during configuration validation.
 
 ```yaml
 # .relicta.yaml
 monorepo:
   enabled: true
-  strategy: independent  # independent | lockstep | hybrid
-
-  # Package discovery (extends blast_radius config)
-  packages:
-    paths:
-      - "packages/*"
-      - "plugins/*"
-    exclude:
-      - "packages/internal-*"
-
-  # Per-package overrides
+  strategy: independent
+  package_paths:
+    - "packages/*"
+    - "plugins/*"
+  exclude_paths:
+    - "packages/internal-*"
   package_overrides:
     packages/core:
-      tag_prefix: "core-v"
-      version_file: package.json
+      tag_prefix: "core-"
+      changelog_file: RELEASE_NOTES.md
     packages/cli:
-      tag_prefix: "cli-v"
-      version_file: package.json
-
-  # Version file patterns
-  version_files:
-    go_module:
-      file: "go.mod"
-      pattern: "^module"  # Go modules don't store version in go.mod
-      update: false       # Use git tags only
-    npm:
-      file: "package.json"
-      field: "version"
-      update: true
-    cargo:
-      file: "Cargo.toml"
-      field: "version"
-      update: true
-    python:
-      files: ["setup.py", "pyproject.toml", "__version__.py"]
-      update: true
-
-  # Coordinated releases
-  release_groups:
-    - name: "core"
-      packages: ["packages/core", "packages/shared"]
-      strategy: lockstep  # All packages in group share same version
-    - name: "plugins"
-      packages: ["plugins/*"]
-      strategy: independent
-
-  # Changelog settings
+      skip_versioning: true
   changelog:
-    per_package: true     # Generate per-package changelogs
-    root_changelog: true  # Also generate root CHANGELOG.md
-    format: conventional
+    per_package: true
+    root_changelog: true
 ```
 
-## Implementation Plan
+## Historical Implementation Plan
 
 ### Phase 1: Configuration Extension
 
@@ -167,7 +143,7 @@ monorepo:
 2. Add `relicta.package_release` tool
 3. Add package filtering to existing tools
 
-## API Design
+## Historical API Sketches
 
 ### CLI Commands
 
@@ -259,6 +235,9 @@ func (w *NPMVersionWriter) WriteVersion(ctx context.Context, pkgPath string, ver
 ```
 
 ## Tag Naming Convention
+
+Independent tags are implemented. Lockstep and group tags below describe possible future
+strategies; those strategies are currently refused by configuration validation.
 
 | Strategy | Tag Format | Example |
 |----------|------------|---------|

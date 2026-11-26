@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // RunID uniquely identifies a release run. It is derived from the plan_hash.
@@ -103,8 +103,9 @@ type ReleaseRun struct {
 	notesInputsHash string
 
 	// Approval
-	approval           *Approval
-	multiLevelApproval *MultiLevelApproval // Optional multi-level approval tracking
+	approval                    *Approval
+	multiLevelApproval          *MultiLevelApproval // Optional multi-level approval tracking
+	externalPublicationEvidence string
 
 	// Execution plan
 	steps      []StepPlan
@@ -727,6 +728,11 @@ func (r *ReleaseRun) TransitionTo(to RunState, event, actor, reason string, meta
 
 // Plan transitions from Draft to Planned state.
 func (r *ReleaseRun) Plan(actor string) error {
+	return r.PlanWithMetadata(actor, nil)
+}
+
+// PlanWithMetadata records planning context in the durable transition history.
+func (r *ReleaseRun) PlanWithMetadata(actor string, metadata map[string]string) error {
 	if r.state != StateDraft {
 		return NewStateTransitionError(r.state, "plan")
 	}
@@ -756,7 +762,7 @@ func (r *ReleaseRun) Plan(actor string) error {
 		At:             time.Now(),
 	})
 
-	return r.TransitionTo(StatePlanned, "PLAN", actor, "Release planned", nil)
+	return r.TransitionTo(StatePlanned, "PLAN", actor, "Release planned", metadata)
 }
 
 // SetVersion sets the calculated version for the release.
@@ -773,6 +779,17 @@ func (r *ReleaseRun) SetVersion(next version.SemanticVersion, tagName string) er
 	// Aggregate identity should not change after creation
 	r.planHash = r.computePlanHash()
 
+	r.updatedAt = time.Now()
+	return nil
+}
+
+// SetBumpKind overrides the planned bump kind before the run is versioned.
+func (r *ReleaseRun) SetBumpKind(kind BumpKind) error {
+	if r.state != StatePlanned {
+		return fmt.Errorf("%w: can only change bump kind in Planned state, current: %s", ErrInvalidState, r.state)
+	}
+	r.bumpKind = kind
+	r.planHash = r.computePlanHash()
 	r.updatedAt = time.Now()
 	return nil
 }
@@ -1231,6 +1248,73 @@ func (r *ReleaseRun) MarkPublished(actor string) error {
 	return r.TransitionTo(StatePublished, "PUBLISH_COMPLETE", actor, "Release published", nil)
 }
 
+// MarkExternallyPublished finalizes a release whose tag and optional
+// attestation steps were completed by a separately governed CI publisher.
+// The evidence is persisted on the aggregate with the external side effect.
+func (r *ReleaseRun) MarkExternallyPublished(actor, evidence string) error {
+	if r.state != StateApproved {
+		return fmt.Errorf("%w: external publication requires an approved run, current: %s", ErrInvalidState, r.state)
+	}
+	if evidence == "" || !r.hasExternalPublicationPlan() {
+		return fmt.Errorf("%w: external publication requires evidence and a tag-only or tag-plus-attestation plan", ErrInvalidState)
+	}
+	if err := r.StartPublishing(actor); err != nil {
+		return err
+	}
+	for _, step := range r.steps {
+		if err := r.MarkStepStarted(step.Name); err != nil {
+			return err
+		}
+		if err := r.MarkStepDone(step.Name, "Completed by governed external publisher; evidence recorded"); err != nil {
+			return err
+		}
+	}
+	r.externalPublicationEvidence = evidence
+	return r.MarkPublished(actor)
+}
+
+// RecordExternalPublicationFailure retains a failed external publisher report
+// and moves the run through the normal publishing failure path for retry.
+func (r *ReleaseRun) RecordExternalPublicationFailure(actor, evidence, reason string) error {
+	if r.state != StateApproved {
+		return fmt.Errorf("%w: external publication failure requires an approved run, current: %s", ErrInvalidState, r.state)
+	}
+	if evidence == "" || reason == "" || !r.hasExternalPublicationPlan() {
+		return fmt.Errorf("%w: external publication failure requires evidence and a tag-only or tag-plus-attestation plan", ErrInvalidState)
+	}
+	if err := r.StartPublishing(actor); err != nil {
+		return err
+	}
+	r.externalPublicationEvidence = evidence
+	return r.MarkFailed(reason, actor)
+}
+
+func (r *ReleaseRun) hasExternalPublicationPlan() bool {
+	if len(r.steps) < 1 || len(r.steps) > 2 {
+		return false
+	}
+	tagFound := false
+	for _, step := range r.steps {
+		switch step.Type {
+		case StepTypeTag:
+			if tagFound {
+				return false
+			}
+			tagFound = true
+		case StepTypeAttestation:
+		default:
+			return false
+		}
+	}
+	return tagFound
+}
+
+// ExternalPublicationEvidence returns the persisted report from an external
+// release publisher, if one has been recorded.
+func (r *ReleaseRun) ExternalPublicationEvidence() string {
+	return r.externalPublicationEvidence
+}
+
 // MarkFailed transitions to Failed state.
 func (r *ReleaseRun) MarkFailed(reason, actor string) error {
 	r.lastError = reason
@@ -1281,6 +1365,7 @@ func (r *ReleaseRun) RetryPublish(actor string) error {
 	}
 
 	r.lastError = ""
+	r.externalPublicationEvidence = ""
 
 	r.addEvent(&RunRetriedEvent{
 		RunID: r.id,
@@ -1562,37 +1647,38 @@ func conditionalMessage(condition bool, msg string) string {
 // RunSnapshot contains all the data needed to reconstruct a ReleaseRun from storage.
 // This struct is used by repository implementations to hydrate aggregates.
 type RunSnapshot struct {
-	ID              RunID
-	PlanHash        string
-	RepoID          string
-	RepoRoot        string
-	BaseRef         string
-	HeadSHA         CommitSHA
-	Commits         []CommitSHA
-	ConfigHash      string
-	PluginPlanHash  string
-	VersionCurrent  version.SemanticVersion
-	VersionNext     version.SemanticVersion
-	BumpKind        BumpKind
-	Confidence      float64
-	RiskScore       float64
-	Reasons         []string
-	ActorType       ActorType
-	ActorID         string
-	Thresholds      PolicyThresholds
-	TagName         string
-	Notes           *ReleaseNotes
-	NotesInputsHash string
-	Approval        *Approval
-	Steps           []StepPlan
-	StepStatus      map[string]*StepStatus
-	State           RunState
-	History         []TransitionRecord
-	LastError       string
-	ChangesetID     string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	PublishedAt     *time.Time
+	ID                          RunID
+	PlanHash                    string
+	RepoID                      string
+	RepoRoot                    string
+	BaseRef                     string
+	HeadSHA                     CommitSHA
+	Commits                     []CommitSHA
+	ConfigHash                  string
+	PluginPlanHash              string
+	VersionCurrent              version.SemanticVersion
+	VersionNext                 version.SemanticVersion
+	BumpKind                    BumpKind
+	Confidence                  float64
+	RiskScore                   float64
+	Reasons                     []string
+	ActorType                   ActorType
+	ActorID                     string
+	Thresholds                  PolicyThresholds
+	TagName                     string
+	Notes                       *ReleaseNotes
+	NotesInputsHash             string
+	Approval                    *Approval
+	Steps                       []StepPlan
+	StepStatus                  map[string]*StepStatus
+	State                       RunState
+	History                     []TransitionRecord
+	LastError                   string
+	ChangesetID                 string
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+	PublishedAt                 *time.Time
+	ExternalPublicationEvidence string
 }
 
 // ReconstructState reconstructs the release run state from persisted data without
@@ -1630,6 +1716,7 @@ func (r *ReleaseRun) ReconstructState(snapshot RunSnapshot) {
 	r.createdAt = snapshot.CreatedAt
 	r.updatedAt = snapshot.UpdatedAt
 	r.publishedAt = snapshot.PublishedAt
+	r.externalPublicationEvidence = snapshot.ExternalPublicationEvidence
 	// Clear domain events - we're reconstructing, not creating
 	r.domainEvents = make([]DomainEvent, 0, 5)
 }
@@ -1655,6 +1742,17 @@ func (r *ReleaseRun) UpdateNotes(notes *ReleaseNotes, actor string) error {
 		At:          time.Now(),
 	})
 
+	return nil
+}
+
+// UpdateNotesWithHash replaces notes on a NotesReady run and records the input
+// hash used to create them. The run remains NotesReady so the updated content
+// can be approved as the next action.
+func (r *ReleaseRun) UpdateNotesWithHash(notes *ReleaseNotes, inputsHash, actor string) error {
+	if err := r.UpdateNotes(notes, actor); err != nil {
+		return err
+	}
+	r.notesInputsHash = inputsHash
 	return nil
 }
 

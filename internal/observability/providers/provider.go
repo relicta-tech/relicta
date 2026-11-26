@@ -5,9 +5,12 @@ package providers
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
+
+const providerHealthCheckTimeout = 10 * time.Second
 
 // Provider is the interface for querying an external observability backend.
 type Provider interface {
@@ -28,6 +31,9 @@ type Provider interface {
 type MetricQuery struct {
 	// MetricName is the metric to query (e.g., "http_requests_total").
 	MetricName string `json:"metric_name"`
+	// Expression is a trusted provider-specific query expression. When set,
+	// adapters that support expressions send it as-is instead of MetricName.
+	Expression string `json:"expression,omitempty"`
 	// Labels filters the metric by label matchers.
 	Labels map[string]string `json:"labels,omitempty"`
 	// Start is the beginning of the query range.
@@ -40,7 +46,7 @@ type MetricQuery struct {
 
 // Validate checks that the query has the minimum required fields.
 func (q MetricQuery) Validate() error {
-	if q.MetricName == "" {
+	if q.MetricName == "" && q.Expression == "" {
 		return fmt.Errorf("metric name is required")
 	}
 	if q.Start.IsZero() {
@@ -179,31 +185,42 @@ func (r *Registry) HealthCheckAll(ctx context.Context) []ProviderStatus {
 	}
 	r.mu.RUnlock()
 
-	statuses := make([]ProviderStatus, 0, len(providers))
-	now := time.Now()
-
-	for name, p := range providers {
-		status := ProviderStatus{
-			Name:        name,
-			Type:        p.Name(),
-			LastChecked: &now,
-		}
-
-		// A status about connectivity that does not say where it tried to connect is most of
-		// an answer. Optional, so a provider that has no single endpoint simply omits it.
-		if addressable, ok := p.(interface{ Endpoint() string }); ok {
-			status.Endpoint = addressable.Endpoint()
-		}
-
-		if err := p.HealthCheck(ctx); err != nil {
-			status.Healthy = false
-			status.Error = err.Error()
-		} else {
-			status.Healthy = true
-		}
-
-		statuses = append(statuses, status)
+	names := make([]string, 0, len(providers))
+	for name := range providers {
+		names = append(names, name)
 	}
+	sort.Strings(names)
+	statuses := make([]ProviderStatus, len(names))
+	var wg sync.WaitGroup
+	for i, name := range names {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p := providers[name]
+			checkedAt := time.Now()
+			status := ProviderStatus{
+				Name:        name,
+				Type:        p.Name(),
+				LastChecked: &checkedAt,
+			}
+
+			// A status about connectivity that does not say where it tried to connect is most of
+			// an answer. Optional, so a provider that has no single endpoint simply omits it.
+			if addressable, ok := p.(interface{ Endpoint() string }); ok {
+				status.Endpoint = addressable.Endpoint()
+			}
+
+			checkCtx, cancel := context.WithTimeout(ctx, providerHealthCheckTimeout)
+			defer cancel()
+			if err := p.HealthCheck(checkCtx); err != nil {
+				status.Error = err.Error()
+			} else {
+				status.Healthy = true
+			}
+			statuses[i] = status
+		}()
+	}
+	wg.Wait()
 
 	return statuses
 }

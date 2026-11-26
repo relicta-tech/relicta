@@ -16,11 +16,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/sqlite"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite"
 )
 
 // connectTimeout bounds opening a database and checking its schema.

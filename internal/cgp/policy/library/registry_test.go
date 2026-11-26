@@ -3,7 +3,7 @@ package library
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
 )
 
 func TestNewRegistry(t *testing.T) {

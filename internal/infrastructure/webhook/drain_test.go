@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // Deliveries were sent with a bare `go` and nothing ever waited for them. relicta is one
@@ -21,10 +21,11 @@ import (
 func TestCloseWaitsForDeliveriesInFlight(t *testing.T) {
 	var delivered atomic.Int32
 	release := make(chan struct{})
+	started := make(chan struct{})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		// Held open until the test lets go, standing in for a slow endpoint — which is
-		// exactly when the race was lost.
+		close(started)
+		// Hold the response open until the test starts shutdown.
 		<-release
 		delivered.Add(1)
 		w.WriteHeader(http.StatusOK)
@@ -32,22 +33,23 @@ func TestCloseWaitsForDeliveriesInFlight(t *testing.T) {
 	defer server.Close()
 
 	publisher := NewPublisher([]config.WebhookConfig{{
-		Name: "slow",
-		URL:  server.URL,
+		Name:       "slow",
+		URL:        server.URL,
+		Timeout:    time.Second,
+		RetryCount: 1,
 	}}, nil)
 
-	if err := publisher.Publish(context.Background(), &domain.RunPublishedEvent{
-		RunID: "run-1",
-		At:    time.Now(),
-	}); err != nil {
-		t.Fatalf("Publish: %v", err)
-	}
-
-	// Publish returns without waiting, which is intended: a slow endpoint must not hold
-	// up a release.
-	if got := delivered.Load(); got != 0 {
-		t.Fatalf("%d deliveries completed before the endpoint responded — Publish is "+
-			"supposed to hand off, not block the release", got)
+	published := make(chan error, 1)
+	go func() {
+		published <- publisher.Publish(context.Background(), &domain.RunPublishedEvent{
+			RunID: "run-1",
+			At:    time.Now(),
+		})
+	}()
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("webhook request did not start")
 	}
 
 	closed := make(chan error, 1)
@@ -55,16 +57,29 @@ func TestCloseWaitsForDeliveriesInFlight(t *testing.T) {
 		closed <- publisher.Close()
 	}()
 
-	// Close must still be waiting.
+	// Close and Publish must still be waiting for the in-flight delivery.
 	select {
 	case <-closed:
 		t.Fatal("Close returned while a delivery was still in flight: this is the bug — the " +
 			"process exits here and the webhook is abandoned mid-request")
 	case <-time.After(150 * time.Millisecond):
 	}
+	select {
+	case err := <-published:
+		t.Fatalf("Publish returned before the in-flight request completed: %v", err)
+	default:
+	}
 
 	close(release)
 
+	select {
+	case err := <-published:
+		if err != nil {
+			t.Fatalf("Publish: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Publish did not return after the delivery completed")
+	}
 	select {
 	case err := <-closed:
 		if err != nil {

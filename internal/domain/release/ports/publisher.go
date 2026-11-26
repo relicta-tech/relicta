@@ -4,7 +4,7 @@ package ports
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // StepResult represents the result of executing a publishing step.
@@ -52,6 +52,7 @@ type NotesOptions struct {
 	Provider      string
 	Model         string
 	RepositoryURL string
+	Language      string
 }
 
 // VersionCalculator calculates the next version.

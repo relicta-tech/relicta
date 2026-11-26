@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
 )
 
 // Trust-score thresholds for mapping a registered identity's aggregate trust
@@ -21,7 +21,7 @@ const (
 // organization registered for it. It only ever raises trust (never lowers what
 // the actor already holds) and returns the grant info when an escalation
 // occurred, or nil otherwise.
-func (s *Service) applyIdentityTrust(ctx context.Context, proposal *cgp.ChangeProposal) *IdentityTrustInfo {
+func (s *Service) applyIdentityTrust(ctx context.Context, proposal *cgp.ChangeProposal, riskScore float64) *IdentityTrustInfo {
 	if s.identityRegistry == nil {
 		return nil
 	}
@@ -30,6 +30,24 @@ func (s *Service) applyIdentityTrust(ctx context.Context, proposal *cgp.ChangePr
 	match := s.matchIdentity(ctx, actor)
 	if match == nil {
 		return nil
+	}
+	// A configured capability list narrows organization-granted trust. Legacy
+	// identities with no capabilities retain the existing trust-score behavior;
+	// once capabilities are configured, auto-approval trust requires an explicit
+	// approve grant for this release's bump and risk.
+	if len(match.Capabilities) > 0 {
+		allowed, reason := s.identityRegistry.CheckCapability(
+			ctx, match.ID, "approve", string(proposal.Intent.SuggestedBump), riskScore,
+		)
+		if !allowed {
+			s.logger.Info("identity trust capability denied",
+				"actor", actor.ID,
+				"identity", match.ID,
+				"action", "approve",
+				"scope", proposal.Intent.SuggestedBump,
+				"reason", reason)
+			return nil
+		}
 	}
 
 	granted := trustScoreToLevel(match.TrustScore)

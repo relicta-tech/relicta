@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
 )
 
 // Compiler converts AST to Policy objects.

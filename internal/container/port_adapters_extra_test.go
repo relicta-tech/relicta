@@ -3,10 +3,10 @@ package container
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 func TestWithAttestationConfig(t *testing.T) {

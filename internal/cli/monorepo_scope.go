@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 // The release scope.

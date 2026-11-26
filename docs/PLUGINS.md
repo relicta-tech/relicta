@@ -20,7 +20,10 @@ relicta plugin info github
 
 ## Available Plugins
 
-Relicta provides 20 official plugins across 5 categories:
+The registry currently lists 29 plugins across five categories. The registry can
+change between Relicta releases, so use `relicta plugin list --available` for
+the current catalog and `relicta plugin info <name>` for the selected plugin's
+version, hooks, configuration fields, and credential environment variables.
 
 ### Version Control
 - [GitHub](#github) - Create GitHub releases and upload assets
@@ -30,6 +33,7 @@ Relicta provides 20 official plugins across 5 categories:
 - [Slack](#slack) - Send release notifications to Slack
 - [Discord](#discord) - Send release notifications to Discord
 - [Microsoft Teams](#microsoft-teams) - Send release notifications to Microsoft Teams
+- [Telegram](#telegram) - Send release notifications to Telegram
 
 ### Package Managers
 - [npm](#npm) - Publish packages to npm registry
@@ -42,15 +46,23 @@ Relicta provides 20 official plugins across 5 categories:
 - [Maven Central](#maven-central) - Publish packages to Maven Central
 - [RubyGems](#rubygems) - Publish gems to RubyGems
 - [Hex.pm](#hexpm) - Publish packages to Hex.pm
+- [Helm](#helm) - Package and publish Helm charts
+- [Dart and Flutter](#dart-and-flutter) - Publish packages to pub.dev
+- [Swift Package Manager](#swift-package-manager) - Publish Swift packages
+- [Windows Package Manager](#windows-package-manager) - Submit packages to winget
 - [Packagist](#packagist) - Publish packages to Packagist
 - [Go Modules](#go-modules) - Publish Go modules
 
 ### Project Management
 - [Jira](#jira) - Create and link Jira release versions
 - [LaunchNotes](#launchnotes) - Create releases in LaunchNotes
+- [Linear](#linear) - Track releases and update issues in Linear
 
 ### Containers
 - [Docker](#docker) - Build and push Docker images
+- [Azure Container Registry](#azure-container-registry) - Push images to ACR
+- [Amazon ECR](#amazon-ecr) - Push images to ECR
+- [Google Artifact Registry](#google-artifact-registry) - Push images to GAR or GCR
 
 ## Plugin Lifecycle Hooks
 
@@ -65,6 +77,31 @@ PreInit → PostInit → PrePlan → PostPlan → PreVersion → PostVersion
 ## Configuration
 
 Plugins are configured in `.relicta.yaml`:
+
+Plugin binaries are unsigned and run as separate processes. Review
+`relicta plugin sandbox-status` before enabling one. Loading any enabled plugin requires
+`--allow-untrusted-plugins` on Linux, macOS, and Windows. Plugin signatures are not verified
+on any platform. The flag records an operator trust decision; it does not verify the publisher
+or provide a complete security sandbox. Pass the flag to each Relicta command that loads an
+enabled plugin; it is deliberately not saved as a persistent trust setting:
+
+```bash
+relicta --allow-untrusted-plugins publish
+```
+
+Requested network or filesystem restrictions are never silently ignored. Linux and Windows
+builds currently cannot enforce those restrictions, so a plugin configured with them is refused
+before it starts. macOS requires `sandbox-exec` when those restrictions are requested; if it is
+unavailable, startup is refused. Configure only the access a plugin needs, or run it in an
+external sandbox that can enforce the required policy. Linux resource-limit setup errors also
+stop plugin startup; successful `prlimit` application still has a short post-start race, as
+reported by `relicta plugin sandbox-status`.
+
+On Linux and Windows, a plugin that does not need isolation must explicitly allow the access it
+uses in its `capabilities` configuration. For example, a network publisher that needs ordinary
+filesystem access can set `allow_network: true` and `allow_filesystem: true`. Review this choice
+for each plugin; do not copy it to plugins that should have narrower access. These capability
+settings are per plugin, separate from the command-line trust opt-in.
 
 ```yaml
 plugins:
@@ -233,6 +270,36 @@ plugins:
 - `TEAMS_WEBHOOK_URL` - Required Microsoft Teams webhook URL
 
 **Hooks:** `PostPublish`
+
+---
+
+### Telegram
+
+Send release notifications to a Telegram chat or channel.
+
+**Installation:**
+```bash
+relicta plugin install telegram
+relicta plugin enable telegram
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: telegram
+    enabled: true
+    config:
+      chat_id: "@release_channel"
+      parse_mode: MarkdownV2
+      notify_on_success: true
+      notify_on_error: true
+```
+
+**Environment Variables:**
+- `TELEGRAM_BOT_TOKEN` - Required token from Telegram's BotFather
+- `TELEGRAM_CHAT_ID` - Required chat ID or channel username
+
+**Hooks:** `PostPublish`, `OnSuccess`, `OnError`
 
 ---
 
@@ -530,6 +597,117 @@ plugins:
 
 ---
 
+### Helm
+
+Package and publish Helm charts to an OCI, HTTP, or ChartMuseum repository.
+
+**Installation:**
+```bash
+relicta plugin install helm
+relicta plugin enable helm
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: helm
+    enabled: true
+    config:
+      chart_path: charts/my-app
+      repository_type: oci
+      repository_url: "oci://registry.example.com/charts"
+      update_chart_version: true
+      lint: true
+```
+
+Optional repository credentials use `HELM_REPO_USERNAME` and
+`HELM_REPO_PASSWORD`.
+
+**Hooks:** `PrePublish`, `PostPublish`
+
+---
+
+### Dart and Flutter
+
+Publish Dart or Flutter packages to pub.dev.
+
+**Installation:**
+```bash
+relicta plugin install pub
+relicta plugin enable pub
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: pub
+    enabled: true
+    config:
+      pubspec_path: pubspec.yaml
+      update_version: true
+      run_tests: true
+      dry_run: false
+```
+
+**Hooks:** `PrePublish`, `PostPublish`
+
+---
+
+### Swift Package Manager
+
+Build and publish Swift packages to a Swift Package Registry.
+
+**Installation:**
+```bash
+relicta plugin install swift-pm
+relicta plugin enable swift-pm
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: swift-pm
+    enabled: true
+    config:
+      package_path: .
+      registry_url: "https://packages.example.com"
+      build: true
+      test: true
+```
+
+**Hooks:** `PrePublish`, `PostPublish`
+
+---
+
+### Windows Package Manager
+
+Submit package updates to the Windows Package Manager (`winget`) repository.
+
+**Installation:**
+```bash
+relicta plugin install winget
+relicta plugin enable winget
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: winget
+    enabled: true
+    config:
+      package_id: Publisher.AppName
+      installer_url: "https://example.com/releases/{{version}}/app.msi"
+      installer_type: msi
+      create_pr: true
+```
+
+**Environment Variables:**
+- `GITHUB_TOKEN` - Required token for creating the winget-pkgs pull request
+
+**Hooks:** `PostPublish`
+
+---
+
 ### Packagist
 
 Publish packages to Packagist (PHP).
@@ -654,6 +832,35 @@ plugins:
 
 ---
 
+### Linear
+
+Create release tracking issues and update linked issues in Linear.
+
+**Installation:**
+```bash
+relicta plugin install linear
+relicta plugin enable linear
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: linear
+    enabled: true
+    config:
+      team_key: ENG
+      update_linked_issues: true
+      create_release_issue: true
+      released_state: Done
+```
+
+**Environment Variables:**
+- `LINEAR_API_KEY` - Required Linear API key
+
+**Hooks:** `PostPlan`, `PostPublish`, `OnError`
+
+---
+
 ## Container Plugins
 
 ### Docker
@@ -698,6 +905,100 @@ plugins:
 - `DOCKER_PASSWORD` - Registry password or token
 
 **Hooks:** `PrePublish`, `PostPublish`
+
+---
+
+### Azure Container Registry
+
+Push a built container image to Azure Container Registry.
+
+**Installation:**
+```bash
+relicta plugin install acr
+relicta plugin enable acr
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: acr
+    enabled: true
+    config:
+      registry: myregistry
+      image: my-app
+      source_image: my-app:build
+      auth_method: azure_cli
+      tags:
+        - "{{version}}"
+```
+
+For service-principal authentication, configure `AZURE_TENANT_ID`,
+`AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET`. Other supported methods are
+`service_principal`, `admin`, and `managed_identity`.
+
+**Hooks:** `PostPublish`
+
+---
+
+### Amazon ECR
+
+Push a built container image to Amazon Elastic Container Registry.
+
+**Installation:**
+```bash
+relicta plugin install ecr
+relicta plugin enable ecr
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: ecr
+    enabled: true
+    config:
+      registry: 123456789012.dkr.ecr.eu-central-1.amazonaws.com
+      image: my-app
+      source_image: my-app:build
+      tags:
+        - "{{version}}"
+```
+
+Configure AWS credentials using the standard AWS SDK chain and set
+`AWS_REGION` when the region cannot be inferred.
+
+**Hooks:** `PostPublish`
+
+---
+
+### Google Artifact Registry
+
+Push a built container image to Google Artifact Registry or GCR.
+
+**Installation:**
+```bash
+relicta plugin install gcr
+relicta plugin enable gcr
+```
+
+**Configuration:**
+```yaml
+plugins:
+  - name: gcr
+    enabled: true
+    config:
+      project: my-gcp-project
+      location: europe-west1
+      registry: europe-west1-docker.pkg.dev
+      image: my-app
+      source_image: my-app:build
+      tags:
+        - "{{version}}"
+```
+
+Set `GCP_PROJECT` and configure Google Application Default Credentials for the
+publishing environment.
+
+**Hooks:** `PostPublish`
 
 ---
 

@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/application/recommendation"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/application/recommendation"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 func TestWithRepoRoot(t *testing.T) {
@@ -1901,7 +1901,7 @@ func TestPlanToolOutput_RecommendationKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal() error = %v", err)
 	}
-	if strings.Contains(string(empty), "recommendation") {
+	if strings.Contains(string(empty), `"recommendation":`) {
 		t.Errorf("nil recommendation should be omitted, got %s", empty)
 	}
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // Planning failed outright in a repository with no version tags — every project's

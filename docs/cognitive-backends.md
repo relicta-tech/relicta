@@ -1,29 +1,34 @@
 # Cognitive Backends: Mnemos + Chronos
 
-> **Enabled by default** — Relicta learns and improves with every release.
-> Set `enabled: false` in config to opt-out.
+Chronos is enabled by default. Mnemos is disabled until Relicta's adapter is
+updated for the current Mnemos API.
 
 Relicta integrates two cognitive backends that work together to provide
 memory and pattern detection for smarter release governance.
 
 ## Quick Start
 
-Both backends are **enabled by default** in v4.0.1+. No configuration needed.
+Chronos is enabled by default in v4.0.1+. Mnemos requires a compatible legacy
+server and explicit opt-in.
 
 To opt-out, add to your `.relicta.yaml`:
 
 ```yaml
-mnemos:
-  enabled: false  # Disable Mnemos memory backend
-
 chronos:
   enabled: false  # Disable Chronos pattern detection
 ```
 
 ## Mnemos — Release Memory
 
+The current Relicta adapter uses the legacy `/v1/events` API. Current Mnemos
+releases use a different API and require bearer authentication for data
+endpoints, so the integration is not compatible with current upstream releases.
+Do not enable Mnemos against a current server; writes will be skipped. The
+adapter needs an API migration before this backend is ready for use.
+
 Mnemos (https://github.com/klarlabs-studio/mnemos) is a self-hosted memory layer
-for AI applications. When enabled, Relicta stores:
+for AI applications. When explicitly enabled against a compatible legacy server,
+Relicta stores:
 
 - Release events (version, risk score, decision, outcome)
 - Incident records (type, severity, root cause)
@@ -73,9 +78,9 @@ If Chronos is not running, operations gracefully degrade (warn-level logging).
 Both backends are configured in `.relicta.yaml`:
 
 ```yaml
-# Mnemos memory backend (enabled by default)
+# Mnemos legacy memory backend (disabled by default)
 mnemos:
-  enabled: true          # Set false to opt-out
+  enabled: true          # Only for a compatible legacy server
   endpoint: "http://localhost:7777"
   timeout: 10s
   namespace: "relicta"  # Used as Mnemos run_id
@@ -104,8 +109,8 @@ and enable them later when you want enhanced memory and pattern detection.
 
 ## Default Behavior (v4.0.0+)
 
-✅ **Mnemos enabled by default** — learns from every release
 ✅ **Chronos enabled by default** — detects patterns and trends
+✅ **Mnemos disabled by default** — current API adapter migration is pending
 ✅ **Graceful degradation** — no separate `serve` commands needed
 ✅ **Explicit opt-out** — set `enabled: false` to disable
 
@@ -116,7 +121,7 @@ If upgrading from v3.x, update your config:
 ```yaml
 # Add to your .relicta.yaml (or rely on defaults)
 mnemos:
-  enabled: true  # Now enabled by default
+  enabled: false # Current API adapter migration is pending
 
 chronos:
   enabled: true  # Now enabled by default
@@ -137,9 +142,12 @@ Probe the health of Mnemos and Chronos backends. Prints reachability status.
 
 ### `relicta demo`
 Manage the local Docker Compose demo environment.
-- `relicta demo` — bring up Mnemos + Chronos containers
+- `relicta demo` — bring up the pinned Chronos container
 - `relicta demo --reset` — tear down and recreate
 - `relicta demo --down` — stop and remove containers
+
+The demo does not start Mnemos because the current Relicta adapter is not
+compatible with current Mnemos API releases.
 
 ## Configuration Changes
 

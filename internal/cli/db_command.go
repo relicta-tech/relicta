@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // dbCmd exposes the PostgreSQL migration runner.
@@ -31,7 +31,8 @@ expansion, so it can be kept out of the file entirely:
     connection_string: "${DATABASE_URL}"
     pool_size: 10
 
-import is not tied to postgres: it reads the existing .relicta/releases tree into
+import is not tied to postgres: it reads release runs, governance memory, CGP
+protocol records, and configured identity grants from .relicta into
 whichever backend persistence.backend selects, so it works for sqlite too. The
 one backend it refuses is "file", where the source and the destination would be
 the same store.`,

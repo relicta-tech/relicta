@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"io"
 
-	cgpmemory "github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/sqlite"
+	cgpmemory "github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite"
 )
 
 // GovernanceMemoryStore is a resolved governance store together with whatever it holds open.

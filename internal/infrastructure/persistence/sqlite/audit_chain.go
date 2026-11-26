@@ -16,7 +16,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
 )
 
 // AppendAuditEntry appends one linked entry to a repository's chain.

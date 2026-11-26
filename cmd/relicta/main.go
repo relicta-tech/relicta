@@ -3,8 +3,9 @@ package main
 
 import (
 	"os"
+	"runtime/debug"
 
-	"github.com/relicta-tech/relicta/v4/internal/cli"
+	"github.com/relicta-tech/relicta/v5/internal/cli"
 )
 
 // Populated at build time via -ldflags "-X main.ver=... -X main.commit=... -X main.date=...".
@@ -17,6 +18,14 @@ var (
 )
 
 func main() {
+	// `go install module/path/cmd@version` does not apply GoReleaser's linker
+	// flags. Prefer the version recorded in the module build metadata when the
+	// binary was installed from a tagged module; local source builds remain dev.
+	if ver == "" || ver == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			ver = info.Main.Version
+		}
+	}
 	cli.SetVersionInfo(ver, commit, date)
 	if err := cli.Execute(); err != nil {
 		// cobra runs with SilenceErrors; surface the error ourselves so a

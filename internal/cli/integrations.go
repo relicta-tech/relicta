@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/compliance"
-	"github.com/relicta-tech/relicta/v4/internal/integrations/drata"
-	"github.com/relicta-tech/relicta/v4/internal/integrations/vanta"
+	"github.com/relicta-tech/relicta/v5/internal/compliance"
+	"github.com/relicta-tech/relicta/v5/internal/integrations/drata"
+	"github.com/relicta-tech/relicta/v5/internal/integrations/vanta"
 )
 
 var (
@@ -62,11 +62,13 @@ var integrationsCmd = &cobra.Command{
 
 Currently supported:
 
-  vanta   Vanta REST API — push Article 12 logs and SOC 2 evidence as
-          custom evidence artifacts. Vanta released its remote MCP server
-          and Claude plugin in April 2026; Relicta complements Vanta by
-          providing upstream cryptographically attested release evidence.
-  drata   Drata REST API — same evidence shape, different transport. Use
+  vanta   Vanta REST API — push release-governance evidence mapped to
+          Article 12 concepts and SOC 2 evidence as custom artifacts. This
+          Article 12 mapping is not an operational AI-use log. Vanta released
+          its remote MCP server and Claude plugin in April 2026; Relicta
+          complements Vanta with upstream release-governance evidence.
+  drata   Drata REST API — same release-governance evidence shape, different
+          transport. Use
           when your org runs Drata for SOC 2 / ISO 27001 / HIPAA / PCI
           continuous monitoring.`,
 }
@@ -83,13 +85,13 @@ var vantaPushCmd = &cobra.Command{
 
 Examples:
 
-  # Push Article 12 log entries for Q1 2026 (one evidence record per entry)
+  # Push release-governance records mapped to Article 12 concepts
   relicta integrations vanta push --period 2026-Q1 --type article12
 
   # Push SOC 2 aggregated evidence (3 records: change log, approvals, risks)
   VANTA_API_TOKEN=secret relicta integrations vanta push --period 2026-Q1 --type soc2
 
-  # Dry-run: render JSON payloads without API calls
+  # Dry-run: render JSON payloads without API calls (not an Article 12 operational log)
   relicta integrations vanta push --period 2026-Q1 --type article12 --dry-run`,
 	RunE: runVantaPush,
 }
@@ -211,13 +213,13 @@ var drataPushCmd = &cobra.Command{
 
 Examples:
 
-  # Push Article 12 log entries for Q1 2026
+  # Push release-governance records mapped to Article 12 concepts
   relicta integrations drata push --period 2026-Q1 --type article12 --repo acme/payments
 
   # Push SOC 2 aggregated evidence
   DRATA_API_TOKEN=secret relicta integrations drata push --period 2026-Q1 --type soc2 --repo acme/payments
 
-  # Dry-run: render JSON payloads without API calls
+  # Dry-run: render JSON payloads without API calls (not an Article 12 operational log)
   relicta integrations drata push --period 2026-Q1 --type article12 --repo acme/payments --dry-run`,
 	RunE: runDrataPush,
 }

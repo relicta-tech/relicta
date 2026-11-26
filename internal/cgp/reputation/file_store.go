@@ -27,14 +27,14 @@ type FileStore struct {
 	data fileStoreData
 }
 
-// NewFileStore creates a new file-backed reputation store.
-// The file is created if it does not exist.
+// NewFileStore creates a new file-backed reputation store. Scores are written
+// on the first SaveScore call.
 func NewFileStore(dir string) (*FileStore, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("directory path is required")
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("creating reputation directory: %w", err)
 	}
 
@@ -75,12 +75,18 @@ func (fs *FileStore) GetScore(_ context.Context, actorID string) (*Score, error)
 
 // SaveScore persists a reputation score for an actor and appends to history.
 func (fs *FileStore) SaveScore(_ context.Context, actorID string, score *Score) error {
+	if actorID == "" {
+		return fmt.Errorf("actor ID is required")
+	}
 	if score == nil {
 		return fmt.Errorf("score is required")
 	}
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
+
+	oldScore, hadScore := fs.data.Scores[actorID]
+	oldHistory := append([]Score(nil), fs.data.History[actorID]...)
 
 	// Save current score.
 	scoreCopy := *score
@@ -95,7 +101,20 @@ func (fs *FileStore) SaveScore(_ context.Context, actorID string, score *Score) 
 		fs.data.History[actorID] = fs.data.History[actorID][excess:]
 	}
 
-	return fs.saveLocked()
+	if err := fs.saveLocked(); err != nil {
+		if hadScore {
+			fs.data.Scores[actorID] = oldScore
+		} else {
+			delete(fs.data.Scores, actorID)
+		}
+		if len(oldHistory) == 0 {
+			delete(fs.data.History, actorID)
+		} else {
+			fs.data.History[actorID] = oldHistory
+		}
+		return err
+	}
+	return nil
 }
 
 // GetHistory returns historical scores for an actor, most recent first.
@@ -104,11 +123,12 @@ func (fs *FileStore) GetHistory(_ context.Context, actorID string, limit int) ([
 	defer fs.mu.RUnlock()
 
 	history := fs.data.History[actorID]
-	if len(history) == 0 {
+	if len(history) == 0 || limit <= 0 {
 		return []Score{}, nil
 	}
 
-	// Return most recent first, up to limit.
+	// Return most recent first, up to limit. A non-positive limit is an
+	// explicit empty page; in particular, a negative value must not reach make.
 	count := limit
 	if count > len(history) {
 		count = len(history)
@@ -155,9 +175,34 @@ func (fs *FileStore) saveLocked() error {
 		return fmt.Errorf("marshaling reputation data: %w", err)
 	}
 
-	if err := os.WriteFile(fs.path, raw, 0o644); err != nil {
-		return fmt.Errorf("writing reputation file: %w", err)
+	tmp, err := os.CreateTemp(filepath.Dir(fs.path), ".scores-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temporary reputation file: %w", err)
 	}
+	tmpPath := tmp.Name()
+	committed := false
+	defer func() {
+		_ = tmp.Close()
+		if !committed {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+	if err := tmp.Chmod(0o600); err != nil {
+		return fmt.Errorf("setting reputation file permissions: %w", err)
+	}
+	if _, err := tmp.Write(raw); err != nil {
+		return fmt.Errorf("writing temporary reputation file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		return fmt.Errorf("syncing temporary reputation file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing temporary reputation file: %w", err)
+	}
+	if err := os.Rename(tmpPath, fs.path); err != nil {
+		return fmt.Errorf("committing reputation file: %w", err)
+	}
+	committed = true
 
 	return nil
 }

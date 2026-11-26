@@ -28,7 +28,7 @@ changelog:
 ai:
   enabled: true
   provider: openai
-  model: gpt-4o-mini
+  model: gpt-6-luna
   tone: professional
   audience: developers
 

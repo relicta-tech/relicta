@@ -6,7 +6,19 @@ Multi-repository governance commands
 
 Manage coordinated releases across multiple repositories.
 
-Repository groups are defined in .relicta.yaml under 'repository_groups'.
+Repository groups are declared in .relicta.yaml, which relicta init does not
+write — add the section yourself:
+
+  repository_groups:
+    - name: platform
+      strategy: coordinated
+      repositories:
+        - name: service-a
+          path: ../service-a
+        - name: service-b
+          path: ../service-b
+          dependencies: [service-a]
+
 Each group contains repositories with optional dependency relationships.
 
 Supported strategies:
@@ -24,14 +36,14 @@ Supported strategies:
 ### Options inherited from parent commands
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --dry-run                   simulate actions without making changes
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output
@@ -42,5 +54,5 @@ Supported strategies:
 * [relicta](relicta.md)	 - The governance layer for software change
 * [relicta group plan](relicta_group_plan.md)	 - Show release plan across repository group
 * [relicta group release](relicta_group_release.md)	 - Coordinated release across repository group
-* [relicta group status](relicta_group_status.md)	 - Show release state of all repositories in group
+* [relicta group status](relicta_group_status.md)	 - Show release state of repositories in group
 

@@ -4,8 +4,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	pkgcgp "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	pkgcgp "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // ApprovalCardInput collects the surrounding context BuildApprovalCard needs.

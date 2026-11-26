@@ -18,7 +18,7 @@ ai:
     enabled: false
     include_emoji: false
     max_tokens: 2048
-    model: gpt-4
+    model: gpt-6.2-sol
     provider: openai
     retry_attempts: 3
     temperature: 0.7
@@ -50,6 +50,14 @@ changelog:
     product_name: ""
     repository_url: https://github.com/relicta-tech/relicta
     template: ""
+governance:
+    enabled: true
+    strict_mode: true
+    require_human_for_breaking: true
+    require_human_for_security: true
+    memory_enabled: true
+    memory_path: .relicta/governance/memory.json
+    policy_dir: .github/relicta/policies
 output:
     color: true
     format: text
@@ -67,11 +75,11 @@ plugins:
         draft: false
       continue_on_error: false
       # Disabled deliberately. .github/workflows/release.yaml publishes the
-      # GitHub release via GoReleaser, with Cosign signing, a Syft SBOM and
-      # attestations, and only after its `governance` job approves. Enabling
-      # this plugin would publish a second release for the same tag from
-      # whichever machine ran `relicta publish` — unsigned, without
-      # provenance, and bypassing the gate relicta exists to enforce.
+      # GitHub release via GoReleaser with Cosign signing, a Syft SBOM and
+      # artifact attestations. The release workflow records its protected
+      # GitHub reviewer in the Relicta run. Enabling this plugin would publish
+      # a second release for the same tag from whichever machine ran
+      # `relicta publish`, outside the GoReleaser signing and attestation path.
       enabled: false
       hooks: []
       name: github

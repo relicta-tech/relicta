@@ -6,7 +6,7 @@
     {
       "id": "session-authentication",
       "title": "Session Authentication",
-      "description": "Implement JWT-based session authentication for the web dashboard.\nThe API key auth mode works; session mode returns 501 Not Implemented.\nAdd token issuance, validation, refresh, and revocation. Support\nsecure cookie transport for browser sessions.\n",
+      "description": "Session and OIDC authentication are implemented, including token\nissuance, validation, refresh, revocation, secure cookies, and role\nmapping. Review the authentication configuration and deployment\nguidance before enabling external dashboard access.\n",
       "requirements": [
         {
           "id": "jwt-token-service",
@@ -20,7 +20,7 @@
         {
           "id": "session-auth-middleware",
           "title": "Wire session auth into middleware",
-          "description": "Replace the TODO stub in auth.go session mode with real JWT\nvalidation. Extract claims, map to roles (Admin, Approver,\nViewer), and populate request context.\n",
+          "description": "Session middleware validates JWTs, extracts claims, maps roles,\nand populates request context. This requirement is implemented.\n",
           "priority": "high",
           "estimate": "2d",
           "depends_on": [
@@ -340,20 +340,6 @@
       "source": {}
     },
     {
-      "id": "cgp-protocol-wire-format",
-      "title": "CGP Protocol Wire Format",
-      "description": "Formalize the Change Governance Protocol (CGP) wire format as described in PRD Section 17. Implement CGP message types (change.proposal, change.decision, change.execution_authorized) as structured JSON with versioning. Add CGP endpoints to the MCP server so AI agents can propose changes via the protocol. Create a CGP SDK package that other tools can import to become CGP-compliant. This positions Relicta as the reference implementation of an open governance standard.",
-      "requirements": [],
-      "source": {}
-    },
-    {
-      "id": "audience-aware-release-communication",
-      "title": "Audience-Aware Release Communication",
-      "description": "Implement the stakeholder communication layer from PRD Section 11. Generate audience-specific release narratives (engineering, product, executive, external) derived from approved governance decisions. Support bundling changes across components into coherent narratives. Add communication templates with configurable tone and detail level. Integrate with existing AI providers for narrative generation. This moves Relicta from \"output\" (changelogs) to \"outcomes\" (stakeholder communication).",
-      "requirements": [],
-      "source": {}
-    },
-    {
       "id": "release-memory-and-learning",
       "title": "Release Memory and Learning",
       "description": "Build the historical context system from PRD Section 16.4. Track past incidents, rollbacks, and their root causes. Identify patterns of risky changes across releases. Feed historical outcomes back into risk scoring so future evaluations improve over time. Store release memory in the persistence layer (file or PostgreSQL). Surface insights via the dashboard analytics. This enables Relicta to continuously improve beyond what stateless tools can achieve.",
@@ -587,36 +573,113 @@
     {
       "id": "make-versioning-tag-prefix-work-for-non-v-prefixes",
       "title": "Make versioning.tag_prefix work for non-\"v\" prefixes",
-      "description": "Tracked on GitHub as relicta-tech/relicta#231; logged here so it stays in the backlog.\n\nversioning.tag_prefix is configurable, TagList.FilterByPrefix exists, and monorepo docs describe app-v1.2.3 style tags. But a tag with any prefix other than \"v\" is never recognised as a version tag, so the setting has no effect beyond its default.\n\nCAUSE\n\nsourcecontrol.NewTag (internal/domain/sourcecontrol/tag.go:23) decides version-ness by parsing the whole tag name, and version.Parse accepts only bare semver or a leading \"v\":\n\n  Parse(\"1.5.0\")         -\u003e 1.5.0\n  Parse(\"v1.5.0\")        -\u003e 1.5.0\n  Parse(\"release-1.5.0\") -\u003e invalid semantic version\n  Parse(\"rel/1.5.0\")     -\u003e invalid semantic version\n  Parse(\"app-v1.5.0\")    -\u003e invalid semantic version\n\nSuch tags are dropped by TagList.VersionTags() BEFORE FilterByPrefix can be applied — the usual call order is FilterByPrefix(prefix).VersionTags(), and the second step discards what the first selected.\n\nCONSEQUENCES for any project not using \"v\"\n\n- plan cannot find the previous version tag, so it computes a baseline of \"no previous release\" and a changeset spanning the whole history\n- status cannot detect that a release happened since a run was planned\n- monorepo-style prefixes do not work at all, though app-v1.2.3 is the documented pattern for blast and workspace versioning\n\nThe failure is silent: nothing reports that the prefix was ignored, so the project simply appears to have no releases.\n\nRELATED\n\ninternal/domain/release/app/plan.go:131 separately hardcodes the prefix:\n\n  tag, err := uc.repoInspector.GetLatestVersionTag(ctx, \"v\")\n\neven though cfg.Versioning.TagPrefix is threaded into the CLI's AnalyzeInput elsewhere. Both need fixing; that line alone would still hit the parse limitation.\n\nWHY IT NEEDS A DECISION FIRST\n\nThe right shape depends on what a monorepo tag is meant to be: \"prefix app-v plus semver\", or a component-qualified tag with its own type carrying component and version separately. blast and workspace versioning both depend on the answer, so deciding that comes before implementing.\n\nSUGGESTED APPROACH\n\n1. Decide the monorepo tag model (plain prefix vs component-qualified type)\n2. Teach the tag domain to strip a configured prefix before parsing, or add a prefix-aware constructor\n3. Pass cfg.Versioning.TagPrefix in plan.go instead of \"v\"\n4. Revisit detectRunStaleness in internal/cli/status.go, which currently cannot see non-\"v\" releases\n\nEXISTING TEST\n\nTestDetectRunStaleness_NonVTagPrefixesAreNotDetected (internal/cli/status_staleness_test.go) pins the current behavior and FAILS once this is fixed, as a prompt to revisit the staleness detector at the same time.",
-      "requirements": [],
+      "description": "Implemented: configured prefixes such as `release-`, `rel/`, and `app-v` are parsed as semantic versions throughout repository lookup, release planning, monorepo operations, and stale-plan detection. Prefix-aware APIs preserve the resolved version on returned tag values so consumers do not fall back to whole-name parsing.\n\nHistorical cause: sourcecontrol.NewTag parses the whole tag name, and version.Parse accepts only bare semver or a leading \"v\":\n\n  Parse(\"1.5.0\")         -\u003e 1.5.0\n  Parse(\"v1.5.0\")        -\u003e 1.5.0\n  Parse(\"release-1.5.0\") -\u003e invalid semantic version\n  Parse(\"rel/1.5.0\")     -\u003e invalid semantic version\n  Parse(\"app-v1.5.0\")    -\u003e invalid semantic version\n\nSuch tags are dropped by TagList.VersionTags() BEFORE FilterByPrefix can be applied — the usual call order is FilterByPrefix(prefix).VersionTags(), and the second step discards what the first selected.\n\nThe former consequences for projects not using \"v\" were:\n\n- plan cannot find the previous version tag, so it computes a baseline of \"no previous release\" and a changeset spanning the whole history\n- status cannot detect that a release happened since a run was planned\n- monorepo-style prefixes do not work at all, though app-v1.2.3 is the documented pattern for blast and workspace versioning\n\nThe failure is silent: nothing reports that the prefix was ignored, so the project simply appears to have no releases.\n\nRegression coverage now asserts configured-prefix lookup, planning, and staleness behavior, including ignoring a different component's tag prefix.",
+      "requirements": [
+        {
+          "id": "configured-tag-prefixes-work-end-to-end",
+          "title": "Recognize configured version tag prefixes end to end",
+          "description": "Verify prefix-aware tag parsing and latest-tag lookup, release planning and stale-plan detection for non-v prefixes without crossing component prefixes.",
+          "priority": "high",
+          "estimate": "1d",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "run": "go test ./internal/domain/sourcecontrol ./internal/domain/release/adapters ./internal/infrastructure/git ./internal/application/monorepo ./internal/cli -run 'Test(.*Prefix|.*TagPrefix|DetectRunStaleness_NonVTagPrefixesAreDetected|DetectRunStaleness_IgnoresOtherPrefixes|Plan.*Version|.*LatestVersionTag)'"
+          }
+        }
+      ],
       "source": {}
     },
     {
       "id": "decide-what-relicta-init-should-write-and-make-error-messages",
       "title": "Decide what relicta init should write, and make error messages match",
-      "description": "`relicta init` writes 6 of the schema's 21 top-level config sections, so error messages that tell a user to edit a setting frequently name a key the generated file does not contain.\n\nWRITTEN: versioning, changelog, ai, plugins, workflow, output\n\nMISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks\n\nMESSAGES THAT POINT AT ABSENT KEYS\n\n  internal/cli/evaluate.go   \"enable governance in .relicta.yaml\"        (governance absent)\n  internal/cli/multirepo.go  \"defined in .relicta.yaml under 'repository_groups'\"  (absent)\n  internal/cli/serve.go      \"configure api_keys in .relicta.yaml\"       (dashboard absent)\n\nA user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.\n\nMITIGATION ALREADY LANDED\n\nThe governance case now returns errGovernanceDisabled (internal/cli/governance_disabled.go), which prints the YAML to add rather than naming a key:\n\n  Add this to .relicta.yaml:\n\n    governance:\n      enabled: true\n\nVerified end to end: adding exactly that makes `relicta evaluate` work. The multirepo and dashboard messages have not been given the same treatment.\n\nTHE DECISION THIS NEEDS\n\nWriting all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:\n\n1. Keep a curated subset, and require every \"configure X in .relicta.yaml\" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.\n2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.\n3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.\n\nWhichever is chosen, the invariant worth enforcing with a test is: no user-facing message names a config key unless that key (or a commented example of it) appears in what init writes.\n\nSUGGESTED APPROACH\n\n1. Pick 1, 2 or 3\n2. If 1: audit every message mentioning .relicta.yaml and give it a snippet, following errGovernanceDisabled\n3. Add a test that scans CLI strings for \".relicta.yaml\" references and checks the named section appears in WriteDefaultConfig output\n4. Consider whether governance in particular deserves to be written regardless, since it gates the risk scoring the product is built around and is the section users most need to find",
-      "requirements": [],
+      "description": "Resolved by keeping `relicta init` concise and requiring actionable config guidance to include a complete YAML block with correct nesting. This avoids producing several hundred lines of advanced defaults while giving users a concrete edit to paste.\n\nWRITTEN: versioning, changelog, ai, plugins, workflow, output\n\nMISSING: attestation, channels, chronos, communication, dashboard, git, governance, mnemos, monorepo, observability, persistence, plugin_security, repository_groups, telemetry, webhooks\n\nMESSAGES THAT POINT AT ABSENT KEYS\n\n  internal/cli/evaluate.go   \"enable governance in .relicta.yaml\"        (governance absent)\n  internal/cli/multirepo.go  \"defined in .relicta.yaml under 'repository_groups'\"  (absent)\n  internal/cli/serve.go      \"configure api_keys in .relicta.yaml\"       (dashboard absent)\n\nA user follows the instruction, opens the file, and the section is not there — with no indication of the nesting to add.\n\nIMPLEMENTATION\n\nGovernance, environment, dashboard authentication, and repository group guidance now use explicit YAML snippets. Dashboard and repository group examples include their nested/list structure; snippets are top-level so they paste correctly into an existing config. The invariant is covered by `internal/cli/config_hints_test.go`, which checks the keys and generated config, and rejects actionable one-line references that only name the config file.\n\nFor example, governance guidance prints:\n\n    governance:\n      enabled: true\n\nThe governance enable snippet was also verified end to end by enabling the setting and running `relicta evaluate`.\n\nTHE DECISION THIS NEEDS\n\nWriting all 21 sections would produce a file of several hundred lines, most of it advanced settings at their defaults, which is its own usability problem — the current 99-line output is readable and the annotations for the dangerous settings stand out. Three plausible answers:\n\n1. Keep a curated subset, and require every \"configure X in .relicta.yaml\" message to carry its own YAML snippet. Cheapest, keeps the file readable, puts the burden on error messages.\n2. Write all sections, with comments, and accept the length. Most discoverable, worst to read.\n3. Write the curated subset plus a commented-out block for each remaining section, so the shape is discoverable without being active. Middle ground; the annotation mechanism in internal/config/loader.go could be extended to emit these.\n\nChosen approach: keep the curated generated config and provide complete snippets in actionable guidance for sections it omits.\n\nSUGGESTED APPROACH\n\nAcceptance requires each actionable omitted-key message to supply a complete YAML remedy, plus regression coverage proving the snippet matches the generated config convention.",
+      "requirements": [
+        {
+          "id": "init-config-guidance-includes-actionable-yaml",
+          "title": "Keep init concise and give actionable config guidance",
+          "description": "Ensure omitted configuration sections are accompanied by complete, correctly nested YAML hints, and protect the behavior with tests against the actual generated config.",
+          "priority": "high",
+          "estimate": "1d",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "run": "go test ./internal/cli ./internal/config -run 'Test(EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey|WriteDefaultConfig|.*ConfigHint|GovernanceDisabled)'"
+          }
+        }
+      ],
       "source": {}
     },
     {
       "id": "wire-or-withdraw-the-cgp-mcp-tools",
       "title": "Wire or withdraw the cgp_* MCP tools",
-      "description": "The three CGP protocol tools are advertised in tools/list and cannot work. An agent enumerates them, calls one, and gets a failure on every attempt.\n\n  cgp_propose\n  cgp_authorize\n  cgp_status\n\nCAUSE\n\nhandleCGP* calls ensureCGPService (internal/mcp/server.go:708), which needs either s.cgpService or s.evaluator. `relicta mcp serve` wires neither: WithCGPService and WithEvaluator are both defined and called only from tests. So ensureCGPService always takes its error path.\n\nFound by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.\n\nMITIGATION ALREADY LANDED\n\nThe failure now returns a ToolInputError explaining that no evaluator is configured and pointing at relicta_evaluate, instead of the redacted \"internal error\" an agent used to receive. The tools still do not work.\n\nTHE DECISION THIS NEEDS\n\nSupplying `evaluator.New()` in createMCPServer would make the tools respond, and that is what the tests do. But a bare evaluator is not the same as the CLI's governance service: the container builds that from cfg.Governance — thresholds, policies, freeze periods, trusted actors, reputation. An agent evaluating a proposal through cgp_* would get a different verdict than a human running `relicta evaluate` on the same change, which for a governance tool is worse than the tool being absent.\n\nThree options:\n\n1. Expose the container's configured evaluator (or the governance service's) and wire that. Correct, and makes agent and CLI agree. Needs an accessor the container does not currently have, and a decision about whether the CGP protocol path should share governance's configuration or have its own.\n\n2. Withdraw the three tools from tools/list until they can be wired. Honest, and stops agents wasting calls. Loses the CGP protocol surface, which pkg/cgp exists to expose.\n\n3. Keep them advertised but make the unconfigured response a documented, structured \"not available here\" that an agent can branch on. Cheapest; currently implemented as an isError, which is close.\n\nOption 1 is the real answer if the CGP protocol surface is meant to be part of the product. Option 2 is right if it is not.\n\nACCEPTANCE\n\nEither the three tools return real results computed with the same configuration the CLI uses, or they are not advertised. A test should assert whichever is chosen, since the current state — advertised and non-functional — is what nothing was checking.\n\nRELATED\n\nOther Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.",
-      "requirements": [],
+      "description": "The three CGP protocol tools are advertised in tools/list and must use the configured governance evaluator and durable proposal storage.\n\n  cgp_propose\n  cgp_authorize\n  cgp_status\n\nIMPLEMENTATION\n\n`relicta mcp serve` passes the evaluator from the container's governance service and opens the configured durable protocol store. The config reload path refreshes both components. Regression coverage checks option wiring, configured-policy parity, reload behavior, and persistence across service instances.\n\nFound by sweeping for option constructors that are never called in production — the same pattern as WithAdapterRepo, WithSkipPush and FindByPlanHash. Of 87 With* constructors in the tree, 40 are never called outside tests; most of those are legitimate test seams, these are not.\n\nThe server retains a clear unavailable response when no configured evaluator exists; it does not substitute a default evaluator with different policy.\n\nACCEPTANCE\n\nThe three tools return results from the configured governance evaluator, and proposals survive MCP server process restarts using the configured persistence backend.\n\nRELATED\n\nOther Server options never wired by `relicta mcp serve`: WithReleaseRepository, WithPolicyEngine, WithActorBudgets, WithRiskCalculator, WithCache, WithCacheDisabled. WithRiskCalculator in particular gates the fallback risk path in handleEvaluate, which therefore cannot run either. Each needs the same question asked: wire it, or remove the option and the code that depends on it.",
+      "requirements": [
+        {
+          "id": "cgp-tools-use-configured-governance-and-durable-storage",
+          "title": "Wire CGP MCP tools to configured governance and persistence",
+          "description": "Verify the CLI wires the governance evaluator and durable store, that reload refreshes both, and protocol proposals persist across service instances.",
+          "priority": "high",
+          "estimate": "1d",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "run": "go test ./internal/mcp ./internal/cli -run 'Test(CGP|TheMCP|MCPServerWires|Reload|EvaluatorCarries)'"
+          }
+        }
+      ],
       "source": {}
     },
     {
       "id": "policy-conditions-for-data-the-evaluator-does-not-yet-carry",
       "title": "Policy conditions for data the evaluator does not yet carry",
-      "description": "Five conditions written in the shipped example policies had no field behind them and were removed rather than left looking active (PR #249). Each is a real governance need, and each needs the evaluator to carry data it does not have today.\n\nCAUSE: buildEvalContext exposes risk, change counts, blast radius, scope, intent, actor identity, team configuration and a clock. It carries nothing about holidays, actor seniority, how many domains a change touches, or an actor's earned trust. `relicta policy fields` now prints exactly what exists, so the gaps are visible instead of guessed at.\n\nCONSEQUENCE: rules a team would reasonably want cannot be expressed. Specifically:\n\n1. `time.is_holiday` — no holiday calendar. Workaround today: configure holidays as freeze periods, which `time.freeze.active` covers. A real calendar would need per-region holiday sets and config to select them.\n2. `actor.level` / seniority — expressible only as a configured role (`actor.roles contains \"junior\"`), which pushes the concept into team config. A first-class seniority field would need a source of truth for it.\n3. `change.scope_count` — no count of distinct domains or packages touched. Deliberately NOT approximated with scope.fileCount: a large single-domain change would fire the rule and a small cross-cutting one would not, which is backwards. Needs domain/package attribution over the changed file set — the monorepo package detection may already supply most of it.\n4. `actor.trusted` — the reputation and calibration machinery exists in internal/cgp (earned trust, identity registry) and is not surfaced to policy conditions. This is probably the cheapest of the four and the most useful: it is the field that lets a policy say \"auto-approve low-risk changes from actors who have earned it\".\n5. Membership-of-nothing — `NOT actor.is_member` was removed because there is no operator for \"this list is empty\". `actor.teams` exists; an `is_empty` / `size` operator would express it, and would apply to `scope.files` and `actor.roles` too.\n\nOPTIONS: (4) first, since the data exists and only needs exposing in buildEvalContext plus a KnownFieldPaths entry. Then (5), which is an operator rather than new data. (3) after that if monorepo attribution can be reused. (1) and (2) are configuration surfaces and can wait for someone to ask.\n\nWhatever is added must go into buildEvalContext, so KnownFieldPaths picks it up automatically and `policy validate` stops reporting it — the enumeration is derived, not hand-listed, specifically so this stays in one place.",
-      "requirements": [],
+      "description": "Reconcile policy capabilities against the actual evaluation context so\npolicies expose only data that can be evaluated. Implemented: actor trust\nand conditional reputation fields, is_empty and size collection\noperators, and path/package breadth. These are covered by evaluator tests,\nderived field discovery, policy validation, CLI policy fixtures, and the\ngovernance guide. No shipped example currently requires a holiday\ncalendar or first-class actor seniority: freeze periods provide the\nrelease-window mechanism, and configured roles can represent team-defined\nlevels. Keep those two as future product requests until discovery supplies\na source of truth and a customer need.",
+      "requirements": [
+        {
+          "id": "policy-field-context-and-operators",
+          "title": "Expose policy data and operators that the evaluator can actually resolve",
+          "description": "Ensure trust, reputation, change breadth and collection operators are represented in evaluation context, discoverable through policy fields, documented, and covered by regression tests.",
+          "priority": "high",
+          "estimate": "2d",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "run": "go test ./internal/cgp/policy ./internal/cli -run 'Test(ActorTrust|IsEmpty|Size|ChangeBreadth|Breadth|PolicyFields|EveryConfigKeyMentionedHasSomewhereToLook|ActionableMessagesDoNotJustNameAKey)'"
+          }
+        },
+        {
+          "id": "defer-policy-holidays-and-seniority",
+          "title": "Keep holiday calendar and seniority fields deferred pending validated demand",
+          "description": "Confirm shipped policies use freeze periods for holiday windows and configured roles for team-defined levels; do not add independent fields until a customer source of truth is established.",
+          "priority": "medium",
+          "estimate": "",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "manual": "Review shipped policy examples and customer discovery evidence before implementing a holiday calendar or first-class seniority field."
+          }
+        }
+      ],
       "source": {}
     },
     {
       "id": "cgp-protocol-proposals-do-not-survive-the-session",
       "title": "CGP protocol proposals do not survive the session",
-      "description": "The cgp_* MCP tools now work (PR #260), which exposes the next limitation: nothing they record persists.\n\nCAUSE: internal/cgp/protocol/service.go defaults to `\u0026inMemoryStore{}` — three maps keyed by proposal and decision ID, created per Service. NewService takes a ServiceOption for the store, but no caller supplies one, so every server process gets a fresh empty store.\n\nCONSEQUENCE: the three tools form a protocol handshake — propose returns a decision, authorize records an ExecutionAuthorization against that decision, status reports which state a proposal reached — and the chain only holds inside one process. Over stdio that is one MCP session. Specifically:\n\n- `cgp_status` on a proposal from an earlier session returns \"proposal \u003cid\u003e not found\", which is indistinguishable from an ID that never existed\n- `cgp_authorize` cannot authorize a decision made before the server restarted, so a long-running agent workflow that spans a restart cannot complete the handshake\n- nothing recorded through the protocol surface reaches the audit trail that `relicta approve` writes, so a governance decision made via CGP leaves no durable evidence — which is the opposite of the property ADR-009 and the audit trail exist for\n\nThe last point is the significant one. Relicta's claim is verifiable governance; a decision path that forgets its own decisions cannot support that claim, and the tools now being reachable means agents can actually take that path.\n\nOPTIONS:\n1. Back the protocol store with the same file-based store the release runs use (.relicta/), so proposals and authorizations persist alongside the runs they concern. Cheapest, and consistent with how everything else in the CLI persists. Needs a decision on where under .relicta/ and whether proposals are pruned.\n2. Route the protocol tools through the release aggregate instead of a parallel store, so a CGP proposal becomes a release run and inherits the existing audit trail, state machine and persistence. Most correct — one governance record rather than two — but the wire-format types and the aggregate do not currently line up, so it is a mapping exercise.\n3. Leave it in memory and say so in the tool descriptions, so an agent knows the handshake is session-scoped rather than discovering it through a \"not found\".\n\nOption 2 is where this should end up, because two parallel records of the same decision is the shape of defect this project keeps finding — the release store was consolidated for exactly that reason (PR #247). Option 3 is worth doing immediately regardless of which is chosen, since it costs a sentence and removes a misleading error.",
-      "requirements": null,
+      "description": "The protocol handshake now persists proposals, decisions, and execution authorizations across MCP server restarts. The CLI wires the store selected by `persistence.backend`: repository-local files by default, SQLite, or PostgreSQL.\n\nThe service still has an in-memory fallback for callers that construct it without a store. Production MCP wiring supplies a durable store from the configured persistence backend.\n\nThe three tools form a protocol handshake — propose returns a decision, authorize records an ExecutionAuthorization against that decision, status reports which state a proposal reached. Protocol payloads remain separate from ReleaseRun because a CGP proposal is not inherently a release. When governance memory is enabled, production MCP also appends proposal, decision, and authorization events to the shared hash-chained audit store selected by `persistence.backend`.\n\nAcceptance: survive process restarts, honor the configured backend, and verify the shared chain after a protocol handshake. This records protocol governance evidence; it does not turn a CGP authorization into a release-run approval or claim the release was published.",
+      "requirements": [
+        {
+          "id": "cgp-protocol-handshake-survives-restart",
+          "title": "Persist CGP protocol handshakes across server restarts",
+          "description": "Verify proposals, decisions, and authorizations round-trip through separate store instances and that the CLI opens the configured durable backend.",
+          "priority": "high",
+          "estimate": "1d",
+          "depends_on": [],
+          "source": {},
+          "check": {
+            "run": "go test ./internal/cgp/protocol ./internal/infrastructure/persistence ./internal/infrastructure/persistence/sqlite ./internal/infrastructure/persistence/postgres ./internal/mcp -run 'Test(RecordsSurviveANewStoreInstance|DecisionAndAuthorizationRoundTrip|.*CGP.*Store|CGPServiceGetsADurableStore|CGPTools)'"
+          }
+        }
+      ],
       "source": {}
     }
   ],

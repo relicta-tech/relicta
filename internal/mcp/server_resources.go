@@ -7,8 +7,8 @@ import (
 
 	"go.klarlabs.de/mcp"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 func (s *Server) handleResourceState(ctx context.Context, uri string, params map[string]string) (*mcp.ResourceContent, error) {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/httpserver/dto"
+	"github.com/relicta-tech/relicta/v5/internal/httpserver/dto"
 )
 
 // TestParseWindow covers all branches of the parseWindow helper.

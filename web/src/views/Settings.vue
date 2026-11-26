@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 
 const authStore = useAuthStore()
+const router = useRouter()
 const { theme, setTheme } = useTheme()
 
 const editingName = ref(false)
@@ -29,8 +31,13 @@ function saveApiKey() {
 
 function clearApiKey() {
   if (confirm('Are you sure you want to remove your API key?')) {
-    authStore.logout()
+    signOut()
   }
+}
+
+function signOut() {
+  authStore.logout()
+  void router.replace({ name: 'login' })
 }
 
 const maskedApiKey = computed(() => {
@@ -99,8 +106,34 @@ const maskedApiKey = computed(() => {
       </div>
     </div>
 
+    <!-- Password session -->
+    <div
+      v-if="authStore.accessToken"
+      class="card"
+    >
+      <div class="card-header">
+        <h2 class="card-title">
+          Signed-in session
+        </h2>
+        <p class="card-description">
+          Signed in as {{ authStore.userName }}. Session tokens are scoped to this browser tab.
+        </p>
+      </div>
+      <div class="card-content">
+        <button
+          class="btn-destructive btn-sm"
+          @click="signOut"
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+
     <!-- API Key -->
-    <div class="card">
+    <div
+      v-if="!authStore.accessToken"
+      class="card"
+    >
       <div class="card-header">
         <h2 class="card-title">
           API Key

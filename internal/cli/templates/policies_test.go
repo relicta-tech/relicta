@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/dsl"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/dsl"
 )
 
 // These assertions used to live in internal/cgp/policy/dsl/examples_test.go,

@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/relicta-tech/relicta/v4/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/manager"
 )
 
 type pluginManager interface {

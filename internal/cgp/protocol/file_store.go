@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // FileProposalStore persists the CGP protocol handshake on disk.
@@ -70,6 +70,16 @@ var ErrInvalidID = errors.New("invalid identifier")
 // error is the honest answer.
 var safeID = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,128}$`)
 
+// ValidateProtocolID rejects identifiers that cannot be safely stored by every
+// ProposalStore implementation. Keeping validation in the domain package makes
+// file and database backends accept the same protocol IDs.
+func ValidateProtocolID(id string) error {
+	if !safeID.MatchString(id) || strings.Contains(id, "..") {
+		return fmt.Errorf("%w: %q", ErrInvalidID, id)
+	}
+	return nil
+}
+
 // NewFileProposalStore returns a store rooted at a repository.
 //
 // The root is the repository, and records live under .relicta/cgp/ — the same
@@ -80,8 +90,8 @@ func NewFileProposalStore(repoRoot string) *FileProposalStore {
 }
 
 func (s *FileProposalStore) path(kind, id string) (string, error) {
-	if !safeID.MatchString(id) || strings.Contains(id, "..") {
-		return "", fmt.Errorf("%w: %q", ErrInvalidID, id)
+	if err := ValidateProtocolID(id); err != nil {
+		return "", err
 	}
 	return filepath.Join(s.root, kind, id+".json"), nil
 }
@@ -128,7 +138,7 @@ func (s *FileProposalStore) read(kind, id string, into any) error {
 	data, err := os.ReadFile(path) //nolint:gosec // path is confined by s.path
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("%s %s not found", strings.TrimSuffix(kind, "s"), id)
+			return fmt.Errorf("%w: %s %s not found", ErrRecordNotFound, strings.TrimSuffix(kind, "s"), id)
 		}
 		return fmt.Errorf("read %s: %w", kind, err)
 	}

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	analysisfactory "github.com/relicta-tech/relicta/v4/internal/analysis/factory"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/template"
-	"github.com/relicta-tech/relicta/v4/internal/service/release"
+	analysisfactory "github.com/relicta-tech/relicta/v5/internal/analysis/factory"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/template"
+	"github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 // BenchmarkE2E_PlanCommand benchmarks the complete plan workflow.

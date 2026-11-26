@@ -2,9 +2,14 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	servicerelease "github.com/relicta-tech/relicta/v5/internal/service/release"
 )
 
 // With --json, stdout is a JSON document and nothing else may share it.
@@ -35,6 +40,36 @@ var printHelpers = map[string]func(string){
 	"printInfo":        printInfo,
 	"printTitle":       printTitle,
 	"printSubtle":      printSubtle,
+}
+
+func TestPlanJSONReportsWorkingTreeScope(t *testing.T) {
+	previousJSON := outputJSON
+	outputJSON = true
+	t.Cleanup(func() { outputJSON = previousJSON })
+
+	output := &servicerelease.AnalyzeOutput{
+		CurrentVersion: version.MustParse("1.0.0"),
+		NextVersion:    version.MustParse("1.0.1"),
+		ReleaseType:    changes.ReleaseTypePatch,
+		ChangeSet:      changes.NewChangeSet("test", "v1.0.0", "HEAD"),
+	}
+	stdout := captureStdoutCov(func() {
+		if err := outputPlanJSON(output, persistedRun{}, nil, true); err != nil {
+			t.Errorf("outputPlanJSON: %v", err)
+		}
+	})
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("invalid JSON output %q: %v", stdout, err)
+	}
+	workingTree, ok := result["working_tree"].(map[string]any)
+	if !ok {
+		t.Fatalf("working_tree missing or invalid: %#v", result["working_tree"])
+	}
+	if workingTree["clean"] != false || workingTree["uncommitted_changes_included"] != false {
+		t.Errorf("working_tree = %#v, want dirty and excluded", workingTree)
+	}
 }
 
 // TestPrintWarningGoesToStderrInJSONMode covers the one helper that must keep

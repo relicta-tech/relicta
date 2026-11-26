@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
 )
 
 // startPostgres spins up a one-shot Postgres container and returns the DSN.

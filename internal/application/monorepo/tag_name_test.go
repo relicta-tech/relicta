@@ -3,7 +3,7 @@ package monorepo
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // A monorepo has no single version, so it cannot have a single `v1.2.3`. The tag has to be

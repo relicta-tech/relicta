@@ -1,16 +1,17 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability/correlation"
-	"github.com/relicta-tech/relicta/v4/internal/observability/monitor"
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
-	"github.com/relicta-tech/relicta/v4/internal/observability/receiver"
+	"github.com/relicta-tech/relicta/v5/internal/observability/correlation"
+	"github.com/relicta-tech/relicta/v5/internal/observability/monitor"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/receiver"
 )
 
 // mockObservabilityService implements ObservabilityService for testing.
@@ -31,7 +32,7 @@ func (m *mockObservabilityService) GetCorrelations(releaseID string) []correlati
 	return m.correlations[releaseID]
 }
 
-func (m *mockObservabilityService) GetProviderStatuses() []providers.ProviderStatus {
+func (m *mockObservabilityService) GetProviderStatuses(context.Context) []providers.ProviderStatus {
 	return m.providerStatuses
 }
 

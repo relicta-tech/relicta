@@ -1,6 +1,7 @@
 package oidc
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -8,14 +9,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/security/token"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/security/token"
 )
 
 // mockOIDCProvider sets up a httptest.Server that implements the OIDC discovery,
@@ -48,6 +50,7 @@ func newMockOIDCProvider(t *testing.T) *mockOIDCProvider {
 			"email":  "alice@example.com",
 			"name":   "Alice",
 			"groups": []string{"relicta-admins", "developers"},
+			"nonce":  "test-nonce",
 		},
 	}
 
@@ -283,6 +286,9 @@ func TestAuthCodeURL_GeneratesUniqueState(t *testing.T) {
 	if url1 == "" || url2 == "" {
 		t.Error("expected non-empty auth URLs")
 	}
+	if mustQueryValue(t, url1, "nonce") == mustQueryValue(t, url2, "nonce") {
+		t.Error("expected unique nonce parameters")
+	}
 }
 
 func TestValidateState_Success(t *testing.T) {
@@ -294,7 +300,7 @@ func TestValidateState_Success(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	if !svc.ValidateState(state) {
 		t.Error("ValidateState() = false for valid state")
@@ -329,7 +335,7 @@ func TestExchange_Success(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	info, err := svc.Exchange(context.Background(), "valid-code")
+	info, err := svc.Exchange(context.Background(), "valid-code", "test-nonce")
 	if err != nil {
 		t.Fatalf("Exchange() error = %v", err)
 	}
@@ -345,6 +351,19 @@ func TestExchange_Success(t *testing.T) {
 	}
 }
 
+func TestExchange_RejectsMismatchedNonce(t *testing.T) {
+	mock := newMockOIDCProvider(t)
+	defer mock.close()
+
+	svc, err := NewService(context.Background(), newTestOIDCConfig(mock))
+	if err != nil {
+		t.Fatalf("NewService: %v", err)
+	}
+	if _, err := svc.Exchange(context.Background(), "valid-code", "different-nonce"); err == nil {
+		t.Fatal("Exchange() accepted an ID token with a mismatched nonce")
+	}
+}
+
 func TestExchange_TokenEndpointError(t *testing.T) {
 	mock := newMockOIDCProvider(t)
 	defer mock.close()
@@ -355,7 +374,7 @@ func TestExchange_TokenEndpointError(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	_, err = svc.Exchange(context.Background(), "any-code")
+	_, err = svc.Exchange(context.Background(), "any-code", "test-nonce")
 	if err == nil {
 		t.Fatal("expected error from token endpoint")
 	}
@@ -492,6 +511,104 @@ func TestLoginRedirect_Handler(t *testing.T) {
 	}
 }
 
+func TestBrowserCallbackSecure(t *testing.T) {
+	tests := []struct {
+		name       string
+		redirect   string
+		wantSecure bool
+	}{
+		{name: "https callback", redirect: "https://relicta.example/callback", wantSecure: true},
+		{name: "http development callback", redirect: "http://localhost:8080/callback"},
+		{name: "relative callback", redirect: "/callback"},
+		{name: "invalid callback", redirect: "://bad"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &Service{oidcConfig: config.OIDCConfig{RedirectURL: tt.redirect}}
+			if got := svc.BrowserCallbackSecure(); got != tt.wantSecure {
+				t.Fatalf("BrowserCallbackSecure() = %v, want %v", got, tt.wantSecure)
+			}
+		})
+	}
+}
+
+func TestExchangeTicketIsOneUseAndExpires(t *testing.T) {
+	tokenSvc := newTestTokenService(t)
+	pair, err := tokenSvc.Issue("Alice", []string{"viewer"})
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	h := NewHandlers(nil, tokenSvc)
+	ticket, err := h.createLoginTicket(*pair, "Alice")
+	if err != nil {
+		t.Fatalf("createLoginTicket: %v", err)
+	}
+
+	request := func(value string) *httptest.ResponseRecorder {
+		t.Helper()
+		body, err := json.Marshal(exchangeRequest{Ticket: value})
+		if err != nil {
+			t.Fatalf("marshal request: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oidc/ticket", bytes.NewReader(body))
+		rr := httptest.NewRecorder()
+		h.ExchangeTicket(rr, req)
+		return rr
+	}
+
+	first := request(ticket)
+	if first.Code != http.StatusOK {
+		t.Fatalf("first exchange status = %d, body = %s", first.Code, first.Body.String())
+	}
+	if first.Header().Get("Cache-Control") != "no-store" || first.Header().Get("Pragma") != "no-cache" {
+		t.Fatalf("missing no-store headers: %#v", first.Header())
+	}
+	var response map[string]string
+	if err := json.Unmarshal(first.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response["access_token"] != pair.AccessToken || response["refresh_token"] != pair.RefreshToken || response["user_name"] != "Alice" {
+		t.Fatalf("unexpected ticket response: %#v", response)
+	}
+	if replay := request(ticket); replay.Code != http.StatusUnauthorized {
+		t.Fatalf("replayed ticket status = %d, want %d", replay.Code, http.StatusUnauthorized)
+	}
+
+	expired, err := h.createLoginTicket(*pair, "Alice")
+	if err != nil {
+		t.Fatalf("create expired ticket: %v", err)
+	}
+	h.ticketsMu.Lock()
+	entry := h.tickets[expired]
+	entry.createdAt = time.Now().Add(-loginTicketTTL)
+	h.tickets[expired] = entry
+	h.ticketsMu.Unlock()
+	if rr := request(expired); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expired ticket status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+	if rr := request(""); rr.Code != http.StatusBadRequest {
+		t.Fatalf("empty ticket status = %d, want %d", rr.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCleanExpiredStatesLocked(t *testing.T) {
+	svc := &Service{states: map[string]stateEntry{
+		"expired": {createdAt: time.Now().Add(-stateMaxAge), nonce: "old"},
+		"active":  {createdAt: time.Now(), nonce: "new"},
+	}}
+	now := time.Now()
+	svc.cleanExpiredStatesLocked(now)
+	if _, ok := svc.states["expired"]; ok {
+		t.Fatal("expired state was not removed")
+	}
+	if _, ok := svc.states["active"]; !ok {
+		t.Fatal("active state was removed")
+	}
+	if !svc.lastStatePruned.Equal(now) {
+		t.Fatalf("lastStatePruned = %v, want %v", svc.lastStatePruned, now)
+	}
+}
+
 func TestCallback_Handler_Success(t *testing.T) {
 	mock := newMockOIDCProvider(t)
 	defer mock.close()
@@ -505,7 +622,9 @@ func TestCallback_Handler_Success(t *testing.T) {
 	h := NewHandlers(svc, tokenSvc)
 
 	// Generate a valid state.
-	_, state, _ := svc.AuthCodeURL()
+	authURL, state, _ := svc.AuthCodeURL()
+	nonce := mustQueryValue(t, authURL, "nonce")
+	mock.tokenClaims["nonce"] = nonce
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?code=valid-code&state="+state, nil)
@@ -543,6 +662,29 @@ func TestCallback_Handler_Success(t *testing.T) {
 	if !containsStr(claims.Roles, "admin") {
 		t.Errorf("roles = %v, expected to contain admin", claims.Roles)
 	}
+}
+
+func mustQueryValue(t *testing.T, rawURL, key string) string {
+	t.Helper()
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parse URL: %v", err)
+	}
+	value := parsed.Query().Get(key)
+	if value == "" {
+		t.Fatalf("URL has no %q query parameter", key)
+	}
+	return value
+}
+
+func issueCallbackState(t *testing.T, svc *Service, mock *mockOIDCProvider) string {
+	t.Helper()
+	authURL, state, err := svc.AuthCodeURL()
+	if err != nil {
+		t.Fatalf("AuthCodeURL: %v", err)
+	}
+	mock.tokenClaims["nonce"] = mustQueryValue(t, authURL, "nonce")
+	return state
 }
 
 func TestCallback_Handler_InvalidState(t *testing.T) {
@@ -597,7 +739,7 @@ func TestCallback_Handler_MissingCode(t *testing.T) {
 	}
 	h := NewHandlers(svc, newTestTokenService(t))
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?state="+state, nil)
@@ -645,7 +787,7 @@ func TestCallback_Handler_TokenExchangeFailure(t *testing.T) {
 	}
 	h := NewHandlers(svc, newTestTokenService(t))
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?code=bad-code&state="+state, nil)
@@ -679,7 +821,7 @@ func TestCallback_RoleMappingIntegration(t *testing.T) {
 	tokenSvc := newTestTokenService(t)
 	h := NewHandlers(svc, tokenSvc)
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?code=valid-code&state="+state, nil)
@@ -730,7 +872,7 @@ func TestCallback_UnmappedUserGetsDefaultRole(t *testing.T) {
 	tokenSvc := newTestTokenService(t)
 	h := NewHandlers(svc, tokenSvc)
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?code=valid-code&state="+state, nil)
@@ -773,7 +915,7 @@ func TestCallback_NameFallback(t *testing.T) {
 	tokenSvc := newTestTokenService(t)
 	h := NewHandlers(svc, tokenSvc)
 
-	_, state, _ := svc.AuthCodeURL()
+	state := issueCallbackState(t, svc, mock)
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/v1/auth/oidc/callback?code=valid-code&state="+state, nil)

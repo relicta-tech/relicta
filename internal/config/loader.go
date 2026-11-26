@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,8 +15,8 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/viper"
 
-	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
-	"github.com/relicta-tech/relicta/v4/internal/security"
+	rperrors "github.com/relicta-tech/relicta/v5/internal/errors"
+	"github.com/relicta-tech/relicta/v5/internal/security"
 )
 
 // Pre-compiled regex patterns for environment variable expansion.
@@ -283,26 +284,22 @@ func (l *Loader) autoDetectAI() {
 		l.v.SetDefault("ai.enabled", true)
 		l.v.SetDefault("ai.provider", "openai")
 		l.v.SetDefault("ai.api_key", "${OPENAI_API_KEY}")
-		// Use fast model by default for quick responses
-		if l.v.GetString("ai.model") == "" {
-			l.v.SetDefault("ai.model", "gpt-4o-mini")
-		}
+		// Provider-specific defaults must replace the general model default set
+		// earlier by setDefaults. Explicit environment values still take
+		// precedence over Viper defaults.
+		l.v.SetDefault("ai.model", "gpt-6-luna")
 		selectedProvider = "openai"
 	} else if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" {
 		l.v.SetDefault("ai.enabled", true)
 		l.v.SetDefault("ai.provider", "anthropic")
 		l.v.SetDefault("ai.api_key", "${ANTHROPIC_API_KEY}")
-		if l.v.GetString("ai.model") == "" {
-			l.v.SetDefault("ai.model", "claude-sonnet-4")
-		}
+		l.v.SetDefault("ai.model", "claude-sonnet-4-6")
 		selectedProvider = "anthropic"
 	} else if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
 		l.v.SetDefault("ai.enabled", true)
 		l.v.SetDefault("ai.provider", "gemini")
 		l.v.SetDefault("ai.api_key", "${GEMINI_API_KEY}")
-		if l.v.GetString("ai.model") == "" {
-			l.v.SetDefault("ai.model", "gemini-2.0-flash-exp")
-		}
+		l.v.SetDefault("ai.model", "gemini-3.5-flash-lite")
 		selectedProvider = "gemini"
 	} else if apiKey := os.Getenv("AZURE_OPENAI_KEY"); apiKey != "" {
 		baseURL := os.Getenv("AZURE_OPENAI_ENDPOINT")
@@ -310,20 +307,17 @@ func (l *Loader) autoDetectAI() {
 			l.v.SetDefault("ai.enabled", true)
 			l.v.SetDefault("ai.provider", "azure-openai")
 			l.v.SetDefault("ai.api_key", "${AZURE_OPENAI_KEY}")
-			l.v.SetDefault("ai.base_url", "${AZURE_OPENAI_ENDPOINT}")
-			if l.v.GetString("ai.model") == "" {
-				// User needs to specify deployment name
-				l.v.SetDefault("ai.model", "gpt-4")
-			}
+			l.v.SetDefault("ai.base_url", normalizeAzureOpenAIEndpoint(baseURL))
+			// Azure OpenAI requires the configured deployment name. Do not guess
+			// it; operators can provide RELICTA_AI_MODEL or set ai.model in config.
+			l.v.SetDefault("ai.model", "")
 			selectedProvider = "azure-openai"
 		}
 	} else if os.Getenv("OLLAMA_HOST") != "" {
 		l.v.SetDefault("ai.enabled", true)
 		l.v.SetDefault("ai.provider", "ollama")
 		l.v.SetDefault("ai.base_url", "${OLLAMA_HOST}")
-		if l.v.GetString("ai.model") == "" {
-			l.v.SetDefault("ai.model", "llama3.2")
-		}
+		l.v.SetDefault("ai.model", "llama3.2")
 		selectedProvider = "ollama"
 	}
 
@@ -333,6 +327,25 @@ func (l *Loader) autoDetectAI() {
 	// (see Config.AI.AutoSelected / DetectedProviders).
 	l.detectedProviders = detectedProviders
 	l.autoSelectedProvider = selectedProvider
+}
+
+// normalizeAzureOpenAIEndpoint opts zero-config Azure setups into the current
+// v1 route. Legacy deployment URLs are reduced to the resource root because
+// the SDK's dated Azure mode adds its own deployment route.
+func normalizeAzureOpenAIEndpoint(endpoint string) string {
+	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
+	if strings.HasSuffix(endpoint, "/openai/v1") {
+		return endpoint
+	}
+	if strings.Contains(endpoint, "/openai/deployments/") {
+		if parsed, err := url.Parse(endpoint); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+			endpoint = parsed.Scheme + "://" + parsed.Host
+		}
+	}
+	if strings.HasSuffix(endpoint, "/openai") {
+		return endpoint + "/v1"
+	}
+	return endpoint + "/openai/v1"
 }
 
 // autoDetectRepositoryURL detects the repository URL from git remote.
@@ -498,12 +511,13 @@ func findConfigInAncestors() string {
 //
 // Security: Environment variable expansion is limited to a whitelist of fields:
 //   - AI credentials (api_key, base_url)
+//   - Dashboard API keys and session/OIDC signing credentials
 //   - Plugin configurations (for tokens/credentials)
 //   - Changelog URLs (repository_url, issue_url)
 //   - Output log file path
 //
 // Expanded values are used for:
-//   - HTTP API calls (safe - no shell interpretation)
+//   - HTTP API calls and authentication/token operations (safe - no shell interpretation)
 //   - File paths (validated separately)
 //   - Display purposes
 //
@@ -519,6 +533,15 @@ func (l *Loader) expandEnvVars(cfg *Config) {
 	// Expand AI API key
 	cfg.AI.APIKey = expandEnvVar(cfg.AI.APIKey)
 	cfg.AI.BaseURL = expandEnvVar(cfg.AI.BaseURL)
+
+	// Expand dashboard credentials before they are passed to auth and token code.
+	for i := range cfg.Dashboard.Auth.APIKeys {
+		cfg.Dashboard.Auth.APIKeys[i].Key = expandEnvVar(cfg.Dashboard.Auth.APIKeys[i].Key)
+	}
+	cfg.Dashboard.Auth.SessionSecret = expandEnvVar(cfg.Dashboard.Auth.SessionSecret)
+	if cfg.Dashboard.Auth.OIDC != nil {
+		cfg.Dashboard.Auth.OIDC.ClientSecret = expandEnvVar(cfg.Dashboard.Auth.OIDC.ClientSecret)
+	}
 
 	// Expand plugin configurations
 	for i := range cfg.Plugins {

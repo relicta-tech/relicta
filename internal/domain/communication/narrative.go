@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
 )
 
 // Narrative represents audience-specific release communication.
@@ -26,6 +27,9 @@ type Narrative struct {
 	Provider string
 	// Model is the AI model used, if applicable.
 	Model string
+	// Warning explains when a customer-facing narrative is a deterministic summary
+	// that still needs editorial rewriting before external publication.
+	Warning string
 }
 
 // NarrativeInput holds everything needed to generate a narrative.
@@ -97,17 +101,26 @@ func (g *NarrativeGenerator) GenerateNarrative(ctx context.Context, input Narrat
 		format = OutputMarkdown
 	}
 
-	// Try AI-powered generation first
+	// Try AI-powered generation first.
+	var aiFallback bool
 	if g.ai != nil && g.ai.IsAvailable() {
 		narrative, err := g.generateWithAI(ctx, input, audience, format)
 		if err == nil {
 			return narrative, nil
 		}
 		// Fall through to template-based generation on AI failure
+		aiFallback = true
 	}
 
 	// Template-based fallback
-	return g.generateWithTemplate(input, audience, format)
+	narrative, err := g.generateWithTemplate(input, audience, format)
+	if err == nil && audience.Type == AudienceExternal {
+		narrative.Warning = "AI rewriting was unavailable; this is a structured summary of commit messages. Review and rewrite it for customers before publication."
+		if aiFallback {
+			narrative.Warning = "AI rewriting failed; this is a structured summary of commit messages. Review and rewrite it for customers before publication."
+		}
+	}
+	return narrative, err
 }
 
 // GenerateAll produces narratives for all provided audiences.
@@ -149,6 +162,11 @@ func (g *NarrativeGenerator) generateWithAI(ctx context.Context, input Narrative
 	if err != nil {
 		return nil, fmt.Errorf("AI generation failed for audience %q: %w", audience.Type, err)
 	}
+	if format == OutputHTML {
+		// Model output is untrusted. Keep HTML exports safe even when the provider
+		// returns markup or repeats untrusted commit text as active HTML.
+		body = "<pre>" + html.EscapeString(body) + "</pre>"
+	}
 
 	return &Narrative{
 		Audience:    audience.Type,
@@ -178,13 +196,27 @@ func buildNarrativeFromStructured(bytes []byte, input NarrativeInput, audience A
 
 	var sb strings.Builder
 	if payload.Headline != "" && payload.Headline != buildTitle(input, audience) {
-		sb.WriteString(payload.Headline)
+		if format == OutputHTML {
+			sb.WriteString(html.EscapeString(payload.Headline))
+		} else {
+			sb.WriteString(payload.Headline)
+		}
 		sb.WriteString("\n\n")
 	}
-	sb.WriteString(payload.Body)
+	if format == OutputHTML {
+		sb.WriteString("<pre>")
+		sb.WriteString(html.EscapeString(payload.Body))
+		sb.WriteString("</pre>")
+	} else {
+		sb.WriteString(payload.Body)
+	}
 	if payload.CallToAction != "" {
 		sb.WriteString("\n\n")
-		sb.WriteString(payload.CallToAction)
+		if format == OutputHTML {
+			sb.WriteString(html.EscapeString(payload.CallToAction))
+		} else {
+			sb.WriteString(payload.CallToAction)
+		}
 	}
 
 	title := payload.Headline
@@ -239,7 +271,7 @@ func (g *NarrativeGenerator) generateWithTemplate(input NarrativeInput, audience
 		sb.WriteString("\n\n")
 	case OutputHTML:
 		sb.WriteString("<h1>")
-		sb.WriteString(title)
+		sb.WriteString(html.EscapeString(title))
 		sb.WriteString("</h1>\n\n")
 	default:
 		sb.WriteString(title)
@@ -301,7 +333,7 @@ func renderSection(input NarrativeInput, section Section, audience Audience, for
 			sb.WriteString("\n\n")
 		case OutputHTML:
 			sb.WriteString("<h2>")
-			sb.WriteString(title)
+			sb.WriteString(html.EscapeString(title))
 			sb.WriteString("</h2>\n\n")
 		default:
 			sb.WriteString(title)
@@ -318,9 +350,9 @@ func renderSection(input NarrativeInput, section Section, audience Audience, for
 			sb.WriteString(text)
 			sb.WriteString("\n")
 		case OutputHTML:
-			sb.WriteString("<li>")
-			sb.WriteString(text)
-			sb.WriteString("</li>\n")
+			sb.WriteString("<ul><li>")
+			sb.WriteString(html.EscapeString(text))
+			sb.WriteString("</li></ul>\n")
 		default:
 			sb.WriteString("* ")
 			sb.WriteString(text)
@@ -446,7 +478,7 @@ func renderSection(input NarrativeInput, section Section, audience Audience, for
 		breaking := collectBundleItems(bundles, BundleTypeBreaking)
 		if len(breaking) == 0 {
 			writeSectionHeader("Upgrade Guide")
-			writeBullet("No breaking changes. Standard upgrade applies.")
+			writeBullet("No specific upgrade steps were identified in the release changes.")
 			return sb.String()
 		}
 		writeSectionHeader("Upgrade Guide")

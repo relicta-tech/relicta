@@ -4,7 +4,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 // hookRiskFloor maps hooks to the minimum risk class a plugin registering

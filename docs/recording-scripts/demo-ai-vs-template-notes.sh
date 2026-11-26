@@ -1,9 +1,9 @@
 #!/bin/bash
-# Demo: AI vs Template Release Notes - Quality Comparison
+# Demo: Deterministic notes and customer-facing MCP drafts
 #
-# This demo shows the dramatic difference between:
-# 1. Template-based release notes (basic categorization)
-# 2. AI-powered release notes (contextual, user-friendly)
+# The CLI generates deterministic notes by default. For customer-facing copy,
+# a connected coding agent can draft from the product context in its session
+# and persist the exact draft through Relicta MCP.
 
 set -e
 cd /tmp/relicta-demo
@@ -19,8 +19,8 @@ pause() { sleep "${1:-1.5}"; }
 
 clear
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}  AI vs Template Release Notes${NC}"
-echo -e "${CYAN}  See the quality difference${NC}"
+echo -e "${CYAN}  Deterministic Notes and MCP Drafts${NC}"
+echo -e "${CYAN}  Evidence from Relicta, product context from your agent session${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 pause 2
@@ -54,45 +54,42 @@ pause 1
 relicta notes
 pause 4
 
-# Reset for AI notes
-relicta cancel -f 2>/dev/null || true
-relicta plan >/dev/null 2>&1
-relicta bump >/dev/null 2>&1
-
-# AI-powered notes
+# Explain the agent-session path without presenting fabricated model output.
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}  AI-POWERED NOTES${NC}"
+echo -e "${GREEN}  CUSTOMER-FACING NOTES IN YOUR MCP AGENT SESSION${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta notes --ai${NC}"
-pause 1
-relicta notes --ai
+echo "This demo repository has AI note generation disabled. For customer copy:"
+echo "  1. Call relicta_plan and use its recommendation as the factual source."
+echo "  2. Call relicta_bump to set the version before saving notes."
+echo "  3. Draft from product context already established in the agent session."
+echo "  4. Call relicta_notes with the draft before approval."
+echo "  5. Read back the saved notes with relicta_status for review."
+echo ""
+echo "The agent-authored draft is stored as supplied and does not claim"
+echo "that Relicta fact-checks customer-facing prose."
 pause 4
 
 # Comparison summary
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "  Key Differences:"
+echo "  Which path to use:"
 echo ""
-echo -e "  ${MAGENTA}Template Notes:${NC}"
-echo "    • Lists commit messages verbatim"
-echo "    • Groups by conventional commit type"
-echo "    • Technical, developer-focused"
-echo "    • No context or explanation"
+echo -e "  ${MAGENTA}Deterministic CLI Notes:${NC}"
+echo "    • Repeatable output from the classified changes"
+echo "    • Useful for changelog and technical release records"
+echo "    • No separate AI provider required"
 echo ""
-echo -e "  ${GREEN}AI-Powered Notes:${NC}"
-echo "    • Summarizes changes meaningfully"
-echo "    • Highlights user impact"
-echo "    • Professional, user-friendly tone"
-echo "    • Explains breaking changes"
-echo "    • Adds migration guidance"
+echo -e "  ${GREEN}MCP Agent-Authored Notes:${NC}"
+echo "    • Uses product context from the existing agent conversation"
+echo "    • Grounds claims in the Relicta recommendation"
+echo "    • Saves the exact draft for review and approval"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "  Enable AI notes: ${YELLOW}relicta notes --ai${NC}"
-echo -e "  Or in CI/CD:     ${YELLOW}relicta release -y --ai${NC}"
+echo -e "  See ${YELLOW}docs/mcp.md${NC} for the full agent-session workflow"
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 pause 4

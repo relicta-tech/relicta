@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
 )
 
 // Generator builds attestations from release runs and audit chains.
@@ -28,6 +28,13 @@ func NewGenerator(repoID string, auditChain *audit.Chain) *Generator {
 // Generate creates an in-toto Statement with a GovernancePredicate
 // from the given ReleaseRun.
 func (g *Generator) Generate(_ context.Context, run *domain.ReleaseRun) (*Statement, error) {
+	return g.GenerateForCommit(run, run.HeadSHA().String())
+}
+
+// GenerateForCommit creates an attestation for the commit that will be published.
+// This may differ from the immutable planning HEAD when publish commits generated
+// changelog and version artifacts before creating the release tag.
+func (g *Generator) GenerateForCommit(run *domain.ReleaseRun, releaseCommit string) (*Statement, error) {
 	state := run.State()
 	if state != domain.StatePublishing && state != domain.StatePublished {
 		return nil, fmt.Errorf("cannot generate attestation in state %s: expected publishing or published", state)
@@ -39,7 +46,10 @@ func (g *Generator) Generate(_ context.Context, run *domain.ReleaseRun) (*Statem
 		tagName = "v" + run.VersionNext().String()
 	}
 
-	headDigest := sha256Hex(run.HeadSHA().String())
+	if releaseCommit == "" {
+		return nil, fmt.Errorf("release commit is empty")
+	}
+	headDigest := sha256Hex(releaseCommit)
 
 	subject := Subject{
 		Name: tagName,
@@ -49,7 +59,7 @@ func (g *Generator) Generate(_ context.Context, run *domain.ReleaseRun) (*Statem
 	}
 
 	// Build governance predicate.
-	predicate := g.buildPredicate(run)
+	predicate := g.buildPredicate(run, releaseCommit)
 
 	return &Statement{
 		Type:          StatementType,
@@ -60,7 +70,7 @@ func (g *Generator) Generate(_ context.Context, run *domain.ReleaseRun) (*Statem
 }
 
 // buildPredicate populates the GovernancePredicate from the run.
-func (g *Generator) buildPredicate(run *domain.ReleaseRun) GovernancePredicate {
+func (g *Generator) buildPredicate(run *domain.ReleaseRun, releaseCommit string) GovernancePredicate {
 	now := time.Now().UTC()
 	publishedAt := now
 	if ts := run.PublishedAt(); ts != nil {
@@ -71,7 +81,7 @@ func (g *Generator) buildPredicate(run *domain.ReleaseRun) GovernancePredicate {
 		Version:    run.VersionNext().String(),
 		Tag:        run.TagName(),
 		Repository: g.repoID,
-		CommitSHA:  run.HeadSHA().String(),
+		CommitSHA:  releaseCommit,
 		ReleasedAt: publishedAt,
 		RiskScore:  run.RiskScore(),
 		Initiator: ActorIdentity{

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // git.auth is a complete, documented block — type, token, username, password, ssh_key_path,

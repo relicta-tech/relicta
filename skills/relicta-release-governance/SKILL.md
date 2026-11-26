@@ -9,35 +9,39 @@ description: Operate Relicta release workflows end-to-end with governance and sa
 Drive Relicta from intent to published release with predictable command order, explicit guardrails, and fast recovery for common failure modes.
 
 ## Quick Start
-Run these commands in repository root:
+Start with read-only checks and a dry-run preview in the target repository:
 
 ```bash
-relicta init
-relicta plan
-relicta bump
-relicta notes
-relicta approve
-relicta publish
+relicta version
+relicta health
+relicta status
+relicta plan --analyze --dry-run
+relicta release --dry-run
 ```
 
-Use one-command mode when appropriate:
+Inspect the plan, proposed version, and repository diff before changing release state. The
+`relicta bump`, `relicta approve`, `relicta publish`, and `relicta release` commands can change
+files, create tags, push to remotes, or publish artifacts depending on configuration. Run them only
+when the user explicitly asks to execute that release and has reviewed the exact version, notes, approval, and
+publish destinations. Never infer publish authorization from a general request to plan or prepare a
+release.
 
-```bash
-relicta release
-```
-
-Use dry-run for safe previews:
+Use one-command mode for previews only:
 
 ```bash
 relicta release --dry-run
 ```
 
+Before a live release, confirm the approved version and notes, configured destinations, signing
+and provenance checks, and whether pushing a tag will trigger external CI. If any of these are
+unclear, stop at the dry-run and report what needs review.
+
 ## Workflow
 1. Validate environment.
 2. Establish or confirm config.
 3. Plan and inspect risk.
-4. Version and generate notes.
-5. Approve and publish.
+4. Preview the version and notes.
+5. Approve and publish only after explicit user authorization for the live release.
 6. Verify outputs and recover if needed.
 
 ## Step 1: Validate Environment
@@ -57,7 +61,8 @@ Expect:
 ## Step 2: Confirm Configuration
 Use `.relicta.yaml` as the canonical config file name.
 
-If missing:
+If missing, explain the config creation choices and ask before initializing because `init` writes
+to the target repository:
 
 ```bash
 relicta init
@@ -74,8 +79,7 @@ Confirm critical sections:
 Run:
 
 ```bash
-relicta plan --analyze
-relicta evaluate
+relicta plan --analyze --dry-run
 relicta status
 ```
 
@@ -101,27 +105,44 @@ cat examples/policies/policy-matrix.yaml | relicta policy test --matrix -
 
 If no changes are detected, stop release flow.
 
-## Step 4: Version and Notes
+## Step 4: Preview the Release Version
 Run:
 
 ```bash
-relicta bump
+relicta release --dry-run
+```
+
+The release preview reports the proposed version and configured version-file changes without
+writing them. It does not generate release notes or evaluate governance. Use `relicta plan
+--analyze --dry-run` for commit facts. Run `relicta evaluate` only after a plan has been persisted.
+After the user authorizes a live release, save the version, draft or generate notes, review them,
+and complete the normal approval and publish steps. For agent-authored notes, use the MCP sequence
+in `docs/mcp.md`: plan, bump, draft in the agent session, then call `relicta_notes` with `draft`.
+
+Optional provider-generated notes (only in the authorized live release flow): enable a provider in
+`.relicta.yaml` with `ai.enabled: true`, then run:
+
+```bash
 relicta notes
 ```
 
-Optional AI notes:
-
-```bash
-relicta notes --ai
-```
+The standalone `bump --dry-run` previews version-file writes, but needs a planned release for the
+version recommendation. `notes --dry-run` still needs a versioned release and does not generate a
+persistable draft. Do not run these after a dry-run plan, which intentionally creates no release
+state.
 
 If bump type must be overridden:
 
 ```bash
-relicta bump --level patch
+relicta bump --level patch --dry-run
 ```
 
-## Step 5: Approval and Publish
+## Step 5: Approval and Publish (Explicit Authorization Required)
+
+The following commands perform release actions. Do not run them for a planning, review, or
+documentation request. First show the user the version, customer-facing notes, files to be changed,
+approval requirements, and destinations. Proceed only after the user explicitly authorizes this
+release.
 Interactive/human-in-the-loop:
 
 ```bash
@@ -135,7 +156,7 @@ CI/non-interactive:
 relicta release --yes --ci
 ```
 
-If you must create artifacts locally without pushing:
+If explicitly authorized to create artifacts locally without pushing:
 
 ```bash
 relicta publish --skip-push

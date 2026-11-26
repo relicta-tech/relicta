@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
 )
 
 // Holding both release and deployment records makes a question answerable that

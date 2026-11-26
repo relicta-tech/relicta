@@ -1,7 +1,7 @@
 package library
 
 import (
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy"
 )
 
 // registerSpeedTemplates adds speed-focused policy templates for fast releases.

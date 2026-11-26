@@ -5,9 +5,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/ai/schemas"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/ai/schemas"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // Service defines the interface for AI operations.
@@ -111,7 +111,7 @@ type ServiceConfig struct {
 	APIKey string
 	// BaseURL is the base URL for the API (for custom endpoints).
 	BaseURL string
-	// APIVersion is the API version (required for Azure OpenAI).
+	// APIVersion is used by the legacy dated Azure OpenAI endpoint.
 	APIVersion string
 	// Model is the model to use.
 	Model string
@@ -145,11 +145,11 @@ type CustomPrompts struct {
 	MarketingUser string
 }
 
-// DefaultOpenAIModel is the default OpenAI model. 2026 default: gpt-5.
+// DefaultOpenAIModel is the default OpenAI model for balanced quality and cost.
 const (
-	DefaultOpenAIModel    = "gpt-5"
-	OpenAIModelHighStakes = "gpt-5"      // governance-sensitive prose
-	OpenAIModelFast       = "gpt-5-mini" // fast/cheap for diff summaries
+	DefaultOpenAIModel    = "gpt-6.2-sol"
+	OpenAIModelHighStakes = "gpt-6.2-astra" // governance-sensitive prose
+	OpenAIModelFast       = "gpt-6-luna"    // fast/cheap for diff summaries
 )
 
 // DefaultServiceConfig returns the default service configuration.
@@ -189,7 +189,7 @@ func WithBaseURL(url string) ServiceOption {
 	}
 }
 
-// WithAPIVersion sets the API version (required for Azure OpenAI).
+// WithAPIVersion sets the API version for the legacy dated Azure OpenAI endpoint.
 func WithAPIVersion(version string) ServiceOption {
 	return func(cfg *ServiceConfig) {
 		cfg.APIVersion = version

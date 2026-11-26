@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
 )
 
 // An unmigrated database is an ordinary state under manual migrations, and relicta must name

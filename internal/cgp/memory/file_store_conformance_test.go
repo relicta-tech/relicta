@@ -3,8 +3,8 @@ package memory_test
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory/conformance"
 )
 
 // The file store is the reference implementation: `relicta history`, the DORA and SOC 2 reports,

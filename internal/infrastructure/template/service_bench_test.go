@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // BenchmarkService_RenderChangelog benchmarks changelog rendering.
@@ -67,14 +67,15 @@ func BenchmarkService_RenderReleaseNotes(b *testing.B) {
 		b.Run(bc.name, func(b *testing.B) {
 			changes := generateCategorizedChanges(bc.numCommit)
 			data := ReleaseNotesData{
-				Version:       mustParseVersion("2.0.0"),
-				Date:          time.Now(),
-				Changelog:     "Generated changelog content...",
-				Summary:       "This release includes several new features and bug fixes.",
-				Highlights:    []string{"New feature A", "Improved performance", "Bug fixes"},
-				Changes:       changes,
-				Contributors:  []string{"user1", "user2", "user3"},
-				RepositoryURL: "https://github.com/example/repo",
+				Version:         mustParseVersion("2.0.0"),
+				PreviousVersion: mustParseVersion("1.9.0"),
+				Date:            time.Now(),
+				Changelog:       "Generated changelog content...",
+				Summary:         "This release includes several new features and bug fixes.",
+				Highlights:      []string{"New feature A", "Improved performance", "Bug fixes"},
+				Changes:         changes,
+				Contributors:    []string{"user1", "user2", "user3"},
+				RepositoryURL:   "https://github.com/example/repo",
 			}
 
 			b.ResetTimer()

@@ -5,7 +5,7 @@ package cli
 import (
 	"context"
 
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 // repositoryRoot returns the root of the repository containing the working directory, or "."

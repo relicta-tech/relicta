@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	rperrors "github.com/relicta-tech/relicta/v4/internal/errors"
+	rperrors "github.com/relicta-tech/relicta/v5/internal/errors"
 )
 
 // openAIKeyLength is the standard length of OpenAI API keys (e.g., "sk-..." format).
@@ -113,9 +113,9 @@ func (v *Validator) Validate(cfg *Config) error {
 // validateVersioning validates versioning configuration.
 func (v *Validator) validateVersioning(cfg VersioningConfig) {
 	// Validate strategy
-	validStrategies := []string{"conventional", "manual"}
+	validStrategies := []string{"conventional"}
 	if !slices.Contains(validStrategies, cfg.Strategy) {
-		v.errors.Addf("versioning.strategy: must be one of %v, got %q", validStrategies, cfg.Strategy)
+		v.errors.Addf("versioning.strategy: only %q is supported, got %q; set a specific version with `relicta bump --version`", validStrategies[0], cfg.Strategy)
 	}
 
 	// Validate bump_from
@@ -266,7 +266,7 @@ func (v *Validator) validatePluginSecurity(cfg PluginSecurityConfig) {
 // validateAttestation checks the signing configuration before a release starts.
 //
 // Every problem here used to surface during publish, from inside the attestation step: keyless
-// mode fails with "keyless signing requires sigstore-go", and local mode with no key fails with
+// mode was incomplete, and local mode with no key fails with
 // "key_path is required". By then the tag exists and the release is half done — and unless
 // attestation.required is set the failure is a warning, so the operator gets a release with no
 // attestation and a line of log saying why.
@@ -290,9 +290,9 @@ func (v *Validator) validateAttestation(cfg AttestationConfig) {
 		}
 
 	case "keyless":
-		v.errors.Addf("attestation.signing_mode: \"keyless\" is not implemented — it needs " +
-			"sigstore-go, and signing fails partway through publish today. Use \"local\" with " +
-			"a key_path, or \"none\" for an unsigned attestation")
+		v.errors.Addf("attestation.signing_mode: \"keyless\" is not implemented end to end — " +
+			"sigstore-go integration, bundle persistence, and OIDC identity/trust verification are " +
+			"missing. Use \"local\" with a key_path, or \"none\" for an unsigned attestation")
 
 	default:
 		v.errors.Addf("attestation.signing_mode: must be \"keyless\", \"local\" or \"none\", got %q",
@@ -462,7 +462,11 @@ func (v *Validator) validateAI(cfg AIConfig) {
 
 	// Validate model
 	if cfg.Model == "" {
-		v.errors.Addf("ai.model: required when AI is enabled")
+		if cfg.Provider == "azure-openai" {
+			v.errors.Addf("ai.model: Azure OpenAI deployment name is required (set ai.model or RELICTA_AI_MODEL)")
+		} else {
+			v.errors.Addf("ai.model: required when AI is enabled")
+		}
 	}
 
 	// Validate API key is provided (after env expansion)

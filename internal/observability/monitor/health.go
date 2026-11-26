@@ -9,19 +9,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability/providers"
+	"github.com/relicta-tech/relicta/v5/internal/observability/providers"
 )
 
 // MonitorConfig configures the deployment health monitor.
 type MonitorConfig struct {
 	// Window is how long to monitor after a release (e.g., 30 minutes).
 	Window time.Duration `json:"window"`
-	// ErrorRateThreshold is the error rate percentage increase that triggers a negative outcome.
+	// ErrorRateThreshold is the absolute error rate percentage that triggers a negative outcome.
 	ErrorRateThreshold float64 `json:"error_rate_threshold"`
-	// LatencyThreshold is the latency percentage increase that triggers a negative outcome.
+	// LatencyThreshold is the p95 percentage increase from the first measured check.
 	LatencyThreshold float64 `json:"latency_threshold"`
 	// ProviderName is the name of the observability provider to query.
 	ProviderName string `json:"provider_name"`
+	// ErrorRateQuery must return an error percentage (0–100), not a counter.
+	ErrorRateQuery string `json:"error_rate_query,omitempty"`
+	// LatencyQuery must return p95 latency in seconds.
+	LatencyQuery string `json:"latency_query,omitempty"`
 	// CheckInterval is how often to poll the provider during the window. Defaults to 30s.
 	CheckInterval time.Duration `json:"check_interval"`
 }
@@ -60,6 +64,8 @@ type HealthStatus struct {
 	ErrorRate float64 `json:"error_rate"`
 	// LatencyIncrease is the observed latency increase percentage.
 	LatencyIncrease float64 `json:"latency_increase"`
+	// LatencyP95 is the most recently observed p95 latency in seconds.
+	LatencyP95 float64 `json:"latency_p95_seconds,omitempty"`
 	// Alerts are currently firing alerts detected by the provider.
 	Alerts []providers.Alert `json:"alerts,omitempty"`
 	// MonitoringUntil is when the health watch window expires.
@@ -86,11 +92,12 @@ type HealthMonitor struct {
 
 // releaseWatch tracks the monitoring state for a single release.
 type releaseWatch struct {
-	releaseID string
-	startedAt time.Time
-	expiresAt time.Time
-	cancel    context.CancelFunc
-	status    HealthStatus
+	releaseID       string
+	startedAt       time.Time
+	expiresAt       time.Time
+	cancel          context.CancelFunc
+	status          HealthStatus
+	latencyBaseline float64
 }
 
 // NewHealthMonitor creates a new deployment health monitor.
@@ -110,20 +117,39 @@ func NewHealthMonitor(cfg MonitorConfig, registry *providers.Registry, recorder 
 // StartWatch begins health monitoring for a release.
 // The monitoring runs in a background goroutine and calls the recorder when complete.
 func (hm *HealthMonitor) StartWatch(ctx context.Context, releaseID string) error {
+	return hm.StartWatchAt(ctx, releaseID, time.Now())
+}
+
+// StartWatchAt begins monitoring a release from its publication time. This keeps
+// recovery after a server restart inside the original monitoring window.
+func (hm *HealthMonitor) StartWatchAt(ctx context.Context, releaseID string, startedAt time.Time) error {
+	if releaseID == "" {
+		return fmt.Errorf("release ID is required")
+	}
+	if startedAt.IsZero() {
+		return fmt.Errorf("watch start time is required")
+	}
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 
 	if _, exists := hm.watches[releaseID]; exists {
-		return fmt.Errorf("watch already active for release: %s", releaseID)
+		return nil
 	}
 
-	watchCtx, cancel := context.WithCancel(ctx) // cancel is stored in watch.cancel and called by StopWatch
 	now := time.Now()
+	if startedAt.After(now) {
+		startedAt = now
+	}
+	expiresAt := startedAt.Add(hm.config.Window)
+	if !expiresAt.After(now) {
+		return fmt.Errorf("health watch window for release %q has expired", releaseID)
+	}
+	watchCtx, cancel := context.WithCancel(ctx) // cancel is stored in watch.cancel and called by StopWatch
 
 	watch := &releaseWatch{
 		releaseID: releaseID,
-		startedAt: now,
-		expiresAt: now.Add(hm.config.Window),
+		startedAt: startedAt,
+		expiresAt: expiresAt,
 		cancel:    cancel,
 		// Seeded as unmeasured, because at this instant it is: the first check has not run.
 		// It used to be seeded Healthy, so a release reported itself healthy from the moment
@@ -131,7 +157,7 @@ func (hm *HealthMonitor) StartWatch(ctx context.Context, releaseID string) error
 		status: HealthStatus{
 			ReleaseID:       releaseID,
 			Unmeasured:      []string{"no health check has run yet"},
-			MonitoringUntil: now.Add(hm.config.Window),
+			MonitoringUntil: expiresAt,
 			CheckedAt:       now,
 		},
 	}
@@ -189,73 +215,90 @@ func (hm *HealthMonitor) CheckHealth(ctx context.Context, releaseID string) (Hea
 
 // runWatch is the background goroutine that periodically checks health.
 func (hm *HealthMonitor) runWatch(ctx context.Context, watch *releaseWatch) {
-	ticker := time.NewTicker(hm.config.CheckInterval)
-	defer ticker.Stop()
+	defer func() {
+		hm.mu.Lock()
+		if current, exists := hm.watches[watch.releaseID]; exists && current == watch {
+			delete(hm.watches, watch.releaseID)
+		}
+		hm.mu.Unlock()
+	}()
+
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			now := time.Now()
+		case <-timer.C:
+		}
+		now := time.Now()
 
-			// Window expired. Success is recorded only if something was actually observed
-			// during it.
-			//
-			// This used to record success unconditionally, so a provider that was down for
-			// the whole window produced a recorded successful deployment — a number that
-			// feeds change failure rate and is indistinguishable, afterwards, from a release
-			// that was watched and behaved.
-			if now.After(watch.expiresAt) {
-				hm.mu.Lock()
-				status := watch.status
-				delete(hm.watches, watch.releaseID)
-				hm.mu.Unlock()
-
-				switch {
-				case status.Measured:
-					hm.logger.Info("health watch window expired without violations",
-						"release_id", watch.releaseID)
-					if hm.recorder != nil {
-						hm.recorder(watch.releaseID, true, status)
-					}
-				default:
-					hm.logger.Warn("health watch window expired with nothing measured; "+
-						"recording no outcome",
-						"release_id", watch.releaseID,
-						"unmeasured", status.Unmeasured)
-				}
-				return
-			}
-
-			status, err := hm.performCheck(ctx, watch.releaseID)
-			if err != nil {
-				hm.logger.Warn("health check failed",
-					"release_id", watch.releaseID,
-					"error", err)
-				continue
-			}
-
+		// Window expired. Success is recorded only if something was actually observed
+		// during it.
+		//
+		// This used to record success unconditionally, so a provider that was down for
+		// the whole window produced a recorded successful deployment — a number that
+		// feeds change failure rate and is indistinguishable, afterwards, from a release
+		// that was watched and behaved.
+		if !now.Before(watch.expiresAt) {
 			hm.mu.Lock()
-			watch.status = status
+			status := watch.status
+			delete(hm.watches, watch.releaseID)
 			hm.mu.Unlock()
 
-			// Threshold crossed — record negative outcome. Only when it was measured: an
-			// unmeasured check leaves Healthy false, and recording a failure from an
-			// unreachable provider is the same fabrication as recording a success.
-			if status.Measured && !status.Healthy {
-				hm.logger.Warn("health threshold crossed",
-					"release_id", watch.releaseID,
-					"violations", status.Violations)
+			switch {
+			case status.Measured:
+				hm.logger.Info("health watch window expired without violations",
+					"release_id", watch.releaseID)
 				if hm.recorder != nil {
-					hm.recorder(watch.releaseID, false, status)
+					hm.recorder(watch.releaseID, true, status)
 				}
-				hm.mu.Lock()
-				delete(hm.watches, watch.releaseID)
-				hm.mu.Unlock()
-				return
+			default:
+				hm.logger.Warn("health watch window expired with nothing measured; "+
+					"recording no outcome",
+					"release_id", watch.releaseID,
+					"unmeasured", status.Unmeasured)
 			}
+			return
 		}
+
+		status, err := hm.performCheck(ctx, watch.releaseID)
+		if err != nil {
+			hm.logger.Warn("health check failed",
+				"release_id", watch.releaseID,
+				"error", err)
+			timer.Reset(hm.config.CheckInterval)
+			continue
+		}
+
+		hm.mu.Lock()
+		if status.LatencyP95 > 0 {
+			if watch.latencyBaseline == 0 {
+				watch.latencyBaseline = status.LatencyP95
+			}
+			status.LatencyIncrease = percentIncrease(watch.latencyBaseline, status.LatencyP95)
+		}
+		status.MonitoringUntil = watch.expiresAt
+		watch.status = status
+		hm.mu.Unlock()
+
+		// Threshold crossed — record negative outcome. Only when it was measured: an
+		// unmeasured check leaves Healthy false, and recording a failure from an
+		// unreachable provider is the same fabrication as recording a success.
+		if status.Measured && !status.Healthy {
+			hm.logger.Warn("health threshold crossed",
+				"release_id", watch.releaseID,
+				"violations", status.Violations)
+			if hm.recorder != nil {
+				hm.recorder(watch.releaseID, false, status)
+			}
+			hm.mu.Lock()
+			delete(hm.watches, watch.releaseID)
+			hm.mu.Unlock()
+			return
+		}
+		timer.Reset(hm.config.CheckInterval)
 	}
 }
 
@@ -280,13 +323,16 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 	}
 
 	now := time.Now()
+	errorRateMeasured := false
+	latencyMeasured := false
 
 	// Query error rate.
 	errorSamples, err := provider.QueryMetrics(ctx, providers.MetricQuery{
-		MetricName: "http_requests_errors_total",
-		Start:      now.Add(-5 * time.Minute),
-		End:        now,
-		Step:       30 * time.Second,
+		Expression: configuredOr(hm.config.ErrorRateQuery,
+			`sum(rate(http_requests_errors_total[5m])) / sum(rate(http_requests_total[5m])) * 100`),
+		Start: now.Add(-5 * time.Minute),
+		End:   now,
+		Step:  30 * time.Second,
 	})
 	switch {
 	case err != nil:
@@ -295,15 +341,21 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 		status.Unmeasured = append(status.Unmeasured, "error rate: provider returned no samples")
 	default:
 		status.ErrorRate = errorSamples[len(errorSamples)-1].Value
-		status.Measured = true
+		if status.ErrorRate >= 0 {
+			errorRateMeasured = true
+		} else {
+			status.Unmeasured = append(status.Unmeasured,
+				"error rate: query returned a negative percentage")
+		}
 	}
 
 	// Query latency.
 	latencySamples, err := provider.QueryMetrics(ctx, providers.MetricQuery{
-		MetricName: "http_request_duration_seconds",
-		Start:      now.Add(-5 * time.Minute),
-		End:        now,
-		Step:       30 * time.Second,
+		Expression: configuredOr(hm.config.LatencyQuery,
+			`histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))`),
+		Start: now.Add(-5 * time.Minute),
+		End:   now,
+		Step:  30 * time.Second,
 	})
 	switch {
 	case err != nil:
@@ -311,8 +363,14 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 	case len(latencySamples) == 0:
 		status.Unmeasured = append(status.Unmeasured, "latency: provider returned no samples")
 	default:
-		status.LatencyIncrease = latencySamples[len(latencySamples)-1].Value
-		status.Measured = true
+		current := latencySamples[len(latencySamples)-1].Value
+		if current > 0 {
+			status.LatencyP95 = current
+			latencyMeasured = true
+		} else {
+			status.Unmeasured = append(status.Unmeasured,
+				"latency: query returned no positive p95 sample")
+		}
 	}
 
 	// Query alerts.
@@ -323,13 +381,16 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 	case len(alerts) > 0:
 		// A firing alert is the clearest evidence there is, and evidence of a problem.
 		status.Alerts = alerts
-		status.Measured = true
 	default:
 		// An empty alert list is not evidence of health. A release can be failing badly with
 		// no alert rule written for it, so "nothing is firing" measures nothing on its own —
 		// only the metrics below can establish that a deployment is behaving.
 		status.Alerts = alerts
 	}
+	// A positive outcome requires both configured metric signals. One available signal
+	// cannot make an unavailable signal look healthy. A firing alert is sufficient
+	// evidence for a negative outcome even if one of the metrics is unavailable.
+	status.Measured = (errorRateMeasured && latencyMeasured) || len(status.Alerts) > 0
 
 	// Evaluate thresholds.
 	var violations []string
@@ -358,4 +419,18 @@ func (hm *HealthMonitor) performCheck(ctx context.Context, releaseID string) (He
 	}
 
 	return status, nil
+}
+
+func configuredOr(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func percentIncrease(baseline, current float64) float64 {
+	if baseline <= 0 || current < 0 {
+		return 0
+	}
+	return (current - baseline) / baseline * 100
 }

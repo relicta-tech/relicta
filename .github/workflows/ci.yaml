@@ -17,12 +17,13 @@ on:
       - '.gitignore'
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
   GOTOOLCHAIN: local
   # Pinned explicitly rather than "latest": the baseline is fingerprint-matched
   # against a specific rule set, so an unannounced nox upgrade would re-report
   # accepted findings as new. Bump deliberately, re-baselining in the same PR.
-  NOX_VERSION: '1.26.0'
+  NOX_VERSION: '1.70.0'
+  NOX_SHA256_LINUX_AMD64: '5ab377a72bbdf0da4ee4eeb068e3b516357e3e363db2491534e14aea72c8135e'
 
 # Cancel in-progress runs when a new commit is pushed
 concurrency:
@@ -41,6 +42,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
 
+      - name: Set up Node for MCP Apps
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Build MCP Apps
+        working-directory: app
+        run: npm ci --ignore-scripts && npm run build
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
         with:
@@ -58,7 +70,7 @@ jobs:
 
       - name: Run tests with coverage enforcement
         run: |
-          go run go.klarlabs.de/coverctl@v1.17.0 check \
+          go run go.klarlabs.de/coverctl@v1.20.0 check \
             --config .coverctl.yaml \
             --race \
             -v
@@ -182,8 +194,16 @@ jobs:
 
       - name: Install nox
         run: |
-          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" | tar xz -C /usr/local/bin nox
+          archive="nox_${NOX_VERSION}_linux_amd64.tar.gz"
+          curl --fail --show-error --silent --location \
+            "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          echo "${NOX_SHA256_LINUX_AMD64}  /tmp/${archive}" | sha256sum --check --status
+          tar xz -C /usr/local/bin -f "/tmp/${archive}" nox
           nox version
+
+      - name: Install Cosign for Nox plugin verification
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       # nox is the single security scanner: secrets, IaC/workflow hygiene,
       # privacy/PII, AI-security rules, and dependency vulnerabilities via
@@ -195,9 +215,9 @@ jobs:
           # baseline entries and re-reports them as new findings.
           NOX_FINGERPRINT_VERSION: "2"
         run: |
-          nox scan . -format json,sarif
-          echo "## Nox Security Scan" >> $GITHUB_STEP_SUMMARY
-          echo "Scan passed against the reviewed baseline (.nox/baseline.json)." >> $GITHUB_STEP_SUMMARY
+          nox scan . --severity-threshold high --fail-on-degraded -format json,sarif
+          echo "## Nox Security Scan" >> "$GITHUB_STEP_SUMMARY"
+          echo "Scan passed against the reviewed baseline (.nox/baseline.json)." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload SARIF to GitHub code scanning
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
@@ -252,11 +272,13 @@ jobs:
 
       - name: Add SBOM summary
         run: |
-          echo "## SBOM Generation" >> $GITHUB_STEP_SUMMARY
-          echo "- Source SBOM: sbom-source.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
-          echo "- Binary SBOM: sbom-binary.cdx.json (CycloneDX)" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## SBOM Generation"
+            echo "- Source SBOM: sbom-source.cdx.json (CycloneDX)"
+            echo "- Binary SBOM: sbom-binary.cdx.json (CycloneDX)"
+          } >> "$GITHUB_STEP_SUMMARY"
           COMPONENT_COUNT=$(jq '.components | length' sbom-source.cdx.json 2>/dev/null || echo "unknown")
-          echo "- Components detected: ${COMPONENT_COUNT}" >> $GITHUB_STEP_SUMMARY
+          echo "- Components detected: ${COMPONENT_COUNT}" >> "$GITHUB_STEP_SUMMARY"
 
   integration:
     name: Integration Tests
@@ -277,17 +299,18 @@ jobs:
           cache: true
 
       - name: Run integration tests
+        id: integration-tests
         run: |
           make test-integration
 
       - name: Add integration test summary
         if: always()
         run: |
-          echo "## Integration Tests" >> $GITHUB_STEP_SUMMARY
-          if [ $? -eq 0 ]; then
-            echo "All integration tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "## Integration Tests" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.integration-tests.outcome }}" = "success" ]; then
+            echo "All integration tests passed" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Some integration tests failed - review logs" >> $GITHUB_STEP_SUMMARY
+            echo "Some integration tests failed - review logs" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   dependency-review:

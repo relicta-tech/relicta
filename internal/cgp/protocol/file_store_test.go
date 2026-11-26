@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	cgpsdk "github.com/relicta-tech/relicta/v4/pkg/cgp"
+	cgpsdk "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
 
 // The service defaulted to inMemoryStore and WithStore was called from nowhere

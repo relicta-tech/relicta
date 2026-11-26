@@ -9,7 +9,7 @@
 **Reproduction Steps**:
 1. Run `relicta bump` first (creates tag v0.3.0, state → `versioned`)
 2. Run `relicta plan` (sees HEAD is already tagged, enters "tag-push mode")
-3. Run `relicta notes --ai` → **ERROR**: cannot set notes in state `planned`
+3. Run `relicta notes` → **ERROR**: cannot set notes in state `planned`
 
 ## Solution Implemented
 

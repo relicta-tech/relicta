@@ -3,9 +3,9 @@ package governance
 import (
 	"strings"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/attribution"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
 )
 
 // detectAuthorship runs the attribution detector over a changeset's commits and

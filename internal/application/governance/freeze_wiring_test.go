@@ -3,7 +3,7 @@ package governance
 import (
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // The evaluator enforces freeze windows and the risk budget — it calls budget.CheckFreeze on

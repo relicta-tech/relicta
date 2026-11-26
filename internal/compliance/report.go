@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 // ReportFormat defines output formats.
@@ -25,8 +25,7 @@ type ReportFormat string
 const (
 	FormatMarkdown ReportFormat = "markdown"
 	FormatJSON     ReportFormat = "json"
-	// FormatJSONL emits one JSON object per line. Required for Article 12
-	// log bundles where each entry must be independently readable.
+	// FormatJSONL emits one JSON object per line for release-governance evidence.
 	FormatJSONL ReportFormat = "jsonl"
 	// FormatCSV emits a flat tabular view for regulator portals.
 	FormatCSV ReportFormat = "csv"
@@ -49,8 +48,8 @@ const (
 	ReportDORA             ReportType = "dora"                 // DORA metrics
 	ReportSOC2             ReportType = "soc2"                 // SOC 2 change management evidence
 	ReportSummary          ReportType = "summary"              // General governance summary
-	ReportEUAIActArticle12 ReportType = "eu-ai-act-article-12" // EU AI Act Article 12 record-keeping
-	ReportEUAIActAnnexIV   ReportType = "eu-ai-act-annex-iv"   // EU AI Act Annex IV technical documentation
+	ReportEUAIActArticle12 ReportType = "eu-ai-act-article-12" // Release-governance evidence mapped to EU AI Act Article 12 concepts
+	ReportEUAIActAnnexIV   ReportType = "eu-ai-act-annex-iv"   // Draft release-governance evidence mapped to EU AI Act Annex IV
 )
 
 // IsValid returns true if the report type is recognized.
@@ -530,7 +529,9 @@ func (g *Generator) fetchData(ctx context.Context, config ReportConfig) (*report
 		}
 	}
 
-	// Gather decisions for filtered releases
+	// Gather in-period decisions for releases selected by their release date.
+	// The store exposes audit trails by proposal, so standalone decisions and
+	// decisions attached to releases outside this report period are not discoverable.
 	var decisions []*cgp.GovernanceDecision
 	seen := make(map[string]bool)
 	for _, r := range filtered {
@@ -544,7 +545,12 @@ func (g *Generator) fetchData(ctx context.Context, config ReportConfig) (*report
 			g.logger.Debug("no audit trail for release", "id", r.ID, "err", err)
 			continue
 		}
-		decisions = append(decisions, trail.Decisions...)
+		for _, decision := range trail.Decisions {
+			if decision == nil || decision.Timestamp.Before(config.Period.Start) || decision.Timestamp.After(config.Period.End) {
+				continue
+			}
+			decisions = append(decisions, decision)
+		}
 	}
 
 	return &reportData{

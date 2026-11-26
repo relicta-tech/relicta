@@ -36,12 +36,17 @@ func writeArticle12(b *strings.Builder, r *Article12Report) {
 		return
 	}
 
-	fmt.Fprintln(b, "## EU AI Act — Article 12 Record-Keeping")
+	fmt.Fprintln(b, "## EU AI Act — Article 12 Supporting Evidence")
 	fmt.Fprintln(b)
 	fmt.Fprintf(b, "**System Identifier:** %s  \n", r.SystemIdentifier)
-	fmt.Fprintf(b, "**Log Entries:** %d  \n", len(r.LogEntries))
-	fmt.Fprintf(b, "**Retention Deadline (Article 26(6) — 6 months minimum):** %s  \n", r.RetentionDeadline.Format("2006-01-02"))
-	fmt.Fprintf(b, "**Audit Chain Integrity:** %s  \n", boolBadge(r.AuditChainIntegrityVerified))
+	fmt.Fprintf(b, "**Governance Records:** %d  \n", len(r.LogEntries))
+	fmt.Fprintf(b, "**Evidence Scope:** %s  \n", r.EvidenceScope)
+	fmt.Fprintf(b, "**Suggested Retention Date (period end + 6 months; confirm role-specific duties and other law):** %s  \n", r.SuggestedRetentionDate.Format("2006-01-02"))
+	chainStatus := r.AuditChainIntegrityStatus
+	if chainStatus == "" || chainStatus == "not_checked" {
+		chainStatus = "not checked"
+	}
+	fmt.Fprintf(b, "**Audit Chain Integrity:** %s  \n", chainStatus)
 	fmt.Fprintln(b)
 
 	if len(r.GenerationNotes) > 0 {
@@ -54,14 +59,14 @@ func writeArticle12(b *strings.Builder, r *Article12Report) {
 	}
 
 	if len(r.LogEntries) == 0 {
-		fmt.Fprintln(b, "_No log entries in period._")
+		fmt.Fprintln(b, "_No governance records in period._")
 		fmt.Fprintln(b)
 		return
 	}
 
-	fmt.Fprintln(b, "### Log Entries")
+	fmt.Fprintln(b, "### Governance Records")
 	fmt.Fprintln(b)
-	fmt.Fprintln(b, "| Entry ID | Started | Ended | Actor | Decision | Risk | Verifiers |")
+	fmt.Fprintln(b, "| Entry ID | Release Process Started | Release Recorded | Actor | Decision | Risk | Verifiers |")
 	fmt.Fprintln(b, "|----------|---------|-------|-------|----------|------|-----------|")
 	for _, e := range r.LogEntries {
 		verifiers := "—"
@@ -74,8 +79,8 @@ func writeArticle12(b *strings.Builder, r *Article12Report) {
 		}
 		fmt.Fprintf(b, "| `%s` | %s | %s | %s:%s | %s | %.2f | %s |\n",
 			e.EntryID,
-			e.StartedAt.UTC().Format("2006-01-02 15:04Z"),
-			e.EndedAt.UTC().Format("2006-01-02 15:04Z"),
+			e.ReleaseProcessStartedAt.UTC().Format("2006-01-02 15:04Z"),
+			e.ReleaseRecordedAt.UTC().Format("2006-01-02 15:04Z"),
 			e.Actor.Kind, e.Actor.ID,
 			e.OutputDecision,
 			e.RiskScore,
@@ -86,18 +91,11 @@ func writeArticle12(b *strings.Builder, r *Article12Report) {
 
 	fmt.Fprintln(b, "### Auditor Notes")
 	fmt.Fprintln(b)
-	fmt.Fprintln(b, "- Each log entry corresponds to one CGP governance decision tied to a software release.")
-	fmt.Fprintln(b, "- The `auditChainHash` field (where present) anchors each entry into the hash-chained CGP audit trail; tampering invalidates the chain.")
-	fmt.Fprintln(b, "- Empty `Verifiers` lists indicate autonomous (auto-approved) decisions; these should be cross-referenced against the actor's autonomy budget.")
-	fmt.Fprintln(b, "- For machine-readable evidence, regenerate this report with `--format jsonl` (one entry per line) or `--format csv` (regulator portal ingestion).")
+	fmt.Fprintln(b, "- Each row is a recorded governance decision or a release record used when no explicit decision record is available.")
+	fmt.Fprintln(b, "- This report does not include audit-chain hashes or verify chain integrity; run `relicta audit verify` separately.")
+	fmt.Fprintln(b, "- An empty `Verifiers` list means approval evidence is unavailable here; it does not mean the decision was autonomous.")
+	fmt.Fprintln(b, "- For machine-readable evidence, regenerate this report with `--format jsonl` (one entry per line) or `--format csv` (for downstream tools).")
 	fmt.Fprintln(b)
-}
-
-func boolBadge(b bool) string {
-	if b {
-		return "✓ verified"
-	}
-	return "✗ FAILED"
 }
 
 func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
@@ -107,13 +105,14 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 		return
 	}
 
-	fmt.Fprintln(b, "## EU AI Act — Annex IV Technical Documentation")
+	fmt.Fprintln(b, "## EU AI Act — Annex IV Release-Governance Evidence Draft")
 	fmt.Fprintln(b)
 	fmt.Fprintf(b, "**System:** %s  \n", r.SystemIdentifier)
+	fmt.Fprintf(b, "**Evidence Scope:** %s  \n", r.EvidenceScope)
 	if r.SystemVersion != "" {
 		fmt.Fprintf(b, "**System Version:** %s  \n", r.SystemVersion)
 	}
-	fmt.Fprintf(b, "**Retention Deadline (Article 11 — 10 years):** %s  \n", r.RetentionDeadline.Format("2006-01-02"))
+	fmt.Fprintf(b, "**Retention Guidance:** %s  \n", r.RetentionGuidance)
 	fmt.Fprintln(b)
 
 	if len(r.GenerationNotes) > 0 {
@@ -128,43 +127,39 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 	// §1
 	fmt.Fprintln(b, "### §1 — General Description")
 	fmt.Fprintln(b)
-	fmt.Fprintf(b, "**Intended Purpose:** %s\n\n", r.GeneralDescription.IntendedPurpose)
-	listKV(b, "Hardware Environments", r.GeneralDescription.HardwareEnvironments)
-	listKV(b, "Deployment Forms", r.GeneralDescription.DeploymentForms)
-	listKV(b, "User Interfaces", r.GeneralDescription.UserInterfaces)
-	listKV(b, "Languages Supported", r.GeneralDescription.Languages)
+	fmt.Fprintf(b, "**Intended Purpose:** %s\n\n", emptyOrTODO(r.GeneralDescription.IntendedPurpose))
+	listKVOrTODO(b, "Hardware Environments", r.GeneralDescription.HardwareEnvironments)
+	listKVOrTODO(b, "Deployment Forms", r.GeneralDescription.DeploymentForms)
+	listKVOrTODO(b, "User Interfaces", r.GeneralDescription.UserInterfaces)
+	listKVOrTODO(b, "Languages Supported", r.GeneralDescription.Languages)
 
 	// §2
 	fmt.Fprintln(b, "### §2 — Detailed Description of System Elements")
 	fmt.Fprintln(b)
-	listKV(b, "Development Methods", r.DetailedDescription.DevelopmentMethods)
-	listKV(b, "Design Specifications", r.DetailedDescription.DesignSpecifications)
-	fmt.Fprintf(b, "**System Architecture:** %s\n\n", r.DetailedDescription.SystemArchitecture)
-	if r.DetailedDescription.ComputationalResources != "" {
-		fmt.Fprintf(b, "**Computational Resources:** %s\n\n", r.DetailedDescription.ComputationalResources)
-	}
-	listKV(b, "Data Requirements", r.DetailedDescription.DataRequirements)
-	listKV(b, "Human Oversight Measures", r.DetailedDescription.HumanOversightMeasures)
-	listKV(b, "Predetermined Changes", r.DetailedDescription.PredeterminedChanges)
-	fmt.Fprintf(b, "**CGP Protocol Version:** %s  \n", r.DetailedDescription.CGPProtocolVersion)
-	if r.DetailedDescription.RiskModelVersion != "" {
-		fmt.Fprintf(b, "**Risk Model Version:** %s  \n", r.DetailedDescription.RiskModelVersion)
-	}
+	listKVOrTODO(b, "Development Methods", r.DetailedDescription.DevelopmentMethods)
+	listKVOrTODO(b, "Design Specifications", r.DetailedDescription.DesignSpecifications)
+	fmt.Fprintf(b, "**System Architecture:** %s\n\n", emptyOrTODO(r.DetailedDescription.SystemArchitecture))
+	fmt.Fprintf(b, "**Computational Resources:** %s\n\n", emptyOrTODO(r.DetailedDescription.ComputationalResources))
+	listKVOrTODO(b, "Data Requirements", r.DetailedDescription.DataRequirements)
+	listKVOrTODO(b, "Human Oversight Measures", r.DetailedDescription.HumanOversightMeasures)
+	listKVOrTODO(b, "Predetermined Changes", r.DetailedDescription.PredeterminedChanges)
+	fmt.Fprintf(b, "**CGP Protocol Version:** %s  \n", emptyOrTODO(r.DetailedDescription.CGPProtocolVersion))
+	fmt.Fprintf(b, "**Risk Model Version:** %s  \n\n", emptyOrTODO(r.DetailedDescription.RiskModelVersion))
 	fmt.Fprintln(b)
 
 	// §3
 	fmt.Fprintln(b, "### §3 — Monitoring, Functioning, and Control")
 	fmt.Fprintln(b)
-	listKV(b, "Monitoring Mechanisms", r.MonitoringControl.MonitoringMechanisms)
-	listKV(b, "Control Interfaces", r.MonitoringControl.ControlInterfaces)
-	fmt.Fprintf(b, "**Audit Trail Location:** %s  \n", r.MonitoringControl.AuditTrailLocation)
-	fmt.Fprintf(b, "**Audit Chain Algorithm:** %s  \n", r.MonitoringControl.AuditChainAlgorithm)
+	listKVOrTODO(b, "Monitoring Mechanisms", r.MonitoringControl.MonitoringMechanisms)
+	listKVOrTODO(b, "Control Interfaces", r.MonitoringControl.ControlInterfaces)
+	fmt.Fprintf(b, "**Audit Trail Location:** %s  \n", emptyOrTODO(r.MonitoringControl.AuditTrailLocation))
+	fmt.Fprintf(b, "**Audit Chain Algorithm:** %s  \n\n", emptyOrTODO(r.MonitoringControl.AuditChainAlgorithm))
 	fmt.Fprintln(b)
 
 	// §4
 	fmt.Fprintln(b, "### §4 — Risk Management System")
 	fmt.Fprintln(b)
-	fmt.Fprintf(b, "**Risk Evaluation Method:** %s\n\n", r.RiskManagement.RiskEvaluationMethod)
+	fmt.Fprintf(b, "**Risk Evaluation Method:** %s\n\n", emptyOrTODO(r.RiskManagement.RiskEvaluationMethod))
 	if len(r.RiskManagement.IdentifiedRisks) > 0 {
 		fmt.Fprintln(b, "**Identified Risks**")
 		fmt.Fprintln(b)
@@ -173,6 +168,9 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 		for _, risk := range r.RiskManagement.IdentifiedRisks {
 			fmt.Fprintf(b, "| %s | %s | %d | %.2f |\n", risk.Category, risk.Severity, risk.OccurrenceCount, risk.AverageScore)
 		}
+		fmt.Fprintln(b)
+	} else {
+		fmt.Fprintln(b, "_No risk categories were inferred from recorded governance rationales in this period; this does not establish absence of risk._")
 		fmt.Fprintln(b)
 	}
 	if len(r.RiskManagement.RiskMitigationControls) > 0 {
@@ -207,10 +205,10 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 	}
 
 	// §6
-	fmt.Fprintln(b, "### §6 — Harmonized Standards Applied")
+	fmt.Fprintln(b, "### §6 — Harmonized Standards and Implementation Status")
 	fmt.Fprintln(b)
 	if len(r.HarmonizedStandards) == 0 {
-		fmt.Fprintln(b, "_None._")
+		fmt.Fprintln(b, "_TODO — provider must identify applicable harmonized standards and document verified implementation status._")
 	} else {
 		fmt.Fprintln(b, "| Framework | Version | Status | Controls |")
 		fmt.Fprintln(b, "|-----------|---------|--------|----------|")
@@ -229,9 +227,9 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 	fmt.Fprintf(b, "- **Provider Address:** %s\n", emptyOrTODO(r.ConformityDeclaration.ProviderAddress))
 	fmt.Fprintf(b, "- **System Identifier:** %s\n", r.ConformityDeclaration.SystemIdentifier)
 	fmt.Fprintf(b, "- **Unique Identifier:** %s\n", emptyOrTODO(r.ConformityDeclaration.UniqueIdentifier))
-	fmt.Fprintf(b, "- **Standards Applied:** %s\n", strings.Join(r.ConformityDeclaration.StandardsApplied, "; "))
+	fmt.Fprintf(b, "- **Standards Applied:** %s\n", emptyOrTODO(strings.Join(r.ConformityDeclaration.StandardsApplied, "; ")))
 	fmt.Fprintf(b, "- **Notified Body:** %s\n", emptyOrTODO(r.ConformityDeclaration.NotifiedBody))
-	fmt.Fprintf(b, "- **Date of Declaration:** %s\n", r.ConformityDeclaration.DateOfDeclaration)
+	fmt.Fprintf(b, "- **Date of Declaration:** %s\n", emptyOrTODO(r.ConformityDeclaration.DateOfDeclaration))
 	fmt.Fprintf(b, "- **Signatory:** %s\n", emptyOrTODO(r.ConformityDeclaration.Signatory))
 	fmt.Fprintf(b, "- **Signatory Role:** %s\n", emptyOrTODO(r.ConformityDeclaration.SignatoryRole))
 	fmt.Fprintln(b)
@@ -239,7 +237,9 @@ func writeAnnexIV(b *strings.Builder, r *AnnexIVReport) {
 	// §8
 	fmt.Fprintln(b, "### §8 — Post-Market Monitoring")
 	fmt.Fprintln(b)
-	fmt.Fprintf(b, "**Monitoring Plan:** %s\n\n", r.PostMarketMonitoring.MonitoringPlan)
+	fmt.Fprintf(b, "**Monitoring Plan:** %s\n\n", emptyOrTODO(r.PostMarketMonitoring.MonitoringPlan))
+	fmt.Fprintln(b, "_Metrics and incident records below summarize Relicta release history for this period; they do not describe or establish monitoring of the target AI system._")
+	fmt.Fprintln(b)
 	fmt.Fprintln(b, "| Metric | Value |")
 	fmt.Fprintln(b, "|--------|-------|")
 	fmt.Fprintf(b, "| Total Incidents | %d |\n", r.PostMarketMonitoring.TotalIncidents)
@@ -274,6 +274,14 @@ func listKV(b *strings.Builder, title string, items []string) {
 		fmt.Fprintf(b, "- %s\n", item)
 	}
 	fmt.Fprintln(b)
+}
+
+func listKVOrTODO(b *strings.Builder, title string, items []string) {
+	if len(items) == 0 {
+		fmt.Fprintf(b, "**%s:** _TODO — provider must complete_\n\n", title)
+		return
+	}
+	listKV(b, title, items)
 }
 
 func emptyOrTODO(s string) string {

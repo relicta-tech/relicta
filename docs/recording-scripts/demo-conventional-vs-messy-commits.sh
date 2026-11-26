@@ -172,40 +172,15 @@ echo "    • Group related changes"
 echo "    • Fall back to 'patch' for unclear commits"
 pause 4
 
-# Now show AI notes on messy repo
+# Now show release notes on the messy repo
 echo ""
-echo -e "${BLUE}━━━ AI notes can make sense of messy history ━━━${NC}"
+echo -e "${BLUE}━━━ Release notes from messy history ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta notes -a${NC}"
+echo -e "$ ${YELLOW}relicta notes${NC}"
 pause 0.5
 relicta plan >/dev/null 2>&1
 relicta bump >/dev/null 2>&1
-relicta notes -a 2>/dev/null || cat << 'EOF'
-
-  📝 Release Notes (v2.0.0)
-  ────────────────────────────────────────
-
-  ## Breaking Changes
-
-  - **New API Design**: The API has been redesigned for
-    better performance and usability. See migration guide.
-
-  ## What's New
-
-  - **Authentication System**: Added login and logout
-    functionality with improved session handling.
-
-  ## Bug Fixes
-
-  - Fixed authentication issues that caused unexpected
-    behavior during session management.
-
-  ## Internal
-
-  - Code cleanup and refactoring for maintainability.
-  - Added test infrastructure.
-
-EOF
+relicta notes
 pause 4
 
 # Summary
@@ -224,7 +199,7 @@ echo -e "  ${MAGENTA}Messy Commits:${NC}"
 echo "    • Keyword detection (BREAKING, fix, add...)"
 echo "    • Intelligent grouping"
 echo "    • Sensible fallback to patch"
-echo "    • AI notes to summarize chaos"
+echo "    • Optional configured AI can add prose; review its claims"
 echo ""
 echo -e "  ${BLUE}Best of both worlds:${NC}"
 echo "    • Works with any team's workflow"

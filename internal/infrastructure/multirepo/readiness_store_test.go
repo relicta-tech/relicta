@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/adapters"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/adapters"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 )
 
 // Readiness built a file repository unconditionally, and once persistence.backend began

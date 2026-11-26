@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/sqlite/migrations"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/sqlite/migrations"
 )
 
 // MigrationDirection indicates whether a migration is being applied or rolled back.

@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
 )
 
 func TestOutputEvaluateJSON(t *testing.T) {

@@ -2,11 +2,52 @@
 package cli
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
+	pkgcgp "github.com/relicta-tech/relicta/v5/pkg/cgp"
 )
+
+func TestApprovalCardJSONAndVersion(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	card := pkgcgp.ApprovalCard{CGPVersion: "0.1", CardID: "card-1", ReleaseID: "release-1", Decision: "approval_required"}
+	if err := emitApprovalCardJSON(card); err != nil {
+		t.Fatalf("emitApprovalCardJSON: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = oldStdout
+	var got pkgcgp.ApprovalCard
+	if err := json.NewDecoder(r).Decode(&got); err != nil {
+		t.Fatalf("decode approval card: %v", err)
+	}
+	if got.CGPVersion != card.CGPVersion || got.CardID != card.CardID || got.ReleaseID != card.ReleaseID || got.Decision != card.Decision {
+		t.Errorf("approval card JSON = %+v", got)
+	}
+	if approvalCardVersion(nil) != "" {
+		t.Error("nil release should have no proposed version")
+	}
+	rel := release.NewReleaseRunForTest("card-version", "main", ".")
+	if approvalCardVersion(rel) != "" {
+		t.Error("unproposed release should have no proposed version")
+	}
+	if err := rel.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), release.BumpMinor, 1); err != nil {
+		t.Fatal(err)
+	}
+	if got := approvalCardVersion(rel); got != "1.1.0" {
+		t.Errorf("approvalCardVersion() = %q, want 1.1.0", got)
+	}
+}
 
 func TestApproveCommand_FlagsExist(t *testing.T) {
 	tests := []struct {

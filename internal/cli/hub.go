@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/hubclient"
+	"github.com/relicta-tech/relicta/v5/internal/hubclient"
 )
 
 // `relicta hub login` — the client half of the device authorization grant.

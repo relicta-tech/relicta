@@ -14,18 +14,18 @@ The Change Governance Protocol (CGP):
   • Risk assessment — Analyze blast radius and impact of every change
   • Audit trails — Complete history of approvals and decisions
   • Approval workflows — Gate releases with configurable policies
-  • AI-powered insights — Intelligent release notes and risk analysis
+  • Agent-session release notes — Draft customer copy with your coding agent's product context, grounded in Relicta's change recommendation
 
-Today, it's a production-ready CLI for semantic versioning, changelogs,
-and release automation. Tomorrow, it's the decision layer for risk-aware
-releases in an AI-driven world.
+Today, use Relicta to plan releases, draft customer-facing notes with your
+coding agent, apply release policy, and keep the approval record with the
+release. Optional provider-generated notes are available when configured.
 
 Get started with 'relicta init' to set up your project.
 
 ### Options
 
 ```
-      --allow-untrusted-plugins   load plugins on best-effort sandbox platforms; review 'relicta plugin sandbox-status' first
+      --allow-untrusted-plugins   load enabled plugins (unsigned; review 'relicta plugin sandbox-status' first)
       --ci                        CI/CD mode: auto-approve, JSON output, non-interactive
   -c, --config string             config file (default: .relicta.yaml)
       --dry-run                   simulate actions without making changes
@@ -33,7 +33,7 @@ Get started with 'relicta init' to set up your project.
       --json                      output results as JSON
       --log string                alias for --log-level
       --log-level string          log level (debug, info, warn, error) (default "info")
-      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-4, anthropic/claude-sonnet-4, local/mistral)
+      --model string              AI model to use (format: provider/model, e.g., ollama/llama3.2, openai/gpt-6.2-sol, anthropic/claude-sonnet-4-6, local/mistral)
       --no-color                  disable colored output
       --redact                    redact secrets and API keys from output (auto-enabled in CI mode)
   -v, --verbose                   enable verbose output
@@ -43,17 +43,22 @@ Get started with 'relicta init' to set up your project.
 
 * [relicta analytics](relicta_analytics.md)	 - Show governance analytics (risk trends, decisions, team metrics)
 * [relicta approve](relicta_approve.md)	 - Review and approve the release
+* [relicta audit](relicta_audit.md)	 - Show the complete governance record: what was proposed, decided and shipped
 * [relicta blast](relicta_blast.md)	 - Analyze blast radius of changes in a monorepo
 * [relicta bump](relicta_bump.md)	 - Calculate and apply a version bump
 * [relicta cancel](relicta_cancel.md)	 - Cancel the current release
+* [relicta cgp](relicta_cgp.md)	 - Inspect Change Governance Protocol records
 * [relicta clean](relicta_clean.md)	 - Clean up old release runs
 * [relicta communicate](relicta_communicate.md)	 - Generate audience-specific release narratives
+* [relicta db](relicta_db.md)	 - Manage the database backing relicta's release history
 * [relicta demo](relicta_demo.md)	 - Manage the local Docker demo environment
-* [relicta eval](relicta_eval.md)	 - AI evaluation harness (model regression gate)
-* [relicta evaluate](relicta_evaluate.md)	 - Evaluate release risk and governance decision
+* [relicta deploy](relicta_deploy.md)	 - Record and inspect deployments of released versions
+* [relicta eval](relicta_eval.md)	 - AI model regression harness — not release risk, see 'evaluate'
+* [relicta evaluate](relicta_evaluate.md)	 - Evaluate release risk and governance decision (not the AI harness, see 'eval')
 * [relicta group](relicta_group.md)	 - Multi-repository governance commands
 * [relicta health](relicta_health.md)	 - Check the health of relicta and its dependencies
 * [relicta history](relicta_history.md)	 - View release history and CGP metrics
+* [relicta hub](relicta_hub.md)	 - Authenticate against a Relicta Hub
 * [relicta init](relicta_init.md)	 - Initialize a new relicta configuration
 * [relicta integrations](relicta_integrations.md)	 - Third-party integrations (Vanta, Drata)
 * [relicta mcp](relicta_mcp.md)	 - Model Context Protocol (MCP) server commands
@@ -68,9 +73,9 @@ Get started with 'relicta init' to set up your project.
 * [relicta report](relicta_report.md)	 - Generate compliance reports
 * [relicta reset](relicta_reset.md)	 - Reset a failed or canceled release
 * [relicta rollback](relicta_rollback.md)	 - Roll back to a previous release version
-* [relicta serve](relicta_serve.md)	 - Start the dashboard web server
-* [relicta server](relicta_server.md)	 - Start the dashboard API server with deployment mode control
+* [relicta server](relicta_server.md)	 - Start the dashboard server (web UI and API)
 * [relicta status](relicta_status.md)	 - Show the current release status
 * [relicta verify](relicta_verify.md)	 - Verify governance attestation for a release
 * [relicta version](relicta_version.md)	 - Print version information
+* [relicta webhook](relicta_webhook.md)	 - Inspect and operate the durable webhook delivery queue
 

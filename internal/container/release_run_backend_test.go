@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/config"
 )
 
 // unreachablePostgres names a port nothing listens on, so the connection is refused at once

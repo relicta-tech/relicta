@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/domain/multirepo"
 )
 
 // Config is the root configuration for Relicta.
@@ -64,8 +64,8 @@ type Config struct {
 	Observability ObservabilityConfig `mapstructure:"observability" json:"observability,omitempty"`
 	// Mnemos configures Mnemos memory backend (optional).
 	// When enabled, release events are stored in Mnemos for historical tracking.
-	// Enabled by default — Relicta learns from every release.
-	// Set enabled: false to opt-out.
+	// Disabled by default until the Relicta adapter supports the current Mnemos API.
+	// Set enabled: true only when targeting a compatible legacy Mnemos deployment.
 	Mnemos MnemosConfig `mapstructure:"mnemos" json:"mnemos,omitempty"`
 	// Chronos configures Chronos pattern detection (optional).
 	// When enabled, time-series patterns are detected in release metrics.
@@ -347,19 +347,19 @@ type AIConfig struct {
 	// Use "azure-openai" for Azure OpenAI Service.
 	Provider string `mapstructure:"provider" json:"provider"`
 	// Model is the model to use.
-	// For OpenAI: "gpt-4", "gpt-3.5-turbo", "gpt-4o", etc.
+	// For OpenAI: "gpt-6.2-sol", "gpt-6.2-astra", "gpt-6-luna", etc.
 	// For Ollama: "llama3.2", "mistral", "codellama", etc.
-	// For Anthropic: "claude-sonnet-4-20250514", "claude-3-opus-20240229", etc.
-	// For Gemini: "gemini-2.0-flash-exp", "gemini-1.5-pro", "gemini-1.5-flash", etc.
+	// For Anthropic: "claude-sonnet-4-6", "claude-opus-4-8", etc.
+	// For Gemini: "gemini-3.5-flash-lite", "gemini-3.8-flash", etc.
 	// For Azure OpenAI: Use your deployment name.
 	Model string `mapstructure:"model" json:"model"`
 	// APIKey is the API key (can use environment variable expansion).
 	APIKey string `mapstructure:"api_key" json:"api_key,omitempty"`
 	// BaseURL is the API base URL (for custom endpoints).
 	// For Ollama, defaults to "http://localhost:11434/v1".
-	// For Azure OpenAI, use https://YOUR_RESOURCE.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT.
+	// For Azure OpenAI v1, use https://YOUR_RESOURCE.openai.azure.com/openai/v1.
 	BaseURL string `mapstructure:"base_url" json:"base_url,omitempty"`
-	// APIVersion is the API version (required for Azure OpenAI, e.g., "2024-02-15-preview").
+	// APIVersion is used by the legacy dated Azure OpenAI endpoint. The Azure v1 endpoint does not need it.
 	APIVersion string `mapstructure:"api_version" json:"api_version,omitempty"`
 	// AutoSelected names the provider chosen by zero-config env-var
 	// auto-detection (empty when the provider came from explicit config).
@@ -633,10 +633,10 @@ type GovernanceConfig struct {
 	// trust may be raised to "full" (human-equivalent autonomy). Zero uses the
 	// built-in default (50).
 	EarnedTrustFullSamples int `mapstructure:"earned_trust_full_samples" json:"earned_trust_full_samples,omitempty"`
-	// IdentityRegistryPath is the directory holding the actor-identity registry
-	// (actors.json). When set, an actor is granted the trust level its
-	// organization registered for it (raise-only, composing with earned trust).
-	// Empty disables identity-based grants.
+	// IdentityRegistryPath is the directory holding the file-backed actor registry
+	// (actors.json), which is also the source for `relicta db import`. With a
+	// database persistence backend, registry records are stored in that backend.
+	// When set, organization grants can raise actor trust; empty disables them.
 	IdentityRegistryPath string `mapstructure:"identity_registry_path" json:"identity_registry_path,omitempty"`
 }
 
@@ -792,7 +792,7 @@ func DefaultConfig() *Config {
 		AI: AIConfig{
 			Enabled:       false,
 			Provider:      "openai",
-			Model:         "gpt-4",
+			Model:         "gpt-6.2-sol",
 			Tone:          "professional",
 			Audience:      "developers",
 			MaxTokens:     2048,
@@ -889,7 +889,7 @@ func DefaultConfig() *Config {
 		},
 		Dashboard: DashboardConfig{
 			Enabled:      false, // Disabled by default, opt-in for dashboard
-			Address:      ":8080",
+			Address:      "127.0.0.1:8080",
 			CORSOrigins:  []string{}, // Same-origin only by default
 			ReadTimeout:  15 * time.Second,
 			WriteTimeout: 15 * time.Second,
@@ -916,7 +916,7 @@ func DefaultConfig() *Config {
 			},
 		},
 		Mnemos: MnemosConfig{
-			Enabled:   true, // Enabled by default — Relicta learns from every release
+			Enabled:   false, // The current adapter targets the legacy Mnemos /v1/events API
 			Endpoint:  "http://localhost:7777",
 			Timeout:   10 * time.Second,
 			Namespace: "relicta",
@@ -1176,7 +1176,7 @@ func (w *WebhookConfig) IsWebhookEnabled() bool {
 type DashboardConfig struct {
 	// Enabled indicates whether the dashboard server is enabled.
 	Enabled bool `mapstructure:"enabled" json:"enabled"`
-	// Address is the HTTP server address (default: ":8080").
+	// Address is the HTTP server address (default: "127.0.0.1:8080").
 	// Format: "host:port" or ":port" for all interfaces.
 	Address string `mapstructure:"address" json:"address"`
 	// ServerMode controls how the server operates: "embedded" serves the
@@ -1213,7 +1213,7 @@ type DashboardAuthMode string
 const (
 	// DashboardAuthNone disables authentication (not recommended for production).
 	DashboardAuthNone DashboardAuthMode = "none"
-	// DashboardAuthAPIKey requires API key authentication via header or query param.
+	// DashboardAuthAPIKey requires API key authentication via X-API-Key or Authorization header.
 	DashboardAuthAPIKey DashboardAuthMode = "api_key"
 	// DashboardAuthSession enables session-based authentication with login.
 	DashboardAuthSession DashboardAuthMode = "session"
@@ -1224,14 +1224,14 @@ const (
 // DashboardAuthConfig configures authentication for the dashboard.
 type DashboardAuthConfig struct {
 	// Mode is the authentication mode (none, api_key, session, oidc).
-	// Default: "api_key" for security.
+	// Default: "none"; DashboardConfig.Address defaults to loopback in this mode.
 	Mode DashboardAuthMode `mapstructure:"mode" json:"mode"`
 	// APIKeys is a list of API keys for api_key mode.
 	APIKeys []DashboardAPIKeyConfig `mapstructure:"api_keys" json:"api_keys,omitempty"`
 	// Users is a list of users for session mode.
 	Users []DashboardUserConfig `mapstructure:"users" json:"users,omitempty"`
 	// SessionSecret is the secret for signing session tokens (required for session and oidc modes).
-	// Should be a random 32+ character string, can use environment variable expansion.
+	// Must be a random string of at least 32 bytes, can use environment variable expansion.
 	SessionSecret string `mapstructure:"session_secret" json:"session_secret,omitempty"`
 	// SessionMaxAge is the maximum session age (default: 24h).
 	SessionMaxAge time.Duration `mapstructure:"session_max_age" json:"session_max_age,omitempty"`
@@ -1381,14 +1381,22 @@ type ObservabilityProviderConfig struct {
 type ObservabilityHealthCheckConfig struct {
 	// Window is how long to monitor after a release (default: 30m).
 	Window time.Duration `mapstructure:"window" json:"window"`
-	// ErrorRateThreshold is the error rate percentage increase that triggers
+	// ErrorRateThreshold is the absolute error-rate percentage that triggers
 	// a negative outcome (default: 5.0).
 	ErrorRateThreshold float64 `mapstructure:"error_rate_threshold" json:"error_rate_threshold"`
-	// LatencyThreshold is the latency percentage increase that triggers
-	// a negative outcome (default: 50.0).
+	// LatencyThreshold is the p95 latency percentage increase from the first
+	// measured check that triggers a negative outcome (default: 50.0).
 	LatencyThreshold float64 `mapstructure:"latency_threshold" json:"latency_threshold"`
 	// ProviderName references which configured provider to query.
 	ProviderName string `mapstructure:"provider_name" json:"provider_name,omitempty"`
+	// ErrorRateQuery is a PromQL expression returning error-rate percent. When empty,
+	// the monitor uses rate(http_requests_errors_total[5m]) /
+	// rate(http_requests_total[5m]) * 100.
+	ErrorRateQuery string `mapstructure:"error_rate_query" json:"error_rate_query,omitempty"`
+	// LatencyQuery is a PromQL expression returning the p95 latency in seconds.
+	// When empty, the monitor uses histogram_quantile over the standard
+	// http_request_duration_seconds_bucket metric.
+	LatencyQuery string `mapstructure:"latency_query" json:"latency_query,omitempty"`
 }
 
 // PersistenceBackend names the store relicta keeps its release runs in.

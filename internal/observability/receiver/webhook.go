@@ -4,6 +4,7 @@
 package receiver
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +16,8 @@ import (
 	"strings"
 	"time"
 )
+
+const maxWebhookBodyBytes = 5 << 20
 
 // Incident is the internal representation of an alert from an external system.
 type Incident struct {
@@ -39,7 +42,7 @@ type Incident struct {
 }
 
 // IncidentHandler is called when a new incident is parsed from a webhook.
-type IncidentHandler func(incident Incident)
+type IncidentHandler func(ctx context.Context, incident Incident) error
 
 // WebhookReceiver handles incoming alert webhooks from multiple providers.
 type WebhookReceiver struct {
@@ -68,9 +71,13 @@ func (wr *WebhookReceiver) HandleWebhook(provider string) http.HandlerFunc {
 			return
 		}
 
-		body, err := io.ReadAll(io.LimitReader(r.Body, 5*1024*1024))
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxWebhookBodyBytes+1))
 		if err != nil {
 			http.Error(w, "failed to read body", http.StatusBadRequest)
+			return
+		}
+		if len(body) > maxWebhookBodyBytes {
+			http.Error(w, "webhook payload too large", http.StatusRequestEntityTooLarge)
 			return
 		}
 
@@ -109,8 +116,18 @@ func (wr *WebhookReceiver) HandleWebhook(provider string) http.HandlerFunc {
 		for i := range incidents {
 			incidents[i].ReceivedAt = time.Now()
 			incidents[i].Source = provider
+			if incidents[i].ID == "" {
+				incidents[i].ID = derivedIncidentID(incidents[i])
+			}
 			if wr.handler != nil {
-				wr.handler(incidents[i])
+				if err := wr.handler(r.Context(), incidents[i]); err != nil {
+					wr.logger.Error("failed to process webhook incident",
+						"provider", provider,
+						"incident_id", incidents[i].ID,
+						"error", err)
+					http.Error(w, "failed to process webhook incident", http.StatusInternalServerError)
+					return
+				}
 			}
 		}
 
@@ -124,6 +141,32 @@ func (wr *WebhookReceiver) HandleWebhook(provider string) http.HandlerFunc {
 			"received": len(incidents),
 		})
 	}
+}
+
+// derivedIncidentID gives providers that omit an identifier a stable key for
+// retries. ReceivedAt is deliberately excluded because it changes on every
+// delivery; provider-supplied start time and alert content form the identity.
+func derivedIncidentID(incident Incident) string {
+	identity := struct {
+		Source      string            `json:"source"`
+		Name        string            `json:"name"`
+		Severity    string            `json:"severity"`
+		Description string            `json:"description"`
+		StartedAt   time.Time         `json:"started_at,omitempty"`
+		ServiceName string            `json:"service_name,omitempty"`
+		Labels      map[string]string `json:"labels,omitempty"`
+	}{
+		Source:      incident.Source,
+		Name:        incident.Name,
+		Severity:    incident.Severity,
+		Description: incident.Description,
+		StartedAt:   incident.StartedAt,
+		ServiceName: incident.ServiceName,
+		Labels:      incident.Labels,
+	}
+	encoded, _ := json.Marshal(identity)
+	sum := sha256.Sum256(encoded)
+	return "incident-" + hex.EncodeToString(sum[:])[:16]
 }
 
 // verifySignature validates the HMAC-SHA256 signature.
@@ -277,9 +320,9 @@ func parseDatadog(body []byte) ([]Incident, error) {
 		}
 	}
 
-	startedAt := time.Unix(payload.DateHappened, 0)
-	if payload.DateHappened == 0 {
-		startedAt = time.Now()
+	var startedAt time.Time
+	if payload.DateHappened != 0 {
+		startedAt = time.Unix(payload.DateHappened, 0)
 	}
 
 	incidents := []Incident{
@@ -323,11 +366,13 @@ func parseGeneric(body []byte) ([]Incident, error) {
 		severity = "warning"
 	}
 
-	startedAt := time.Now()
+	var startedAt time.Time
 	if payload.StartedAt != "" {
-		if t, err := time.Parse(time.RFC3339, payload.StartedAt); err == nil {
-			startedAt = t
+		parsed, err := time.Parse(time.RFC3339, payload.StartedAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid started_at in generic payload: %w", err)
 		}
+		startedAt = parsed
 	}
 
 	incidents := []Incident{

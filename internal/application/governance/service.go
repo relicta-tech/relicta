@@ -5,18 +5,22 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/attribution"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/audit"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/evaluator"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/identity"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/attribution"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/audit"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/evaluator"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/identity"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/domain/workspace"
 )
 
 // Re-export ReleaseOutcome type and constants for CLI convenience.
@@ -77,10 +81,31 @@ type Service struct {
 	// ever raises an actor's trust; the two compose (the higher wins). Nil
 	// disables identity-based grants.
 	identityRegistry *identity.Registry
+
+	gitRepository     sourcecontrol.GitRepository
+	workspaceDetector workspace.Detector
+	repositoryRoot    string
 }
 
 // ServiceOption configures a governance Service.
 type ServiceOption func(*Service)
+
+// WithRepositoryEvidence enables repository-backed file and package attribution.
+func WithRepositoryEvidence(repo sourcecontrol.GitRepository, detector workspace.Detector, root string) ServiceOption {
+	return func(s *Service) {
+		s.gitRepository = repo
+		s.workspaceDetector = detector
+		s.repositoryRoot = root
+	}
+}
+
+// NewServiceWithRepositoryEvidence attaches repository evidence to a configured service.
+func NewServiceWithRepositoryEvidence(s *Service, repo sourcecontrol.GitRepository, detector workspace.Detector, root string) *Service {
+	if s != nil {
+		WithRepositoryEvidence(repo, detector, root)(s)
+	}
+	return s
+}
 
 // WithLogger sets the logger for the service.
 func WithLogger(logger *slog.Logger) ServiceOption {
@@ -347,7 +372,7 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	}
 
 	// Build change proposal and analysis from release
-	proposal, analysis := s.buildProposalAndAnalysis(input)
+	proposal, analysis := s.buildProposalAndAnalysis(ctx, input)
 
 	// Raise the governing actor's trust before evaluation so a trusted actor can
 	// auto-approve low-risk changes. Two independent raise-only sources: an
@@ -355,9 +380,6 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	// earned-trust from a verifiable track record. Both are opt-in and are the
 	// only paths that loosen an outcome.
 	var identityTrust *IdentityTrustInfo
-	if s.identityRegistry != nil {
-		identityTrust = s.applyIdentityTrust(ctx, proposal)
-	}
 	// Compute the governing actor's reputation once, before evaluation, and attach
 	// it to the proposal so policy conditions can read `actor.reputation.*`.
 	// Earned trust reuses the same score rather than loading the history a second
@@ -379,6 +401,18 @@ func (s *Service) EvaluateRelease(ctx context.Context, input EvaluateReleaseInpu
 	result, err := s.evaluator.Evaluate(ctx, proposal, analysis)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate proposal: %w", err)
+	}
+	// Evaluate once before applying organization trust so capability conditions
+	// use the computed risk. A capability grant can then raise trust and trigger
+	// a second evaluation under the newly granted level.
+	if s.identityRegistry != nil {
+		identityTrust = s.applyIdentityTrust(ctx, proposal, result.Decision.RiskScore)
+		if identityTrust != nil {
+			result, err = s.evaluator.Evaluate(ctx, proposal, analysis)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate proposal with identity trust: %w", err)
+			}
+		}
 	}
 
 	output := &EvaluateReleaseOutput{
@@ -491,6 +525,7 @@ func (s *Service) recordEvaluation(
 		WithActor(actorID, actorKind).
 		WithTimestamp(result.Decision.Timestamp).
 		WithDetail("cgpDecisionId", decisionID).
+		WithDetail("planHash", input.Release.PlanHash()).
 		WithDetail("decisionType", string(output.Decision)).
 		WithDetail("riskScore", output.RiskScore).
 		WithDetail("rationale", output.Rationale).
@@ -502,7 +537,7 @@ func (s *Service) recordEvaluation(
 }
 
 // buildProposalAndAnalysis creates CGP proposal and analysis from a release.
-func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.ChangeProposal, *cgp.ChangeAnalysis) {
+func (s *Service) buildProposalAndAnalysis(ctx context.Context, input EvaluateReleaseInput) (*cgp.ChangeProposal, *cgp.ChangeAnalysis) {
 	rel := input.Release
 	plan := release.GetPlan(rel)
 
@@ -510,8 +545,11 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 	scope := cgp.ProposalScope{
 		Repository: input.Repository,
 	}
+	var linesChanged int
+	var hasLineEvidence bool
 	if plan != nil && plan.HasChangeSet() {
 		scope.CommitRange = plan.GetChangeSet().FromRef() + ".." + plan.GetChangeSet().ToRef()
+		linesChanged, hasLineEvidence = s.populateRepositoryEvidence(ctx, plan.GetChangeSet(), &scope)
 	}
 
 	// Determine bump type from release type
@@ -561,18 +599,119 @@ func (s *Service) buildProposalAndAnalysis(input EvaluateReleaseInput) (*cgp.Cha
 	// Build analysis
 	var analysis *cgp.ChangeAnalysis
 	if plan != nil && plan.HasChangeSet() {
-		summary := plan.GetChangeSet().Summary()
 		analysis = &cgp.ChangeAnalysis{
 			Breaking: breakingChanges,
 			Security: securityChanges,
-			BlastRadius: &cgp.BlastRadius{
-				FilesChanged: summary.TotalCommits, // Approximate
-				Score:        0.0,                  // Will be calculated by risk calculator
-			},
+		}
+		if len(scope.Files) > 0 && hasLineEvidence {
+			analysis.BlastRadius = &cgp.BlastRadius{FilesChanged: len(scope.Files), LinesChanged: linesChanged}
 		}
 	}
 
 	return proposal, analysis
+}
+
+func (s *Service) populateRepositoryEvidence(ctx context.Context, changeset *changes.ChangeSet, scope *cgp.ProposalScope) (int, bool) {
+	if s.gitRepository == nil || changeset == nil {
+		return 0, false
+	}
+	commits := changeset.Commits()
+	hashes := make([]sourcecontrol.CommitHash, 0, len(commits))
+	for _, commit := range commits {
+		if commit != nil && commit.Hash() != "" {
+			hashes = append(hashes, sourcecontrol.CommitHash(commit.Hash()))
+			scope.Commits = append(scope.Commits, commit.Hash())
+		}
+	}
+	if len(hashes) == 0 {
+		return 0, false
+	}
+	seenHashes := make(map[sourcecontrol.CommitHash]struct{}, len(hashes))
+	uniqueHashes := hashes[:0]
+	for _, hash := range hashes {
+		if _, ok := seenHashes[hash]; ok {
+			continue
+		}
+		seenHashes[hash] = struct{}{}
+		uniqueHashes = append(uniqueHashes, hash)
+	}
+	hashes = uniqueHashes
+	stats, err := s.gitRepository.GetBatchCommitDiffStats(ctx, hashes)
+	if err != nil {
+		s.logger.Warn("governance repository diff evidence unavailable", "error", err)
+		return 0, false
+	}
+	files := make(map[string]struct{})
+	linesChanged := 0
+	statsCount := 0
+	for _, hash := range hashes {
+		stat, ok := stats[hash]
+		if !ok || stat == nil {
+			continue
+		}
+		statsCount++
+		for _, file := range stat.Files {
+			if file.Path != "" {
+				files[filepath.ToSlash(filepath.Clean(file.Path))] = struct{}{}
+			}
+			if file.OldPath != "" {
+				files[filepath.ToSlash(filepath.Clean(file.OldPath))] = struct{}{}
+			}
+			linesChanged += file.Additions + file.Deletions
+		}
+	}
+	if statsCount != len(hashes) {
+		s.logger.Warn("governance repository diff evidence incomplete",
+			"expected_commits", len(hashes), "available_commits", statsCount)
+		return 0, false
+	}
+	if len(files) == 0 {
+		return linesChanged, true
+	}
+	scope.Files = make([]string, 0, len(files))
+	for file := range files {
+		scope.Files = append(scope.Files, file)
+	}
+	sort.Strings(scope.Files)
+	if s.workspaceDetector == nil || s.repositoryRoot == "" {
+		return linesChanged, true
+	}
+	result, err := s.workspaceDetector.DetectFromRoot(ctx, s.repositoryRoot, workspace.DefaultDetectionOptions())
+	if err != nil || result == nil || result.Workspace == nil {
+		s.logger.Warn("governance workspace package evidence unavailable", "error", err)
+		return linesChanged, true
+	}
+	if result.Workspace.Type == workspace.WorkspaceTypeNone || len(result.Workspace.Packages) == 0 {
+		return linesChanged, true
+	}
+	ownerDepth := make(map[string]int)
+	for _, file := range scope.Files {
+		cleanFile := filepath.ToSlash(filepath.Clean(file))
+		fileMaxDepth := 0
+		fileOwners := make(map[string]struct{})
+		for _, pkg := range result.Workspace.Packages {
+			if pkg == nil || pkg.Path == "" || pkg.Name == "" {
+				continue
+			}
+			pkgPath := filepath.ToSlash(filepath.Clean(pkg.Path))
+			if cleanFile == pkgPath || strings.HasPrefix(cleanFile, strings.TrimSuffix(pkgPath, "/")+"/") {
+				if len(pkgPath) > fileMaxDepth {
+					fileMaxDepth = len(pkgPath)
+					fileOwners = map[string]struct{}{pkg.Name: {}}
+				} else if len(pkgPath) == fileMaxDepth {
+					fileOwners[pkg.Name] = struct{}{}
+				}
+			}
+		}
+		for name := range fileOwners {
+			ownerDepth[name] = fileMaxDepth
+		}
+	}
+	for name := range ownerDepth {
+		scope.Packages = append(scope.Packages, name)
+	}
+	sort.Strings(scope.Packages)
+	return linesChanged, true
 }
 
 // securityScopes are commit scopes that indicate security-related changes.
@@ -790,7 +929,7 @@ func (s *Service) QuickRiskCheck(ctx context.Context, input EvaluateReleaseInput
 		return 0, "", fmt.Errorf("release is required")
 	}
 
-	proposal, analysis := s.buildProposalAndAnalysis(input)
+	proposal, analysis := s.buildProposalAndAnalysis(ctx, input)
 	result, err := s.evaluator.EvaluateQuick(ctx, proposal, analysis)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to evaluate proposal: %w", err)

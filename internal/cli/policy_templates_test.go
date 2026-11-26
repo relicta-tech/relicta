@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp/policy/library"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/policy/library"
 )
 
 // internal/cgp/policy/library ships SOC 2, separation of duties, multi-team approval, audit

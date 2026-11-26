@@ -54,7 +54,7 @@ wire protocol would break every existing plugin for no security gain):
      regexp + OIDC issuer from the index entry); unsigned artifacts fail
    - `enterprise`: digest + signature from an operator-managed keyring
    A successful Cosign verification satisfies the existing trust gate:
-   verified plugins load on best-effort-sandbox platforms (macOS) without
+   verified plugins load on best-effort-sandbox platforms (currently Linux and macOS) without
    `--allow-untrusted-plugins`. This closes the documented signing gap.
 
 3. **Declared SafetyRequirements** — the plugin SDK manifest grows

@@ -2,7 +2,7 @@
 //
 // Eval harness is non-negotiable for a governance product that ships LLM
 // output. Without it, prompt drift on `gpt-5` / `claude-sonnet-4-6` /
-// `gemini-2.5-flash` silently degrades release-notes / risk-narrative /
+// `gemini-3.5-flash-lite` silently degrades release-notes / risk-narrative /
 // communicate-cmd quality between model bumps.
 //
 // V0 scope:

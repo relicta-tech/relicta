@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/plugin/manager"
-	"github.com/relicta-tech/relicta/v4/pkg/plugin"
+	"github.com/relicta-tech/relicta/v5/internal/plugin/manager"
+	"github.com/relicta-tech/relicta/v5/pkg/plugin"
 )
 
 func capturePluginStdout(fn func()) string {

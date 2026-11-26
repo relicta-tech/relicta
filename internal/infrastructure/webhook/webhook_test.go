@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/version"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 func TestPublisher_SendsToWebhook(t *testing.T) {
@@ -589,8 +590,8 @@ func TestPublisher_SendWithRetryContextCancellation(t *testing.T) {
 	event := &release.RunPublishedEvent{RunID: releaseID, Version: version.MustParse("1.0.0"), At: time.Now()}
 
 	err := publisher.Publish(ctx, event)
-	if err != nil {
-		t.Fatalf("Publish failed: %v", err)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Publish error = %v, want context deadline exceeded", err)
 	}
 
 	// Wait for context to be done plus some buffer

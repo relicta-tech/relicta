@@ -14,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/observability"
+	"github.com/relicta-tech/relicta/v5/internal/observability"
 )
 
 var (
@@ -40,17 +40,20 @@ Example:
   # Start on custom port
   relicta metrics --port 8080
 
-  # Bind to specific interface
-  relicta metrics --host 127.0.0.1 --port 9090
+  # Allow remote scraping only when the network is appropriately restricted
+  relicta metrics --host 0.0.0.0 --port 9090
 
-Metrics can be scraped by Prometheus or any compatible monitoring system.`,
+The server binds to 127.0.0.1 by default, so its unauthenticated metrics are only
+available on the local machine. To allow remote scraping, set --host to a private
+interface or 0.0.0.0 and restrict access with firewall rules or an authenticated
+proxy.`,
 	RunE: runMetrics,
 }
 
 func init() {
 	rootCmd.AddCommand(metricsCmd)
 	metricsCmd.Flags().IntVarP(&metricsPort, "port", "p", 9090, "Port to listen on")
-	metricsCmd.Flags().StringVarP(&metricsHost, "host", "H", "0.0.0.0", "Host to bind to")
+	metricsCmd.Flags().StringVarP(&metricsHost, "host", "H", "127.0.0.1", "Host to bind to")
 }
 
 func runMetrics(cmd *cobra.Command, args []string) error {

@@ -3,6 +3,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path"
@@ -10,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/sourcecontrol"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/sourcecontrol"
 )
 
 // OutcomeTracker implements release.EventPublisher and records release outcomes
@@ -79,25 +80,28 @@ func NewOutcomeTracker(store Store, next release.EventPublisher, repository stri
 }
 
 // Publish processes domain events and records outcomes to the memory store.
-// It forwards all events to the next publisher (if configured) regardless
-// of outcome tracking success.
+// It forwards all events to the next publisher (if configured) even if outcome
+// tracking fails, then returns the combined errors so the batch can be retried.
 func (t *OutcomeTracker) Publish(ctx context.Context, events ...release.DomainEvent) error {
+	var publishErr error
 	for _, event := range events {
 		if err := t.processEvent(ctx, event); err != nil {
-			// Log but don't fail - outcome tracking is non-critical
+			// Keep processing and forward the full batch, but report the failure so
+			// EventPublishingRepository does not clear these events as delivered.
 			t.logger.Warn("failed to process event for outcome tracking",
 				"event", event.EventName(),
 				"release_id", event.AggregateID(),
 				"error", err)
+			publishErr = errors.Join(publishErr, fmt.Errorf("%s for release %s: %w", event.EventName(), event.AggregateID(), err))
 		}
 	}
 
 	// Forward to next publisher
 	if t.next != nil {
-		return t.next.Publish(ctx, events...)
+		publishErr = errors.Join(publishErr, t.next.Publish(ctx, events...))
 	}
 
-	return nil
+	return publishErr
 }
 
 // processEvent routes events to the appropriate handler.

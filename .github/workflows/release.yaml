@@ -5,15 +5,10 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      dry-run:
-        description: 'Run in dry-run mode (no release created)'
-        required: false
-        type: boolean
-        default: false
+    inputs: {}
 
 env:
-  GO_VERSION: '1.25'
+  GO_VERSION: '1.26'
   GOTOOLCHAIN: local
 
 # Prevent concurrent releases
@@ -26,17 +21,25 @@ permissions:
   contents: read
 
 jobs:
-  # Governance check with Relicta
+  # Require the pushed tag to match Relicta's recommendation. Every release
+  # then passes the protected human review below; deferred and rejected CGP
+  # decisions always block publication.
   governance:
-    name: Release Governance
+    name: Release Plan Validation
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      approved: ${{ steps.governance.outputs.approved }}
+      version: ${{ steps.governance.outputs.version }}
+      plan_valid: ${{ steps.governance.outputs.plan_valid }}
+      decision: ${{ steps.governance.outputs.decision }}
+      can_auto_approve: ${{ steps.governance.outputs.can_auto_approve }}
+      release_id: ${{ steps.governance.outputs.release_id }}
+      plan_hash: ${{ steps.governance.outputs.plan_hash }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -48,47 +51,153 @@ jobs:
       - name: Build Relicta
         run: make build
 
-      - name: Get version from tag
-        id: version
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION="${{ github.ref_name }}"
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION"
-
-      - name: Run Relicta governance
+      - name: Validate tag against Relicta plan
         id: governance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          # Validate the release plan (governance check)
-          if bin/relicta plan --dry-run 2>&1; then
-            echo "approved=true" >> $GITHUB_OUTPUT
-          else
-            echo "approved=false" >> $GITHUB_OUTPUT
-            echo "::warning::Release governance check failed"
+          set -euo pipefail
+          SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if [[ ! "$RELEASE_TAG" =~ $SEMVER_RE ]]; then
+            echo "Release tag must be a semantic version prefixed with v: $RELEASE_TAG" >&2
+            exit 1
           fi
 
-  # Build and release with GoReleaser
-  release:
-    name: Build & Release
-    needs: governance
-    if: ${{ !inputs.dry-run && needs.governance.outputs.approved == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write       # Create releases and upload assets
-      id-token: write       # OIDC token for Sigstore signing
-      packages: write       # Push container images (if needed)
-      attestations: write   # Artifact attestations
+          scripts/verify-release-tag.sh "$RELEASE_TAG" "$GITHUB_SHA"
+          # Tag events check out a detached commit. Enforce the same configured
+          # branch restriction as `relicta publish` before approval or publishing.
+          go run ./cmd/verify-release-branch -commit "$GITHUB_SHA" -remote origin
 
+          # The event tag points at this release commit. Remove only its local
+          # runner ref so Relicta plans from the preceding published version.
+          git tag --delete "$RELEASE_TAG"
+          # Release validation must remain deterministic and independent of
+          # optional AI provider credentials or service availability.
+          # Persist the exact plan so the protected review job can approve this
+          # run and downstream publication can verify that same approval.
+          bin/relicta plan --ci --json --no-ai > release-plan.json
+          cat release-plan.json
+
+          TAG_VERSION="${RELEASE_TAG#v}"
+          NEXT_VERSION="$(jq -er '.next_version | strings | select(length > 0)' release-plan.json)"
+          DECISION="$(jq -er '.governance.decision | strings | select(length > 0)' release-plan.json)"
+          CAN_AUTO_APPROVE="$(jq -er '.governance.can_auto_approve' release-plan.json)"
+          RELEASE_ID="$(jq -er '.release_id | strings | select(length > 0)' release-plan.json)"
+          case "$RELEASE_ID" in
+            *[!A-Za-z0-9._-]*|"") echo "Relicta returned an invalid release ID" >&2; exit 1 ;;
+          esac
+          if [[ "$NEXT_VERSION" != "$TAG_VERSION" ]]; then
+            echo "Release tag $RELEASE_TAG does not match Relicta's recommended next version $NEXT_VERSION" >&2
+            exit 1
+          fi
+
+          # Move the persisted run into the approvable state and attach the
+          # committed customer-facing draft, when supplied, before review.
+          bin/relicta bump --ci --version "$TAG_VERSION"
+          NOTES_DRAFT="docs/release-notes/${TAG_VERSION}.public.md"
+          if [[ -f "$NOTES_DRAFT" ]]; then
+            bin/relicta notes --ci --draft-file "$NOTES_DRAFT" > release-notes.json
+          else
+            bin/relicta notes --ci > release-notes.json
+          fi
+          jq -er '.release_notes | strings | select(length > 0)' release-notes.json > release-notes.md
+
+          case "$DECISION" in
+            approved|approval_required) ;;
+            deferred)
+              echo "CGP deferred this release because more information is needed; resolve the open questions and re-plan before publishing" >&2
+              exit 1
+              ;;
+            rejected)
+              echo "CGP rejected this release; publishing is blocked" >&2
+              exit 1
+              ;;
+            *)
+              echo "Unexpected CGP decision: $DECISION" >&2
+              exit 1
+              ;;
+          esac
+
+          RUN_FILE=".relicta/releases/${RELEASE_ID}.json"
+          if [[ ! -s "$RUN_FILE" ]]; then
+            echo "Relicta did not persist the release run required for approval: $RUN_FILE" >&2
+            exit 1
+          fi
+          PLAN_HASH="$(jq -er '.plan_hash | strings | select(length > 0)' "$RUN_FILE")"
+          RUN_HEAD="$(jq -er '.head_sha | strings | select(length > 0)' "$RUN_FILE")"
+          RUN_VERSION="$(jq -er '.version_next | strings | select(length > 0)' "$RUN_FILE")"
+          if [[ "$RUN_HEAD" != "$GITHUB_SHA" || "$RUN_VERSION" != "$TAG_VERSION" ]]; then
+            echo "Persisted Relicta run does not match the tagged commit and version" >&2
+            exit 1
+          fi
+
+          mkdir -p release-state/.relicta
+          cp -a .relicta/releases release-state/.relicta/
+          cp release-plan.json release-state/plan.json
+
+          {
+            echo "## Relicta release plan"
+            echo
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Release ID: \`$RELEASE_ID\`"
+            echo "- Plan hash: \`$PLAN_HASH\`"
+            echo "- Recommended release type: \`$(jq -er '.release_type' release-plan.json)\`"
+            echo "- Commits in release: \`$(jq -er '.summary.total' release-plan.json)\`"
+            echo "- CGP decision: \`$DECISION\`"
+            echo
+            echo "## Customer-facing release notes ($(jq -er '.provider' release-notes.json))"
+            echo
+            cat release-notes.md
+            echo
+            echo "The protected \`release-approval\` environment will record a human decision against this persisted plan."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "version=$RELEASE_TAG"
+            echo "plan_valid=true"
+            echo "decision=$DECISION"
+            echo "can_auto_approve=$CAN_AUTO_APPROVE"
+            echo "release_id=$RELEASE_ID"
+            echo "plan_hash=$PLAN_HASH"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload persisted Relicta plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: relicta-release-plan
+          path: release-state/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 5
+
+  # Pause for a protected human review before any job receives publication
+  # permissions or pushes an image by digest to GHCR.
+  approval:
+    name: Release Approval
+    needs: governance
+    if: ${{ github.event_name == 'push' && needs.governance.outputs.plan_valid == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release-approval
+    outputs:
+      reviewer: ${{ steps.verify.outputs.reviewer }}
+      governance_memory_file: ${{ steps.verify.outputs.governance_memory_file }}
+    permissions:
+      actions: read # Inspect the environment's actual reviewer protection rules.
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
+
+      - name: Download persisted Relicta plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: relicta-release-plan
+          path: release-state
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
@@ -96,21 +205,281 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Build Relicta
+        run: make build
+
+      - name: Verify release approval protection rules
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+          CGP_DECISION: ${{ needs.governance.outputs.decision }}
+          CGP_CAN_AUTO_APPROVE: ${{ needs.governance.outputs.can_auto_approve }}
+          RELEASE_ID: ${{ needs.governance.outputs.release_id }}
+          EXPECTED_PLAN_HASH: ${{ needs.governance.outputs.plan_hash }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          PLAN_JSON="release-state/plan.json"
+          RUN_FILE="release-state/.relicta/releases/${RELEASE_ID}.json"
+          if [[ ! -s "$PLAN_JSON" || ! -s "$RUN_FILE" ]]; then
+            echo "Persisted Relicta plan artifact is incomplete" >&2
+            exit 1
+          fi
+          [[ "$(jq -er '.release_id' "$PLAN_JSON")" == "$RELEASE_ID" ]]
+          [[ "$(jq -er '.next_version' "$PLAN_JSON")" == "${RELEASE_TAG#v}" ]]
+          [[ "$(jq -er '.governance.decision' "$PLAN_JSON")" == "$CGP_DECISION" ]]
+          [[ "$(jq -er '.plan_hash' "$RUN_FILE")" == "$EXPECTED_PLAN_HASH" ]]
+          [[ "$(jq -er '.head_sha' "$RUN_FILE")" == "$EXPECTED_COMMIT" ]]
+          [[ "$(jq -er '.version_next' "$RUN_FILE")" == "${RELEASE_TAG#v}" ]]
+          [[ "$(jq -er '.state' "$RUN_FILE")" != "approved" ]]
+
+          environment="$(gh api "repos/${GITHUB_REPOSITORY}/environments/release-approval")"
+          reviewer_count="$(jq '[.protection_rules[] | select(.type == "required_reviewers") | .reviewers[]] | length' <<< "$environment")"
+          prevent_self_review="$(jq -r '[.protection_rules[] | select(.type == "required_reviewers") | .prevent_self_review] | any' <<< "$environment")"
+          if [[ "$reviewer_count" -lt 1 || "$prevent_self_review" != "true" ]]; then
+            echo "The release-approval environment must have at least one required reviewer and prevent self-review" >&2
+            exit 1
+          fi
+
+          approvals="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/approvals")"
+          reviewer="$(jq -er '[.[] | select(.state == "approved") | select(any(.environments[]?; .name == "release-approval")) | .user.login] | unique | if length == 1 then .[0] else error("expected exactly one approved release-approval reviewer for this workflow run") end' <<< "$approvals")"
+          echo "reviewer=$reviewer" >> "$GITHUB_OUTPUT"
+
+          mkdir -p .relicta/releases
+          cp -a release-state/.relicta/releases/. .relicta/releases/
+          approval_reason="GitHub release-approval environment, workflow run ${GITHUB_RUN_ID}, tag ${RELEASE_TAG}, commit ${EXPECTED_COMMIT}, plan ${EXPECTED_PLAN_HASH}"
+          approval_args=(--ci --yes --actor-id "github:${reviewer}" --actor-type human --reason "$approval_reason")
+          if [[ "$CGP_CAN_AUTO_APPROVE" != "true" ]]; then
+            approval_args+=(--override-governance)
+          fi
+          bin/relicta approve "${approval_args[@]}"
+
+          APPROVED_RUN=".relicta/releases/${RELEASE_ID}.json"
+          [[ "$(jq -er '.state' "$APPROVED_RUN")" == "approved" ]]
+          [[ "$(jq -er '.head_sha' "$APPROVED_RUN")" == "$EXPECTED_COMMIT" ]]
+          [[ "$(jq -er '.version_next' "$APPROVED_RUN")" == "${RELEASE_TAG#v}" ]]
+          [[ "$(jq -er '.approval.approver_type' "$APPROVED_RUN")" == "human" ]]
+          [[ "$(jq -er '.approval.approved_by' "$APPROVED_RUN")" == "github:${reviewer}" ]]
+          [[ "$(jq -er '.approval.auto_approved' "$APPROVED_RUN")" == "false" ]]
+          [[ "$(jq -er '.approval.plan_hash' "$APPROVED_RUN")" == "$EXPECTED_PLAN_HASH" ]]
+          [[ "$(jq -er '.plan_hash' "$APPROVED_RUN")" == "$EXPECTED_PLAN_HASH" ]]
+          [[ "$(jq -er '.approval.justification' "$APPROVED_RUN")" == *"workflow run ${GITHUB_RUN_ID}"* ]]
+
+          # `plan` emits an advisory preview and intentionally writes no audit
+          # decision. `approve` above performs the governed evaluation; validate
+          # and transfer that persisted chain with the exact approved run.
+          MEMORY_FILE="${RELICTA_GOVERNANCE_MEMORY_FILE:-.relicta/governance/memory.json}"
+          if [[ "$MEMORY_FILE" != .relicta/* || "$MEMORY_FILE" = /* || "$MEMORY_FILE" == *".."* || ! -s "$MEMORY_FILE" ]]; then
+            echo "Relicta approval did not persist repository-local governance memory: $MEMORY_FILE" >&2
+            exit 1
+          fi
+          mkdir -p "release-state/$(dirname "$MEMORY_FILE")"
+          jq -e --arg repository "$GITHUB_REPOSITORY" \
+            '(.auditChains[$repository] | type == "array") as $valid | select($valid) | {auditChains: {($repository): .auditChains[$repository]}}' \
+            "$MEMORY_FILE" > "release-state/$MEMORY_FILE"
+          go run ./scripts/verify-release-governance.go \
+            --memory-file "release-state/$MEMORY_FILE" \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-id "$RELEASE_ID" \
+            --decision "approved,approval_required" \
+            --plan-hash "$EXPECTED_PLAN_HASH" \
+            --reviewer "$reviewer"
+          echo "governance_memory_file=$MEMORY_FILE" >> "$GITHUB_OUTPUT"
+
+          cp "$APPROVED_RUN" "release-state/.relicta/releases/${RELEASE_ID}.json"
+          cp -a .relicta/releases/. "release-state/.relicta/releases/"
+
+          {
+            echo "## Release approval granted"
+            echo
+            echo "- Tag: \`$RELEASE_TAG\`"
+            echo "- CGP decision: \`$CGP_DECISION\`"
+            echo "- GitHub environment reviewer: \`$reviewer\`"
+            echo "- Relicta release ID: \`$RELEASE_ID\`"
+            echo "- Relicta plan hash: \`$EXPECTED_PLAN_HASH\`"
+            echo
+            echo "Publication-capable jobs may now build, scan, and attest the release artifacts."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload approved Relicta release state
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: relicta-approved-release-state
+          path: release-state/.relicta/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+  # Build and release with GoReleaser
+  release:
+    name: Build & Release
+    needs: [governance, approval, verify-image]
+    if: ${{ github.event_name == 'push' && needs.governance.outputs.plan_valid == 'true' && needs.verify-image.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # Create releases and upload assets
+      id-token: write       # OIDC token for Sigstore signing
+      attestations: write   # Artifact attestations
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download approved Relicta release state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: relicta-approved-release-state
+          path: .relicta
+
+      - name: Confirm Relicta approval matches this tag
+        env:
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+          RELEASE_ID: ${{ needs.governance.outputs.release_id }}
+          EXPECTED_PLAN_HASH: ${{ needs.governance.outputs.plan_hash }}
+          RELEASE_REVIEWER: ${{ needs.approval.outputs.reviewer }}
+        run: |
+          set -euo pipefail
+          run_file=".relicta/releases/${RELEASE_ID}.json"
+          [[ -s "$run_file" ]]
+          [[ "$(jq -er '.id' "$run_file")" == "$RELEASE_ID" ]]
+          [[ "$(jq -er '.state' "$run_file")" == "approved" ]]
+          [[ "$(jq -er '.head_sha' "$run_file")" == "$GITHUB_SHA" ]]
+          [[ "$(jq -er '.version_next' "$run_file")" == "${RELEASE_TAG#v}" ]]
+          [[ "$(jq -er '.plan_hash' "$run_file")" == "$EXPECTED_PLAN_HASH" ]]
+          [[ "$(jq -er '.approval.plan_hash' "$run_file")" == "$EXPECTED_PLAN_HASH" ]]
+          [[ "$(jq -er '.approval.approver_type' "$run_file")" == "human" ]]
+          [[ "$(jq -er '.approval.approved_by' "$run_file")" == "github:${RELEASE_REVIEWER}" ]]
+          [[ "$(jq -er '.approval.auto_approved' "$run_file")" == "false" ]]
+
+          jq -er '.notes.text | strings | select(length > 0)' "$run_file" > release-notes.md
+
+      - name: Record protected reviewer
+        env:
+          RELEASE_REVIEWER: ${{ needs.approval.outputs.reviewer }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RELEASE_REVIEWER" ]; then
+            echo "Verified release reviewer identity is missing" >&2
+            exit 1
+          fi
+          {
+            echo "## Verified release reviewer"
+            echo
+            echo "- GitHub environment reviewer: \`$RELEASE_REVIEWER\`"
+            echo "- Environment: \`release-approval\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Verify transferred governance decision
+        env:
+          GOVERNANCE_MEMORY_FILE: ${{ needs.approval.outputs.governance_memory_file }}
+          RELEASE_ID: ${{ needs.governance.outputs.release_id }}
+          EXPECTED_PLAN_HASH: ${{ needs.governance.outputs.plan_hash }}
+          RELEASE_REVIEWER: ${{ needs.approval.outputs.reviewer }}
+        run: |
+          set -euo pipefail
+          if [[ "$GOVERNANCE_MEMORY_FILE" != .relicta/* || "$GOVERNANCE_MEMORY_FILE" = /* || "$GOVERNANCE_MEMORY_FILE" == *".."* ]]; then
+            echo "Transferred governance memory path is invalid" >&2
+            exit 1
+          fi
+          go run ./scripts/verify-release-governance.go \
+            --memory-file "$GOVERNANCE_MEMORY_FILE" \
+            --repository "$GITHUB_REPOSITORY" \
+            --release-id "$RELEASE_ID" \
+            --decision "approved,approval_required" \
+            --plan-hash "$EXPECTED_PLAN_HASH" \
+            --reviewer "$RELEASE_REVIEWER"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
 
+      - name: Select release configuration
+        id: config
+        run: |
+          set -eu
+          configured=0
+          missing=""
+          for name in MACOS_SIGN_P12 MACOS_SIGN_PASSWORD MACOS_NOTARY_KEY MACOS_NOTARY_KEY_ID MACOS_NOTARY_ISSUER_ID; do
+            case "$name" in
+              MACOS_SIGN_P12) value="$MACOS_SIGN_P12" ;;
+              MACOS_SIGN_PASSWORD) value="$MACOS_SIGN_PASSWORD" ;;
+              MACOS_NOTARY_KEY) value="$MACOS_NOTARY_KEY" ;;
+              MACOS_NOTARY_KEY_ID) value="$MACOS_NOTARY_KEY_ID" ;;
+              MACOS_NOTARY_ISSUER_ID) value="$MACOS_NOTARY_ISSUER_ID" ;;
+            esac
+            if [ -n "$value" ]; then configured=$((configured + 1)); else missing="$missing $name"; fi
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 5 ]; then
+            echo "Apple signing/notarization secrets are partially configured; missing:$missing" >&2
+            exit 1
+          fi
+          if [ "$configured" -eq 5 ]; then
+            echo "file=.goreleaser.yaml" >> "$GITHUB_OUTPUT"
+          else
+            echo "file=.goreleaser.non-macos.yaml" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+      - name: Validate Homebrew tap credentials
+        if: ${{ !contains(needs.governance.outputs.version, '-') && !contains(needs.governance.outputs.version, '+') }}
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN is required to publish the supported Linux Homebrew formula" >&2
+            exit 1
+          fi
+
+      - name: Verify release tag before building artifacts
+        env:
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+        run: scripts/verify-release-tag.sh "$RELEASE_TAG" "$GITHUB_SHA"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+          # Pin the release tool so tags cannot change artifact behavior mid-cycle.
+          version: v2.20.3
+          # Keep GitHub assets private until provenance is attached. Homebrew's
+          # formula publisher runs in GoReleaser's publish phase, so update the
+          # formula separately after publishing the verified release.
+          args: release --draft --clean --parallelism 2 --config ${{ steps.config.outputs.file }} --release-notes release-notes.md --skip=homebrew
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+
+      - name: Validate release artifacts
+        shell: bash
+        run: scripts/validate-release-snapshot.sh dist
 
       - name: Generate attestations
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
@@ -120,25 +489,276 @@ jobs:
             dist/relicta_*.zip
             dist/checksums.txt
 
-      - name: Build Relicta for post-release
-        run: make build
-
-      - name: Record release outcome
+      - name: Verify release signatures and provenance
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
         run: |
-          # Record successful release to CGP memory
-          bin/relicta release --yes --skip-push || true
+          set -euo pipefail
+          cosign verify-blob dist/checksums.txt \
+            --bundle dist/checksums.txt.sigstore.json \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yaml@refs/tags/${RELEASE_TAG}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
-  # Dry run mode
-  dry-run:
-    name: Dry Run
-    if: ${{ inputs.dry-run }}
+          for artifact in dist/relicta_*.tar.gz dist/relicta_*.zip dist/checksums.txt; do
+            [ -f "$artifact" ] || continue
+            gh attestation verify "$artifact" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yaml" \
+              --source-ref "refs/tags/$RELEASE_TAG"
+          done
+
+      - name: Upload attested checksum manifest for Homebrew publisher
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: relicta-attested-checksums
+          path: dist/checksums.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Publish verified GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+        run: |
+          scripts/verify-release-tag.sh "$RELEASE_TAG" "$GITHUB_SHA"
+          gh release edit "$RELEASE_TAG" --draft=false
+
+  publish-homebrew:
+    name: Publish Linux Homebrew Formula
+    needs: [governance, release]
+    if: ${{ github.event_name == 'push' && needs.release.result == 'success' && !contains(needs.governance.outputs.version, '-') && !contains(needs.governance.outputs.version, '+') }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      attestations: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download attested checksum manifest
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: relicta-attested-checksums
+          path: dist
+
+      - name: Verify checksum manifest provenance
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+        run: |
+          gh attestation verify dist/checksums.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yaml" \
+            --source-ref "refs/tags/$RELEASE_TAG"
+
+      - name: Update formula in Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+        run: |
+          scripts/verify-release-tag.sh "$RELEASE_TAG" "$GITHUB_SHA"
+          scripts/publish-homebrew-formula.sh "$RELEASE_TAG"
+
+  # Build, scan and attest the image before publishing binary assets. Keep its
+  # version tags absent until the binary release succeeds as well. Homebrew
+  # publication is independent so a tap outage cannot block verified image tags.
+  verify-image:
+    name: Build, Scan & Attest Container
+    needs: [governance, approval]
+    if: ${{ github.event_name == 'push' && needs.governance.outputs.plan_valid == 'true' }}
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # nox:ignore IAC-315 -- Required to push the GHCR image by digest before scanning and attesting it.
+      id-token: write # nox:ignore IAC-306 -- Required to publish GitHub provenance and Sigstore attestations for the image digest before release tags are applied.
+      attestations: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Extract release metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Set version metadata
+        id: buildinfo
+        run: |
+          {
+            echo "version=${GITHUB_REF_NAME#v}"
+            echo "commit=$GITHUB_SHA"
+            echo "date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "$GITHUB_OUTPUT"
+
+      # Exercise the exact Dockerfile under production restrictions before the
+      # image is pushed or the binary release job is allowed to publish.
+      - name: Build image for restricted runtime smoke
+        run: |
+          docker buildx build --load --platform linux/amd64 --tag relicta:release-smoke \
+            --build-arg VERSION="${{ steps.buildinfo.outputs.version }}" \
+            --build-arg COMMIT="${{ steps.buildinfo.outputs.commit }}" \
+            --build-arg DATE="${{ steps.buildinfo.outputs.date }}" \
+            -f Dockerfile .
+
+      - name: Smoke test restricted container runtime
+        run: bash scripts/smoke-container.sh relicta:release-smoke
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Push by digest without release tags so the exact registry image can be
+      # scanned and attested before any customer-facing tag points to it.
+      - name: Build multi-platform image by digest
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.buildinfo.outputs.version }}
+            COMMIT=${{ steps.buildinfo.outputs.commit }}
+            DATE=${{ steps.buildinfo.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          sbom: true
+          provenance: mode=max
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514 # v0.2.6
+        with:
+          version: v0.76.2
+          cache: true
+
+      - name: Scan pushed image digest platforms
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -uo pipefail
+          scan_failed=0
+          for platform in linux/amd64 linux/arm64; do
+            echo "Scanning pushed image digest for $platform"
+            if trivy image \
+              --image-src remote \
+              --platform "$platform" \
+              --scanners vuln \
+              --pkg-types os,library \
+              --severity HIGH,CRITICAL \
+              --exit-code 1 \
+              --ignore-unfixed=false \
+              "ghcr.io/${GITHUB_REPOSITORY}@${IMAGE_DIGEST}"; then
+              echo "No HIGH or CRITICAL vulnerabilities found for $platform"
+            else
+              echo "HIGH or CRITICAL vulnerabilities found, or scan failed, for $platform" >&2
+              scan_failed=1
+            fi
+          done
+          exit "$scan_failed"
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+
+      - name: Generate image SBOM
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: syft "ghcr.io/${GITHUB_REPOSITORY}@${IMAGE_DIGEST}" -o spdx-json=container.spdx.json
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+      - name: Attest image SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: container.spdx.json
+          push-to-registry: true
+          create-storage-record: false
+
+  publish-container-tags:
+    name: Publish Verified Container Tags
+    needs: [release, verify-image]
+    if: ${{ github.event_name == 'push' && needs.release.result == 'success' && needs.verify-image.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # nox:ignore IAC-315 -- Required to add release tags to the verified GHCR digest.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add release tags to verified image digest
+        env:
+          RELEASE_TAGS: ${{ needs.verify-image.outputs.tags }}
+          IMAGE_DIGEST: ${{ needs.verify-image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          scripts/verify-release-tag.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker buildx imagetools create \
+              --tag "$tag" \
+              "ghcr.io/${GITHUB_REPOSITORY}@${IMAGE_DIGEST}"
+          done <<< "$RELEASE_TAGS"
+
+  record-release-outcome:
+    name: Record Relicta publication outcome
+    needs: [governance, approval, release, verify-image, publish-container-tags, publish-homebrew]
+    if: ${{ always() && github.event_name == 'push' && needs.governance.outputs.plan_valid == 'true' && needs.approval.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up Go
@@ -147,20 +767,118 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Restore approved Relicta state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: relicta-approved-release-state
+          path: .relicta
+
       - name: Build Relicta
         run: make build
 
-      - name: Relicta dry run
-        run: bin/relicta plan --dry-run
+      - name: Create publisher outcome evidence
+        env:
+          RELEASE_TAG: ${{ needs.governance.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          GITHUB_RELEASE_RESULT: ${{ needs.release.result }}
+          CONTAINER_RESULT: ${{ needs.publish-container-tags.result }}
+          HOMEBREW_RESULT: ${{ needs.publish-homebrew.result }}
+          CONTAINER_DIGEST: ${{ needs.verify-image.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
 
-      - name: GoReleaser dry run
+          def status(value):
+              return {"success": "published", "skipped": "skipped"}.get(value, "failed")
+
+          def required_status(value):
+              return "published" if value == "success" else "failed"
+
+          publishers = {
+              "github_release": {
+                  "status": required_status(os.environ["GITHUB_RELEASE_RESULT"]),
+                  "url": f"{os.environ['SERVER_URL']}/{os.environ['REPOSITORY']}/releases/tag/{os.environ['RELEASE_TAG']}",
+              },
+              "container": {
+                  "status": required_status(os.environ["CONTAINER_RESULT"]),
+                  "url": f"https://ghcr.io/{os.environ['REPOSITORY'].lower()}",
+                  "digest": os.environ["CONTAINER_DIGEST"],
+              },
+              "homebrew": {
+                  "status": status(os.environ["HOMEBREW_RESULT"]),
+                  "url": "https://github.com/relicta-tech/homebrew-tap",
+              },
+          }
+          failed = [name for name, result in publishers.items() if result["status"] == "failed"]
+          evidence = {
+              "outcome": "failed" if failed else "published",
+              "provider": "github-actions",
+              "run_url": os.environ["RUN_URL"],
+              "tag": os.environ["RELEASE_TAG"],
+              "commit": os.environ["GITHUB_SHA"],
+              "publishers": publishers,
+          }
+          if failed:
+              evidence["failure"] = "Publisher jobs failed: " + ", ".join(failed)
+          Path(os.environ["RUNNER_TEMP"], "relicta-external-outcome.json").write_text(json.dumps(evidence))
+          PY
+
+      - name: Record outcome on Relicta run
+        run: bin/relicta publish --external-evidence-file "$RUNNER_TEMP/relicta-external-outcome.json"
+
+      - name: Upload final Relicta release state
+        if: ${{ always() && hashFiles('.relicta/releases/*.json') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: relicta-release-outcome
+          path: .relicta/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+  snapshot:
+    name: Build Snapshot Artifacts
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v6
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build GoReleaser snapshot
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           distribution: goreleaser
-          version: '~> v2'
-          args: release --snapshot --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version: v2.20.3
+          args: release --snapshot --clean --parallelism 2 --config .goreleaser.non-macos.yaml --skip=sign
 
-      - name: List artifacts
-        run: ls -la dist/
+      - name: Validate snapshot contents
+        shell: bash
+        run: scripts/validate-release-snapshot.sh dist
+
+      - name: Upload snapshot artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: relicta-release-snapshot
+          path: dist/
+          if-no-files-found: error

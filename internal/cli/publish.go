@@ -2,9 +2,12 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,24 +15,25 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/relicta-tech/relicta/v4/internal/application/governance"
-	appmonorepo "github.com/relicta-tech/relicta/v4/internal/application/monorepo"
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/container"
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/communication"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release"
-	releaseapp "github.com/relicta-tech/relicta/v4/internal/domain/release/app"
-	releasedomain "github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	gitservice "github.com/relicta-tech/relicta/v4/internal/infrastructure/git"
+	"github.com/relicta-tech/relicta/v5/internal/application/governance"
+	appmonorepo "github.com/relicta-tech/relicta/v5/internal/application/monorepo"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/container"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/communication"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release"
+	releaseapp "github.com/relicta-tech/relicta/v5/internal/domain/release/app"
+	releasedomain "github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	gitservice "github.com/relicta-tech/relicta/v5/internal/infrastructure/git"
 )
 
 var (
-	publishSkipApproval bool
-	publishSkipTag      bool
-	publishSkipPush     bool
-	publishSkipPlugins  bool
+	publishSkipApproval         bool
+	publishSkipTag              bool
+	publishSkipPush             bool
+	publishSkipPlugins          bool
+	publishExternalEvidenceFile string
 )
 
 func init() {
@@ -37,6 +41,7 @@ func init() {
 	publishCmd.Flags().BoolVarP(&publishSkipTag, "skip-tag", "T", false, "skip git tag creation")
 	publishCmd.Flags().BoolVarP(&publishSkipPush, "skip-push", "P", false, "skip pushing to remote")
 	publishCmd.Flags().BoolVarP(&publishSkipPlugins, "skip-plugins", "G", false, "skip running plugins")
+	publishCmd.Flags().StringVar(&publishExternalEvidenceFile, "external-evidence-file", "", "record externally published release outcome from a validated JSON evidence file")
 }
 
 // shouldCreateTag returns whether a tag should be created.
@@ -238,8 +243,10 @@ func commitReleaseArtifacts(ctx context.Context, app cliApp, rel *release.Releas
 	handleChangelogUpdate(rel)
 
 	// The packages' own changelogs, before the commit below picks them up.
-	if repoRoot, err := os.Getwd(); err == nil {
-		writePackageChangelogs(ctx, app, repoRoot)
+	if repoRoot, err := os.Getwd(); err != nil {
+		return fmt.Errorf("resolve repository root for package changelogs: %w", err)
+	} else if _, err := writePackageChangelogs(ctx, app, repoRoot); err != nil {
+		return err
 	}
 
 	if cfg == nil || !cfg.Workflow.AutoCommitChangelog {
@@ -313,6 +320,9 @@ func printPublishSummary(nextVersion, tagName string, remoteURL string) {
 // runPublish implements the publish command.
 func runPublish(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	if publishExternalEvidenceFile != "" && (publishSkipApproval || publishSkipTag || publishSkipPush || publishSkipPlugins || dryRun || outputJSON) {
+		return fmt.Errorf("--external-evidence-file cannot be combined with publish skip flags, --dry-run, or --json")
+	}
 
 	printTitle("Release Publish")
 	fmt.Println()
@@ -376,6 +386,29 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	run, err := services.Repository.LoadLatest(ctx, repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to load release: %w", err)
+	}
+	if publishExternalEvidenceFile != "" {
+		evidence, err := readExternalReleaseEvidence(publishExternalEvidenceFile)
+		if err != nil {
+			return err
+		}
+		// The external jobs already performed the approved publication. This
+		// branch only finalizes the existing human-approved run; blocking the
+		// audit write on a second CI autonomy decision would strand a successful
+		// release in Approved state.
+		output, err := services.PublishRelease.RecordExternalOutcome(ctx, releaseapp.PublishReleaseInput{
+			RepoRoot: repoPath,
+			RunID:    run.ID(),
+			Actor:    ports.ActorInfo{Type: releasedomain.ActorCI, ID: evidence.Provider},
+		}, evidence)
+		if err != nil {
+			return fmt.Errorf("record external publication outcome: %w", err)
+		}
+		if output.Published {
+			printSuccess(fmt.Sprintf("Recorded external publication of %s (%s)", evidence.Tag, run.ID().Short()))
+			return nil
+		}
+		return fmt.Errorf("external publisher reported failure; outcome recorded for %s", run.ID().Short())
 	}
 
 	// The gates every tagging path applies, in the one place both of them read from — the
@@ -472,6 +505,18 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 		}
 	}
 
+	// Independent monorepo packages have their own approved release runs. The root
+	// publish created their tags; now execute each package's own remaining steps so
+	// its audit trail reaches Published instead of stopping at Approved. Record the
+	// root release's success first: a package-specific failure cannot undo it.
+	var packagePublishErr error
+	if shouldCreateTag() && perPackageGovernance() {
+		packagePublishErr = publishApprovedPackageRuns(ctx, app, repoPath)
+		if packagePublishErr != nil {
+			printError(fmt.Sprintf("Repository release %s published, but a package release did not complete: %v", nextVersion, packagePublishErr))
+		}
+	}
+
 	// Output step results
 	outputStepResults(output.StepResults)
 
@@ -482,6 +527,105 @@ func runPublishWithServices(ctx context.Context, app cliApp, repoPath, remoteURL
 	runPostReleaseHook(ctx, nextVersion, tagName)
 
 	printPublishSummary(nextVersion, tagName, remoteURL)
+	if packagePublishErr != nil {
+		return fmt.Errorf("repository release %s published, but a package release did not complete: %w", nextVersion, packagePublishErr)
+	}
+
+	return nil
+}
+
+func readExternalReleaseEvidence(path string) (releaseapp.ExternalReleaseEvidence, error) {
+	const maxBytes = 1 << 20
+	info, err := os.Stat(path)
+	if err != nil {
+		return releaseapp.ExternalReleaseEvidence{}, fmt.Errorf("stat external evidence file: %w", err)
+	}
+	if info.Size() > maxBytes {
+		return releaseapp.ExternalReleaseEvidence{}, fmt.Errorf("external evidence file exceeds %d bytes", maxBytes)
+	}
+	data, err := os.ReadFile(path) // #nosec G304 -- explicit evidence path supplied by the operator/workflow
+	if err != nil {
+		return releaseapp.ExternalReleaseEvidence{}, fmt.Errorf("read external evidence file: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var evidence releaseapp.ExternalReleaseEvidence
+	if err := decoder.Decode(&evidence); err != nil {
+		return releaseapp.ExternalReleaseEvidence{}, fmt.Errorf("decode external evidence: %w", err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return releaseapp.ExternalReleaseEvidence{}, fmt.Errorf("external evidence must contain exactly one JSON object")
+	}
+	if err := evidence.Validate(); err != nil {
+		return releaseapp.ExternalReleaseEvidence{}, err
+	}
+	return evidence, nil
+}
+
+// publishApprovedPackageRuns completes the package aggregates after the root publish has
+// created their package tags. Each approved package has its own execution plan, governance
+// decision and audit events; leaving those aggregates approved after shipping their tags makes
+// history and retries disagree with what the repository actually released.
+func publishApprovedPackageRuns(ctx context.Context, app cliApp, repoRoot string) (retErr error) {
+	defer func() {
+		// Service restoration is cleanup. It must still happen when a package
+		// publish returned because the caller canceled the release context.
+		if err := app.InitReleaseServices(context.WithoutCancel(ctx), repoRoot); err != nil {
+			if retErr != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("restore repository release services: %w", err))
+			} else {
+				retErr = fmt.Errorf("restore repository release services: %w", err)
+			}
+		}
+	}()
+
+	packages, err := discoveredPackages(ctx, app, repoRoot)
+	if err != nil {
+		return err
+	}
+
+	for _, pkg := range packages {
+		packageRoot := filepath.Join(repoRoot, pkg.RelPath)
+		if err := app.InitReleaseServices(ctx, packageRoot); err != nil {
+			return fmt.Errorf("%s: initialize package release services: %w", pkg.RelPath, err)
+		}
+		services := app.ReleaseServices()
+		if services == nil || services.Repository == nil || services.PublishRelease == nil {
+			return fmt.Errorf("%s: package release services are unavailable", pkg.RelPath)
+		}
+		run, err := services.Repository.LoadLatest(ctx, packageRoot)
+		if err != nil {
+			if errors.Is(err, release.ErrRunNotFound) {
+				continue // Legacy package tags may exist without a per-package run.
+			}
+			return fmt.Errorf("%s: load package release: %w", pkg.RelPath, err)
+		}
+		if run == nil || run.State() == release.StatePublished {
+			continue
+		}
+		if run.State() != release.StateApproved && run.State() != release.StatePublishing {
+			continue // A held package was not tagged and must not be published.
+		}
+
+		output, err := services.PublishRelease.Execute(ctx, releaseapp.PublishReleaseInput{
+			RepoRoot: packageRoot,
+			RunID:    run.ID(),
+			Actor: ports.ActorInfo{
+				Type: "user",
+				ID:   actorID,
+			},
+			// The repository-level clean-tree and HEAD gates have already passed. The
+			// release commit changes HEAD before these package aggregates are completed.
+			Force: true,
+		})
+		if err != nil {
+			return fmt.Errorf("%s: publish package release: %w", pkg.RelPath, err)
+		}
+		if output == nil || !output.Published {
+			return fmt.Errorf("%s: package publish did not reach published state", pkg.RelPath)
+		}
+		printSuccess(fmt.Sprintf("Package %s published as %s", pkg.RelPath, output.VersionNext))
+	}
 
 	return nil
 }

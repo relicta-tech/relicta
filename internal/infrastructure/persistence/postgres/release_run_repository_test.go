@@ -18,11 +18,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	domainrelease "github.com/relicta-tech/relicta/v4/internal/domain/release"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports/conformance"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence/postgres"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports/conformance"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence/postgres"
 )
 
 // TestThePostgresRepositorySatisfiesTheContract is the bar this adapter had to clear.

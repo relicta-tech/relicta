@@ -2,6 +2,11 @@
 
 Scripts for recording Relicta documentation videos using asciinema.
 
+> **Legacy examples:** the quickstart and marketing scripts contain simulated install output,
+> historical version numbers, and older command flows. Do not publish their output as current
+> installation or product guidance. Use the maintained [Quick Start](../quick-start.md) for
+> supported installation paths, and refresh a demo against the current release before recording.
+
 ## Setup
 
 ```bash
@@ -61,7 +66,7 @@ cp output.gif output.mp4 /path/to/relicta-site/docs/public/videos/
 ## Scripts
 
 ### MCP Integration
-- `mcp-demo.sh` - AI-managed releases with Claude
+- `mcp-demo.sh` - Illustrative agent-managed release with Claude; transcript values are examples
 
 ### CLI Commands (Success + Error)
 - `cmd-release.sh` - One-command release workflow
@@ -81,5 +86,5 @@ cp output.gif output.mp4 /path/to/relicta-site/docs/public/videos/
 - `quickstart.sh` - Install to first release
 
 ### Feature Demos
-- `demo-ai-vs-template-notes.sh` - Compare AI-powered vs template release notes
+- `demo-ai-vs-template-notes.sh` - Show deterministic CLI notes and the MCP agent-authored customer-notes workflow
 - `demo-conventional-vs-messy-commits.sh` - Show Relicta working with messy commit history

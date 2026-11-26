@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	appmultirepo "github.com/relicta-tech/relicta/v4/internal/application/multirepo"
-	"github.com/relicta-tech/relicta/v4/internal/config"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/ports"
-	"github.com/relicta-tech/relicta/v4/internal/infrastructure/persistence"
+	appmultirepo "github.com/relicta-tech/relicta/v5/internal/application/multirepo"
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
+	"github.com/relicta-tech/relicta/v5/internal/infrastructure/persistence"
 )
 
 // Readiness reports whether each member of a group could be released right now.
@@ -61,6 +61,12 @@ func openConfiguredStore(
 	cfg, err := config.LoadFromDirectory(repoRoot)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading configuration in %s: %w", repoRoot, err)
+	}
+	if cfg == nil {
+		return nil, nil, fmt.Errorf("reading configuration in %s returned no configuration", repoRoot)
+	}
+	if err := config.Validate(cfg); err != nil {
+		return nil, nil, fmt.Errorf("invalid configuration in %s: %w", repoRoot, err)
 	}
 
 	store, err := persistence.OpenReleaseRunStore(ctx, cfg.Persistence, repoRoot)

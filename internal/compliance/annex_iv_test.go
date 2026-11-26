@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/relicta-tech/relicta/v4/internal/cgp"
-	"github.com/relicta-tech/relicta/v4/internal/cgp/memory"
+	"github.com/relicta-tech/relicta/v5/internal/cgp"
+	"github.com/relicta-tech/relicta/v5/internal/cgp/memory"
 )
 
 func TestAnnexIV_GenerateBuilds(t *testing.T) {
@@ -71,43 +71,46 @@ func TestAnnexIV_GenerateBuilds(t *testing.T) {
 	if r.SystemVersion != "3.1.0" {
 		t.Errorf("system version: got %q", r.SystemVersion)
 	}
+	if !strings.Contains(r.EvidenceScope, "not a complete technical description") {
+		t.Errorf("expected explicit evidence scope, got %q", r.EvidenceScope)
+	}
 
-	// Retention 10y
-	years := r.RetentionDeadline.Year() - cfg.Period.End.Year()
-	if years < 9 || years > 11 {
-		t.Errorf("retention should be ~10 years past end, got %d years diff", years)
+	// Relicta cannot calculate the Article 18(1) deadline without the relevant
+	// placing-on-market or putting-into-service date.
+	if !strings.Contains(r.RetentionGuidance, "does not calculate a statutory deadline") {
+		t.Errorf("expected qualified retention guidance, got %q", r.RetentionGuidance)
 	}
 
 	// §1
-	if r.GeneralDescription.IntendedPurpose == "" {
-		t.Errorf("§1 IntendedPurpose empty")
+	if r.GeneralDescription.IntendedPurpose != "" {
+		t.Errorf("§1 intended purpose must be left for provider completion")
 	}
-	if len(r.GeneralDescription.HardwareEnvironments) == 0 {
-		t.Errorf("§1 hardware environments empty")
+	if len(r.GeneralDescription.HardwareEnvironments) != 0 {
+		t.Errorf("§1 hardware environments must be left for provider completion")
 	}
 
 	// §2
-	if r.DetailedDescription.SystemArchitecture == "" {
-		t.Errorf("§2 system architecture empty")
+	if r.DetailedDescription.SystemArchitecture != "" {
+		t.Errorf("§2 architecture must be left for provider completion")
 	}
-	if len(r.DetailedDescription.HumanOversightMeasures) == 0 {
-		t.Errorf("§2 human oversight measures empty")
+	if len(r.DetailedDescription.HumanOversightMeasures) != 0 {
+		t.Errorf("§2 oversight measures must be left for provider completion")
 	}
 	if r.DetailedDescription.CGPProtocolVersion != "0.1" {
 		t.Errorf("§2 CGP version: got %q", r.DetailedDescription.CGPProtocolVersion)
 	}
 
 	// §3
-	if r.MonitoringControl.AuditChainAlgorithm == "" {
-		t.Errorf("§3 audit chain algorithm empty")
+	if r.MonitoringControl.AuditChainAlgorithm != "" {
+		t.Errorf("§3 target system audit chain must be left for provider completion")
 	}
 
 	// §4 — should have at least one risk identified from rationale parsing
-	if r.RiskManagement.RiskEvaluationMethod == "" {
-		t.Errorf("§4 evaluation method empty")
+	if r.RiskManagement.RiskEvaluationMethod != "" {
+		t.Errorf("§4 target system evaluation method must be left for provider completion")
 	}
-	if len(r.RiskManagement.RiskMitigationControls) == 0 {
-		t.Errorf("§4 mitigation controls empty")
+	if len(r.RiskManagement.RiskMitigationControls) != 0 {
+		t.Errorf("§4 target system mitigation controls must be left for provider completion")
 	}
 	if len(r.RiskManagement.IdentifiedRisks) == 0 {
 		t.Errorf("§4 should have parsed at least one risk from decision rationale")
@@ -122,8 +125,11 @@ func TestAnnexIV_GenerateBuilds(t *testing.T) {
 	}
 
 	// §6
-	if len(r.HarmonizedStandards) == 0 {
-		t.Errorf("§6 standards empty")
+	if len(r.HarmonizedStandards) != 0 {
+		t.Errorf("§6 standards status must be left for provider verification")
+	}
+	if len(r.ConformityDeclaration.StandardsApplied) != 0 || r.ConformityDeclaration.DateOfDeclaration != "" {
+		t.Errorf("§7 standards and declaration date must be left for provider completion")
 	}
 
 	// §7 — scaffold with TODOs
@@ -135,8 +141,11 @@ func TestAnnexIV_GenerateBuilds(t *testing.T) {
 	}
 
 	// §8
-	if r.PostMarketMonitoring.MonitoringPlan == "" {
-		t.Errorf("§8 monitoring plan empty")
+	if r.PostMarketMonitoring.MonitoringPlan != "" {
+		t.Errorf("§8 target system monitoring plan must be left for provider completion")
+	}
+	if len(r.GenerationNotes) == 0 {
+		t.Errorf("expected notes explaining provider-completed Annex IV sections")
 	}
 }
 
@@ -190,8 +199,9 @@ func TestRenderMarkdown_AnnexIVAllSections(t *testing.T) {
 		GeneratedAt: now,
 		AnnexIV: &AnnexIVReport{
 			SystemIdentifier:  "acme/gov",
+			EvidenceScope:     "Relicta release-governance records for the selected period.",
 			SystemVersion:     "1.0.0",
-			RetentionDeadline: now.AddDate(10, 0, 0),
+			RetentionGuidance: "Article 18(1) guidance; no statutory deadline calculated.",
 			GeneralDescription: GeneralDescription{
 				IntendedPurpose:      "Release governance.",
 				HardwareEnvironments: []string{"Linux x86_64"},
@@ -250,7 +260,7 @@ func TestRenderMarkdown_AnnexIVAllSections(t *testing.T) {
 		"§3 — Monitoring, Functioning, and Control",
 		"§4 — Risk Management System",
 		"§5 — Lifecycle Changes",
-		"§6 — Harmonized Standards Applied",
+		"§6 — Harmonized Standards and Implementation Status",
 		"§7 — EU Declaration of Conformity (Scaffold)",
 		"§8 — Post-Market Monitoring",
 		"TODO — provider must complete",

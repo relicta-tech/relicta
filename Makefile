@@ -18,20 +18,26 @@ GOMOD := $(GOCMD) mod
 GOFMT := gofmt
 GOLINT := golangci-lint
 
+# Match `go install`: respect GOBIN when set, otherwise use GOPATH/bin.
+GO_INSTALL_DIR := $(shell go env GOBIN)
+ifeq ($(strip $(GO_INSTALL_DIR)),)
+GO_INSTALL_DIR := $(shell go env GOPATH)/bin
+endif
+
 # Directories
 BIN_DIR := bin
 DIST_DIR := dist
 CMD_DIR := cmd/relicta
+GORELEASER_CONFIG ?= .goreleaser.non-macos.yaml
 
 .PHONY: all build install clean clean-dist test test-race test-coverage test-compile coverage coverage-integration lint fmt fmt-check vet \
         deps tidy proto plugins plugin-github plugin-npm plugin-slack \
         test-integration test-e2e bench bench-save bench-quick bench-regression bench-memory bench-profile bench-ci bench-e2e bench-template bench-analysis \
-        check-binary-size help release-local release-snapshot check check-ci install-hooks \
+        check-binary-size help release-local release-snapshot validate-release-snapshot check check-ci install-hooks \
         frontend frontend-deps frontend-standalone build-with-frontend clean-frontend \
         test-policy-gate skill-preflight changelog docs-cli \
         mcp-apps mcp-apps-deps clean-mcp-apps \
-	    sbom fuzz
-	    changelog
+        sbom fuzz
 
 # Default target
 all: lint test build
@@ -64,10 +70,11 @@ build-windows:
 	@mkdir -p $(BIN_DIR)
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME)-windows-amd64.exe ./$(CMD_DIR)
 
-# Install binary to $GOPATH/bin
+# Install binary to the configured Go binary directory (GOBIN or GOPATH/bin).
 install:
 	@echo "Installing $(BINARY_NAME)..."
-	$(GOBUILD) $(LDFLAGS) -o $(GOPATH)/bin/$(BINARY_NAME) ./$(CMD_DIR)
+	@mkdir -p "$(GO_INSTALL_DIR)"
+	$(GOBUILD) $(LDFLAGS) -o "$(GO_INSTALL_DIR)/$(BINARY_NAME)" ./$(CMD_DIR)
 
 ## Frontend targets
 
@@ -161,12 +168,12 @@ test-coverage:
 # Run tests with coverage enforcement via coverctl
 coverage:
 	@echo "Running coverage checks with coverctl..."
-	go run github.com/felixgeelhaar/coverctl@v1.4.0 check --race -v
+	go run go.klarlabs.de/coverctl@v1.20.0 check --race -v
 
 # Run coverage with integration tests
 coverage-integration:
 	@echo "Running coverage with integration tests..."
-	go run github.com/felixgeelhaar/coverctl@v1.4.0 check --race --tags integration -v
+	go run go.klarlabs.de/coverctl@v1.20.0 check --race --tags integration -v
 
 # Run integration tests
 test-integration:
@@ -189,6 +196,7 @@ skill-preflight: test-policy-gate
 	@echo "Validating skill package files..."
 	@test -f skills/relicta-release-governance/SKILL.md
 	@test -f skills/relicta-release-governance/agents/openai.yaml
+	@python3 scripts/check_release_skill_safety.py
 	@echo "✓ Skill package files present"
 
 # Run end-to-end tests
@@ -426,17 +434,22 @@ proto:
 ## Release targets (using GoReleaser)
 # Relicta governs releases - GoReleaser handles the actual builds
 
-# Local snapshot build for testing (no signing, no publish)
+# Local snapshot build for supported release assets (no signing or publishing).
+# Override GORELEASER_CONFIG when building an explicitly configured macOS release.
 release-local:
 	@echo "Building local snapshot with GoReleaser..."
-	goreleaser release --snapshot --clean --skip=sign,publish
+	goreleaser release --snapshot --clean --config $(GORELEASER_CONFIG) --skip=sign,publish
 	@echo ""
 	@echo "✓ Local build complete! Artifacts in $(DIST_DIR)/"
 
 # Full snapshot build (includes signing if cosign is available)
 release-snapshot:
 	@echo "Building snapshot release..."
-	goreleaser release --snapshot --clean --skip=publish
+	goreleaser release --snapshot --clean --config $(GORELEASER_CONFIG) --skip=publish
+
+# Validate archive, embedded dashboard, SPDX SBOM, Homebrew formula, and checksum output.
+validate-release-snapshot:
+	scripts/validate-release-snapshot.sh $(DIST_DIR)
 
 ## Utility targets
 
@@ -470,7 +483,7 @@ help:
 	@echo "  make build               Build the binary (API-only)"
 	@echo "  make build-with-frontend Build with embedded Vue frontend"
 	@echo "  make build-all           Build for all platforms"
-	@echo "  make install             Install to GOPATH/bin"
+	@echo "  make install             Install to GOBIN or GOPATH/bin"
 	@echo "  make plugins             Build all plugins"
 	@echo ""
 	@echo "Frontend:"
@@ -482,6 +495,7 @@ help:
 	@echo "Release (via GoReleaser):"
 	@echo "  make release-local     Local snapshot build (no signing, no publish)"
 	@echo "  make release-snapshot  Full snapshot build (includes signing)"
+	@echo "  make validate-release-snapshot  Validate existing snapshot artifacts"
 	@echo ""
 	@echo "Test:"
 	@echo "  make test              Run unit tests"
@@ -545,13 +559,15 @@ check-ci: fmt-check vet lint test coverage-check security-scan
 # Run coverage enforcement via coverctl (fails if below thresholds)
 coverage-check:
 	@echo "Running coverage checks..."
-	@go run github.com/felixgeelhaar/coverctl@v1.4.0 check --config .coverctl.yaml -v
+	@go run go.klarlabs.de/coverctl@v1.20.0 check --config .coverctl.yaml -v
 
 # Run security scan via nox (SAST + SCA) — fails on NEW high+ findings (baseline at .nox/baseline.json suppresses pre-existing)
 security-scan:
 	@echo "Running security scan..."
 	@if command -v nox >/dev/null 2>&1; then \
-		nox scan --quiet --severity-threshold high .; \
+		nox_home=$$(mktemp -d); \
+		trap 'rm -rf "$$nox_home"' EXIT; \
+		NOX_HOME="$$nox_home" nox scan --quiet --severity-threshold high --fail-on-degraded .; \
 	else \
 		echo "  ERROR: nox not installed — required for CI security gate"; \
 		echo "  Install: https://github.com/nox-hq/nox"; \

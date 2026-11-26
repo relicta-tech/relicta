@@ -56,9 +56,9 @@ relicta plan >/dev/null 2>&1
 echo ""
 echo -e "${GREEN}━━━ Success: Force specific version ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta bump -F v3.0.0${NC}"
+echo -e "$ ${YELLOW}relicta bump --force v3.0.0${NC}"
 pause 0.5
-relicta bump -F v3.0.0
+relicta bump --force v3.0.0
 pause 3
 
 # Reset for next demo
@@ -89,9 +89,9 @@ relicta plan >/dev/null 2>&1
 echo ""
 echo -e "${RED}━━━ Error: Invalid version format ━━━${NC}"
 echo ""
-echo -e "$ ${YELLOW}relicta bump -F invalid${NC}"
+echo -e "$ ${YELLOW}relicta bump --force invalid${NC}"
 pause 0.5
-relicta bump -F invalid 2>&1 || true
+relicta bump --force invalid 2>&1 || true
 pause 3
 
 # Summary
@@ -100,7 +100,7 @@ echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "  Flags:"
 echo "    -l, --level       Bump type: major, minor, patch, auto"
-echo "    -F, --force       Force specific version (e.g., v2.0.0)"
+echo "    -f, --force       Force specific version (e.g., v2.0.0)"
 echo "    --dry-run         Preview without changes"
 echo "    --json            Output as JSON"
 echo ""

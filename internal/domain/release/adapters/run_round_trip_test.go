@@ -2,10 +2,12 @@ package adapters
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
-	"github.com/relicta-tech/relicta/v4/internal/domain/changes"
-	"github.com/relicta-tech/relicta/v4/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/changes"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
 
 // There were two file-based implementations of this aggregate with incompatible on-disk
@@ -82,5 +84,48 @@ func TestARunRoundTripsWithEverythingGovernanceNeeds(t *testing.T) {
 	}
 	if got, want := len(loaded.ChangeSet().Commits()), len(changeSet.Commits()); got != want {
 		t.Errorf("changeset carries %d commits, want %d", got, want)
+	}
+}
+
+func TestExternalPublicationEvidenceSurvivesPersistence(t *testing.T) {
+	run := domain.NewReleaseRun("acme/widget", t.TempDir(), "v1.0.0", "abc123", nil, "config", "plugins")
+	if err := run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.1.0"), domain.BumpMinor, 0.9); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Plan("planner"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.SetVersion(version.MustParse("1.1.0"), "v1.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Bump("planner"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.GenerateNotes(&domain.ReleaseNotes{Text: "## Notes", Provider: "test"}, "notes-hash", "planner"); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.Approve("reviewer", false); err != nil {
+		t.Fatal(err)
+	}
+	run.SetExecutionPlan([]domain.StepPlan{{Name: "tag", Type: domain.StepTypeTag}})
+	evidence := `{"outcome":"published","tag":"v1.1.0"}`
+	if err := run.MarkExternallyPublished("github-actions", evidence); err != nil {
+		t.Fatal(err)
+	}
+
+	encoded, err := json.Marshal(toDTO(run))
+	if err != nil {
+		t.Fatalf("marshal run: %v", err)
+	}
+	var dto ReleaseRunDTO
+	if err := json.Unmarshal(encoded, &dto); err != nil {
+		t.Fatalf("unmarshal DTO: %v", err)
+	}
+	loaded, err := fromDTO(&dto)
+	if err != nil {
+		t.Fatalf("reconstruct run: %v", err)
+	}
+	if got := loaded.ExternalPublicationEvidence(); got != evidence {
+		t.Errorf("external publication evidence = %q, want %q", got, evidence)
 	}
 }
