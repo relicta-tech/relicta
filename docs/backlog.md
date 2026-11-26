@@ -5517,3 +5517,12 @@ evidence, but has not been pushed, so no hosted checks have run for this candida
 still points at `72d31c6`; its existing green checks are from October and do not validate this
 candidate. The separately corrected site remains local on `codex/site-production-readiness`, now
 including commit `4e988fc`; no site PR or deployment exists.
+
+## CLARIFIED: README describes unreleased v5 source (2026-11-26)
+
+Compared the candidate README with the checked-in `v4.2.0` tag and confirmed it already marked
+agent-session notes as unreleased, but the broader feature list did not tell readers which source
+version it described. Added an availability note at the top: this checkout is unreleased v5 source,
+v4.2.0 is the latest public release, and the listed capabilities may not be in that release. The
+README's installation section remains the source for published install options. `git diff --check`
+passes; this documentation-only change has not been pushed or published.

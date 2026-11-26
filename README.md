@@ -21,6 +21,11 @@ version, structured change summary, release notes, governance decision, and appr
 the unreleased v5 workflow, a coding agent can draft customer-facing notes from that summary using
 product context already present in its session; a human reviews the saved text before approval.
 
+**Availability:** This repository documents the unreleased v5 source. The latest public release is
+[v4.2.0](https://github.com/relicta-tech/relicta/releases/tag/v4.2.0); capabilities described below
+may not be included in that release. See [Installation](#installation) for the currently published
+version and verified install options.
+
 Relicta records release proposals and governance decisions in a hash-chained audit trail with actor-typed governance (`human` / `ci` / `agent`), per-actor autonomy budgets, and exportable evidence. Agent-authored release notes are stored as supplied and are not fact-checked by Relicta. These reports can support an organization’s compliance work; they do not establish compliance or replace legal and control-owner review.
 
 ## What Relicta is (and isn't)
