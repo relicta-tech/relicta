@@ -4402,6 +4402,16 @@ the package approval gate controls whether they are included; retain the no-run 
 when making claims about package tags. See `internal/cli/monorepo_scope.go`,
 `internal/cli/plan_monorepo.go`, and ADR-015.
 
+## MARKET COPY REFINED: policy logic claim grounded in evaluator (2026-11-26)
+
+The local `relicta-site` candidate still described the policy language as having "full logic
+support," which is broader than a useful product claim. Replaced it with the concrete supported
+AND, OR, and NOT conditions, verified against the evaluator guide. The marketing site's Astro
+check reports zero diagnostics, its production build generates all seven routes, and
+`scripts/verify-build.mjs src dist` passes. Committed locally on `codex/site-production-readiness`
+as `647bd44`; no PR or deployment was created. Public site accuracy remains unresolved until
+the reviewed site changes are published.
+
 ## DOCUMENTED: safe GitHub-hosted snapshot release check (2026-11-26)
 
 The release workflow has a manual `workflow_dispatch` job that builds and validates snapshot
