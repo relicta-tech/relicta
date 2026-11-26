@@ -5571,3 +5571,14 @@ still executing its five-iteration benchmark step; no aggregate result is claime
 draft. The protected `release-approval` environment and an independent reviewer are still absent,
 and no external customer interviews or willingness-to-pay evidence have been collected. No release
 or deployment occurred.
+
+## VERIFIED: candidate dependency manifests cover default-branch alerts (2026-11-26)
+
+GitHub warned during the readiness push that the public default branch has 67 open Dependabot
+alerts: 1 critical, 20 high, 41 moderate, and 5 low. Compared every alert's first patched version
+with the matching candidate package-lock entry or Go module version; all 67 candidate versions are
+at or above GitHub's patched version. On this candidate, `npm audit --omit=dev --audit-level=high`
+reported zero findings in both `app/` and `web/`, and `govulncheck ./...` reported no reachable Go
+vulnerabilities. This is evidence for the proposed candidate's dependency set; the public default
+branch and released v4.2.0 remain unchanged until the candidate is merged and a release is
+published.
