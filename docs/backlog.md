@@ -5618,6 +5618,16 @@ PR #423 remains open and draft; commit `76dc7cd` had a hosted CLI coverage short
 
 Site PR #25 remains open and draft at `cfc4b40`, mergeable, with passing marketing and documentation build checks. Its patch covers the previously observed false claims in the homepage and product narrative, corrects current-release and install guidance, and labels agent-session notes/MCP app features as unreleased. The generated output is not deployed, so the public site still needs a reviewed merge and post-deployment verification.
 
-Added focused CLI regression coverage for the governance-disabled response (including wrapped error identity and clean machine-readable stdout) and for when `bump` may safely reuse a recorded plan. The plan cases pin the exact planned version, reject absent or unreadable runs, and refuse a stale plan. Focused tests and `git diff --check` pass. The fresh race-enabled `coverctl check --config .coverctl.yaml --domain cli --race --output brief` passes at 54.2% overall against the 54.0% minimum. These changes are committed and pushed to PR #423 as `042cd77`; hosted CI is running against that revision.
+Added focused CLI regression coverage for the governance-disabled response (including wrapped error identity and clean machine-readable stdout) and for when `bump` may safely reuse a recorded plan. The plan cases pin the exact planned version, reject absent or unreadable runs, and refuse a stale plan. Focused tests and `git diff --check` pass. The fresh race-enabled `coverctl check --config .coverctl.yaml --domain cli --race --output brief` passes at 54.2% overall against the 54.0% minimum. These changes were pushed to PR #423; the current head is `68b8b12`.
 
 The remaining launch work is external to this candidate: obtain independent review for both repository changes, establish the configured release approval reviewer required by the publishing workflow, merge and deploy through the protected paths, and validate the market hypothesis with actual release owners and budget conversations. Do not interpret green CI as those decisions.
+
+## FIXED: release-notes template compare link failed in CI benchmark (2026-11-26)
+
+The hosted benchmark on `68b8b12` failed while rendering `release-notes`: the template reads
+`.PreviousVersion` when `RepositoryURL` is set, but `ReleaseNotesData` did not define that field.
+Added the optional previous version to the template data contract, supplied it in the benchmark,
+and added a regression test that checks the generated compare URL. `go test
+./internal/infrastructure/template` and a one-iteration run of
+`BenchmarkService_RenderReleaseNotes` pass locally. The correction is local; fresh hosted checks
+are needed before this gate is considered resolved.

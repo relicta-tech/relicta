@@ -608,6 +608,8 @@ type ChangelogData struct {
 type ReleaseNotesData struct {
 	// Version is the release version.
 	Version *version.SemanticVersion
+	// PreviousVersion is the previous release version, when known.
+	PreviousVersion *version.SemanticVersion
 	// Date is the release date.
 	Date time.Time
 	// Changelog is the generated changelog.
