@@ -5629,5 +5629,7 @@ The hosted benchmark on `68b8b12` failed while rendering `release-notes`: the te
 Added the optional previous version to the template data contract, supplied it in the benchmark,
 and added a regression test that checks the generated compare URL. `go test
 ./internal/infrastructure/template` and a one-iteration run of
-`BenchmarkService_RenderReleaseNotes` pass locally. The correction is local; fresh hosted checks
-are needed before this gate is considered resolved.
+`BenchmarkService_RenderReleaseNotes` pass locally. The correction was pushed as `9a16eb1`, and
+fresh hosted checks on that revision passed, including `Run Benchmarks`, `Lint & Test`, Linux build,
+security, dependency review, policy, docs, image scans, accessibility, and other release gates.
+Integration and historical trend checks were skipped as expected for this PR.
