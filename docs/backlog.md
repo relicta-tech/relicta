@@ -4412,6 +4412,16 @@ check reports zero diagnostics, its production build generates all seven routes,
 as `647bd44`; no PR or deployment was created. Public site accuracy remains unresolved until
 the reviewed site changes are published.
 
+## MARKET COPY REFINED: governance and risk roadmap claims scoped (2026-11-26)
+
+Reviewed the current local homepage and vision page for remaining claims that could imply more
+than v4.2.0 provides. Replaced "full governance trail" in the illustrative CLI transcript with
+"configured decision record" and labeled outcome-informed risk scoring as product direction.
+Astro check reports zero diagnostics, the production build generates all seven routes, and
+`scripts/verify-build.mjs src dist` passes. Committed on `codex/site-production-readiness` as
+`daa1dbc`. This only improves local source; the live site's copy remains unchanged until the
+candidate passes hosted review and deployment.
+
 ## DOCUMENTED: safe GitHub-hosted snapshot release check (2026-11-26)
 
 The release workflow has a manual `workflow_dispatch` job that builds and validates snapshot
