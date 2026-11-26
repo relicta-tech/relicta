@@ -5582,3 +5582,14 @@ reported zero findings in both `app/` and `web/`, and `govulncheck ./...` report
 vulnerabilities. This is evidence for the proposed candidate's dependency set; the public default
 branch and released v4.2.0 remain unchanged until the candidate is merged and a release is
 published.
+
+## CHECKED: free and low-cost release-note alternatives sharpen the value hypothesis (2026-11-26)
+
+Rechecked first-party product sources: GitHub supports manual and automatically generated release
+notes; Release Please is Apache-2.0 and automates version bumps, changelogs, and GitHub releases;
+ReleasePad's current pricing offers a free tier (20 posts and 20 AI requests) and a $35/month per
+product Pro tier with MCP, hosted changelogs, analytics, and unlimited team members. Updated
+`docs/positioning.md` to state that agent-written copy alone is unlikely to justify another paid
+tool. The willingness-to-pay hypothesis is the repository-level link among changes, policy,
+approval, and auditable release, or a demonstrated self-hosting need. No price, savings, or demand
+claim is supported yet; validate with actual workflow comparisons and budget conversations.

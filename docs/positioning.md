@@ -53,6 +53,18 @@ agent session, generating polished customer prose, and editing/publishing that p
 workflow parity, not defensible differentiators. See
 [ReleasePad's MCP, brand-voice, and recent product changelog](https://pro.releasepad.io/en/releasepad?page=1).
 
+Price strengthens the free-or-low-cost baseline. GitHub supports manually written or automatically
+generated release notes, and Release Please is an Apache-2.0 project that automates version bumps,
+changelogs, and GitHub releases. ReleasePad offers a free tier with 20 posts and 20 AI requests;
+its Pro plan is $35 per month per product and includes MCP, hosted changelog publishing, analytics,
+and unlimited team members. So agent-written notes alone are unlikely to justify a new paid tool.
+The buying hypothesis to test is whether teams will adopt and pay for Relicta's repository-level
+policy, approval, and audit linkage, or specifically value self-hosting enough to prefer it over
+those existing options. Do not make a price or savings claim before comparing actual workflows and
+asking about a real budget. Sources: [GitHub release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
+[Release Please](https://github.com/googleapis/release-please), and
+[ReleasePad pricing](https://www.releasepad.io/pricing/) (checked 2026-11-26).
+
 The sharper product hypothesis is: **for small and mid-sized software teams that ship from Git and
 need a lightweight release control, Relicta connects the exact version and change recommendation
 to customer notes, an explicit policy decision, human review, and the published outcome in a
