@@ -5536,3 +5536,21 @@ the job installed only `docs` dependencies. Updated the PR workflow to install t
 lockfiles; reproduced the combined install/build in a clean Node 24 Linux container. The current
 hosted run passes both marketing and documentation builds and their generated-output verifiers.
 The PR remains draft; the deployment workflow runs only on `main`, so the live site was not changed.
+
+## CURRENT CORE HOSTED GATES PASS; BENCHMARK STILL RUNNING (2026-11-26)
+
+The production-readiness candidate is now at `9660d665` on PR #423. Its hosted Linux `Lint & Test`
+job passes after two evidence-backed corrections: generic sandbox setup tests now explicitly allow
+network and filesystem access so Linux does not interpret them as isolation requests, and a focused
+plugin-manager test covers valid and invalid `SetTrustPolicy` configuration. The initial rerun
+failed only because the plugin coverage domain measured 79.8% against its 80% minimum; after the
+test, the same hosted job passes. The local race-enabled `coverctl check` also passes all 27 domains,
+with plugin coverage at 82.4%.
+
+At the latest check, Linux build, main lint/tests, policy matrix, docs, accessibility, dependency
+review, both security scans, SBOM, skill preflight, AI evals, container scans, and the memory,
+parallelization, and binary-size benchmark subchecks pass. The benchmark aggregate is still running
+its benchmark and comparison steps; no result is claimed for it yet. PR #423 remains draft and has
+no review decision. The active `main` ruleset requires ten named checks but zero approving reviews;
+the separate `release-approval` environment remains unconfigured and its workflow requires an
+independent reviewer. No merge, release, or deployment occurred.
