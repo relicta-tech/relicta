@@ -28,6 +28,7 @@ This workflow addresses a specific release-owner problem: technical commits ofte
 | Agent runtime governance | Observe or constrain agent activity while agents execute | Relicta governs software release decisions; it does not mediate every action an agent takes at runtime. |
 | Repository branch protections | Require checks or reviewers before a branch can merge | These provide source-control gates. Relicta records a structured release decision and related evidence that can span the release workflow. |
 | Release scripts and changelog generators | Automate versioning, packaging, or change summaries | Relicta combines release preparation with configurable governance, approval records, and publication integrations. |
+| Hosted product changelog services | Draft and distribute customer updates through hosted pages, widgets, and email | These solve customer communication directly; Relicta's candidate differentiator is its link from a saved note to the version, policy decision, and release approval. |
 
 These categories overlap in some workflows. This table describes their typical focus, not a feature-by-feature evaluation of every product or plan.
 
@@ -45,25 +46,28 @@ requests ([GitHub release documentation](https://docs.github.com/en/repositories
 version bumps, release PRs, and GitHub releases from Conventional Commits. A generic promise to
 "automate releases" or "write release notes with AI" is not a defensible wedge.
 
-ReleasePad is a direct competitor to the agent-session note-writing use case, not just a generic AI
-writer: its September 2026 changelog describes an MCP server that drafts, edits, and publishes
-customer notes from coding assistants, alongside reusable brand-voice instructions. Its November
-2026 updates further advertise a rebuilt AI writer and in-place post editing. Using the current
-agent session, generating polished customer prose, and editing/publishing that prose are therefore
-workflow parity, not defensible differentiators. See
-[ReleasePad's MCP, brand-voice, and recent product changelog](https://pro.releasepad.io/en/releasepad?page=1).
+ReleasePad and ReleaseNotes.io are direct competitors to the agent-session note-writing use case,
+not just generic AI writers. ReleasePad documents MCP drafting, editing, publishing, and reusable
+brand-voice instructions. ReleaseNotes.io also lets MCP-connected agents draft or update notes for
+review, then publishes them through a hosted changelog, in-app widgets, email, and Slack. It offers
+a free Starter plan and a $39 per-product-per-month Teams plan with MCP; its $79 Business plan adds
+custom domains and private releases. Current-session drafting, customer prose, and a review step
+are therefore workflow parity, not defensible differentiators. Sources: [ReleasePad product
+changelog](https://pro.releasepad.io/en/releasepad?page=1), [ReleaseNotes.io MCP FAQ](https://www.releasenotes.io/faq/),
+and [ReleaseNotes.io pricing](https://www.releasenotes.io/pricing/) (checked 2026-11-26).
 
 Price strengthens the free-or-low-cost baseline. GitHub supports manually written or automatically
 generated release notes, and Release Please is an Apache-2.0 project that automates version bumps,
-changelogs, and GitHub releases. ReleasePad offers a free tier with 20 posts and 20 AI requests;
-its Pro plan is $35 per month per product and includes MCP, hosted changelog publishing, analytics,
-and unlimited team members. So agent-written notes alone are unlikely to justify a new paid tool.
-The buying hypothesis to test is whether teams will adopt and pay for Relicta's repository-level
-policy, approval, and audit linkage, or specifically value self-hosting enough to prefer it over
-those existing options. Do not make a price or savings claim before comparing actual workflows and
-asking about a real budget. Sources: [GitHub release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
-[Release Please](https://github.com/googleapis/release-please), and
-[ReleasePad pricing](https://www.releasepad.io/pricing/) (checked 2026-11-26).
+changelogs, and GitHub releases. Both ReleasePad and ReleaseNotes.io offer free entry plans; their
+paid MCP-enabled products are currently priced at $35 and $39 per product per month respectively.
+ReleaseNotes.io also offers a $79 Business plan for private notes and custom branding. So
+agent-written notes alone are unlikely to justify a new paid tool. The buying hypothesis to test is
+whether teams will adopt and pay for Relicta's repository-level policy, approval, and audit linkage,
+or specifically value self-hosting enough to prefer it over hosted changelog services. Do not make a
+price or savings claim before comparing actual workflows and asking about a real budget. Sources:
+[GitHub release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
+[Release Please](https://github.com/googleapis/release-please), [ReleasePad pricing](https://www.releasepad.io/pricing/),
+and [ReleaseNotes.io pricing](https://www.releasenotes.io/pricing/) (checked 2026-11-26).
 
 The sharper product hypothesis is: **for small and mid-sized software teams that ship from Git and
 need a lightweight release control, Relicta connects the exact version and change recommendation
@@ -106,11 +110,13 @@ release-owner review.
 
 ### Release-note workflow evidence (checked 2026-11-26)
 
-ReleasePad's product claims include GitHub-based drafting, assistant/MCP access, brand-voice
-instructions, draft review, hosted changelog publishing, and analytics. Its MCP supports editing
-and publishing as well as drafting, and its November 2026 changelog reports a rebuilt AI writer.
-GitHub itself generates release notes from merged pull requests, contributors, and a full
-changelog, with label-based categories and exclusions. Sources: [ReleasePad product changelog](https://pro.releasepad.io/en/releasepad?page=1), [GitHub automatically generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
+ReleasePad and ReleaseNotes.io both offer agent-connected drafting plus human review and publishing.
+ReleaseNotes.io's current product materials specifically show the agent saving a draft for review,
+with distribution through hosted pages, widgets, email, and Slack. GitHub itself generates release
+notes from merged pull requests, contributors, and a full changelog, with label-based categories and
+exclusions. Sources: [ReleasePad product changelog](https://pro.releasepad.io/en/releasepad?page=1),
+[ReleaseNotes.io MCP FAQ](https://www.releasenotes.io/faq/), [ReleaseNotes.io product page](https://www.releasenotes.io/),
+and [GitHub automatically generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes).
 
 The differentiating claim Relicta can test is therefore the release-record linkage: customer
 wording is saved with the plan facts, version, policy decision, and human approval that govern the

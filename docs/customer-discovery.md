@@ -84,9 +84,10 @@ Then ask:
 - Would you be willing to schedule a trial on one repository? What would need to happen first?
 
 If the participant already uses GitHub's generated notes, an AI assistant, or a dedicated changelog
-tool, use that as the comparison baseline rather than presenting Relicta in isolation. Ask them to
-complete the same recent release-note task with their current workflow and with the Relicta draft
-flow, using equivalent source facts. Record elapsed time, edits made for incorrect or unsupported
+tool such as ReleasePad or ReleaseNotes.io, use that as the comparison baseline rather than
+presenting Relicta in isolation. Ask them to complete the same recent release-note task with their
+current workflow and with the Relicta draft flow, using equivalent source facts. Record elapsed time,
+edits made for incorrect or unsupported
 claims, engineering-only changes removed or missed, and whether the final wording can be traced to
 the changes under review. Do not claim a win from a faster first draft if review effort or factual
 corrections increase.
