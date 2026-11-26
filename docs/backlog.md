@@ -5611,3 +5611,13 @@ matched before and after. The existing unrelated Govee working-tree edits were p
 `go test ./internal/cli ./internal/domain/release/app` and `git diff --check` pass. Code is pushed
 to draft PR #423 at `369e162`; fresh hosted checks are still running. No approval, tag, publication,
 merge, or external market interview occurred.
+
+## RECHECKED: candidate site and hosted core gates (2026-11-26)
+
+PR #423 remains open and draft; commit `76dc7cd` had a hosted CLI coverage shortfall (53.9% against a 54% minimum), now addressed in `042cd77`. Fresh hosted checks for `042cd77` have started and are pending, so the earlier result is not treated as current validation. The local race-enabled CLI coverage gate passes at 54.2%.
+
+Site PR #25 remains open and draft at `cfc4b40`, mergeable, with passing marketing and documentation build checks. Its patch covers the previously observed false claims in the homepage and product narrative, corrects current-release and install guidance, and labels agent-session notes/MCP app features as unreleased. The generated output is not deployed, so the public site still needs a reviewed merge and post-deployment verification.
+
+Added focused CLI regression coverage for the governance-disabled response (including wrapped error identity and clean machine-readable stdout) and for when `bump` may safely reuse a recorded plan. The plan cases pin the exact planned version, reject absent or unreadable runs, and refuse a stale plan. Focused tests and `git diff --check` pass. The fresh race-enabled `coverctl check --config .coverctl.yaml --domain cli --race --output brief` passes at 54.2% overall against the 54.0% minimum. These changes are committed and pushed to PR #423 as `042cd77`; hosted CI is running against that revision.
+
+The remaining launch work is external to this candidate: obtain independent review for both repository changes, establish the configured release approval reviewer required by the publishing workflow, merge and deploy through the protected paths, and validate the market hypothesis with actual release owners and budget conversations. Do not interpret green CI as those decisions.

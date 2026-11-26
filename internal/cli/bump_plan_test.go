@@ -2,11 +2,25 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/relicta-tech/relicta/v5/internal/config"
+	domainrelease "github.com/relicta-tech/relicta/v5/internal/domain/release"
 	"github.com/relicta-tech/relicta/v5/internal/domain/release/domain"
+	"github.com/relicta-tech/relicta/v5/internal/domain/release/ports"
 	"github.com/relicta-tech/relicta/v5/internal/domain/version"
 )
+
+type plannedRunRepository struct {
+	ports.ReleaseRunRepository
+	run *domain.ReleaseRun
+	err error
+}
+
+func (r plannedRunRepository) LoadLatest(context.Context, string) (*domain.ReleaseRun, error) {
+	return r.run, r.err
+}
 
 // `relicta bump` computed its own version and forced it onto the run through
 // OverrideVersion, even though BumpVersionUseCase already reads run.VersionNext()
@@ -78,5 +92,52 @@ func TestPlannedBumpPresentsAsACalculationResult(t *testing.T) {
 func TestPlannedVersionIsNotConsultedForAnExplicitRequest(t *testing.T) {
 	if got := plannedVersionToApply(context.TODO(), nil, true); got != nil {
 		t.Errorf("an explicit request must bypass the plan entirely, got %+v", got)
+	}
+}
+
+func TestPlannedVersionToApplyHonorsOnlyCurrentPlannedRuns(t *testing.T) {
+	oldCfg := cfg
+	cfg = config.DefaultConfig()
+	t.Cleanup(func() { cfg = oldCfg })
+	newRun := func(t *testing.T) *domain.ReleaseRun {
+		t.Helper()
+		run := domain.NewReleaseRun(".", ".", "v1.0.0", "planned-head", []domain.CommitSHA{"planned-head"}, "", "")
+		if err := run.SetVersionProposal(version.MustParse("1.0.0"), version.MustParse("1.2.0"), domain.BumpMinor, 1); err != nil {
+			t.Fatal(err)
+		}
+		if err := run.Plan("test"); err != nil {
+			t.Fatal(err)
+		}
+		return run
+	}
+
+	cases := []struct {
+		name string
+		run  *domain.ReleaseRun
+		err  error
+		git  stalenessGitRepo
+		want bool
+	}{
+		{name: "current planned run", run: newRun(t), git: stalenessGitRepo{tags: tagList(t, "v1.0.0")}, want: true},
+		{name: "no saved run", git: stalenessGitRepo{tags: tagList(t, "v1.0.0")}},
+		{name: "repository load failed", err: errors.New("store unavailable"), git: stalenessGitRepo{tags: tagList(t, "v1.0.0")}},
+		{name: "stale plan", run: newRun(t), git: stalenessGitRepo{tags: tagList(t, "v1.0.0"), headSHA: "new-head"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := plannedRunRepository{run: tc.run, err: tc.err}
+			app := commandTestApp{
+				gitRepo:         tc.git,
+				releaseServices: &domainrelease.Services{Repository: repo},
+			}
+			got := plannedVersionToApply(context.Background(), app, false)
+			if (got != nil) != tc.want {
+				t.Fatalf("plannedVersionToApply() = %+v, want present %v", got, tc.want)
+			}
+			if tc.want && (got.Current.String() != "1.0.0" || got.Next.String() != "1.2.0" || got.Kind != domain.BumpMinor) {
+				t.Errorf("planned version = %+v, want 1.0.0 -> 1.2.0 minor", got)
+			}
+		})
 	}
 }
