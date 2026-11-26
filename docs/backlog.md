@@ -5526,3 +5526,13 @@ version it described. Added an availability note at the top: this checkout is un
 v4.2.0 is the latest public release, and the listed capabilities may not be in that release. The
 README's installation section remains the source for published install options. `git diff --check`
 passes; this documentation-only change has not been pushed or published.
+
+## DRAFT SITE REVIEW OPEN; HOSTED BUILDS PASS (2026-11-26)
+
+Pushed the corrected marketing and documentation source to `codex/site-production-readiness` and
+opened draft PR [relicta-site#25](https://github.com/relicta-tech/relicta-site/pull/25). Its first
+hosted run exposed that the docs build resolves the repository-root Astro TypeScript preset while
+the job installed only `docs` dependencies. Updated the PR workflow to install the root and docs
+lockfiles; reproduced the combined install/build in a clean Node 24 Linux container. The current
+hosted run passes both marketing and documentation builds and their generated-output verifiers.
+The PR remains draft; the deployment workflow runs only on `main`, so the live site was not changed.
